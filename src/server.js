@@ -8,6 +8,7 @@ import { attachWebSocket } from "./websocket.js";
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
 function limit(url) { return Math.min(500, Math.max(1, Number(url.searchParams.get("limit")) || 100)); }
+function trendingWindow(url) { const value = url.searchParams.get("window") ?? "1h"; const windows = { "5m": 300, "1h": 3600, "6h": 21_600, "24h": 86_400, all: null }; if (!(value in windows)) { const error = new Error("window must be 5m, 1h, 6h, 24h, or all"); error.code = "BAD_REQUEST"; throw error; } return { label: value, seconds: windows[value] }; }
 function encodeCursor(value) { return Buffer.from(JSON.stringify(value)).toString("base64url"); }
 function decodeCursor(value) {
   if (!value) return null;
@@ -86,11 +87,11 @@ export function createServer(config, store) {
         const rows = Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature));
         return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}`));
       }
-      if (url.pathname === "/api/v1/swaps") { const rows = [...store.state.swaps].sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature)); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}:${row.pool}`)); }
+      if (url.pathname === "/api/v1/swaps") { const mint = url.searchParams.get("mint"), pool = url.searchParams.get("pool"), protocol = url.searchParams.get("protocol"); const rows = store.state.swaps.filter((row) => (!mint || row.inputMint === mint || row.outputMint === mint) && (!pool || row.pool === pool) && (!protocol || row.protocol === protocol)).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature)); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}:${row.pool}`)); }
       if (url.pathname === "/api/v1/bot/readiness") { const readiness = store.botReadiness(config.staleAfterMs, Date.now(), url.searchParams.get("pool")); return json(response, readiness.ready ? 200 : 503, readiness); }
       if (url.pathname === "/api/blocks") return json(response, 200, Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
       if (url.pathname === "/api/transactions") return json(response, 200, Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
-      if (url.pathname === "/api/trending") return json(response, 200, { methodology: "ranked by verified DEX swap count, then indexed SPL transfer count; no USD volume claim", tokens: store.trending(limit(url)) });
+      if (url.pathname === "/api/trending") { const window = trendingWindow(url); return json(response, 200, { asOf: new Date().toISOString(), window: window.label, methodology: "ranked by verified DEX swaps, unique decoded traders, then SPL transfers; no USD volume claim", tokens: store.trending(limit(url), window.seconds) }); }
       const transaction = url.pathname.match(/^\/api\/transaction\/([^/]+)$/); if (transaction) { const row = store.transaction(decodeURIComponent(transaction[1])); return json(response, row ? 200 : 404, row ?? { error: "not_found" }); }
       const account = url.pathname.match(/^\/api\/account\/([^/]+)$/); if (account) return json(response, 200, store.account(decodeURIComponent(account[1]), limit(url)));
       const mint = url.pathname.match(/^\/api\/mint\/([^/]+)$/); if (mint) return json(response, 200, store.mint(decodeURIComponent(mint[1]), limit(url)));

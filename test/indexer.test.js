@@ -205,6 +205,18 @@ test("trending is deterministic for equal transfer counts", async () => {
   assert.deepEqual(store.trending(3).map((row) => row.mint), ["busy", "newer", "older"]);
 });
 
+test("rolling trending excludes stale activity and exposes trader and protocol evidence", async () => {
+  const store = new IndexStore("unused"); await store.load(); const now = 1_700_000_100_000;
+  store.state.swaps = [
+    { slot: 10, blockTime: 1_700_000_090, protocol: "pump-bonding-curve", side: "buy", inputMint: "quote", outputMint: "token", user: "trader-a" },
+    { slot: 11, blockTime: 1_700_000_095, protocol: "pump-bonding-curve", side: "sell", inputMint: "token", outputMint: "quote", user: "trader-b" },
+    { slot: 1, blockTime: 1_699_990_000, protocol: "raydium-cpmm", inputMint: "stale", outputMint: "quote" },
+  ];
+  const rows = store.trending(10, 300, now); const token = rows.find((row) => row.mint === "token");
+  assert.deepEqual({ swapCount: token.swapCount, buyCount: token.buyCount, sellCount: token.sellCount, uniqueTraders: token.uniqueTraders, protocols: token.protocols }, { swapCount: 2, buyCount: 1, sellCount: 1, uniqueTraders: 2, protocols: ["pump-bonding-curve"] });
+  assert.equal(rows.some((row) => row.mint === "stale"), false);
+});
+
 test("JSON-RPC exposes only read-only indexed methods", async (t) => {
   const store = new IndexStore("unused"); await store.load();
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString();
@@ -262,4 +274,14 @@ test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) =
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const credential = Buffer.from("secret").toString("base64url"); const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws`, ["indexer.v1", `bearer.${credential}`]);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); assert.equal(socket.protocol, "indexer.v1"); socket.close();
+});
+
+test("WebSocket swap topic replays only matching token activity", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-websocket-filter-")); const store = new IndexStore(path.join(root, "index.json")); await store.load();
+  const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); await store.save();
+  const server = createServer({ webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws?cursor=0&topic=swaps&mint=quote-mint`); const messages = [];
+  socket.onmessage = ({ data }) => messages.push(JSON.parse(data)); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+  while (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(messages[0].subscription.topic, "swaps"); assert.equal(messages[1].type, "swaps"); assert.equal(messages[1].swaps[0].pool, "pool-address"); socket.close();
 });

@@ -165,5 +165,15 @@ export class IndexStore {
   account(address, limit = 100) { return { address, summary: this.state.accounts[address] ?? null, transactions: Object.values(this.state.transactions).filter((tx) => tx.accounts.includes(address)).sort((a, b) => b.slot - a.slot).slice(0, limit) }; }
   mint(address, limit = 100) { return { address, summary: this.state.mints[address] ?? null, transfers: this.state.transfers.filter((row) => row.mint === address).sort((a, b) => b.slot - a.slot).slice(0, limit), swaps: this.state.swaps.filter((row) => row.inputMint === address || row.outputMint === address).sort((a, b) => b.slot - a.slot).slice(0, limit) }; }
   pool(address) { return { address, summary: this.state.pools[address] ?? null, swaps: this.state.swaps.filter((row) => row.pool === address).sort((a, b) => b.slot - a.slot) }; }
-  trending(limit = 50) { return Object.entries(this.state.mints).map(([mint, row]) => ({ mint, ...row })).sort((a, b) => (b.swapCount ?? 0) - (a.swapCount ?? 0) || b.transferCount - a.transferCount || b.lastSlot - a.lastSlot).slice(0, limit); }
+  trending(limit = 50, windowSeconds = null, now = Date.now()) {
+    if (windowSeconds == null) return Object.entries(this.state.mints).map(([mint, row]) => ({ mint, ...row })).sort((a, b) => (b.swapCount ?? 0) - (a.swapCount ?? 0) || (b.transferCount ?? 0) - (a.transferCount ?? 0) || b.lastSlot - a.lastSlot).slice(0, limit);
+    const cutoff = Math.floor(now / 1_000) - windowSeconds; const rows = new Map();
+    const get = (mint) => { const row = rows.get(mint) ?? { mint, swapCount: 0, buyCount: 0, sellCount: 0, transferCount: 0, uniqueTraders: new Set(), protocols: new Set(), lastSlot: 0, lastBlockTime: null }; rows.set(mint, row); return row; };
+    for (const swap of this.state.swaps) if (swap.blockTime != null && swap.blockTime >= cutoff) {
+      const tradedMint = swap.side === "buy" ? swap.outputMint : swap.side === "sell" ? swap.inputMint : null;
+      for (const mint of new Set([swap.inputMint, swap.outputMint])) { const row = get(mint); row.swapCount++; row.lastSlot = Math.max(row.lastSlot, swap.slot); row.lastBlockTime = Math.max(row.lastBlockTime ?? 0, swap.blockTime); row.protocols.add(swap.protocol); if (swap.user) row.uniqueTraders.add(swap.user); if (mint === tradedMint) row[swap.side === "buy" ? "buyCount" : "sellCount"]++; }
+    }
+    for (const transfer of this.state.transfers) if (transfer.mint && transfer.blockTime != null && transfer.blockTime >= cutoff) { const row = get(transfer.mint); row.transferCount++; row.lastSlot = Math.max(row.lastSlot, transfer.slot); row.lastBlockTime = Math.max(row.lastBlockTime ?? 0, transfer.blockTime); }
+    return [...rows.values()].map((row) => ({ ...row, uniqueTraders: row.uniqueTraders.size, protocols: [...row.protocols].sort() })).sort((a, b) => b.swapCount - a.swapCount || b.uniqueTraders - a.uniqueTraders || b.transferCount - a.transferCount || b.lastSlot - a.lastSlot || a.mint.localeCompare(b.mint)).slice(0, limit);
+  }
 }

@@ -1,6 +1,9 @@
 # Self-hosted Solana indexer
 
-A zero-dependency Node.js indexer for canonical Solana block JSON produced by infrastructure you operate. It performs **no outbound network requests** and has no hosted API, RPC, or WebSocket dependency.
+A zero-dependency Node.js indexer for canonical Solana block JSON produced by
+infrastructure you operate. Its real-time bridge connects only to explicitly
+loopback-scoped Agave HTTP/WebSocket endpoints; it has no third-party hosted
+API, RPC, or WebSocket dependency.
 
 ## Architecture
 
@@ -118,16 +121,16 @@ Configuration:
 - `GET /api/transaction/:signature`
 - `GET /api/account/:address?limit=100`
 - `GET /api/mint/:mint?limit=100`
-- `GET /api/trending?limit=50`
+- `GET /api/trending?window=5m|1h|6h|24h|all&limit=50`
 - `GET /api/v1/blocks?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
-- `GET /api/v1/swaps?limit=100&cursor=...` (verified Raydium CPMM swaps)
+- `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
-- `WS /ws?cursor=<sequence>` (persisted block events with replay/resume)
+- `WS /ws?cursor=<sequence>&topic=blocks|swaps&mint=&pool=&protocol=` (filtered persisted events with replay/resume)
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers
@@ -148,8 +151,17 @@ clients must present the key as an HTTP authorization or `X-API-Key` header.
 Browser clients can request subprotocols `indexer.v1` and
 `bearer.<base64url-api-key>`; the server negotiates only `indexer.v1`.
 
-“Trending” ranks verified DEX swap count first and locally indexed transfer count
-second. It does not claim USD volume, holder count, or risk. Those values cannot
+Use `topic=swaps` to receive compact block-scoped swap batches and optionally
+filter them by mint, pool/curve, or protocol. The original block event sequence
+is retained, so the same cursor resumes filtered and unfiltered feeds. PubSub
+notifications are processed through one ordered queue before gap detection and
+atomic persistence, preventing concurrent notifications from racing the durable
+cursor.
+
+“Trending” defaults to a rolling one-hour window and ranks verified DEX swap
+count, decoded unique traders, then locally indexed transfer count. It exposes
+buy/sell activity and contributing protocols. It does not claim USD volume,
+holder count, or risk. Those values cannot
 be derived faithfully from generic block transfer instructions alone.
 
 The first supported decoder is Raydium CPMM mainnet program
@@ -175,7 +187,8 @@ they are never mislabeled as PumpSwap AMM reserves.
 
 - Bind defaults to loopback.
 - No secrets are accepted or required.
-- No outbound HTTP or WebSocket code exists.
+- Validator HTTP and WebSocket clients reject non-loopback endpoints; no
+  third-party provider traffic is permitted by this build.
 - Writes use temporary-file plus atomic rename.
 - Failed transactions are indexed but never emitted as successful transfers.
 - Slot replacement removes orphaned derived records.

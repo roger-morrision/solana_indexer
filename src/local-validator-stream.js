@@ -18,7 +18,7 @@ async function readJson(filename) { try { return JSON.parse(await fs.readFile(fi
 export class LocalValidatorStream {
   constructor({ endpoint = "ws://127.0.0.1:8900", rpcClient, inbox, statusFile, WebSocketClass = globalThis.WebSocket, reconnectMinMs = 500, reconnectMaxMs = 30_000 }) {
     this.endpoint = validateLocalWsUrl(endpoint); this.rpcClient = rpcClient; this.inbox = inbox; this.statusFile = statusFile; this.WebSocketClass = WebSocketClass; this.reconnectMinMs = reconnectMinMs; this.reconnectMaxMs = reconnectMaxMs;
-    this.socket = null; this.stopped = false; this.reconnectMs = reconnectMinMs; this.subscriptions = new Map(); this.lastSlots = { confirmed: null, finalized: null }; this.metrics = { connections: 0, reconnects: 0, notifications: 0, gapRepairs: 0, decodeErrors: 0, skippedSlots: [] };
+    this.socket = null; this.stopped = false; this.reconnectMs = reconnectMinMs; this.subscriptions = new Map(); this.lastSlots = { confirmed: null, finalized: null }; this.messageQueue = Promise.resolve(); this.lastError = null; this.metrics = { connections: 0, reconnects: 0, notifications: 0, gapRepairs: 0, decodeErrors: 0, skippedSlots: [] };
   }
   start() { this.stopped = false; void this.initializeAndConnect(); return () => this.stop(); }
   async initializeAndConnect() { const prior = await readJson(this.statusFile); if (Number.isSafeInteger(prior.lastConfirmedSlot)) this.lastSlots.confirmed = prior.lastConfirmedSlot; if (Number.isSafeInteger(prior.lastFinalizedSlot)) this.lastSlots.finalized = prior.lastFinalizedSlot; this.connect(); }
@@ -27,7 +27,7 @@ export class LocalValidatorStream {
     if (this.stopped) return;
     const socket = new this.WebSocketClass(this.endpoint); this.socket = socket;
     socket.onopen = () => { this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] })); };
-    socket.onmessage = ({ data }) => { void this.handleMessage(data).catch(async () => { this.metrics.decodeErrors++; await this.writeStatus(); }); };
+    socket.onmessage = ({ data }) => { this.messageQueue = this.messageQueue.then(() => this.handleMessage(data)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: error.message }; await this.writeStatus(); }); };
     socket.onerror = () => {};
     socket.onclose = () => { if (this.stopped) return; this.metrics.reconnects++; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); setTimeout(() => this.connect(), delay); };
   }
@@ -59,7 +59,7 @@ export class LocalValidatorStream {
   }
   async writeStatus() {
     const previous = await readJson(this.statusFile); const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...this.metrics.skippedSlots])].sort((a, b) => a - b).slice(-10_000);
-    await atomicWrite(this.statusFile, { version: 2, source: "local-agave-pubsub", observedAt: new Date().toISOString(), connected: this.socket?.readyState === 1, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots: this.lastSlots.confirmed != null && this.lastSlots.finalized != null ? Math.max(0, this.lastSlots.confirmed - this.lastSlots.finalized) : null, ...this.metrics, durableSkippedSlots });
+    await atomicWrite(this.statusFile, { version: 2, source: "local-agave-pubsub", observedAt: new Date().toISOString(), connected: this.socket?.readyState === 1, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots: this.lastSlots.confirmed != null && this.lastSlots.finalized != null ? Math.max(0, this.lastSlots.confirmed - this.lastSlots.finalized) : null, ...this.metrics, lastError: this.lastError, durableSkippedSlots });
   }
 }
 
