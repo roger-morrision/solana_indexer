@@ -9,6 +9,7 @@ synthetically populated.
 |---|---|---|---|
 | Mainnet RPC | deployable, not running here | non-voting Agave unit, genesis verifier, private loopback RPC | production Ubuntu hosts and snapshots |
 | Secondary RPC/load balancing | missing | none | second host and operator network decision |
+| Reduced external RPC | deployable, credentials absent | Helius primary, Alchemy failover, redacted telemetry, circuits, strict mainnet genesis; public RPC health/emergency-only | user-owned free-tier URLs and quota monitoring |
 | Confirmed/finalized streaming | complete for block PubSub | serialized stream, durable status, gap repair, fork promotion | Yellowstone parallel lane |
 | Immutable instruction facts | complete in compatibility store | stable location identity, registry version, decoder version and payload hash | ClickHouse sink |
 | Dead letters/checkpoints/reorg corrections | complete in compatibility store | bounded persisted evidence and REST health exposure | object storage and operational retry commands |

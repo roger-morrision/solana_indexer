@@ -10,7 +10,7 @@ exec "$HOME/bin/agave-validator" \
   --entrypoint entrypoint.mainnet-beta.solana.com:8001 \
   --entrypoint entrypoint2.mainnet-beta.solana.com:8001 \
   --entrypoint entrypoint3.mainnet-beta.solana.com:8001 \
-  --expected-genesis-hash 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2dG \
+  --expected-genesis-hash 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d \
   --ledger "$LEDGER_DIR" \
   --accounts "$ACCOUNTS_DIR" \
   --snapshots "$SNAPSHOTS_DIR" \

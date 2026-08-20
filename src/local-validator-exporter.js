@@ -5,7 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 
-export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2dG";
+export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
 export function validateLocalRpcUrl(value) {
   const url = new URL(value);
@@ -43,7 +43,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   for (let slot = cursor + 1; slot <= end; slot++) {
     const block = await client.call("getBlock", [slot, { commitment: "finalized", encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
     if (block) {
-      const provenance = { source: "local-agave-rpc", commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
+      const provenance = { source: client.provenanceSource ?? "local-agave-rpc", commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
       await atomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
     } else skippedSlots.push(slot);
     await atomicWrite(cursorFile, `${slot}\n`);
@@ -52,7 +52,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   if (statusFile) {
     const previous = await readStatus(statusFile);
     const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
-    await atomicWrite(statusFile, `${JSON.stringify({ version: 2, source: "local-agave-rpc", genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), ...result, durableSkippedSlots })}\n`);
+    await atomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), ...result, durableSkippedSlots })}\n`);
   }
   return result;
 }

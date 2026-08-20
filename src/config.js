@@ -13,6 +13,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     pollMs: boundedInt(env.INDEXER_POLL_MS, 1000, 100, 60_000),
     staleAfterMs: boundedInt(env.INDEXER_STALE_AFTER_MS, 120_000, 1_000, 86_400_000),
     maxTransactions: boundedInt(env.INDEXER_MAX_TRANSACTIONS, 250_000, 1000, 2_000_000),
+    retentionSeconds: boundedInt(env.INDEXER_RETENTION_SECONDS, 604_800, 3_600, 31_536_000),
     apiKeys,
     rateLimitPerMinute: boundedInt(env.INDEXER_RATE_LIMIT_PER_MINUTE, 600, 1, 100_000),
     webSocketHeartbeatMs: boundedInt(env.INDEXER_WS_HEARTBEAT_MS, 30_000, 1_000, 300_000),

@@ -13,9 +13,14 @@ import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
+import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("pins the canonical Solana mainnet genesis hash", () => {
+  assert.equal(MAINNET_GENESIS_HASH, "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d");
+});
 
 test("parses a canonical parsed block and SPL transfer", async () => {
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
@@ -65,6 +70,11 @@ test("indexes idempotently and persists queryable state", async () => {
   assert.equal(second.skippedFiles, 1); assert.equal(store.stats().transactions, 1);
   assert.equal(store.account("payer").transactions[0].signature, "signature-1");
   assert.equal(store.mint("mint-address").transfers[0].amountRaw, "12500000");
+});
+
+test("time retention follows indexed time and preserves canonical snapshot authority", async () => {
+  const store = new IndexStore("unused", 1000, 3600); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, commitment: "finalized", slot: 50, observedAt: "2026-08-20T00:00:00.000Z", genesisHash: MAINNET_GENESIS_HASH, mints: [{ mint: "mint-a", mintInfo: { mintAuthority: null, freezeAuthority: null, extensions: [] }, accounts: [] }] }); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.apply({ ...block, slot: 200, blockhash: "block-200", previousBlockhash: "unknown", parentSlot: 199, blockTime: block.blockTime + 7200, transactions: [], instructions: [], transfers: [], balanceChanges: [], swaps: [] });
+  assert.equal(store.state.blocks["100"], undefined); assert.ok(store.state.blocks["200"]); assert.equal(store.tokenSecurity("mint-a").assessable, true); assert.equal(store.state.mints["mint-a"].authoritySourceSlot, 50);
 });
 
 test("checkpoint fingerprints detect same-sized content replacement", async () => {
@@ -118,6 +128,12 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.equal(validateLocalRpcUrl("http://127.0.0.1:8899"), "http://127.0.0.1:8899/");
   assert.throws(() => validateLocalRpcUrl("https://api.mainnet-beta.solana.com"), /must use http/);
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
+});
+
+test("external RPC pool enforces providers, fails over, and never exposes credential URLs", async () => {
+  assert.throws(() => providerPoolFromEnv({}), /HELIUS_RPC_URL and ALCHEMY_RPC_URL/); assert.throws(() => validateProviderUrl("helius", "https://example.com/key"), /invalid helius/);
+  const calls = [], fetchImpl = async (endpoint) => { calls.push(new URL(endpoint).hostname); if (endpoint.includes("helius")) throw new Error("offline"); return { ok: true, json: async () => ({ result: MAINNET_GENESIS_HASH }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl });
+  assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.deepEqual(calls, ["mainnet.helius-rpc.com", "solana-mainnet.g.alchemy.com"]); assert.equal(pool.provenanceSource, "external-rpc-alchemy"); assert.equal("endpoint" in pool.telemetry()[0], false); assert.equal(JSON.stringify(pool.telemetry()).includes("secret"), false);
 });
 
 test("mainnet verification rejects a private validator genesis", async () => {

@@ -48,6 +48,22 @@ npm start
 
 Open `http://127.0.0.1:8787`. Continuous indexing is included in `serve`; use `npm run watch` for an ingestion-only process.
 
+### Reduced external-mainnet mode
+
+For Docker Desktop-sized development, the finalized HTTP exporter can use
+Helius as primary and Alchemy as failover without weakening the loopback-only
+self-hosted-validator path. Copy `validator/external-rpc.env.example` outside
+the repository, insert private provider URLs, and load that protected environment
+before running `npm run export:external`. Both private URLs are mandatory. The
+exporter validates mainnet genesis, uses bounded batches, opens a provider circuit
+after repeated failures, and persists only provider names—never URLs or keys.
+
+`npm run health:public-rpc` uses the Solana public endpoint only for genesis and
+health checks. `npm run export:external -- --emergency-public --once` is the only
+public-RPC backfill mode; it is forced to one cycle and at most four slots. It
+must not be used as the normal ingestion lane. Use a new `inbox-mainnet` and
+mainnet data/status files so private-chain evidence can never be mixed in.
+
 ## Self-hosted mainnet validator
 
 The `validator/` directory contains a production-oriented, non-voting Agave RPC-node deployment kit:
@@ -111,7 +127,7 @@ sudo systemctl enable --now solana-indexer-stream solana-indexer-api
 ```
 
 The verifier and both ingestion paths require mainnet genesis
-`5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2dG`. They refuse a private validator,
+`5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d`. They refuse a private validator,
 a different cluster, or an existing inbox whose genesis was never recorded.
 Use a new empty inbox/data directory when moving from development to mainnet.
 Terminal DEX, AI, and bot services should connect to the authenticated indexer
@@ -152,6 +168,7 @@ Configuration:
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
 | `INDEXER_STALE_AFTER_MS` | `120000` | Maximum age before health fails |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
+| `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
 | `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |

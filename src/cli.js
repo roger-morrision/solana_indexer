@@ -5,7 +5,7 @@ import { indexInbox, watchInbox } from "./indexer.js";
 import { createServer } from "./server.js";
 import { IndexStore } from "./store.js";
 
-const config = loadConfig(); const store = new IndexStore(config.dataFile, config.maxTransactions); const command = process.argv[2] || "serve";
+const config = loadConfig(); const store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); const command = process.argv[2] || "serve";
 await store.load();
 if (command === "index") { console.log(JSON.stringify(await indexInbox(config, store), null, 2)); }
 else if (command === "status") { console.log(JSON.stringify(store.stats(), null, 2)); }
