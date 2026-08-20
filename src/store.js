@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 function emptyState() {
-  return { version: 3, tip: null, blocks: {}, transactions: {}, transfers: [], swaps: [], pools: {}, accounts: {}, mints: {}, processedFiles: {}, events: [], eventSequence: 0, updatedAt: null };
+  return { version: 4, tip: null, blocks: {}, transactions: {}, transfers: [], swaps: [], pools: {}, accounts: {}, mints: {}, processedFiles: {}, events: [], eventSequence: 0, updatedAt: null };
 }
 
 export class IndexStore {
@@ -11,7 +11,10 @@ export class IndexStore {
     if (this.loaded) return;
     try { this.state = JSON.parse(await fs.readFile(this.filename, "utf8")); }
     catch (error) { if (error.code !== "ENOENT") throw error; }
-    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.swaps ??= []; this.state.pools ??= {}; this.state.version = 3;
+    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.swaps ??= []; this.state.pools ??= {};
+    const indices = new Map(); for (const swap of this.state.swaps) if (Number.isSafeInteger(swap.eventIndex)) indices.set(swap.signature, Math.max(indices.get(swap.signature) ?? 0, swap.eventIndex + 1));
+    for (const swap of this.state.swaps) if (!swap.swapId) { const eventIndex = indices.get(swap.signature) ?? 0; indices.set(swap.signature, eventIndex + 1); swap.eventIndex = eventIndex; swap.swapId = `${swap.signature}:${eventIndex}`; }
+    this.state.version = 4;
     this.loaded = true;
   }
   async save() {
@@ -132,9 +135,9 @@ export class IndexStore {
     };
   }
   poolRisk(address, staleAfterMs = 120_000, now = Date.now()) {
-    const swaps = this.state.swaps.filter((row) => row.pool === address); const directions = new Set(swaps.map((row) => `${row.inputMint}>${row.outputMint}`)); const signatures = new Set(swaps.map((row) => row.signature));
+    const swaps = this.state.swaps.filter((row) => row.pool === address); const directions = new Set(swaps.map((row) => `${row.inputMint}>${row.outputMint}`)); const signatures = new Set(swaps.map((row) => row.signature)); const swapIds = new Set(swaps.map((row) => row.swapId));
     const latestBlockTime = swaps.reduce((latest, row) => Math.max(latest, Number(row.blockTime ?? 0) * 1_000), 0); const ageMs = latestBlockTime ? Math.max(0, now - latestBlockTime) : null;
-    const flags = []; if (swaps.length < 20) flags.push("insufficient_observations"); if (directions.size < 2) flags.push("one_sided_flow"); if (signatures.size !== swaps.length) flags.push("duplicate_signatures"); if (!swaps.length || swaps.some((row) => row.provenance?.commitment !== "finalized")) flags.push("unfinalized_or_unknown_provenance"); if (ageMs == null || ageMs > staleAfterMs) flags.push("stale_market_activity");
+    const flags = []; if (signatures.size < 20) flags.push("insufficient_observations"); if (directions.size < 2) flags.push("one_sided_flow"); if (swapIds.size !== swaps.length) flags.push("duplicate_swap_ids"); if (!swaps.length || swaps.some((row) => row.provenance?.commitment !== "finalized")) flags.push("unfinalized_or_unknown_provenance"); if (ageMs == null || ageMs > staleAfterMs) flags.push("stale_market_activity");
     const assessable = flags.length === 0; const blockers = ["mint_authority_unknown", "freeze_authority_unknown", "holder_concentration_unknown", "manipulation_detection_unavailable"];
     return { pool: address, assessable, dataQualityPass: assessable, safeForAutomation: false, scope: "data_quality_only", observations: swaps.length, uniqueSignatures: signatures.size, directions: directions.size, latestBlockTime: latestBlockTime ? new Date(latestBlockTime).toISOString() : null, ageMs, flags, blockers };
   }

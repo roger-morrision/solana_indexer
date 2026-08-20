@@ -89,14 +89,17 @@ export function decodePumpTradeEvents(entry, signature) {
 }
 function dexSwaps(block, transactions, decodedEvents) {
   const successful = new Set(transactions.filter((row) => row.success).map((row) => row.signature));
-  return [...(block.dexEvents ?? []), ...decodedEvents].map((event, index) => {
+  const sidecar = block.dexEvents ?? []; const covered = new Set(sidecar.map((event) => `${event.signature}:${event.protocol}`));
+  const events = [...sidecar, ...decodedEvents.filter((event) => !covered.has(`${event.signature}:${event.protocol}`))]; const indices = new Map();
+  return events.map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
     const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM);
     if (!supported || event.type !== "swap") throw new Error(`dexEvents[${index}] is not a supported DEX swap`);
     const signature = field("signature"); if (!successful.has(signature)) throw new Error(`dexEvents[${index}].signature must reference a successful transaction`);
     const inputDecimals = event.inputDecimals; const outputDecimals = event.outputDecimals;
     if (!Number.isInteger(inputDecimals) || inputDecimals < 0 || inputDecimals > 255 || !Number.isInteger(outputDecimals) || outputDecimals < 0 || outputDecimals > 255) throw new Error(`dexEvents[${index}] decimals must be integers from 0 to 255`);
-    const normalized = { protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), inputMint: field("inputMint"), outputMint: field("outputMint"), inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
+    const eventIndex = indices.get(signature) ?? 0; indices.set(signature, eventIndex + 1);
+    const normalized = { swapId: `${signature}:${eventIndex}`, eventIndex, protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), inputMint: field("inputMint"), outputMint: field("outputMint"), inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
     if (event.protocol === "pump-bonding-curve") for (const name of ["mint", "quoteMint", "user", "creator", "feeRecipient", "creatorFeeRaw", "cashbackRaw", "buybackRaw", "feeBasisPoints", "creatorFeeBasisPoints", "cashbackFeeBasisPoints", "buybackFeeBasisPoints", "virtualSolReservesRaw", "virtualTokenReservesRaw", "realSolReservesRaw", "realTokenReservesRaw", "virtualQuoteReservesRaw", "realQuoteReservesRaw", "ixName", "mayhemMode", "shareholderCount"]) normalized[name] = event[name];
     return normalized;
   });

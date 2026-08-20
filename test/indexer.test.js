@@ -138,6 +138,15 @@ test("REST v1 paginates stably and rejects invalid cursors", async (t) => {
   assert.equal((await fetch(`${base}/api/v1/blocks?cursor=bad`)).status, 400);
 });
 
+test("same-transaction swaps retain unique identities and paginate without loss", async (t) => {
+  const input = JSON.parse(await fs.readFile(fixture, "utf8")); input.dexEvents.push({ ...input.dexEvents[0], pool: "second-pool", inputAmountRaw: "7", outputAmountRaw: "9" });
+  const block = parseBlock(input); assert.deepEqual(block.swaps.map((row) => row.swapId), ["signature-1:0", "signature-1:1"]);
+  const store = new IndexStore("unused"); await store.load(); store.apply(block);
+  const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const first = await (await fetch(`${base}/api/v1/swaps?limit=1`)).json(); const second = await (await fetch(`${base}/api/v1/swaps?limit=1&cursor=${first.nextCursor}`)).json();
+  assert.equal(first.data.length, 1); assert.equal(second.data.length, 1); assert.notEqual(first.data[0].swapId, second.data[0].swapId); assert.equal(second.nextCursor, null);
+});
+
 test("bot readiness refuses incomplete market data", async () => {
   const store = new IndexStore("unused"); await store.load();
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString();
@@ -193,7 +202,7 @@ test("pool state keeps exact reserve and execution-price evidence", async () => 
 
 test("pool risk and bot readiness require explicit mature two-way finalized evidence", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
-  for (let index = 0; index < 20; index++) { const swap = { ...block.swaps[0], signature: `risk-${index}`, slot: 100 + index, blockTime: 1_700_000_000 + index, inputMint: index % 2 ? "quote-mint" : "mint-address", outputMint: index % 2 ? "mint-address" : "quote-mint" }; store.state.swaps.push(swap); }
+  for (let index = 0; index < 20; index++) { const swap = { ...block.swaps[0], swapId: `risk-${index}:0`, eventIndex: 0, signature: `risk-${index}`, slot: 100 + index, blockTime: 1_700_000_000 + index, inputMint: index % 2 ? "quote-mint" : "mint-address", outputMint: index % 2 ? "mint-address" : "quote-mint" }; store.state.swaps.push(swap); }
   const now = 1_700_000_020_000; const risk = store.poolRisk("pool-address", 120_000, now); assert.equal(risk.assessable, true); assert.equal(risk.safeForAutomation, false); assert.deepEqual(risk.flags, []); assert.ok(risk.blockers.includes("holder_concentration_unknown"));
   store.state.blocks["119"] = { blockTime: 1_700_000_019, provenance: { commitment: "finalized" } }; store.state.tip = 119; store.state.updatedAt = new Date(now).toISOString(); store.state.pools["pool-address"] = { swapCount: 20 };
   const readiness = store.botReadiness(120_000, now, "pool-address"); assert.equal(readiness.ready, false); assert.deepEqual(readiness.missing, ["riskSignals"]);

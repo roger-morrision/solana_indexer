@@ -137,6 +137,11 @@ All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 must not use binary floating-point values for balances or trading decisions.
 The JSON-RPC endpoint intentionally exposes only read-only index methods; validator
 or transaction-submission methods return JSON-RPC `Method not found`.
+Each decoded swap has a deterministic `swapId` of `<signature>:<eventIndex>`.
+This preserves legitimate multi-hop/multi-event transactions while giving REST
+cursors and downstream consumers a stable deduplication key. When a trusted
+validator-side `dexEvents` sidecar covers a transaction and protocol, the local
+log decoder does not emit the same protocol events a second time.
 When API keys are configured, all `/api/*` and `/rpc` calls require `X-API-Key`
 or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
 returned or logged. Public binding is refused unless at least one key is configured.
