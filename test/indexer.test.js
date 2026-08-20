@@ -213,6 +213,15 @@ test("pool state keeps exact reserve and execution-price evidence", async () => 
   assert.equal(store.mint("mint-address").swaps[0].pool, "pool-address"); assert.equal(store.mint("quote-mint").swaps[0].signature, "signature-1");
 });
 
+test("builds direction-stable exact OHLCV candles without floating point", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); const first = block.swaps[0];
+  store.state.swaps.push({ ...first, swapId: "reverse:0", signature: "reverse", eventIndex: 0, inputMint: first.quoteMint, outputMint: first.baseMint, inputAmountRaw: "3000000", outputAmountRaw: "10000000", inputDecimals: first.quoteDecimals, outputDecimals: first.baseDecimals, blockTime: first.blockTime + 1 });
+  const candle = store.candles("pool-address", 60, 10, (first.blockTime + 120) * 1_000).data[0];
+  assert.deepEqual({ open: candle.open, high: candle.high, low: candle.low, close: candle.close, baseVolumeRaw: candle.baseVolumeRaw, quoteVolumeRaw: candle.quoteVolumeRaw, trades: candle.trades, closed: candle.closed }, { open: { numeratorRaw: "2500000", denominatorRaw: "12500000" }, high: { numeratorRaw: "3000000", denominatorRaw: "10000000" }, low: { numeratorRaw: "2500000", denominatorRaw: "12500000" }, close: { numeratorRaw: "3000000", denominatorRaw: "10000000" }, baseVolumeRaw: "22500000", quoteVolumeRaw: "5500000", trades: 2, closed: true });
+  const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal((await fetch(`${base}/api/v1/candles/pool-address?interval=7`)).status, 400); assert.equal((await (await fetch(`${base}/api/v1/candles/pool-address?interval=60`)).json()).exact, true);
+});
+
 test("pool risk and bot readiness require explicit mature two-way finalized evidence", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
   for (let index = 0; index < 20; index++) { const swap = { ...block.swaps[0], swapId: `risk-${index}:0`, eventIndex: 0, signature: `risk-${index}`, slot: 100 + index, blockTime: 1_700_000_000 + index, inputMint: index % 2 ? "quote-mint" : "mint-address", outputMint: index % 2 ? "mint-address" : "quote-mint" }; store.state.swaps.push(swap); }

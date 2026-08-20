@@ -126,6 +126,7 @@ Configuration:
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
+- `GET /api/v1/candles/:pool?interval=60&limit=300` (exact direction-stable OHLCV)
 - `GET /api/v1/token-account/:address` (latest observed on-chain token balance)
 - `GET /api/v1/holders/:mint?limit=100` (partial observed-holder evidence)
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
@@ -177,6 +178,13 @@ tables. The holder endpoint aggregates latest observed positive balances by
 owner, but returns `coverage: "observed_changes_only"`, `complete: false`, and
 `safeForAutomation: false`. A canonical account snapshot/backfill is required
 before holder concentration can unlock trading-bot decisions.
+
+Pool candles support 60, 300, 900, 3600, 14400, and 86400-second intervals.
+Prices remain exact `quote_raw/base_raw` fractions and volumes remain separate
+base/quote raw integer strings. Protocol events provide pair orientation for
+Raydium CPMM, PumpSwap, and Pump bonding curves; sidecars without authoritative
+pair fields use a visibly labeled deterministic lexical fallback. No USD value
+is inferred.
 
 The first supported decoder is Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may
