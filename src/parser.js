@@ -18,13 +18,20 @@ function parsedTransfer(instruction) {
   const parsed = instruction.parsed;
   if ((!TOKEN_PROGRAMS.has(programId) && instruction.program !== "spl-token") || !parsed?.info) return null;
   if (!["transfer", "transferChecked"].includes(parsed.type)) return null;
-  const amount = parsed.info.tokenAmount?.uiAmountString ?? parsed.info.tokenAmount?.uiAmount ?? parsed.info.amount;
+  const tokenAmount = parsed.info.tokenAmount;
+  const amountRaw = tokenAmount?.amount ?? parsed.info.amount ?? null;
+  const decimals = Number.isInteger(tokenAmount?.decimals) ? tokenAmount.decimals : null;
+  const amountUiString = tokenAmount?.uiAmountString ?? null;
   return {
     source: parsed.info.source ?? "",
     destination: parsed.info.destination ?? "",
     authority: parsed.info.authority ?? parsed.info.multisigAuthority ?? "",
     mint: parsed.info.mint ?? null,
-    amount: String(amount ?? "0"),
+    // Keep integer base units as a string. JavaScript numbers cannot safely
+    // represent the full u64 range used by SPL token amounts.
+    amountRaw: amountRaw == null ? null : String(amountRaw),
+    decimals,
+    amountUiString: amountUiString == null ? null : String(amountUiString),
   };
 }
 

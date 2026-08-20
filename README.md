@@ -100,6 +100,10 @@ Configuration:
 - `GET /api/mint/:mint?limit=100`
 - `GET /api/trending?limit=50`
 
+All JSON responses include `X-API-Version: 1`. Transfer records expose exact
+`amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers
+must not use binary floating-point values for balances or trading decisions.
+
 “Trending” is explicitly transfer-activity ranking from locally indexed evidence. It does not claim price, liquidity, USD volume, holder count, or swap direction. Those values cannot be derived faithfully from generic block transfer instructions alone. DEX-specific decoders can be added at the parser boundary without introducing a hosted service.
 
 ## Operational safety
@@ -112,3 +116,4 @@ Configuration:
 - Slot replacement removes orphaned derived records.
 - Input errors are isolated per file and returned in cycle diagnostics.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
+- Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.

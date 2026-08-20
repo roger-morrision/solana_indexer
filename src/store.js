@@ -74,14 +74,28 @@ export class IndexStore {
   }
   computeTip() { const slots = Object.keys(this.state.blocks).map(Number); return slots.length ? Math.max(...slots) : null; }
   stats() { return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, transfers: this.state.transfers.length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, updatedAt: this.state.updatedAt }; }
+  chainQuality() {
+    const slots = Object.keys(this.state.blocks).map(Number).sort((a, b) => a - b);
+    const conflicts = [];
+    for (const slot of slots) {
+      const block = this.state.blocks[String(slot)];
+      const parent = this.state.blocks[String(block.parentSlot)];
+      if (parent && block.previousBlockhash && parent.blockhash && block.previousBlockhash !== parent.blockhash) {
+        conflicts.push({ slot, parentSlot: block.parentSlot, expectedPreviousBlockhash: parent.blockhash, actualPreviousBlockhash: block.previousBlockhash });
+      }
+    }
+    return { canonical: conflicts.length === 0, conflicts: conflicts.slice(0, 100), conflictCount: conflicts.length };
+  }
   health(staleAfterMs = 120_000, now = Date.now()) {
     const stats = this.stats();
     if (stats.tip == null || !stats.updatedAt) return { status: "empty", healthy: false, reason: "no_indexed_blocks", ageMs: null, staleAfterMs, ...stats };
     const newestBlockTime = Object.values(this.state.blocks).reduce((latest, block) => Math.max(latest, Number(block.blockTime ?? 0) * 1_000), 0);
     if (!newestBlockTime) return { status: "unknown_time", healthy: false, reason: "latest_block_has_no_timestamp", ageMs: null, staleAfterMs, ...stats };
+    const chain = this.chainQuality();
+    if (!chain.canonical) return { status: "chain_conflict", healthy: false, reason: "indexed_parent_hash_mismatch", ageMs: null, staleAfterMs, chain, ...stats };
     const ageMs = Math.max(0, now - newestBlockTime);
     const healthy = ageMs <= staleAfterMs;
-    return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, ...stats };
+    return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
   }
   transaction(signature) { return this.state.transactions[signature] ?? null; }
   account(address, limit = 100) { return { address, summary: this.state.accounts[address] ?? null, transactions: Object.values(this.state.transactions).filter((tx) => tx.accounts.includes(address)).sort((a, b) => b.slot - a.slot).slice(0, limit) }; }
