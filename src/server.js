@@ -95,6 +95,8 @@ export function createServer(config, store) {
       const transaction = url.pathname.match(/^\/api\/transaction\/([^/]+)$/); if (transaction) { const row = store.transaction(decodeURIComponent(transaction[1])); return json(response, row ? 200 : 404, row ?? { error: "not_found" }); }
       const account = url.pathname.match(/^\/api\/account\/([^/]+)$/); if (account) return json(response, 200, store.account(decodeURIComponent(account[1]), limit(url)));
       const mint = url.pathname.match(/^\/api\/mint\/([^/]+)$/); if (mint) return json(response, 200, store.mint(decodeURIComponent(mint[1]), limit(url)));
+      const holders = url.pathname.match(/^\/api\/v1\/holders\/([^/]+)$/); if (holders) return json(response, 200, store.holders(decodeURIComponent(holders[1]), limit(url)));
+      const tokenAccount = url.pathname.match(/^\/api\/v1\/token-account\/([^/]+)$/); if (tokenAccount) { const row = store.tokenAccount(decodeURIComponent(tokenAccount[1])); return json(response, row ? 200 : 404, row ?? { error: "not_found" }); }
       const pool = url.pathname.match(/^\/api\/v1\/pool\/([^/]+)$/); if (pool) { const row = store.pool(decodeURIComponent(pool[1])); return json(response, row.summary ? 200 : 404, row.summary ? row : { error: "not_found" }); }
       const risk = url.pathname.match(/^\/api\/v1\/risk\/([^/]+)$/); if (risk) return json(response, 200, store.poolRisk(decodeURIComponent(risk[1]), config.staleAfterMs));
       if (url.pathname === "/" || url.pathname === "/index.html") { const body = await fs.readFile(path.join(PUBLIC, "index.html")); response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return response.end(body); }

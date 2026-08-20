@@ -24,6 +24,19 @@ test("parses a canonical parsed block and SPL transfer", async () => {
   assert.deepEqual({ protocol: block.swaps[0].protocol, pool: block.swaps[0].pool, inputAmountRaw: block.swaps[0].inputAmountRaw, outputAmountRaw: block.swaps[0].outputAmountRaw }, { protocol: "raydium-cpmm", pool: "pool-address", inputAmountRaw: "12500000", outputAmountRaw: "2500000" });
 });
 
+test("indexes loaded-address token balance changes and rebuilds partial holders on reorg", async (t) => {
+  const input = JSON.parse(await fs.readFile(fixture, "utf8")); const entry = input.transactions[0]; entry.meta.loadedAddresses = { writable: ["loaded-token-account"], readonly: ["loaded-program-account"] };
+  entry.meta.preTokenBalances = [{ accountIndex: 3, mint: "holder-mint", owner: "wallet-a", programId: "TokenzQdBN", uiTokenAmount: { amount: "10", decimals: 6 } }];
+  entry.meta.postTokenBalances = [{ accountIndex: 3, mint: "holder-mint", owner: "wallet-a", programId: "TokenzQdBN", uiTokenAmount: { amount: "25", decimals: 6 } }]; input.dexEvents = [];
+  const block = parseBlock(input); assert.ok(block.transactions[0].accounts.includes("loaded-program-account")); assert.deepEqual(block.balanceChanges[0], { signature: "signature-1", slot: 100, blockTime: 1_700_000_000, accountIndex: 3, tokenAccount: "loaded-token-account", owner: "wallet-a", programId: "TokenzQdBN", mint: "holder-mint", decimals: 6, preAmountRaw: "10", postAmountRaw: "25", deltaDirection: "credit", closed: false });
+  const store = new IndexStore("unused"); await store.load(); store.apply(block); assert.equal(store.tokenAccount("loaded-token-account").amountRaw, "25"); assert.deepEqual(store.holders("holder-mint").holders, [{ owner: "wallet-a", amountRaw: "25", tokenAccounts: 1 }]);
+  const replacement = { ...block, blockhash: "replacement", balanceChanges: [{ ...block.balanceChanges[0], preAmountRaw: "10", postAmountRaw: "5", deltaDirection: "debit" }] }; store.apply(replacement);
+  assert.equal(store.holders("holder-mint").observedRaw, "5"); assert.equal(store.holders("holder-mint").complete, false);
+  const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const holders = await (await fetch(`${base}/api/v1/holders/holder-mint`)).json(); assert.equal(holders.coverage, "observed_changes_only"); assert.equal(holders.safeForAutomation, false);
+  assert.equal((await (await fetch(`${base}/api/v1/token-account/loaded-token-account`)).json()).amountRaw, "5");
+});
+
 test("indexes idempotently and persists queryable state", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-indexer-"));
   const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.copyFile(fixture, path.join(inbox, "100.json"));

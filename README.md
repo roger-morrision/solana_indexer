@@ -126,6 +126,8 @@ Configuration:
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
+- `GET /api/v1/token-account/:address` (latest observed on-chain token balance)
+- `GET /api/v1/holders/:mint?limit=100` (partial observed-holder evidence)
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
@@ -168,6 +170,13 @@ count, decoded unique traders, then locally indexed transfer count. It exposes
 buy/sell activity and contributing protocols. It does not claim USD volume,
 holder count, or risk. Those values cannot
 be derived faithfully from generic block transfer instructions alone.
+
+Transaction `preTokenBalances` and `postTokenBalances` are normalized into exact
+balance changes, including accounts loaded through versioned address lookup
+tables. The holder endpoint aggregates latest observed positive balances by
+owner, but returns `coverage: "observed_changes_only"`, `complete: false`, and
+`safeForAutomation: false`. A canonical account snapshot/backfill is required
+before holder concentration can unlock trading-bot decisions.
 
 The first supported decoder is Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may

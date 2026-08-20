@@ -105,8 +105,21 @@ function dexSwaps(block, transactions, decodedEvents) {
   });
 }
 
-function accountKeys(message) {
-  return (message?.accountKeys ?? []).map((key) => typeof key === "string" ? key : key.pubkey).filter(Boolean);
+function accountKeys(message, meta = null) {
+  const staticKeys = (message?.accountKeys ?? []).map((key) => typeof key === "string" ? key : key.pubkey).filter(Boolean);
+  return [...staticKeys, ...(meta?.loadedAddresses?.writable ?? []), ...(meta?.loadedAddresses?.readonly ?? [])];
+}
+
+function tokenBalanceChanges(entry, keys, signature, slot, blockTime) {
+  const pre = new Map((entry.meta?.preTokenBalances ?? []).map((row) => [row.accountIndex, row])); const post = new Map((entry.meta?.postTokenBalances ?? []).map((row) => [row.accountIndex, row])); const changes = [];
+  for (const accountIndex of new Set([...pre.keys(), ...post.keys()])) {
+    if (!Number.isSafeInteger(accountIndex) || accountIndex < 0 || accountIndex >= keys.length) continue;
+    const before = pre.get(accountIndex), after = post.get(accountIndex); const mint = after?.mint ?? before?.mint; if (!mint) continue;
+    const preAmountRaw = u64(String(before?.uiTokenAmount?.amount ?? "0"), "preTokenBalance.amount"); const postAmountRaw = u64(String(after?.uiTokenAmount?.amount ?? "0"), "postTokenBalance.amount"); if (preAmountRaw === postAmountRaw) continue;
+    const decimals = after?.uiTokenAmount?.decimals ?? before?.uiTokenAmount?.decimals; if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) continue;
+    changes.push({ signature, slot, blockTime, accountIndex, tokenAccount: keys[accountIndex], owner: after?.owner ?? before?.owner ?? null, programId: after?.programId ?? before?.programId ?? null, mint, decimals, preAmountRaw, postAmountRaw, deltaDirection: BigInt(postAmountRaw) >= BigInt(preAmountRaw) ? "credit" : "debit", closed: !after });
+  }
+  return changes;
 }
 
 function instructionRows(transaction) {
@@ -143,11 +156,12 @@ export function parseBlock(block) {
   const blockTime = Number.isInteger(block.blockTime) ? block.blockTime : null;
   const transactions = [];
   const transfers = [];
+  const balanceChanges = [];
   const decodedDexEvents = [];
   for (const entry of block.transactions) {
     const signature = entry?.transaction?.signatures?.[0];
     if (!signature) continue;
-    const keys = accountKeys(entry.transaction.message);
+    const keys = accountKeys(entry.transaction.message, entry.meta);
     const feePayer = keys[0] ?? "";
     const failed = entry.meta?.err != null;
     const record = {
@@ -158,6 +172,7 @@ export function parseBlock(block) {
     transactions.push(record);
     if (failed) continue;
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
+    balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {
       const transfer = parsedTransfer(instruction);
       if (transfer) transfers.push({ ...transfer, signature, slot: block.slot, blockTime });
@@ -171,7 +186,7 @@ export function parseBlock(block) {
     exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
   };
   const swaps = dexSwaps(block, transactions, decodedDexEvents);
-  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, transfers, swaps };
+  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, transfers, balanceChanges, swaps };
 }
 
 export function parseInput(text, filename = "input") {
