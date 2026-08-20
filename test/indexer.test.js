@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
-import { decodePumpSwapEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
+import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -169,6 +169,18 @@ test("decodes PumpSwap sell events with exact directional amounts and reserves",
   const entry = { transaction: { message: { instructions: [{ programId: program, accounts: ["pump-pool", "user", "config", "base-mint", "quote-mint"] }] } }, meta: { err: null, logMessages: [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`], preTokenBalances: [{ mint: "base-mint", uiTokenAmount: { decimals: 6 } }, { mint: "quote-mint", uiTokenAmount: { decimals: 9 } }] } };
   const [swap] = decodePumpSwapEvents(entry, "pump-signature");
   assert.deepEqual({ side: swap.side, pool: swap.pool, inputMint: swap.inputMint, outputMint: swap.outputMint, inputAmountRaw: swap.inputAmountRaw, outputAmountRaw: swap.outputAmountRaw, inputVaultBeforeRaw: swap.inputVaultBeforeRaw, outputVaultBeforeRaw: swap.outputVaultBeforeRaw, tradeFeeRaw: swap.tradeFeeRaw, reserveTiming: swap.reserveTiming }, { side: "sell", pool: "pump-pool", inputMint: "base-mint", outputMint: "quote-mint", inputAmountRaw: "100", outputAmountRaw: "190", inputVaultBeforeRaw: "900", outputVaultBeforeRaw: "1800", tradeFeeRaw: "3", reserveTiming: "after" });
+});
+
+test("decodes Pump.fun bonding-curve TradeEvent with exact quote and reserve evidence", () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let out = ""; while (value) { out = alphabet[Number(value % 58n)] + out; value /= 58n; } for (const byte of bytes) { if (byte) break; out = `1${out}`; } return out || "1"; };
+  const data = Buffer.alloc(358); Buffer.from([189, 219, 127, 211, 78, 230, 97, 238]).copy(data); const mintBytes = Buffer.alloc(32, 1); const quoteBytes = Buffer.alloc(32, 2); mintBytes.copy(data, 8);
+  data.writeBigUInt64LE(500n, 40); data.writeBigUInt64LE(2_000n, 48); data[56] = 1; Buffer.alloc(32, 3).copy(data, 57); data.writeBigInt64LE(1_700_000_000n, 89); data.writeBigUInt64LE(10_000n, 97); data.writeBigUInt64LE(20_000n, 105); data.writeBigUInt64LE(8_000n, 113); data.writeBigUInt64LE(18_000n, 121); Buffer.alloc(32, 4).copy(data, 129); data.writeBigUInt64LE(100n, 161); data.writeBigUInt64LE(5n, 169); Buffer.alloc(32, 5).copy(data, 177); data.writeBigUInt64LE(25n, 209); data.writeBigUInt64LE(2n, 217);
+  const name = Buffer.from("buy"); data.writeUInt32LE(name.length, 258); name.copy(data, 262); let offset = 265; data[offset++] = 1; data.writeBigUInt64LE(10n, offset); offset += 8; data.writeBigUInt64LE(1n, offset); offset += 8; data.writeBigUInt64LE(20n, offset); offset += 8; data.writeBigUInt64LE(2n, offset); offset += 8; data.writeUInt32LE(0, offset); offset += 4; quoteBytes.copy(data, offset); offset += 32; data.writeBigUInt64LE(510n, offset); offset += 8; data.writeBigUInt64LE(9_500n, offset); offset += 8; data.writeBigUInt64LE(7_500n, offset);
+  const program = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"; const mint = encode58(mintBytes); const quoteMint = encode58(quoteBytes);
+  const entry = { transaction: { message: { instructions: [{ programId: program, accounts: ["global", "fee", mint, "bonding-curve"] }] } }, meta: { err: null, logMessages: [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`], preTokenBalances: [{ mint, uiTokenAmount: { decimals: 6 } }, { mint: quoteMint, uiTokenAmount: { decimals: 9 } }] } };
+  const [swap] = decodePumpTradeEvents(entry, "trade-signature");
+  assert.deepEqual({ protocol: swap.protocol, venueType: swap.venueType, side: swap.side, pool: swap.pool, inputMint: swap.inputMint, outputMint: swap.outputMint, inputAmountRaw: swap.inputAmountRaw, outputAmountRaw: swap.outputAmountRaw, realTokenReservesRaw: swap.realTokenReservesRaw, realQuoteReservesRaw: swap.realQuoteReservesRaw, ixName: swap.ixName, mayhemMode: swap.mayhemMode }, { protocol: "pump-bonding-curve", venueType: "bonding_curve", side: "buy", pool: "bonding-curve", inputMint: quoteMint, outputMint: mint, inputAmountRaw: "510", outputAmountRaw: "2000", realTokenReservesRaw: "18000", realQuoteReservesRaw: "7500", ixName: "buy", mayhemMode: true });
+  assert.equal(decodePumpTradeEvents({ ...entry, meta: { ...entry.meta, logMessages: [`Program other invoke [1]`, `Program data: ${data.toString("base64")}`, "Program other success"] } }, "trade-signature").length, 0);
 });
 
 test("pool state keeps exact reserve and execution-price evidence", async () => {

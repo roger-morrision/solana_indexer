@@ -57,7 +57,7 @@ export class IndexStore {
     }
     for (const swap of block.swaps) {
       const current = this.state.pools[swap.pool] ?? { protocol: swap.protocol, swapCount: 0 };
-      this.state.pools[swap.pool] = { ...current, swapCount: current.swapCount + 1, lastSlot: swap.slot, lastBlockTime: swap.blockTime, inputMint: swap.inputMint, outputMint: swap.outputMint, inputVaultBeforeRaw: swap.inputVaultBeforeRaw, outputVaultBeforeRaw: swap.outputVaultBeforeRaw, executionPrice: { numeratorRaw: swap.outputAmountRaw, denominatorRaw: swap.inputAmountRaw, inputDecimals: swap.inputDecimals, outputDecimals: swap.outputDecimals } };
+      this.state.pools[swap.pool] = { ...current, swapCount: current.swapCount + 1, venueType: swap.venueType, lastSlot: swap.slot, lastBlockTime: swap.blockTime, inputMint: swap.inputMint, outputMint: swap.outputMint, inputVaultBeforeRaw: swap.inputVaultBeforeRaw, outputVaultBeforeRaw: swap.outputVaultBeforeRaw, reserveTiming: swap.reserveTiming, realTokenReservesRaw: swap.realTokenReservesRaw, realQuoteReservesRaw: swap.realQuoteReservesRaw, virtualTokenReservesRaw: swap.virtualTokenReservesRaw, virtualQuoteReservesRaw: swap.virtualQuoteReservesRaw, mayhemMode: swap.mayhemMode, executionPrice: { numeratorRaw: swap.outputAmountRaw, denominatorRaw: swap.inputAmountRaw, inputDecimals: swap.inputDecimals, outputDecimals: swap.outputDecimals } };
       for (const mint of [swap.inputMint, swap.outputMint]) { const row = this.state.mints[mint] ?? { transferCount: 0, swapCount: 0, lastSlot: 0, lastBlockTime: null }; row.swapCount = (row.swapCount ?? 0) + 1; row.lastSlot = Math.max(row.lastSlot, swap.slot); row.lastBlockTime = Math.max(row.lastBlockTime ?? 0, swap.blockTime ?? 0) || null; this.state.mints[mint] = row; }
     }
     this.prune();
@@ -86,7 +86,7 @@ export class IndexStore {
     }
     for (const swap of this.state.swaps) {
       const current = this.state.pools[swap.pool] ?? { protocol: swap.protocol, swapCount: 0 };
-      this.state.pools[swap.pool] = { ...current, swapCount: current.swapCount + 1, lastSlot: swap.slot, lastBlockTime: swap.blockTime, inputMint: swap.inputMint, outputMint: swap.outputMint, inputVaultBeforeRaw: swap.inputVaultBeforeRaw, outputVaultBeforeRaw: swap.outputVaultBeforeRaw, executionPrice: { numeratorRaw: swap.outputAmountRaw, denominatorRaw: swap.inputAmountRaw, inputDecimals: swap.inputDecimals, outputDecimals: swap.outputDecimals } };
+      this.state.pools[swap.pool] = { ...current, swapCount: current.swapCount + 1, venueType: swap.venueType, lastSlot: swap.slot, lastBlockTime: swap.blockTime, inputMint: swap.inputMint, outputMint: swap.outputMint, inputVaultBeforeRaw: swap.inputVaultBeforeRaw, outputVaultBeforeRaw: swap.outputVaultBeforeRaw, reserveTiming: swap.reserveTiming, realTokenReservesRaw: swap.realTokenReservesRaw, realQuoteReservesRaw: swap.realQuoteReservesRaw, virtualTokenReservesRaw: swap.virtualTokenReservesRaw, virtualQuoteReservesRaw: swap.virtualQuoteReservesRaw, mayhemMode: swap.mayhemMode, executionPrice: { numeratorRaw: swap.outputAmountRaw, denominatorRaw: swap.inputAmountRaw, inputDecimals: swap.inputDecimals, outputDecimals: swap.outputDecimals } };
       for (const mint of [swap.inputMint, swap.outputMint]) { const row = this.state.mints[mint] ?? { transferCount: 0, swapCount: 0, lastSlot: 0, lastBlockTime: null }; row.swapCount = (row.swapCount ?? 0) + 1; row.lastSlot = Math.max(row.lastSlot, swap.slot); row.lastBlockTime = Math.max(row.lastBlockTime ?? 0, swap.blockTime ?? 0) || null; this.state.mints[mint] = row; }
     }
   }

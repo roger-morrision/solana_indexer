@@ -165,8 +165,11 @@ PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
 the same swap contract with `protocol: "pump-swap"`, explicit buy/sell side,
 directional mints, exact amounts and fees, and reserves marked
-`reserveTiming: "after"`. Pump.fun bonding-curve trades are a distinct venue
-and are not mislabeled as PumpSwap pool swaps.
+`reserveTiming: "after"`. Pump.fun bonding-curve `TradeEvent` logs are decoded
+separately as `protocol: "pump-bonding-curve"` with their curve address, quote
+mint/amount, user and creator, fee components, real/virtual reserves, and
+mayhem-mode evidence. Reported curve reserves use `reserveTiming: "reported"`;
+they are never mislabeled as PumpSwap AMM reserves.
 
 ## Operational safety
 
