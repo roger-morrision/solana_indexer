@@ -1,0 +1,19 @@
+[Unit]
+Description=Solana indexer real-time block stream
+After=agave-validator.service
+Requires=agave-validator.service
+
+[Service]
+Type=simple
+User=sol
+WorkingDirectory=/home/sol/solana-indexer
+Environment=LOCAL_VALIDATOR_RPC=http://127.0.0.1:8899
+Environment=LOCAL_VALIDATOR_WS=ws://127.0.0.1:8900
+ExecStart=/usr/bin/env npm run stream
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

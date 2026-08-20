@@ -59,9 +59,19 @@ This host does not meet production requirements. Deploy these files to Ubuntu 24
 After the local node has caught up, run the loopback-only bridge and indexer in separate processes:
 
 ```powershell
-npm run export
+npm run stream
 npm start
 ```
+
+`stream` opens loopback-only Solana PubSub subscriptions for both `confirmed`
+and `finalized` full blocks. Confirmed blocks provide the low-latency lane;
+finalized copies canonically promote or replace them. The stream persists every
+notification atomically into `inbox/`, repairs bounded slot gaps with local
+`getBlock`, resumes from durable status after restart, reconnects with bounded
+exponential backoff, and records finalization lag, reconnects, decode errors,
+repairs, and skipped slots. Keep `npm run export` available as the finalized
+HTTP backfill/recovery process, but do not run both writers against the same
+inbox unless operationally coordinated.
 
 The exporter rejects HTTPS and every non-loopback address. It reads finalized blocks only from `http://127.0.0.1:8899`, writes them atomically to `inbox/`, and checkpoints its last exported slot. This is self-owned local RPC traffic, not a third-party provider.
 Each exported block carries source, finalized commitment, observation time, validator tip, and export lag. Export-cycle diagnostics include the bounded skipped-slot list; skipped Solana slots are evidence, not treated as missing blocks.
@@ -94,6 +104,10 @@ Configuration:
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
 | `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |
 | `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
+| `LOCAL_VALIDATOR_WS` | `ws://127.0.0.1:8900` | Loopback-only Agave PubSub endpoint |
+| `LOCAL_VALIDATOR_RPC` | `http://127.0.0.1:8899` | Loopback-only gap-repair RPC endpoint |
+| `INDEXER_STREAM_RECONNECT_MIN_MS` | `500` | Initial reconnect backoff |
+| `INDEXER_STREAM_RECONNECT_MAX_MS` | `30000` | Maximum reconnect backoff |
 
 ## API
 
@@ -124,7 +138,9 @@ When API keys are configured, all `/api/*` and `/rpc` calls require `X-API-Key`
 or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
 returned or logged. Public binding is refused unless at least one key is configured.
 WebSocket clients receive `ready`, then ordered `block_indexed` or
-`block_replaced` events after atomic index persistence. Supply the last consumed
+`block_replaced` events after atomic index persistence. Confirmed blocks are
+promoted with `block_finalized`; a confirmed fork can never downgrade a finalized
+slot. Supply the last consumed
 sequence as `cursor` to replay retained events. An expired cursor produces
 `resync_required`; clients must rebuild from REST. Heartbeat pings and bounded
 socket buffers evict stalled consumers. When API keys are enabled, WebSocket

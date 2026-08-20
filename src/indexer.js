@@ -3,10 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { parseBlock, parseInput } from "./parser.js";
 
-async function fingerprint(filename) {
-  const stat = await fs.stat(filename);
-  return crypto.createHash("sha256").update(`${stat.size}:${stat.mtimeMs}`).digest("hex");
-}
+function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 
 export async function indexInbox(config, store) {
   await store.load(); await fs.mkdir(config.inbox, { recursive: true });
@@ -15,9 +12,10 @@ export async function indexInbox(config, store) {
   for (const name of names) {
     const filename = path.join(config.inbox, name);
     try {
-      const hash = await fingerprint(filename);
+      const content = await fs.readFile(filename);
+      const hash = fingerprint(content);
       if (store.hasFile(name, hash)) { result.skippedFiles++; continue; }
-      const inputs = parseInput(await fs.readFile(filename, "utf8"), name);
+      const inputs = parseInput(content.toString("utf8"), name);
       for (const input of inputs) {
         const block = parseBlock(input); const applied = store.apply(block);
         if (applied.inserted) { result.blocks++; result.transactions += block.transactions.length; result.transfers += block.transfers.length; result.swaps += block.swaps.length; }

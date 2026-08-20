@@ -11,6 +11,7 @@ import { decodePumpSwapEvents, decodeRaydiumSwapEvents, parseBlock } from "../sr
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
+import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 
@@ -35,11 +36,27 @@ test("indexes idempotently and persists queryable state", async () => {
   assert.equal(store.mint("mint-address").transfers[0].amountRaw, "12500000");
 });
 
+test("checkpoint fingerprints detect same-sized content replacement", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-fingerprint-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox);
+  const firstBlock = JSON.parse(await fs.readFile(fixture, "utf8")); firstBlock.dexEvents = []; const first = JSON.stringify(firstBlock); const second = JSON.stringify({ ...firstBlock, blockhash: "clock-100" });
+  assert.equal(Buffer.byteLength(first), Buffer.byteLength(second)); const filename = path.join(inbox, "100.json"); await fs.writeFile(filename, first);
+  const store = new IndexStore(path.join(root, "data.json"), 1000); const config = { inbox, dataFile: path.join(root, "data.json"), maxTransactions: 1000 };
+  await indexInbox(config, store); await fs.writeFile(filename, second); const result = await indexInbox(config, store);
+  assert.equal(result.files, 1); assert.equal(store.state.blocks["100"].blockhash, "clock-100");
+});
+
 test("replaces a conflicting slot without retaining orphaned records", async () => {
   const store = new IndexStore("unused"); await store.load();
   const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(original);
   const replacement = { ...original, blockhash: "replacement", transactions: [{ ...original.transactions[0], signature: "signature-2" }], transfers: [{ ...original.transfers[0], signature: "signature-2" }] };
   assert.equal(store.apply(replacement).reason, "replaced"); assert.equal(store.transaction("signature-1"), null); assert.ok(store.transaction("signature-2"));
+});
+
+test("promotes matching confirmed blocks and refuses finalized downgrades", async () => {
+  const store = new IndexStore("unused"); await store.load(); const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
+  const confirmed = { ...original, provenance: { ...original.provenance, commitment: "confirmed" }, swaps: original.swaps.map((swap) => ({ ...swap, provenance: { ...swap.provenance, commitment: "confirmed" } })) };
+  store.apply(confirmed); const promoted = store.apply(original); assert.equal(promoted.reason, "finalized"); assert.equal(store.state.blocks["100"].provenance.commitment, "finalized"); assert.equal(store.state.swaps[0].provenance.commitment, "finalized"); assert.equal(store.state.events.at(-1).type, "block_finalized");
+  assert.throws(() => store.apply({ ...confirmed, blockhash: "late-confirmed-fork" }), /refusing to replace finalized slot/);
 });
 
 test("health fails closed for empty and stale indexes", async () => {
@@ -64,6 +81,21 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.equal(validateLocalRpcUrl("http://127.0.0.1:8899"), "http://127.0.0.1:8899/");
   assert.throws(() => validateLocalRpcUrl("https://api.mainnet-beta.solana.com"), /must use http/);
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
+});
+
+test("validator stream accepts only loopback WebSocket endpoints", () => {
+  assert.equal(validateLocalWsUrl("ws://127.0.0.1:8900"), "ws://127.0.0.1:8900/");
+  assert.throws(() => validateLocalWsUrl("wss://example.com"), /must use ws/); assert.throws(() => validateLocalWsUrl("ws://192.168.1.2:8900"), /non-loopback/);
+});
+
+test("validator stream atomically persists commitments and repairs bounded gaps", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-")); const calls = [];
+  const rpcClient = { call: async (method, params) => { calls.push([method, params[0]]); return { blockhash: `block-${params[0]}`, previousBlockhash: `block-${params[0] - 1}`, parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] }; } };
+  const stream = new LocalValidatorStream({ rpcClient, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: class {}, endpoint: "ws://127.0.0.1:8900" });
+  const block = (slot) => ({ blockhash: `block-${slot}`, previousBlockhash: `block-${slot - 1}`, parentSlot: slot - 1, blockTime: 1_700_000_000, transactions: [] });
+  await stream.ingestBlock("confirmed", 10, block(10)); await stream.ingestBlock("confirmed", 12, block(12)); await stream.ingestBlock("finalized", 10, block(10));
+  assert.deepEqual(calls, [["getBlock", 11]]); assert.ok(await fs.readFile(path.join(root, "inbox", "11.confirmed.json"), "utf8"));
+  const status = JSON.parse(await fs.readFile(path.join(root, "status.json"), "utf8")); assert.deepEqual({ confirmed: status.lastConfirmedSlot, finalized: status.lastFinalizedSlot, lag: status.finalizationLagSlots, repairs: status.gapRepairs }, { confirmed: 12, finalized: 10, lag: 2, repairs: 1 });
 });
 
 test("exporter records finalized provenance, lag, and skipped slots", async () => {

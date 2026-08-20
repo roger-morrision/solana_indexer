@@ -28,7 +28,16 @@ export class IndexStore {
   apply(block) {
     const slot = String(block.slot);
     const prior = this.state.blocks[slot];
-    if (prior && prior.blockhash === block.blockhash) return { inserted: false, reason: "duplicate" };
+    if (prior && prior.blockhash === block.blockhash) {
+      if (prior.provenance?.commitment === "confirmed" && block.provenance?.commitment === "finalized") {
+        prior.provenance = block.provenance; for (const swap of this.state.swaps) if (swap.slot === block.slot) swap.provenance = block.provenance;
+        const event = { sequence: ++this.state.eventSequence, type: "block_finalized", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, swapCount: block.swaps.length, swaps: block.swaps.map((swap) => ({ ...swap, provenance: block.provenance })), provenance: block.provenance };
+        this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
+        return { inserted: false, updated: true, reason: "finalized" };
+      }
+      return { inserted: false, updated: false, reason: "duplicate" };
+    }
+    if (prior?.provenance?.commitment === "finalized" && block.provenance?.commitment !== "finalized") throw new Error(`refusing to replace finalized slot ${block.slot} with non-finalized data`);
     if (prior) this.removeSlot(block.slot);
     this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, provenance: block.provenance, transactionCount: block.transactions.length, transferCount: block.transfers.length };
     for (const transaction of block.transactions) {

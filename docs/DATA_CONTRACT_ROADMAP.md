@@ -4,7 +4,7 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 
 | Consumer | Required data | Current source | Normalized contract | Freshness / safety | Exposure | Coverage |
 |---|---|---|---|---|---|---|
-| Terminal DEX activity | canonical blocks, transactions, SPL transfers | finalized local Agave block export | exact slots, hashes, signatures, string base-unit amounts | health rejects stale data and indexed parent-hash conflicts | REST v1 | unit/integration fixture |
+| Terminal DEX activity | provisional and canonical blocks, transactions, transfers and swaps | local Agave confirmed/finalized PubSub plus HTTP gap repair | exact slots, hashes, signatures, commitment, string base-unit amounts | finalized promotion, downgrade refusal, stale/conflict health | REST/RPC/WebSocket | stream, finality, gap and decoder tests |
 | Trending page | token activity rank | successful SPL transfers and verified Raydium CPMM swaps | mint, swap/transfer counts, last slot/time | no USD volume or holder claim | `GET /api/trending` | deterministic ranking test |
 | Token page | token transfer history | successful SPL/Token-2022 parsed instructions | raw amount string, nullable decimals/UI string, provenance by signature/slot | bounded by retained transactions | `GET /api/mint/:mint` | parser and index tests |
 | AI analysis | traceable factual inputs | same local canonical index | every record tied to slot/signature | must reject unhealthy index; confidence model not implemented | REST health + queries | safety-gate contract pending |
@@ -21,6 +21,7 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 5. ~~Add replayable WebSocket subscriptions with monotonic sequence IDs, resume cursors, heartbeats, bounded queues and slow-consumer eviction.~~ Completed for canonical block events; DEX topics await decoded schemas.
 6. Add API keys, tenant quotas, audit logs, usage metering, retention tiers and documented SLOs before any commercial exposure. Static API keys, public-bind guard, and per-key quotas are complete; tenant persistence, metering, rotation, audit logs and SLOs remain.
 7. Add trading-bot input schemas and hard gates for freshness, finality, liquidity, confidence, manipulation risk and incomplete coverage. Target-pool freshness/finality/history/two-way-flow gates are complete; holder concentration, mint authority and manipulation detection still require account-state inputs.
+8. ~~Add real-time confirmed/finalized ingestion with reconnects, durable resume, bounded gap repair, finality promotion, rollback safety, and operational telemetry.~~ Completed using local Agave block PubSub with the HTTP exporter retained for backfill.
 
 ## Known limits
 

@@ -20,6 +20,7 @@ exec "$HOME/bin/agave-validator" \
   --full-rpc-api \
   --no-voting \
   --enable-rpc-transaction-history \
+  --rpc-pubsub-enable-block-subscription \
   --enable-cpi-and-log-storage \
   --account-index program-id \
   --account-index spl-token-mint \
