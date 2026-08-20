@@ -90,6 +90,8 @@ Configuration:
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
 | `INDEXER_STALE_AFTER_MS` | `120000` | Maximum age before health fails |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
+| `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
+| `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
 
 ## API
 
@@ -112,6 +114,9 @@ All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 must not use binary floating-point values for balances or trading decisions.
 The JSON-RPC endpoint intentionally exposes only read-only index methods; validator
 or transaction-submission methods return JSON-RPC `Method not found`.
+When API keys are configured, all `/api/*` and `/rpc` calls require `X-API-Key`
+or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
+returned or logged. Public binding is refused unless at least one key is configured.
 
 “Trending” is explicitly transfer-activity ranking from locally indexed evidence. It does not claim price, liquidity, USD volume, holder count, or swap direction. Those values cannot be derived faithfully from generic block transfer instructions alone. DEX-specific decoders can be added at the parser boundary without introducing a hosted service.
 

@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
+import { loadConfig } from "../src/config.js";
 import { parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
@@ -138,4 +139,20 @@ test("ingestion API distinguishes unavailable from durable exporter evidence", a
   await fs.writeFile(statusFile, JSON.stringify({ version: 1, commitment: "finalized", lagSlots: 0, durableSkippedSlots: [7] }));
   const response = await fetch(endpoint); const body = await response.json();
   assert.equal(response.status, 200); assert.equal(body.available, true); assert.deepEqual(body.exporter.durableSkippedSlots, [7]);
+});
+
+test("configuration refuses public binding without API keys", () => {
+  assert.throws(() => loadConfig({ INDEXER_HOST: "0.0.0.0" }, process.cwd()), /INDEXER_API_KEYS is required/);
+  const config = loadConfig({ INDEXER_HOST: "0.0.0.0", INDEXER_API_KEYS: "first, second", INDEXER_RATE_LIMIT_PER_MINUTE: "25" }, process.cwd());
+  assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25);
+});
+
+test("API authentication and quotas fail closed", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const config = { staleAfterMs: 120_000, apiKeys: ["secret"], rateLimitPerMinute: 2 };
+  const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/stats`;
+  assert.equal((await fetch(endpoint)).status, 401); assert.equal((await fetch(endpoint, { headers: { "x-api-key": "wrong" } })).status, 401);
+  const first = await fetch(endpoint, { headers: { authorization: "Bearer secret" } }); assert.equal(first.status, 200); assert.equal(first.headers.get("x-ratelimit-remaining"), "1");
+  assert.equal((await fetch(endpoint, { headers: { "x-api-key": "secret" } })).status, 200);
+  const limited = await fetch(endpoint, { headers: { "x-api-key": "secret" } }); assert.equal(limited.status, 429); assert.ok(limited.headers.get("retry-after"));
 });

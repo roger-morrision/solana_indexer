@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
 import http from "node:http";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
-function json(response, status, value) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1" }); response.end(body); }
+function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
 function limit(url) { return Math.min(500, Math.max(1, Number(url.searchParams.get("limit")) || 100)); }
 function encodeCursor(value) { return Buffer.from(JSON.stringify(value)).toString("base64url"); }
 function decodeCursor(value) {
@@ -39,11 +40,31 @@ function dispatchRpc(payload, config, store) {
   }
   return rpcError(payload.id, -32601, "Method not found");
 }
+function presentedApiKey(request) {
+  const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  return String(request.headers["x-api-key"] ?? bearer ?? "");
+}
+function keyMatches(presented, configured) {
+  if (!presented) return false;
+  const candidate = crypto.createHash("sha256").update(presented).digest();
+  return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
+}
 
 export function createServer(config, store) {
+  const quotas = new Map();
   return http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
+      const protectedRoute = url.pathname === "/rpc" || url.pathname.startsWith("/api/");
+      const apiKeys = config.apiKeys ?? [];
+      if (protectedRoute && apiKeys.length && !keyMatches(presentedApiKey(request), apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
+      if (protectedRoute && config.rateLimitPerMinute) {
+        const identity = apiKeys.length ? crypto.createHash("sha256").update(presentedApiKey(request)).digest("hex") : request.socket.remoteAddress ?? "unknown";
+        const window = Math.floor(Date.now() / 60_000); const prior = quotas.get(identity); const quota = prior?.window === window ? prior : { window, count: 0 }; quota.count++; quotas.set(identity, quota);
+        const remaining = Math.max(0, config.rateLimitPerMinute - quota.count);
+        response.setHeader("x-ratelimit-limit", config.rateLimitPerMinute); response.setHeader("x-ratelimit-remaining", remaining);
+        if (quota.count > config.rateLimitPerMinute) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(60 - (Math.floor(Date.now() / 1000) % 60)) });
+      }
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpc(await readJsonBody(request), config, store));
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }

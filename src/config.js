@@ -1,15 +1,20 @@
 import path from "node:path";
 
 export function loadConfig(env = process.env, cwd = process.cwd()) {
+  const apiKeys = (env.INDEXER_API_KEYS || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const host = env.INDEXER_HOST || "127.0.0.1";
+  if (!["127.0.0.1", "localhost", "::1"].includes(host) && apiKeys.length === 0) throw new Error("INDEXER_API_KEYS is required when INDEXER_HOST is not loopback");
   return {
     inbox: path.resolve(cwd, env.INDEXER_INBOX || "inbox"),
     dataFile: path.resolve(cwd, env.INDEXER_DATA_FILE || "data/index.json"),
     exporterStatusFile: path.resolve(cwd, env.EXPORTER_STATUS_FILE || "data/exporter-status.json"),
-    host: env.INDEXER_HOST || "127.0.0.1",
+    host,
     port: boundedInt(env.INDEXER_PORT, 8787, 1, 65535),
     pollMs: boundedInt(env.INDEXER_POLL_MS, 1000, 100, 60_000),
     staleAfterMs: boundedInt(env.INDEXER_STALE_AFTER_MS, 120_000, 1_000, 86_400_000),
     maxTransactions: boundedInt(env.INDEXER_MAX_TRANSACTIONS, 250_000, 1000, 2_000_000),
+    apiKeys,
+    rateLimitPerMinute: boundedInt(env.INDEXER_RATE_LIMIT_PER_MINUTE, 600, 1, 100_000),
   };
 }
 

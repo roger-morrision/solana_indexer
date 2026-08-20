@@ -9,7 +9,7 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 | Token page | token transfer history | successful SPL/Token-2022 parsed instructions | raw amount string, nullable decimals/UI string, provenance by signature/slot | bounded by retained transactions | `GET /api/mint/:mint` | parser and index tests |
 | AI analysis | traceable factual inputs | same local canonical index | every record tied to slot/signature | must reject unhealthy index; confidence model not implemented | REST health + queries | safety-gate contract pending |
 | AI trading bot | execution decision inputs | not yet sufficient | price, liquidity, swap direction, pool identity and risk evidence absent | fail-closed capability and health gate | `GET /api/v1/bot/readiness` | readiness unit test |
-| Commercial clients | stable versioned API and read-only RPC | local index | JSON, `X-API-Version: 1`, additive cursor envelopes, JSON-RPC 2.0 | auth, quotas, tenancy and SLA absent | loopback REST/RPC only | HTTP pagination and RPC contract tests |
+| Commercial clients | stable versioned API and read-only RPC | local index | JSON, `X-API-Version: 1`, additive cursor envelopes, JSON-RPC 2.0 | optional API keys and fixed-window quotas; tenancy, metering and SLA absent | REST/RPC; public bind requires keys | HTTP pagination, RPC, auth and quota tests |
 | Streaming clients | ordered/replayable events | not implemented | sequence, cursor, resume and backpressure required | disconnect on stale/conflicting source | none | none |
 
 ## Dependency-ordered roadmap
@@ -19,7 +19,7 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 3. Decode supported DEX swaps and pool lifecycle events behind protocol-specific fixtures; never infer swaps from generic transfers.
 4. Normalize token metadata, pool identity, reserves, liquidity, price and volume with exact decimal arithmetic and source timestamps.
 5. Add replayable WebSocket subscriptions with monotonic sequence IDs, resume cursors, heartbeats, bounded queues and slow-consumer eviction.
-6. Add API keys, tenant quotas, audit logs, usage metering, retention tiers and documented SLOs before any commercial exposure.
+6. Add API keys, tenant quotas, audit logs, usage metering, retention tiers and documented SLOs before any commercial exposure. Static API keys, public-bind guard, and per-key quotas are complete; tenant persistence, metering, rotation, audit logs and SLOs remain.
 7. Add trading-bot input schemas and hard gates for freshness, finality, liquidity, confidence, manipulation risk and incomplete coverage.
 
 ## Known limits
