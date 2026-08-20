@@ -5,6 +5,8 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 
+export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2dG";
+
 export function validateLocalRpcUrl(value) {
   const url = new URL(value);
   if (url.protocol !== "http:") throw new Error("Local validator RPC must use http://");
@@ -19,13 +21,21 @@ export class LocalValidatorClient {
     if (!response.ok) throw new Error(`local validator ${method}: HTTP ${response.status}`);
     const payload = await response.json(); if (payload.error) throw new Error(`local validator ${method}: ${payload.error.message}`); return payload.result;
   }
+  async assertGenesis(expected = MAINNET_GENESIS_HASH) { const actual = await this.call("getGenesisHash"); if (expected !== "any" && actual !== expected) throw new Error(`validator genesis mismatch: expected ${expected}, received ${actual}`); return actual; }
 }
 
 async function readCursor(filename) { try { return Number((await fs.readFile(filename, "utf8")).trim()); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
 async function atomicWrite(filename, body) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, body); await fs.rename(temporary, filename); }
 async function readStatus(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
 
-export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32 }) {
+export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null }) {
+  let genesisHash = null;
+  if (expectedGenesisHash) {
+    genesisHash = await client.assertGenesis(expectedGenesisHash); const prior = statusFile ? await readStatus(statusFile) : {};
+    let names = []; try { names = await fs.readdir(inbox); } catch (error) { if (error.code !== "ENOENT") throw error; }
+    if (!prior.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox");
+    if (prior.genesisHash && prior.genesisHash !== genesisHash) throw new Error(`refusing to reuse exporter state from genesis ${prior.genesisHash}`);
+  }
   const tip = await client.call("getSlot", [{ commitment: "finalized" }]);
   let cursor = await readCursor(cursorFile);
   if (cursor == null) cursor = Math.max(0, tip - 1);
@@ -42,7 +52,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   if (statusFile) {
     const previous = await readStatus(statusFile);
     const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
-    await atomicWrite(statusFile, `${JSON.stringify({ version: 1, source: "local-agave-rpc", commitment: "finalized", observedAt: new Date().toISOString(), ...result, durableSkippedSlots })}\n`);
+    await atomicWrite(statusFile, `${JSON.stringify({ version: 2, source: "local-agave-rpc", genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), ...result, durableSkippedSlots })}\n`);
   }
   return result;
 }
@@ -50,7 +60,8 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
 async function main() {
   const config = loadConfig(); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899");
   const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/exporter.cursor"); const batchSize = Math.min(256, Math.max(1, Number(process.env.EXPORTER_BATCH_SIZE) || 32)); const once = process.argv.includes("--once");
-  do { console.log(JSON.stringify(await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize }))); if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
+  const expectedGenesisHash = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH;
+  do { console.log(JSON.stringify(await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }))); if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
 }
 
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";

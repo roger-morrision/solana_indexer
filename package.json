@@ -8,6 +8,7 @@
     "index": "node src/cli.js index",
     "export": "node src/local-validator-exporter.js",
     "stream": "node src/local-validator-stream.js",
+    "verify:mainnet": "node src/verify-mainnet.js",
     "watch": "node src/cli.js watch",
     "status": "node src/cli.js status",
     "test": "node --test"

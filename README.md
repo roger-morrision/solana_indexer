@@ -85,11 +85,39 @@ Docker Desktop can run the isolated `solana-test-validator` setup under `validat
 
 ```powershell
 ./validator/dev/start.ps1
+$env:INDEXER_EXPECTED_GENESIS_HASH = "any" # private development chain only
 npm run export
 npm start
 ```
 
 The container uses Agave `v3.1.14`, four CPUs, a 4 GB memory ceiling, bounded local logs, a disposable named ledger volume, and RPC published only on `127.0.0.1:8899`. Agave requires `io_uring`, so this one service uses Docker's unconfined seccomp profile; Linux capabilities are still fully dropped and `no-new-privileges` remains enabled. Run `stop.ps1` to stop it without losing the ledger or `reset.ps1` to remove the disposable ledger.
+
+### Production service installation
+
+On the reviewed Ubuntu mainnet host, keep the repository at
+`/home/sol/solana-indexer`. Copy `agave-validator.env.example`,
+`solana-indexer-stream.env.example`, and `solana-indexer.env.example` to their
+matching `/etc/*.env` paths. Generate the API key outside the repository, keep
+the API environment file root-readable only, and leave Agave RPC bound to
+loopback. Then install, verify, and start the services:
+
+```bash
+sudo bash validator/install-indexer-services.sh
+npm test
+npm run verify:mainnet
+sudo systemctl enable --now agave-validator
+# Wait until npm run verify:mainnet reports a healthy, caught-up mainnet node.
+sudo systemctl enable --now solana-indexer-stream solana-indexer-api
+```
+
+The verifier and both ingestion paths require mainnet genesis
+`5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2dG`. They refuse a private validator,
+a different cluster, or an existing inbox whose genesis was never recorded.
+Use a new empty inbox/data directory when moving from development to mainnet.
+Terminal DEX, AI, and bot services should connect to the authenticated indexer
+REST/WebSocket endpoint, never directly to Agave. Keep the API on loopback behind
+an approved TLS reverse proxy or private service network; this repository does
+not provision DNS certificates or open firewall ports.
 
 Configuration:
 

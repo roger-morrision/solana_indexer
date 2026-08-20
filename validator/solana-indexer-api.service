@@ -1,14 +1,14 @@
 [Unit]
-Description=Solana indexer real-time block stream
-After=agave-validator.service
-Requires=agave-validator.service
+Description=Terminal DEX Solana indexer API and WebSocket service
+After=network-online.target agave-validator.service solana-indexer-stream.service
+Wants=network-online.target solana-indexer-stream.service
 
 [Service]
 Type=simple
 User=sol
 WorkingDirectory=/home/sol/solana-indexer
-EnvironmentFile=/etc/solana-indexer-stream.env
-ExecStart=/usr/bin/env npm run stream
+EnvironmentFile=/etc/solana-indexer.env
+ExecStart=/usr/bin/env npm start
 Restart=always
 RestartSec=2
 UMask=0077

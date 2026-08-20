@@ -10,7 +10,7 @@ import { loadConfig } from "../src/config.js";
 import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
-import { exportFinalizedBlocks, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
+import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
@@ -96,9 +96,20 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
 });
 
+test("mainnet verification rejects a private validator genesis", async () => {
+  const client = Object.create(LocalValidatorClient.prototype); client.call = async () => "private-development-genesis";
+  await assert.rejects(() => client.assertGenesis(MAINNET_GENESIS_HASH), /validator genesis mismatch/);
+});
+
 test("validator stream accepts only loopback WebSocket endpoints", () => {
   assert.equal(validateLocalWsUrl("ws://127.0.0.1:8900"), "ws://127.0.0.1:8900/");
   assert.throws(() => validateLocalWsUrl("wss://example.com"), /must use ws/); assert.throws(() => validateLocalWsUrl("ws://192.168.1.2:8900"), /non-loopback/);
+});
+
+test("verified stream refuses an existing inbox with unknown genesis", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-network-boundary-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "1.json"), "{}\n");
+  const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox, statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
+  await assert.rejects(() => stream.initializeAndConnect(), /inbox with unknown genesis/);
 });
 
 test("validator stream atomically persists commitments and repairs bounded gaps", async () => {
