@@ -1,0 +1,21 @@
+{
+  "slot": 100,
+  "blockhash": "block-100",
+  "previousBlockhash": "block-99",
+  "parentSlot": 99,
+  "blockTime": 1700000000,
+  "transactions": [{
+    "transaction": {
+      "signatures": ["signature-1"],
+      "message": {
+        "accountKeys": [{"pubkey":"payer"},{"pubkey":"source"},{"pubkey":"destination"}],
+        "instructions": [{
+          "program": "spl-token",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "parsed": {"type":"transferChecked","info":{"source":"source","destination":"destination","authority":"payer","mint":"mint-address","tokenAmount":{"uiAmountString":"12.5"}}}
+        }]
+      }
+    },
+    "meta": {"err":null,"fee":5000,"logMessages":["Program log: transfer"],"innerInstructions":[]}
+  }]
+}

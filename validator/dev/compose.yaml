@@ -1,0 +1,39 @@
+name: solana-indexer-dev
+
+services:
+  validator:
+    build:
+      context: ../..
+      dockerfile: validator/dev/Dockerfile
+      args:
+        AGAVE_VERSION: v3.1.14
+    image: local/solana-test-validator:v3.1.14
+    container_name: solana-indexer-validator
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8899:8899"
+    volumes:
+      - validator-ledger:/ledger
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4G
+        reservations:
+          memory: 1G
+    security_opt:
+      - no-new-privileges:true
+      # Agave 3.1 requires io_uring; Docker Desktop's default seccomp profile
+      # blocks it. The service remains loopback-only with all capabilities dropped.
+      - seccomp:unconfined
+    cap_drop:
+      - ALL
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  validator-ledger:
+    name: solana-indexer-dev-ledger

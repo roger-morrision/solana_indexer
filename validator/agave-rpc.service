@@ -1,0 +1,19 @@
+[Unit]
+Description=Self-hosted Agave mainnet RPC node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sol
+EnvironmentFile=/etc/agave-validator.env
+ExecStart=/home/sol/solana-indexer/validator/run-mainnet-rpc.sh
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=1000000
+LimitMEMLOCK=2000000000
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

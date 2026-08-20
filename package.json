@@ -1,0 +1,15 @@
+{
+  "name": "self-hosted-solana-indexer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli.js serve",
+    "index": "node src/cli.js index",
+    "export": "node src/local-validator-exporter.js",
+    "watch": "node src/cli.js watch",
+    "status": "node src/cli.js status",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
