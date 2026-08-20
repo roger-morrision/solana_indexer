@@ -295,6 +295,12 @@ test("configuration refuses public binding without API keys", () => {
   assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25);
 });
 
+test("storage deployment requires reviewed images, loopback ports, secrets, and core schemas", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); const compose = await fs.readFile(path.join(root, "infra/compose.yaml"), "utf8"); const ignored = await fs.readFile(path.join(root, ".gitignore"), "utf8");
+  assert.doesNotMatch(compose, /image:\s+\S+:latest/); assert.match(compose, /POSTGRES_IMAGE:\?Set POSTGRES_IMAGE/); assert.match(compose, /127\.0\.0\.1:5432:5432/); assert.match(compose, /postgres_password: \{ file:/); assert.match(ignored, /infra\/secrets\/\*/);
+  const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /UInt256/);
+});
+
 test("API authentication and quotas fail closed", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const config = { staleAfterMs: 120_000, apiKeys: ["secret"], rateLimitPerMinute: 2 };
   const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

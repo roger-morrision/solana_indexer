@@ -16,7 +16,8 @@ synthetically populated.
 | Protocol swaps | partial | Raydium CPMM, PumpSwap, Pump bonding curve | remaining registry entries and fixture-backed decoders |
 | OHLCV | partial | exact raw 1m/5m/15m/1h/4h/1d pool candles | unique traders, USD/native references and late-event worker |
 | Internal evidence API | partial | authenticated token, market, holders, trades, OHLCV, liquidity, trending, candidates, feed health/gaps | authority, routes, wallet performance and risk workers |
-| PostgreSQL/ClickHouse/Redis/object storage | missing | no production dependency is silently substituted | schemas, pinned deployment and dual-write migration |
+| PostgreSQL/ClickHouse/Redis | deployable, not integrated | reviewed-image-required Compose, secret files, loopback ports, health checks, PostgreSQL metadata/ops schema and ClickHouse immutable-event schema | connector interfaces and verified dual-write migration |
+| Object storage | contract pending | secrets and generated archives remain excluded from Git | select approved S3-compatible implementation, retention and backup policy |
 | Yellowstone/Geyser | missing | no speculative client | reviewed protobuf/plugin release and deployment |
 | Executable routing | external by design initially | explicit unavailable response | approved Jupiter integration or local router |
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |

@@ -119,6 +119,19 @@ REST/WebSocket endpoint, never directly to Agave. Keep the API on loopback behin
 an approved TLS reverse proxy or private service network; this repository does
 not provision DNS certificates or open firewall ports.
 
+### Data services
+
+`infra/compose.yaml` defines loopback-only PostgreSQL, ClickHouse, and Redis
+services with persistent volumes, secret files, health checks, and no floating
+image defaults. Copy `infra/.env.example` to `infra/.env`, replace every image
+with an operator-reviewed immutable digest, create the three ignored secret
+files, then validate with `docker compose --env-file infra/.env -f
+infra/compose.yaml config`. PostgreSQL owns metadata, jobs, checkpoints,
+security/candidate state and audit records. ClickHouse owns immutable
+instructions, swaps, balance history and dead letters. Redis is reserved for
+hot state, locks, rankings and fan-out. The application does not claim these
+stores are active until connector health and dual-write validation are added.
+
 Configuration:
 
 | Variable | Default | Purpose |
