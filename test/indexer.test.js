@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -6,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
-import { parseBlock } from "../src/parser.js";
+import { decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -19,6 +20,7 @@ test("parses a canonical parsed block and SPL transfer", async () => {
   assert.equal(block.transfers[0].mint, "mint-address");
   assert.equal(block.provenance.commitment, "finalized");
   assert.deepEqual({ amountRaw: block.transfers[0].amountRaw, decimals: block.transfers[0].decimals, amountUiString: block.transfers[0].amountUiString }, { amountRaw: "12500000", decimals: 6, amountUiString: "12.5" });
+  assert.deepEqual({ protocol: block.swaps[0].protocol, pool: block.swaps[0].pool, inputAmountRaw: block.swaps[0].inputAmountRaw, outputAmountRaw: block.swaps[0].outputAmountRaw }, { protocol: "raydium-cpmm", pool: "pool-address", inputAmountRaw: "12500000", outputAmountRaw: "2500000" });
 });
 
 test("indexes idempotently and persists queryable state", async () => {
@@ -109,7 +111,31 @@ test("bot readiness refuses incomplete market data", async () => {
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString();
   const readiness = store.botReadiness(120_000, 1_700_000_001_000);
   assert.equal(readiness.ready, false); assert.equal(readiness.reason, "missing_required_capabilities");
-  assert.deepEqual(readiness.missing, ["dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"]);
+  assert.deepEqual(readiness.missing, ["riskSignals"]);
+});
+
+test("Raydium decoder boundary rejects unsupported programs and failed signatures", async () => {
+  const fixtureBlock = JSON.parse(await fs.readFile(fixture, "utf8"));
+  assert.throws(() => parseBlock({ ...fixtureBlock, dexEvents: [{ ...fixtureBlock.dexEvents[0], programId: "untrusted" }] }), /not a supported Raydium CPMM swap/);
+  fixtureBlock.transactions[0].meta.err = { InstructionError: [0, "Custom"] };
+  assert.throws(() => parseBlock(fixtureBlock), /must reference a successful transaction/);
+});
+
+test("decodes Raydium CPMM Anchor swap events only inside its invocation", () => {
+  const data = Buffer.alloc(170); const discriminator = crypto.createHash("sha256").update("event:SwapEvent").digest(); discriminator.copy(data, 0, 0, 8);
+  data.fill(1, 8, 40); data.writeBigUInt64LE(1000n, 40); data.writeBigUInt64LE(2000n, 48); data.writeBigUInt64LE(100n, 56); data.writeBigUInt64LE(190n, 64); data[88] = 1; data.fill(2, 89, 121); data.fill(3, 121, 153); data.writeBigUInt64LE(1n, 153);
+  const program = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"; const encoded = data.toString("base64");
+  const events = decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program ${program} invoke [1]`, `Program data: ${encoded}`, `Program ${program} success`], preTokenBalances: [], postTokenBalances: [] } }, "sig");
+  assert.equal(events.length, 1); assert.deepEqual({ inputAmountRaw: events[0].inputAmountRaw, outputAmountRaw: events[0].outputAmountRaw, tradeFeeRaw: events[0].tradeFeeRaw }, { inputAmountRaw: "100", outputAmountRaw: "190", tradeFeeRaw: "1" });
+  assert.equal(decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program other invoke [1]`, `Program data: ${encoded}`, "Program other success"] } }, "sig").length, 0);
+});
+
+test("pool state keeps exact reserve and execution-price evidence", async () => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block);
+  const pool = store.pool("pool-address"); assert.equal(pool.summary.swapCount, 1);
+  assert.deepEqual(pool.summary.executionPrice, { numeratorRaw: "2500000", denominatorRaw: "12500000", inputDecimals: 6, outputDecimals: 6 });
+  assert.equal(store.dataCapabilities().dexSwaps, true); assert.equal(store.dataCapabilities().poolLiquidity, true); assert.equal(store.dataCapabilities().marketPrices, true);
+  assert.equal(store.mint("mint-address").swaps[0].pool, "pool-address"); assert.equal(store.mint("quote-mint").swaps[0].signature, "signature-1");
 });
 
 test("trending is deterministic for equal transfer counts", async () => {

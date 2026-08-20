@@ -5,6 +5,7 @@
   "parentSlot": 99,
   "blockTime": 1700000000,
   "provenance": {"source":"local-agave-rpc","commitment":"finalized","observedAt":"2023-11-14T22:13:20.100Z"},
+  "dexEvents": [{"protocol":"raydium-cpmm","programId":"CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C","type":"swap","signature":"signature-1","pool":"pool-address","inputMint":"mint-address","outputMint":"quote-mint","inputAmountRaw":"12500000","outputAmountRaw":"2500000","inputVaultBeforeRaw":"1000000000","outputVaultBeforeRaw":"200000000","tradeFeeRaw":"31250","inputDecimals":6,"outputDecimals":6}],
   "transactions": [{
     "transaction": {
       "signatures": ["signature-1"],

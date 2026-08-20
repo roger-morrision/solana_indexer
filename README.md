@@ -107,6 +107,8 @@ Configuration:
 - `GET /api/trending?limit=50`
 - `GET /api/v1/blocks?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
+- `GET /api/v1/swaps?limit=100&cursor=...` (verified Raydium CPMM swaps)
+- `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
 - `GET /api/v1/bot/readiness` (fail-closed capability gate)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
@@ -129,7 +131,18 @@ clients must present the key as an HTTP authorization or `X-API-Key` header.
 Browser clients can request subprotocols `indexer.v1` and
 `bearer.<base64url-api-key>`; the server negotiates only `indexer.v1`.
 
-“Trending” is explicitly transfer-activity ranking from locally indexed evidence. It does not claim price, liquidity, USD volume, holder count, or swap direction. Those values cannot be derived faithfully from generic block transfer instructions alone. DEX-specific decoders can be added at the parser boundary without introducing a hosted service.
+“Trending” ranks verified DEX swap count first and locally indexed transfer count
+second. It does not claim USD volume, holder count, or risk. Those values cannot
+be derived faithfully from generic block transfer instructions alone.
+
+The first supported decoder is Raydium CPMM mainnet program
+`CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may
+attach `dexEvents` matching Raydium's emitted `SwapEvent`, and the indexer also
+decodes the canonical Anchor event directly from scoped program logs. It accepts
+only events tied to successful transactions and stores every u64 as a decimal
+string. Execution price is exposed as an exact raw numerator/denominator with
+both mint decimals. It is not labeled as USD price. Unsupported programs fail
+the whole input file instead of silently producing market data.
 
 ## Operational safety
 
