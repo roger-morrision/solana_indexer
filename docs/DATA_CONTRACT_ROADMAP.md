@@ -9,13 +9,13 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 | Token page | token transfer history | successful SPL/Token-2022 parsed instructions | raw amount string, nullable decimals/UI string, provenance by signature/slot | bounded by retained transactions | `GET /api/mint/:mint` | parser and index tests |
 | AI analysis | traceable factual inputs | same local canonical index | every record tied to slot/signature | must reject unhealthy index; confidence model not implemented | REST health + queries | safety-gate contract pending |
 | AI trading bot | execution decision inputs | not yet sufficient | price, liquidity, swap direction, pool identity and risk evidence absent | fail-closed capability and health gate | `GET /api/v1/bot/readiness` | readiness unit test |
-| Commercial clients | stable versioned API | local REST | JSON, `X-API-Version: 1`, additive cursor envelopes | auth, quotas, tenancy and SLA absent | loopback REST only | HTTP pagination contract tests |
+| Commercial clients | stable versioned API and read-only RPC | local index | JSON, `X-API-Version: 1`, additive cursor envelopes, JSON-RPC 2.0 | auth, quotas, tenancy and SLA absent | loopback REST/RPC only | HTTP pagination and RPC contract tests |
 | Streaming clients | ordered/replayable events | not implemented | sequence, cursor, resume and backpressure required | disconnect on stale/conflicting source | none | none |
 
 ## Dependency-ordered roadmap
 
 1. ~~Add deterministic REST contract tests, validation errors, stable cursor pagination, and response envelopes without breaking legacy routes.~~ Completed for block and transaction lists.
-2. Persist explicit ingestion provenance, finalized commitment, exporter lag, skipped-slot evidence, and bounded data-quality telemetry. Block provenance, lag, and per-cycle skipped-slot evidence are complete; durable cross-cycle skipped-slot history remains.
+2. ~~Persist explicit ingestion provenance, finalized commitment, exporter lag, skipped-slot evidence, and bounded data-quality telemetry.~~ Completed with atomic exporter status and a bounded 10,000-slot history.
 3. Decode supported DEX swaps and pool lifecycle events behind protocol-specific fixtures; never infer swaps from generic transfers.
 4. Normalize token metadata, pool identity, reserves, liquidity, price and volume with exact decimal arithmetic and source timestamps.
 5. Add replayable WebSocket subscriptions with monotonic sequence IDs, resume cursors, heartbeats, bounded queues and slow-consumer eviction.

@@ -67,10 +67,13 @@ test("exporter records finalized provenance, lag, and skipped slots", async () =
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-"));
   const client = { call: async (method, params) => method === "getSlot" ? 12 : params[0] === 11 ? null : { blockhash: `block-${params[0]}`, previousBlockhash: "parent", parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] } };
   await fs.writeFile(path.join(root, "cursor"), "9\n");
-  const result = await exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile: path.join(root, "cursor"), batchSize: 2 });
+  const statusFile = path.join(root, "status.json");
+  const result = await exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile: path.join(root, "cursor"), statusFile, batchSize: 2 });
   assert.deepEqual(result, { localValidatorTip: 12, cursor: 11, lagSlots: 1, exported: 1, skipped: 1, skippedSlots: [11] });
   const block = JSON.parse(await fs.readFile(path.join(root, "inbox", "10.json"), "utf8"));
   assert.deepEqual({ source: block.provenance.source, commitment: block.provenance.commitment, sourceTip: block.provenance.sourceTip, exportLagSlots: block.provenance.exportLagSlots }, { source: "local-agave-rpc", commitment: "finalized", sourceTip: 12, exportLagSlots: 2 });
+  const status = JSON.parse(await fs.readFile(statusFile, "utf8"));
+  assert.deepEqual({ commitment: status.commitment, lagSlots: status.lagSlots, durableSkippedSlots: status.durableSkippedSlots }, { commitment: "finalized", lagSlots: 1, durableSkippedSlots: [11] });
 });
 
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
@@ -112,4 +115,27 @@ test("trending is deterministic for equal transfer counts", async () => {
   const store = new IndexStore("unused"); await store.load();
   store.state.mints = { older: { transferCount: 2, lastSlot: 10 }, newer: { transferCount: 2, lastSlot: 11 }, busy: { transferCount: 3, lastSlot: 9 } };
   assert.deepEqual(store.trending(3).map((row) => row.mint), ["busy", "newer", "older"]);
+});
+
+test("JSON-RPC exposes only read-only indexed methods", async (t) => {
+  const store = new IndexStore("unused"); await store.load();
+  const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString();
+  const server = createServer({ staleAfterMs: 120_000, exporterStatusFile: "missing" }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/rpc`;
+  const call = async (body) => (await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
+  const found = await call({ jsonrpc: "2.0", id: 1, method: "getIndexedTransaction", params: ["signature-1"] });
+  assert.equal(found.result.signature, "signature-1");
+  assert.equal((await call({ jsonrpc: "2.0", id: 2, method: "sendTransaction", params: [] })).error.code, -32601);
+  assert.equal((await call({ jsonrpc: "2.0", id: 3, method: "getIndexedTransaction", params: [] })).error.code, -32602);
+});
+
+test("ingestion API distinguishes unavailable from durable exporter evidence", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-ingestion-api-")); const statusFile = path.join(root, "status.json");
+  const store = new IndexStore("unused"); await store.load(); const config = { staleAfterMs: 120_000, exporterStatusFile: statusFile };
+  const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/v1/ingestion`;
+  assert.equal((await fetch(endpoint)).status, 503);
+  await fs.writeFile(statusFile, JSON.stringify({ version: 1, commitment: "finalized", lagSlots: 0, durableSkippedSlots: [7] }));
+  const response = await fetch(endpoint); const body = await response.json();
+  assert.equal(response.status, 200); assert.equal(body.available, true); assert.deepEqual(body.exporter.durableSkippedSlots, [7]);
 });

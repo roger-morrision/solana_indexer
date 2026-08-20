@@ -84,6 +84,7 @@ Configuration:
 |---|---:|---|
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
+| `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
 | `INDEXER_PORT` | `8787` | API port |
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
@@ -103,10 +104,14 @@ Configuration:
 - `GET /api/v1/blocks?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/bot/readiness` (fail-closed capability gate)
+- `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
+- `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers
 must not use binary floating-point values for balances or trading decisions.
+The JSON-RPC endpoint intentionally exposes only read-only index methods; validator
+or transaction-submission methods return JSON-RPC `Method not found`.
 
 “Trending” is explicitly transfer-activity ranking from locally indexed evidence. It does not claim price, liquidity, USD volume, holder count, or swap direction. Those values cannot be derived faithfully from generic block transfer instructions alone. DEX-specific decoders can be added at the parser boundary without introducing a hosted service.
 

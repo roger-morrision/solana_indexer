@@ -4,6 +4,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
   return {
     inbox: path.resolve(cwd, env.INDEXER_INBOX || "inbox"),
     dataFile: path.resolve(cwd, env.INDEXER_DATA_FILE || "data/index.json"),
+    exporterStatusFile: path.resolve(cwd, env.EXPORTER_STATUS_FILE || "data/exporter-status.json"),
     host: env.INDEXER_HOST || "127.0.0.1",
     port: boundedInt(env.INDEXER_PORT, 8787, 1, 65535),
     pollMs: boundedInt(env.INDEXER_POLL_MS, 1000, 100, 60_000),
