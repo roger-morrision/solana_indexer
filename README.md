@@ -131,6 +131,9 @@ security/candidate state and audit records. ClickHouse owns immutable
 instructions, swaps, balance history and dead letters. Redis is reserved for
 hot state, locks, rankings and fan-out. The application does not claim these
 stores are active until connector health and dual-write validation are added.
+SeaweedFS master, volume, and filer services provide self-hosted archive storage;
+only the filer is published, on loopback port 8888. No AWS/S3 account, endpoint,
+or cloud credential is used.
 An optional `gateway` Compose profile adds a reviewed-image-required nginx mTLS
 boundary on port 8443. It requires a server certificate/private key and a client
 CA in ignored secret files and rejects clients without a trusted certificate.
@@ -173,6 +176,7 @@ Configuration:
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
+- `GET /api/v1/price/:mint` (exact nominal USD reference via fresh finalized USDC paths)
 - `GET /api/v1/candles/:pool?interval=60&limit=300` (exact direction-stable OHLCV)
 - `GET /api/v1/token-account/:address` (latest observed on-chain token balance)
 - `GET /api/v1/holders/:mint?limit=100` (finalized snapshot coverage when available; exclusions disclosed)
@@ -206,9 +210,16 @@ references, funding-graph, and sybil evidence.
 
 Production objectives and alert rules are documented in `docs/SLO.md`.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
-and inbox archives and can upload them to an operator-approved S3-compatible
-URI. `ops/restore.sh` verifies checksums and requires the explicit
+and inbox archives and uploads them to the loopback SeaweedFS filer.
+`ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
+storage. `ops/restore.sh` verifies checksums and requires the explicit
 `--confirm-empty-target` flag because it replaces database and local state.
+
+Nominal USD references are computed locally from fresh finalized swaps directly
+against canonical mainnet USDC or through wrapped SOL. Amounts and decimal
+normalization remain exact rational integers. These references are suitable for
+display/research only: bot safety remains false until an independent USDC depeg
+reference, multi-venue TWAP, and manipulation adjustment are self-hosted.
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers

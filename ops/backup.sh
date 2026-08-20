@@ -17,10 +17,7 @@ tar --create --file "$target/indexer-state.tar" --ignore-failed-read data/index.
 (cd "$target" && sha256sum postgres.dump clickhouse-*.native redis.rdb indexer-state.tar > SHA256SUMS)
 printf '{"schemaVersion":1,"createdAt":"%s","chain":"solana","scope":"postgres-clickhouse-redis-indexer-state"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$target/manifest.json"
 (cd "$target" && sha256sum manifest.json >> SHA256SUMS)
-if [[ -n "${BACKUP_S3_URI:-}" ]]; then
-  command -v aws >/dev/null || { echo "aws CLI is required when BACKUP_S3_URI is set" >&2; exit 1; }
-  args=(s3 cp "$target" "${BACKUP_S3_URI%/}/$stamp" --recursive --only-show-errors)
-  [[ -n "${BACKUP_S3_SSE:-}" ]] && args+=(--sse "$BACKUP_S3_SSE")
-  aws "${args[@]}"
-fi
+archive_url="${SELF_HOSTED_ARCHIVE_URL:-http://127.0.0.1:8888/terminal-dex-backups}"
+[[ "$archive_url" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/ ]] || { echo "SELF_HOSTED_ARCHIVE_URL must be loopback HTTP" >&2; exit 1; }
+for file in "$target"/*; do curl --fail --silent --show-error --retry 3 --retry-all-errors --connect-timeout 5 --max-time 300 --create-dirs --upload-file "$file" "${archive_url%/}/$stamp/$(basename "$file")"; done
 echo "$target"

@@ -57,6 +57,38 @@ services:
       retries: 12
     security_opt: ["no-new-privileges:true"]
 
+  object-master:
+    image: ${SEAWEEDFS_IMAGE:?Set SEAWEEDFS_IMAGE to a reviewed SeaweedFS image digest}
+    restart: unless-stopped
+    command: ["master", "-ip=object-master", "-ip.bind=0.0.0.0"]
+    volumes: ["object-master-data:/data"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+  object-volume:
+    image: ${SEAWEEDFS_IMAGE:?Set SEAWEEDFS_IMAGE to a reviewed SeaweedFS image digest}
+    restart: unless-stopped
+    command: ["volume", "-ip=object-volume", "-ip.bind=0.0.0.0", "-master=object-master:9333", "-dir=/data", "-max=0"]
+    depends_on: [object-master]
+    volumes: ["object-volume-data:/data"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+  object-filer:
+    image: ${SEAWEEDFS_IMAGE:?Set SEAWEEDFS_IMAGE to a reviewed SeaweedFS image digest}
+    restart: unless-stopped
+    command: ["filer", "-ip=object-filer", "-ip.bind=0.0.0.0", "-master=object-master:9333"]
+    depends_on: [object-master, object-volume]
+    volumes: ["object-filer-data:/data"]
+    ports: ["127.0.0.1:8888:8888"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8888/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   mtls-gateway:
     profiles: ["gateway"]
     image: ${NGINX_IMAGE:?Set NGINX_IMAGE to a reviewed nginx image digest}
@@ -90,3 +122,6 @@ volumes:
   clickhouse-data:
   clickhouse-logs:
   redis-data:
+  object-master-data:
+  object-volume-data:
+  object-filer-data:

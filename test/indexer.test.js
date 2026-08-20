@@ -262,6 +262,13 @@ test("builds direction-stable exact OHLCV candles without floating point", async
   assert.equal((await fetch(`${base}/api/v1/candles/pool-address?interval=7`)).status, 400); assert.equal((await (await fetch(`${base}/api/v1/candles/pool-address?interval=60`)).json()).exact, true);
 });
 
+test("derives exact self-hosted nominal USD references only through fresh finalized USDC paths", async (t) => {
+  const usdc = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", sol = "So11111111111111111111111111111111111111112", now = 1_700_000_100_000, common = { provenance: { commitment: "finalized" }, blockTime: 1_700_000_090, eventIndex: 0, protocol: "fixture" };
+  const store = new IndexStore("unused"); await store.load(); store.state.swaps = [{ ...common, swapId: "token-sol", signature: "a", slot: 10, pool: "token-sol-pool", inputMint: "token", outputMint: sol, inputAmountRaw: "2000000", outputAmountRaw: "1000000000", inputDecimals: 6, outputDecimals: 9 }, { ...common, swapId: "sol-usdc", signature: "b", slot: 11, pool: "sol-usdc-pool", inputMint: sol, outputMint: usdc, inputAmountRaw: "1000000000", outputAmountRaw: "150000000", inputDecimals: 9, outputDecimals: 6 }];
+  const result = store.referencePrice("token", 120_000, now); assert.equal(result.available, true); assert.equal(result.safeForAutomation, false); assert.deepEqual(result.price, { numeratorRaw: "75", denominatorRaw: "1" }); assert.deepEqual(result.path, ["token", sol, usdc]); assert.equal(store.referencePrice("token", 1_000, now).available, false);
+  const server = createServer({ staleAfterMs: Date.now() }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/price/token`)).status, 200);
+});
+
 test("pool risk and bot readiness require explicit mature two-way finalized evidence", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
   for (let index = 0; index < 20; index++) { const swap = { ...block.swaps[0], swapId: `risk-${index}:0`, eventIndex: 0, signature: `risk-${index}`, slot: 100 + index, blockTime: 1_700_000_000 + index, inputMint: index % 2 ? "quote-mint" : "mint-address", outputMint: index % 2 ? "mint-address" : "quote-mint" }; store.state.swaps.push(swap); }
@@ -330,14 +337,18 @@ test("storage deployment requires reviewed images, loopback ports, secrets, and 
   const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /UInt256/);
 });
 
+test("object archives remain fully self-hosted without S3 or cloud endpoints", async () => {
+  const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"); assert.match(compose, /SEAWEEDFS_IMAGE:\?Set SEAWEEDFS_IMAGE/); assert.match(compose, /127\.0\.0\.1:8888:8888/); assert.match(backup, /SELF_HOSTED_ARCHIVE_URL/); assert.match(backup, /must be loopback HTTP/); assert.doesNotMatch(backup, /BACKUP_S3|aws s3/);
+});
+
 test("mTLS gateway and production SLO alerts fail closed", async () => {
   const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), nginx = await fs.readFile(path.join(rootDir, "infra/gateway/nginx.conf"), "utf8"), alerts = await fs.readFile(path.join(rootDir, "infra/monitoring/alerts.yaml"), "utf8");
   assert.match(compose, /NGINX_IMAGE:\?Set NGINX_IMAGE/); assert.match(compose, /client_ca_certificate/); assert.match(nginx, /ssl_verify_client on/); assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/); assert.match(alerts, /terminal_dex_index_healthy == 0/); assert.match(alerts, /terminal_dex_dead_letters > 0/);
 });
 
 test("backup and restore tooling verifies integrity and gates destructive restore", async () => {
-  const backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"), restore = await fs.readFile(path.join(rootDir, "ops/restore.sh"), "utf8");
-  assert.match(backup, /sha256sum .*SHA256SUMS/); assert.match(backup, /BACKUP_S3_URI/); assert.match(backup, /BACKUP_WRITERS_QUIESCED/); assert.match(backup, /pg_dump/); assert.match(backup, /FORMAT Native/); assert.match(restore, /--confirm-empty-target/); assert.match(restore, /sha256sum --check SHA256SUMS/); assert.match(restore, /pg_restore --clean --if-exists/); assert.match(restore, /TRUNCATE TABLE/);
+  const backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"), fetchBackup = await fs.readFile(path.join(rootDir, "ops/fetch-backup.sh"), "utf8"), restore = await fs.readFile(path.join(rootDir, "ops/restore.sh"), "utf8");
+  assert.match(backup, /sha256sum .*SHA256SUMS/); assert.match(backup, /SELF_HOSTED_ARCHIVE_URL/); assert.match(backup, /BACKUP_WRITERS_QUIESCED/); assert.match(backup, /pg_dump/); assert.match(backup, /FORMAT Native/); assert.match(fetchBackup, /sha256sum --check SHA256SUMS/); assert.match(fetchBackup, /SELF_HOSTED_ARCHIVE_URL must be loopback HTTP/); assert.match(restore, /--confirm-empty-target/); assert.match(restore, /sha256sum --check SHA256SUMS/); assert.match(restore, /pg_restore --clean --if-exists/); assert.match(restore, /TRUNCATE TABLE/);
 });
 
 test("API authentication and quotas fail closed", async (t) => {
@@ -353,7 +364,7 @@ test("API authentication and quotas fail closed", async (t) => {
 
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
-  const evidence = await (await fetch(`${base}/internal/evidence/mint-address`)).json(); assert.equal(evidence.schemaVersion, 1); assert.match(evidence.immutableSnapshotId, /^solana:100:/); assert.equal(evidence.safeForAutomation, false); assert.ok(evidence.missing.includes("executable_route"));
+  const evidence = await (await fetch(`${base}/internal/evidence/mint-address`)).json(); assert.equal(evidence.schemaVersion, 1); assert.match(evidence.immutableSnapshotId, /^solana:100:/); assert.equal(evidence.safeForAutomation, false); assert.ok(evidence.missing.includes("executable_route")); const route = await (await fetch(`${base}/internal/tokens/mint-address/executable-depth`)).json(); assert.equal(route.selfHosted, true); assert.equal(route.available, false); assert.ok(route.missing.includes("local_simulation"));
   const registry = await (await fetch(`${base}/internal/registry`)).json(); assert.equal(registry.version, 1); assert.ok(registry.programs.some((row) => row.protocol === "pump-bonding-curve"));
 });
 
