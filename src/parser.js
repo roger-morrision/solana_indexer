@@ -59,7 +59,14 @@ export function parseBlock(block) {
       if (transfer) transfers.push({ ...transfer, signature, slot: block.slot, blockTime });
     }
   }
-  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, transactions, transfers };
+  const provenance = {
+    source: typeof block.provenance?.source === "string" ? block.provenance.source : "unknown",
+    commitment: block.provenance?.commitment === "finalized" ? "finalized" : "unknown",
+    observedAt: typeof block.provenance?.observedAt === "string" ? block.provenance.observedAt : null,
+    sourceTip: Number.isInteger(block.provenance?.sourceTip) ? block.provenance.sourceTip : null,
+    exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
+  };
+  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, transfers };
 }
 
 export function parseInput(text, filename = "input") {

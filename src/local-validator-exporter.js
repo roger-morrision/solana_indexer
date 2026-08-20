@@ -28,13 +28,16 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, batchSi
   const tip = await client.call("getSlot", [{ commitment: "finalized" }]);
   let cursor = await readCursor(cursorFile);
   if (cursor == null) cursor = Math.max(0, tip - 1);
-  const end = Math.min(tip, cursor + batchSize); let exported = 0, skipped = 0;
+  const end = Math.min(tip, cursor + batchSize); let exported = 0; const skippedSlots = [];
   for (let slot = cursor + 1; slot <= end; slot++) {
     const block = await client.call("getBlock", [slot, { commitment: "finalized", encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
-    if (block) { await atomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block })}\n`); exported++; } else skipped++;
+    if (block) {
+      const provenance = { source: "local-agave-rpc", commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
+      await atomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
+    } else skippedSlots.push(slot);
     await atomicWrite(cursorFile, `${slot}\n`);
   }
-  return { localValidatorTip: tip, cursor: end, exported, skipped };
+  return { localValidatorTip: tip, cursor: end, lagSlots: tip - end, exported, skipped: skippedSlots.length, skippedSlots: skippedSlots.slice(0, 256) };
 }
 
 async function main() {

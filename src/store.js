@@ -27,7 +27,7 @@ export class IndexStore {
     const prior = this.state.blocks[slot];
     if (prior && prior.blockhash === block.blockhash) return { inserted: false, reason: "duplicate" };
     if (prior) this.removeSlot(block.slot);
-    this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length };
+    this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, provenance: block.provenance, transactionCount: block.transactions.length, transferCount: block.transfers.length };
     for (const transaction of block.transactions) {
       this.state.transactions[transaction.signature] = transaction;
       for (const account of transaction.accounts) {
@@ -73,7 +73,10 @@ export class IndexStore {
     this.rebuildAggregates();
   }
   computeTip() { const slots = Object.keys(this.state.blocks).map(Number); return slots.length ? Math.max(...slots) : null; }
-  stats() { return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, transfers: this.state.transfers.length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, updatedAt: this.state.updatedAt }; }
+  stats() {
+    const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
+    return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, transfers: this.state.transfers.length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
+  }
   chainQuality() {
     const slots = Object.keys(this.state.blocks).map(Number).sort((a, b) => a - b);
     const conflicts = [];
@@ -85,6 +88,28 @@ export class IndexStore {
       }
     }
     return { canonical: conflicts.length === 0, conflicts: conflicts.slice(0, 100), conflictCount: conflicts.length };
+  }
+  dataCapabilities() {
+    const blocks = Object.values(this.state.blocks);
+    const finalizedBlocks = blocks.filter((block) => block.provenance?.commitment === "finalized").length;
+    return {
+      canonicalBlocks: blocks.length > 0,
+      finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
+      splTransfers: this.state.transfers.length > 0,
+      dexSwaps: false,
+      poolLiquidity: false,
+      marketPrices: false,
+      riskSignals: false,
+      finalizedBlocks,
+      totalBlocks: blocks.length,
+    };
+  }
+  botReadiness(staleAfterMs = 120_000, now = Date.now()) {
+    const health = this.health(staleAfterMs, now);
+    const capabilities = this.dataCapabilities();
+    const required = ["canonicalBlocks", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const missing = required.filter((name) => !capabilities[name]);
+    return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities };
   }
   health(staleAfterMs = 120_000, now = Date.now()) {
     const stats = this.stats();

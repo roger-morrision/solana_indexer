@@ -8,7 +8,7 @@ import { indexInbox } from "../src/indexer.js";
 import { parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
-import { validateLocalRpcUrl } from "../src/local-validator-exporter.js";
+import { exportFinalizedBlocks, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 
@@ -16,6 +16,7 @@ test("parses a canonical parsed block and SPL transfer", async () => {
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
   assert.equal(block.transactions.length, 1); assert.equal(block.transfers.length, 1);
   assert.equal(block.transfers[0].mint, "mint-address");
+  assert.equal(block.provenance.commitment, "finalized");
   assert.deepEqual({ amountRaw: block.transfers[0].amountRaw, decimals: block.transfers[0].decimals, amountUiString: block.transfers[0].amountUiString }, { amountRaw: "12500000", decimals: 6, amountUiString: "12.5" });
 });
 
@@ -62,6 +63,16 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
 });
 
+test("exporter records finalized provenance, lag, and skipped slots", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-"));
+  const client = { call: async (method, params) => method === "getSlot" ? 12 : params[0] === 11 ? null : { blockhash: `block-${params[0]}`, previousBlockhash: "parent", parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] } };
+  await fs.writeFile(path.join(root, "cursor"), "9\n");
+  const result = await exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile: path.join(root, "cursor"), batchSize: 2 });
+  assert.deepEqual(result, { localValidatorTip: 12, cursor: 11, lagSlots: 1, exported: 1, skipped: 1, skippedSlots: [11] });
+  const block = JSON.parse(await fs.readFile(path.join(root, "inbox", "10.json"), "utf8"));
+  assert.deepEqual({ source: block.provenance.source, commitment: block.provenance.commitment, sourceTip: block.provenance.sourceTip, exportLagSlots: block.provenance.exportLagSlots }, { source: "local-agave-rpc", commitment: "finalized", sourceTip: 12, exportLagSlots: 2 });
+});
+
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
   const store = new IndexStore("unused"); await store.load();
   const server = createServer({ staleAfterMs: 120_000 }, store);
@@ -73,4 +84,32 @@ test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
   assert.equal((await health.json()).status, "empty");
   const stats = await fetch(`${base}/api/stats`);
   assert.equal(stats.status, 200); assert.deepEqual((await stats.json()).chain, { canonical: true, conflicts: [], conflictCount: 0 });
+});
+
+test("REST v1 paginates stably and rejects invalid cursors", async (t) => {
+  const store = new IndexStore("unused"); await store.load();
+  const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
+  store.apply(original); store.apply({ ...original, slot: 101, blockhash: "block-101", previousBlockhash: "block-100", parentSlot: 100, transactions: [{ ...original.transactions[0], signature: "signature-2", slot: 101 }], transfers: [] });
+  store.state.updatedAt = new Date().toISOString();
+  const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const first = await (await fetch(`${base}/api/v1/blocks?limit=1`)).json();
+  assert.equal(first.data[0].slot, 101); assert.ok(first.nextCursor);
+  const second = await (await fetch(`${base}/api/v1/blocks?limit=1&cursor=${first.nextCursor}`)).json();
+  assert.equal(second.data[0].slot, 100); assert.equal(second.nextCursor, null);
+  assert.equal((await fetch(`${base}/api/v1/blocks?cursor=bad`)).status, 400);
+});
+
+test("bot readiness refuses incomplete market data", async () => {
+  const store = new IndexStore("unused"); await store.load();
+  const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString();
+  const readiness = store.botReadiness(120_000, 1_700_000_001_000);
+  assert.equal(readiness.ready, false); assert.equal(readiness.reason, "missing_required_capabilities");
+  assert.deepEqual(readiness.missing, ["dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"]);
+});
+
+test("trending is deterministic for equal transfer counts", async () => {
+  const store = new IndexStore("unused"); await store.load();
+  store.state.mints = { older: { transferCount: 2, lastSlot: 10 }, newer: { transferCount: 2, lastSlot: 11 }, busy: { transferCount: 3, lastSlot: 9 } };
+  assert.deepEqual(store.trending(3).map((row) => row.mint), ["busy", "newer", "older"]);
 });

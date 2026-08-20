@@ -4,6 +4,7 @@
   "previousBlockhash": "block-99",
   "parentSlot": 99,
   "blockTime": 1700000000,
+  "provenance": {"source":"local-agave-rpc","commitment":"finalized","observedAt":"2023-11-14T22:13:20.100Z"},
   "transactions": [{
     "transaction": {
       "signatures": ["signature-1"],

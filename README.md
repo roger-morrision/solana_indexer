@@ -64,6 +64,7 @@ npm start
 ```
 
 The exporter rejects HTTPS and every non-loopback address. It reads finalized blocks only from `http://127.0.0.1:8899`, writes them atomically to `inbox/`, and checkpoints its last exported slot. This is self-owned local RPC traffic, not a third-party provider.
+Each exported block carries source, finalized commitment, observation time, validator tip, and export lag. Export-cycle diagnostics include the bounded skipped-slot list; skipped Solana slots are evidence, not treated as missing blocks.
 
 ### Minimal Docker development validator
 
@@ -99,6 +100,9 @@ Configuration:
 - `GET /api/account/:address?limit=100`
 - `GET /api/mint/:mint?limit=100`
 - `GET /api/trending?limit=50`
+- `GET /api/v1/blocks?limit=100&cursor=...` (stable response envelope)
+- `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
+- `GET /api/v1/bot/readiness` (fail-closed capability gate)
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers
@@ -117,3 +121,4 @@ must not use binary floating-point values for balances or trading decisions.
 - Input errors are isolated per file and returned in cycle diagnostics.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
 - Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.
+- The bot-readiness endpoint returns HTTP 503 until canonical finalized provenance, decoded swaps, liquidity, prices, and risk signals are all available and the index is healthy.
