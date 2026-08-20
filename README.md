@@ -139,6 +139,7 @@ Configuration:
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
+| `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic finalized mint/account snapshot evidence |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
 | `INDEXER_PORT` | `8787` | API port |
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
@@ -169,7 +170,7 @@ Configuration:
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
 - `GET /api/v1/candles/:pool?interval=60&limit=300` (exact direction-stable OHLCV)
 - `GET /api/v1/token-account/:address` (latest observed on-chain token balance)
-- `GET /api/v1/holders/:mint?limit=100` (partial observed-holder evidence)
+- `GET /api/v1/holders/:mint?limit=100` (finalized snapshot coverage when available; exclusions disclosed)
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
@@ -184,6 +185,16 @@ contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 and `/internal/feed/gaps`. Evidence responses include stable schema versions,
 provenance, freshness, confidence, and explicit missing fields. The program
 registry is available at `/internal/registry`.
+
+Run `npm run snapshot:accounts -- <mint> [mint...]` against the loopback mainnet
+RPC to capture canonical finalized mint authorities, Token-2022 extensions, and
+all SPL/Token-2022 accounts for selected mints. With no arguments it uses mints
+already discovered by the index. This is intentionally bounded because
+`getProgramAccounts` is expensive. Holder concentration remains unsafe for
+automation until pool, burn, locker, and exchange exclusions are authoritative.
+`/internal/tokens/:mint/security` reports snapshot-backed authority/extension
+findings. `/internal/wallets/:address/performance` reports exact rational cost
+basis/PnL only for decoded swaps carrying an explicit user address.
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers

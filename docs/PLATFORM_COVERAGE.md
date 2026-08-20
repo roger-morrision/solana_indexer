@@ -12,12 +12,12 @@ synthetically populated.
 | Confirmed/finalized streaming | complete for block PubSub | serialized stream, durable status, gap repair, fork promotion | Yellowstone parallel lane |
 | Immutable instruction facts | complete in compatibility store | stable location identity, registry version, decoder version and payload hash | ClickHouse sink |
 | Dead letters/checkpoints/reorg corrections | complete in compatibility store | bounded persisted evidence and REST health exposure | object storage and operational retry commands |
-| Token balances/observed holders | partial | loaded-address-aware exact deltas and reorg rebuild | canonical account snapshot service |
+| Token balances/observed holders | deployable partial | finalized SPL/Token-2022 account snapshots overlaid with loaded-address-aware exact deltas; monotonic snapshot slots and reorg rebuild | authoritative pool/burn/locker/exchange exclusions and periodic scheduler |
 | Protocol swaps | partial | Raydium CPMM, PumpSwap, Pump bonding curve | remaining registry entries and fixture-backed decoders |
 | OHLCV | partial | exact raw 1m/5m/15m/1h/4h/1d pool candles | unique traders, USD/native references and late-event worker |
-| Internal evidence API | partial | authenticated token, market, holders, trades, OHLCV, liquidity, trending, candidates, feed health/gaps | authority, routes, wallet performance and risk workers |
+| Internal evidence API | partial | authenticated token, market, snapshot-backed security/holders, trades, OHLCV, liquidity, trending, candidates, exact partial wallet performance, feed health/gaps | routes, USD references and complete risk workers |
 | PostgreSQL/ClickHouse/Redis | deployable, not integrated | reviewed-image-required Compose, secret files, loopback ports, health checks, PostgreSQL metadata/ops schema and ClickHouse immutable-event schema | connector interfaces and verified dual-write migration |
 | Object storage | contract pending | secrets and generated archives remain excluded from Git | select approved S3-compatible implementation, retention and backup policy |
-| Yellowstone/Geyser | missing | no speculative client | reviewed protobuf/plugin release and deployment |
+| Yellowstone/Geyser | blocked on compatible release | repository Agave 3.1.14 cannot load current Yellowstone 14.2.2 built for Agave 4.1.0 | operator-approved Agave 4.1 upgrade or reviewed Yellowstone 11.x pin; load/leak qualification |
 | Executable routing | external by design initially | explicit unavailable response | approved Jupiter integration or local router |
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |

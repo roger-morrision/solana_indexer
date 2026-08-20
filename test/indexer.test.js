@@ -12,6 +12,7 @@ import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
+import { createAccountSnapshot } from "../src/account-snapshot.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 
@@ -36,6 +37,21 @@ test("indexes loaded-address token balance changes and rebuilds partial holders 
   const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   const holders = await (await fetch(`${base}/api/v1/holders/holder-mint`)).json(); assert.equal(holders.coverage, "observed_changes_only"); assert.equal(holders.safeForAutomation, false);
   assert.equal((await (await fetch(`${base}/api/v1/token-account/loaded-token-account`)).json()).amountRaw, "5");
+});
+
+test("canonical finalized account snapshots persist complete holder and authority evidence", async () => {
+  const client = { call: async (method, params) => { if (method === "getSlot") return 500; if (method === "getMultipleAccounts") return { value: [{ data: { parsed: { info: { decimals: 6, supply: "100", mintAuthority: null, freezeAuthority: null, extensions: [] } } } }] }; if (method === "getProgramAccounts") return params[0].startsWith("Tokenkeg") ? [{ pubkey: "token-a", account: { data: { parsed: { info: { mint: "mint-a", owner: "wallet-a", state: "initialized", tokenAmount: { amount: "100", decimals: 6 } } } } } }] : []; throw new Error(method); } };
+  const snapshot = await createAccountSnapshot({ client, mints: ["mint-a"], genesisHash: MAINNET_GENESIS_HASH, observedAt: "2026-08-20T00:00:00.000Z" }); const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-account-snapshot-")), filename = path.join(root, "index.json"); const store = new IndexStore(filename); await store.load(); store.applyAccountSnapshot(snapshot); await store.save();
+  const reloaded = new IndexStore(filename); await reloaded.load(); const holders = reloaded.holders("mint-a"); assert.equal(holders.complete, true); assert.equal(holders.coverage, "finalized_program_account_snapshot_plus_changes"); assert.equal(holders.observedRaw, "100"); assert.equal(reloaded.state.mints["mint-a"].mintInfo.supply, "100");
+  const security = reloaded.tokenSecurity("mint-a"); assert.equal(security.assessable, true); assert.equal(security.evidence.slot, 500); assert.deepEqual(security.findings, []); assert.equal(security.safeForAutomation, false);
+  assert.equal(reloaded.evidence("mint-a").missing.includes("mint_authority"), false);
+  reloaded.applyAccountSnapshot({ ...snapshot, slot: 499, mints: [{ ...snapshot.mints[0], mintInfo: { ...snapshot.mints[0].mintInfo, mintAuthority: "stale-authority" }, accounts: [] }] });
+  assert.equal(reloaded.state.holderSnapshots["mint-a"].slot, 500); assert.equal(reloaded.tokenSecurity("mint-a").evidence.mintAuthority, null);
+});
+
+test("token security blocks authority and hazardous Token-2022 extension evidence", async () => {
+  const store = new IndexStore("unused"); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 700, observedAt: "2026-08-20T00:00:00.000Z", mints: [{ mint: "mint-risk", mintInfo: { mintAuthority: "authority", freezeAuthority: null, extensions: [{ extension: "transferHook" }, { extension: "transferFeeConfig" }] }, accounts: [] }] });
+  const security = store.tokenSecurity("mint-risk"); assert.equal(security.assessable, true); assert.deepEqual(security.findings.map((row) => row.code), ["mint_authority_present", "token_2022_extension", "transfer_fee_extension"]); assert.ok(security.findings.every((row) => row.blocksAutomation));
 });
 
 test("indexes idempotently and persists queryable state", async () => {
@@ -264,6 +280,12 @@ test("rolling trending excludes stale activity and exposes trader and protocol e
   const rows = store.trending(10, 300, now); const token = rows.find((row) => row.mint === "token");
   assert.deepEqual({ swapCount: token.swapCount, buyCount: token.buyCount, sellCount: token.sellCount, uniqueTraders: token.uniqueTraders, protocols: token.protocols }, { swapCount: 2, buyCount: 1, sellCount: 1, uniqueTraders: 2, protocols: ["pump-bonding-curve"] });
   assert.equal(rows.some((row) => row.mint === "stale"), false);
+});
+
+test("wallet cost basis and PnL remain exact and disclose partial coverage", async () => {
+  const store = new IndexStore("unused"); await store.load(); const common = { user: "wallet-a", baseMint: "token", quoteMint: "quote", inputDecimals: 6, outputDecimals: 6, slot: 1, eventIndex: 0 };
+  store.state.swaps = [{ ...common, swapId: "buy:0", inputMint: "quote", outputMint: "token", inputAmountRaw: "200", outputAmountRaw: "100" }, { ...common, swapId: "sell:0", slot: 2, inputMint: "token", outputMint: "quote", inputAmountRaw: "40", outputAmountRaw: "120" }];
+  const result = store.walletPerformance("wallet-a"), position = result.positions[0]; assert.equal(result.complete, false); assert.equal(result.safeForAutomation, false); assert.equal(position.quantityRaw, "60"); assert.deepEqual(position.costBasis, { numeratorRaw: "120", denominatorRaw: "1", quoteMint: "quote" }); assert.deepEqual(position.realizedPnl, { numeratorRaw: "40", denominatorRaw: "1", quoteMint: "quote" }); assert.deepEqual(position.unrealizedPnl, { numeratorRaw: "60", denominatorRaw: "1", quoteMint: "quote" });
 });
 
 test("JSON-RPC exposes only read-only indexed methods", async (t) => {

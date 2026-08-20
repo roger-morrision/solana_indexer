@@ -1,8 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+function gcd(a, b) { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a || 1n; }
+function rational(numerator = 0n, denominator = 1n) { if (denominator === 0n) throw new Error("zero rational denominator"); if (denominator < 0n) { numerator = -numerator; denominator = -denominator; } const divisor = gcd(numerator, denominator); return { n: numerator / divisor, d: denominator / divisor }; }
+function addRational(a, b) { return rational(a.n * b.d + b.n * a.d, a.d * b.d); }
+function subtractRational(a, b) { return rational(a.n * b.d - b.n * a.d, a.d * b.d); }
+function multiplyRational(a, numerator, denominator = 1n) { return rational(a.n * numerator, a.d * denominator); }
+function publicRational(value, quoteMint) { return { numeratorRaw: value.n.toString(), denominatorRaw: value.d.toString(), quoteMint }; }
+
 function emptyState() {
-  return { version: 7, tip: null, blocks: {}, transactions: {}, instructions: [], programEvents: [], transfers: [], balanceChanges: [], tokenAccounts: {}, swaps: [], pools: {}, accounts: {}, mints: {}, processedFiles: {}, checkpoints: {}, deadLetters: [], reorgCorrections: [], events: [], eventSequence: 0, updatedAt: null };
+  return { version: 8, tip: null, blocks: {}, transactions: {}, instructions: [], programEvents: [], transfers: [], balanceChanges: [], tokenAccounts: {}, holderSnapshots: {}, swaps: [], pools: {}, accounts: {}, mints: {}, processedFiles: {}, checkpoints: {}, deadLetters: [], reorgCorrections: [], events: [], eventSequence: 0, updatedAt: null };
 }
 
 export class IndexStore {
@@ -11,11 +18,11 @@ export class IndexStore {
     if (this.loaded) return;
     try { this.state = JSON.parse(await fs.readFile(this.filename, "utf8")); }
     catch (error) { if (error.code !== "ENOENT") throw error; }
-    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.swaps ??= []; this.state.pools ??= {}; this.state.balanceChanges ??= []; this.state.tokenAccounts ??= {}; this.state.instructions ??= []; this.state.programEvents ??= []; this.state.checkpoints ??= {}; this.state.deadLetters ??= []; this.state.reorgCorrections ??= [];
+    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.swaps ??= []; this.state.pools ??= {}; this.state.balanceChanges ??= []; this.state.tokenAccounts ??= {}; this.state.holderSnapshots ??= {}; this.state.instructions ??= []; this.state.programEvents ??= []; this.state.checkpoints ??= {}; this.state.deadLetters ??= []; this.state.reorgCorrections ??= [];
     const indices = new Map(); for (const swap of this.state.swaps) if (Number.isSafeInteger(swap.eventIndex)) indices.set(swap.signature, Math.max(indices.get(swap.signature) ?? 0, swap.eventIndex + 1));
     for (const swap of this.state.swaps) if (!swap.swapId) { const eventIndex = indices.get(swap.signature) ?? 0; indices.set(swap.signature, eventIndex + 1); swap.eventIndex = eventIndex; swap.swapId = `${swap.signature}:${eventIndex}`; }
     for (const swap of this.state.swaps) if (!swap.baseMint || !swap.quoteMint) { swap.baseMint = [swap.inputMint, swap.outputMint].sort()[0]; swap.quoteMint = swap.baseMint === swap.inputMint ? swap.outputMint : swap.inputMint; swap.pairIdentitySource = "canonical_lexical"; swap.baseDecimals = swap.baseMint === swap.inputMint ? swap.inputDecimals : swap.outputDecimals; swap.quoteDecimals = swap.quoteMint === swap.inputMint ? swap.inputDecimals : swap.outputDecimals; }
-    this.state.version = 7; this.rebuildTokenAccounts();
+    this.state.version = 8; this.rebuildTokenAccounts();
     this.loaded = true;
   }
   async save() {
@@ -30,6 +37,10 @@ export class IndexStore {
   hasFile(name, fingerprint) { const row = this.state.processedFiles[name]; return row?.fingerprint === fingerprint && row?.parserVersion === 2; }
   markFile(name, fingerprint) { this.state.processedFiles[name] = { fingerprint, parserVersion: 2 }; this.state.checkpoints.inbox = { filename: name, fingerprint, parserVersion: 2, updatedAt: new Date().toISOString() }; }
   recordDeadLetter(filename, fingerprint, error) { const existing = this.state.deadLetters.find((row) => row.filename === filename && row.fingerprint === fingerprint); if (existing) { existing.attempts++; existing.lastObservedAt = new Date().toISOString(); existing.error = error; return; } this.state.deadLetters.push({ id: `${filename}:${fingerprint ?? "unreadable"}`, filename, fingerprint, error, attempts: 1, firstObservedAt: new Date().toISOString(), lastObservedAt: new Date().toISOString(), resolved: false }); if (this.state.deadLetters.length > 10_000) this.state.deadLetters.splice(0, this.state.deadLetters.length - 10_000); }
+  applyAccountSnapshot(snapshot) {
+    if (snapshot?.schemaVersion !== 1 || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.slot) || !Array.isArray(snapshot.mints)) throw new Error("invalid finalized account snapshot");
+    for (const row of snapshot.mints) { if (typeof row.mint !== "string" || !Array.isArray(row.accounts)) throw new Error("invalid mint snapshot row"); const priorSnapshot = this.state.holderSnapshots[row.mint]; if (priorSnapshot && snapshot.slot < priorSnapshot.slot) continue; let complete = true; for (const account of row.accounts) { if (!/^\d+$/.test(account.amountRaw) || !account.tokenAccount) throw new Error("invalid token account snapshot row"); if (!account.owner) complete = false; const prior = this.state.tokenAccounts[account.tokenAccount]; if (!prior || snapshot.slot >= prior.lastSlot) this.state.tokenAccounts[account.tokenAccount] = { mint: row.mint, owner: account.owner, programId: account.programId, decimals: account.decimals, amountRaw: account.amountRaw, lastSlot: snapshot.slot, lastSignature: null, closed: BigInt(account.amountRaw) === 0n }; } this.state.holderSnapshots[row.mint] = { slot: snapshot.slot, observedAt: snapshot.observedAt, genesisHash: snapshot.genesisHash, accountCount: row.accounts.length, complete, accounts: row.accounts }; const mint = this.state.mints[row.mint] ?? { transferCount: 0, swapCount: 0, lastSlot: snapshot.slot, lastBlockTime: null }; mint.mintInfo = row.mintInfo; mint.authoritySourceSlot = snapshot.slot; this.state.mints[row.mint] = mint; }
+  }
   apply(block) {
     const slot = String(block.slot);
     let prior = this.state.blocks[slot]; const enrichment = prior?.blockhash === block.blockhash && prior.instructionCount == null;
@@ -114,12 +125,31 @@ export class IndexStore {
   rebuildTokenAccounts() {
     this.state.tokenAccounts = {};
     for (const change of [...this.state.balanceChanges].sort((a, b) => a.slot - b.slot)) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
+    for (const [mint, snapshot] of Object.entries(this.state.holderSnapshots)) for (const account of snapshot.accounts ?? []) { const prior = this.state.tokenAccounts[account.tokenAccount]; if (!prior || snapshot.slot >= prior.lastSlot) this.state.tokenAccounts[account.tokenAccount] = { mint, owner: account.owner, programId: account.programId, decimals: account.decimals, amountRaw: account.amountRaw, lastSlot: snapshot.slot, lastSignature: null, closed: BigInt(account.amountRaw) === 0n }; }
   }
   computeTip() { const slots = Object.keys(this.state.blocks).map(Number); return slots.length ? Math.max(...slots) : null; }
   evidence(mint, staleAfterMs = 120_000, now = Date.now()) {
-    const token = this.mint(mint, 100); const swaps = this.state.swaps.filter((row) => row.inputMint === mint || row.outputMint === mint).sort((a, b) => b.slot - a.slot); const pools = [...new Set(swaps.map((row) => row.pool))].map((address) => this.pool(address).summary).filter(Boolean); const latest = swaps[0] ?? null; const ageMs = latest?.blockTime == null ? null : Math.max(0, now - latest.blockTime * 1_000); const missing = [];
-    if (!latest) missing.push("market_activity"); if (!pools.length) missing.push("pool_state"); if (!token.observedHolders.observedHolders) missing.push("holder_evidence"); if (!token.observedHolders.complete) missing.push("complete_holder_snapshot"); missing.push("mint_authority", "freeze_authority", "executable_route", "usd_reference_price");
-    return { schemaVersion: 1, mint, observedAt: new Date(now).toISOString(), immutableSnapshotId: `solana:${this.state.tip ?? "empty"}:${mint}`, freshness: { latestMarketSlot: latest?.slot ?? null, latestBlockTime: latest?.blockTime ?? null, ageMs, stale: ageMs == null || ageMs > staleAfterMs }, provenance: latest?.provenance ?? null, identity: { mint }, market: { latestSwap: latest, pools }, holders: token.observedHolders, security: { assessable: false }, missing: [...new Set(missing)], confidence: missing.length ? "insufficient" : "complete", safeForAutomation: false };
+    const token = this.mint(mint, 100), security = this.tokenSecurity(mint); const swaps = this.state.swaps.filter((row) => row.inputMint === mint || row.outputMint === mint).sort((a, b) => b.slot - a.slot); const pools = [...new Set(swaps.map((row) => row.pool))].map((address) => this.pool(address).summary).filter(Boolean); const latest = swaps[0] ?? null; const ageMs = latest?.blockTime == null ? null : Math.max(0, now - latest.blockTime * 1_000); const missing = [];
+    if (!latest) missing.push("market_activity"); if (!pools.length) missing.push("pool_state"); if (!token.observedHolders.observedHolders) missing.push("holder_evidence"); if (!token.observedHolders.complete) missing.push("complete_holder_snapshot"); if (!security.assessable) missing.push("mint_authority", "freeze_authority", "token_2022_extensions"); missing.push("executable_route", "usd_reference_price");
+    return { schemaVersion: 1, mint, observedAt: new Date(now).toISOString(), immutableSnapshotId: `solana:${this.state.tip ?? "empty"}:${mint}`, freshness: { latestMarketSlot: latest?.slot ?? null, latestBlockTime: latest?.blockTime ?? null, ageMs, stale: ageMs == null || ageMs > staleAfterMs }, provenance: latest?.provenance ?? null, identity: { mint }, market: { latestSwap: latest, pools }, holders: token.observedHolders, security, missing: [...new Set(missing)], confidence: missing.length ? "insufficient" : "complete", safeForAutomation: false };
+  }
+  walletPerformance(address) {
+    const swaps = this.state.swaps.filter((row) => row.user === address && row.baseMint && row.quoteMint).sort((a, b) => a.slot - b.slot || a.eventIndex - b.eventIndex); const positions = new Map(); const anomalies = [];
+    for (const swap of swaps) { const key = `${swap.baseMint}:${swap.quoteMint}`, row = positions.get(key) ?? { baseMint: swap.baseMint, quoteMint: swap.quoteMint, quantityRaw: 0n, cost: rational(), realized: rational(), latestPrice: null, buys: 0, sells: 0 }; const buy = swap.inputMint === row.quoteMint && swap.outputMint === row.baseMint, sell = swap.inputMint === row.baseMint && swap.outputMint === row.quoteMint; if (!buy && !sell) { anomalies.push({ swapId: swap.swapId, reason: "pair_direction_mismatch" }); continue; } const baseRaw = BigInt(buy ? swap.outputAmountRaw : swap.inputAmountRaw), quoteRaw = BigInt(buy ? swap.inputAmountRaw : swap.outputAmountRaw); if (baseRaw === 0n) { anomalies.push({ swapId: swap.swapId, reason: "zero_base_amount" }); continue; } row.latestPrice = rational(quoteRaw, baseRaw); if (buy) { row.quantityRaw += baseRaw; row.cost = addRational(row.cost, rational(quoteRaw)); row.buys++; } else if (row.quantityRaw === 0n) { anomalies.push({ swapId: swap.swapId, reason: "sell_without_indexed_inventory" }); row.sells++; } else { const sold = baseRaw > row.quantityRaw ? row.quantityRaw : baseRaw, allocated = multiplyRational(row.cost, sold, row.quantityRaw), proceeds = rational(quoteRaw * sold, baseRaw); row.realized = addRational(row.realized, subtractRational(proceeds, allocated)); row.cost = subtractRational(row.cost, allocated); row.quantityRaw -= sold; row.sells++; if (sold !== baseRaw) anomalies.push({ swapId: swap.swapId, reason: "sell_exceeds_indexed_inventory" }); } positions.set(key, row); }
+    return { schemaVersion: 1, address, coverage: "decoded_swaps_with_explicit_user_only", complete: false, safeForAutomation: false, swaps: swaps.length, anomalies, positions: [...positions.values()].map((row) => { const marketValue = row.latestPrice ? multiplyRational(row.latestPrice, row.quantityRaw) : rational(); return { baseMint: row.baseMint, quoteMint: row.quoteMint, quantityRaw: row.quantityRaw.toString(), costBasis: publicRational(row.cost, row.quoteMint), realizedPnl: publicRational(row.realized, row.quoteMint), unrealizedPnl: publicRational(subtractRational(marketValue, row.cost), row.quoteMint), latestPrice: row.latestPrice ? publicRational(row.latestPrice, row.quoteMint) : null, buys: row.buys, sells: row.sells }; }) };
+  }
+  tokenSecurity(mint) {
+    const token = this.state.mints[mint], info = token?.mintInfo ?? null, snapshot = this.state.holderSnapshots[mint] ?? null;
+    if (!info || !snapshot) return { schemaVersion: 1, mint, assessable: false, safeForAutomation: false, ruleVersion: "token-security-v1", missing: ["finalized_mint_account_snapshot"], findings: [], evidence: null };
+    const findings = [];
+    if (info.mintAuthority) findings.push({ code: "mint_authority_present", severity: "high", blocksAutomation: true, value: info.mintAuthority });
+    if (info.freezeAuthority) findings.push({ code: "freeze_authority_present", severity: "high", blocksAutomation: true, value: info.freezeAuthority });
+    const extensions = Array.isArray(info.extensions) ? info.extensions : [];
+    const extensionNames = extensions.map((row) => String(row?.extension ?? row?.type ?? row?.name ?? "unknown"));
+    const blockingExtensions = new Set(["permanentDelegate", "transferHook", "confidentialTransferMint", "defaultAccountState", "nonTransferable"]);
+    for (const extension of extensionNames) if (blockingExtensions.has(extension)) findings.push({ code: "token_2022_extension", severity: "high", blocksAutomation: true, value: extension });
+    if (extensionNames.includes("transferFeeConfig")) findings.push({ code: "transfer_fee_extension", severity: "medium", blocksAutomation: true, value: "transferFeeConfig" });
+    return { schemaVersion: 1, mint, assessable: true, safeForAutomation: false, ruleVersion: "token-security-v1", missing: ["executable_sell_route", "liquidity_lock_evidence", "holder_exclusions"], findings, evidence: { commitment: "finalized", slot: snapshot.slot, observedAt: snapshot.observedAt, genesisHash: snapshot.genesisHash, mintAuthority: info.mintAuthority ?? null, freezeAuthority: info.freezeAuthority ?? null, extensions: extensionNames } };
   }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
@@ -192,7 +222,8 @@ export class IndexStore {
     const accounts = Object.entries(this.state.tokenAccounts).filter(([, row]) => row.mint === mint && BigInt(row.amountRaw) > 0n); const owners = new Map(); let observedRaw = 0n;
     for (const [tokenAccount, row] of accounts) { observedRaw += BigInt(row.amountRaw); const owner = row.owner ?? `unknown:${tokenAccount}`; const current = owners.get(owner) ?? { owner, amountRaw: 0n, tokenAccounts: 0 }; current.amountRaw += BigInt(row.amountRaw); current.tokenAccounts++; owners.set(owner, current); }
     const ranked = [...owners.values()].sort((a, b) => a.amountRaw === b.amountRaw ? a.owner.localeCompare(b.owner) : a.amountRaw > b.amountRaw ? -1 : 1); const top10Raw = ranked.slice(0, 10).reduce((sum, row) => sum + row.amountRaw, 0n);
-    return { mint, coverage: "observed_changes_only", complete: false, safeForAutomation: false, observedTokenAccounts: accounts.length, observedHolders: ranked.length, observedRaw: observedRaw.toString(), top10ObservedRaw: top10Raw.toString(), concentration: observedRaw > 0n ? { numeratorRaw: top10Raw.toString(), denominatorRaw: observedRaw.toString() } : null, holders: ranked.slice(0, limit).map((row) => ({ ...row, amountRaw: row.amountRaw.toString() })) };
+    const snapshot = this.state.holderSnapshots[mint] ?? null, complete = Boolean(snapshot?.complete);
+    return { mint, coverage: complete ? "finalized_program_account_snapshot_plus_changes" : "observed_changes_only", complete, concentrationAssessable: complete, safeForAutomation: false, exclusionsApplied: false, snapshot, observedTokenAccounts: accounts.length, observedHolders: ranked.length, observedRaw: observedRaw.toString(), top10ObservedRaw: top10Raw.toString(), concentration: observedRaw > 0n ? { numeratorRaw: top10Raw.toString(), denominatorRaw: observedRaw.toString() } : null, holders: ranked.slice(0, limit).map((row) => ({ ...row, amountRaw: row.amountRaw.toString() })) };
   }
   pool(address) { return { address, summary: this.state.pools[address] ?? null, swaps: this.state.swaps.filter((row) => row.pool === address).sort((a, b) => b.slot - a.slot) }; }
   candles(address, intervalSeconds = 60, limit = 300, now = Date.now()) {
