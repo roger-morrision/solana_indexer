@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 function emptyState() {
-  return { version: 6, tip: null, blocks: {}, transactions: {}, transfers: [], balanceChanges: [], tokenAccounts: {}, swaps: [], pools: {}, accounts: {}, mints: {}, processedFiles: {}, events: [], eventSequence: 0, updatedAt: null };
+  return { version: 7, tip: null, blocks: {}, transactions: {}, instructions: [], programEvents: [], transfers: [], balanceChanges: [], tokenAccounts: {}, swaps: [], pools: {}, accounts: {}, mints: {}, processedFiles: {}, checkpoints: {}, deadLetters: [], reorgCorrections: [], events: [], eventSequence: 0, updatedAt: null };
 }
 
 export class IndexStore {
@@ -11,11 +11,11 @@ export class IndexStore {
     if (this.loaded) return;
     try { this.state = JSON.parse(await fs.readFile(this.filename, "utf8")); }
     catch (error) { if (error.code !== "ENOENT") throw error; }
-    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.swaps ??= []; this.state.pools ??= {}; this.state.balanceChanges ??= []; this.state.tokenAccounts ??= {};
+    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.swaps ??= []; this.state.pools ??= {}; this.state.balanceChanges ??= []; this.state.tokenAccounts ??= {}; this.state.instructions ??= []; this.state.programEvents ??= []; this.state.checkpoints ??= {}; this.state.deadLetters ??= []; this.state.reorgCorrections ??= [];
     const indices = new Map(); for (const swap of this.state.swaps) if (Number.isSafeInteger(swap.eventIndex)) indices.set(swap.signature, Math.max(indices.get(swap.signature) ?? 0, swap.eventIndex + 1));
     for (const swap of this.state.swaps) if (!swap.swapId) { const eventIndex = indices.get(swap.signature) ?? 0; indices.set(swap.signature, eventIndex + 1); swap.eventIndex = eventIndex; swap.swapId = `${swap.signature}:${eventIndex}`; }
     for (const swap of this.state.swaps) if (!swap.baseMint || !swap.quoteMint) { swap.baseMint = [swap.inputMint, swap.outputMint].sort()[0]; swap.quoteMint = swap.baseMint === swap.inputMint ? swap.outputMint : swap.inputMint; swap.pairIdentitySource = "canonical_lexical"; swap.baseDecimals = swap.baseMint === swap.inputMint ? swap.inputDecimals : swap.outputDecimals; swap.quoteDecimals = swap.quoteMint === swap.inputMint ? swap.inputDecimals : swap.outputDecimals; }
-    this.state.version = 6; this.rebuildTokenAccounts();
+    this.state.version = 7; this.rebuildTokenAccounts();
     this.loaded = true;
   }
   async save() {
@@ -27,11 +27,13 @@ export class IndexStore {
     const committed = this.pendingEvents.splice(0);
     for (const event of committed) for (const listener of this.listeners) listener(event);
   }
-  hasFile(name, fingerprint) { return this.state.processedFiles[name] === fingerprint; }
-  markFile(name, fingerprint) { this.state.processedFiles[name] = fingerprint; }
+  hasFile(name, fingerprint) { const row = this.state.processedFiles[name]; return row?.fingerprint === fingerprint && row?.parserVersion === 2; }
+  markFile(name, fingerprint) { this.state.processedFiles[name] = { fingerprint, parserVersion: 2 }; this.state.checkpoints.inbox = { filename: name, fingerprint, parserVersion: 2, updatedAt: new Date().toISOString() }; }
+  recordDeadLetter(filename, fingerprint, error) { const existing = this.state.deadLetters.find((row) => row.filename === filename && row.fingerprint === fingerprint); if (existing) { existing.attempts++; existing.lastObservedAt = new Date().toISOString(); existing.error = error; return; } this.state.deadLetters.push({ id: `${filename}:${fingerprint ?? "unreadable"}`, filename, fingerprint, error, attempts: 1, firstObservedAt: new Date().toISOString(), lastObservedAt: new Date().toISOString(), resolved: false }); if (this.state.deadLetters.length > 10_000) this.state.deadLetters.splice(0, this.state.deadLetters.length - 10_000); }
   apply(block) {
     const slot = String(block.slot);
-    const prior = this.state.blocks[slot];
+    let prior = this.state.blocks[slot]; const enrichment = prior?.blockhash === block.blockhash && prior.instructionCount == null;
+    if (enrichment) { if (prior.provenance?.commitment === "finalized") { block.provenance = prior.provenance; for (const swap of block.swaps) swap.provenance = prior.provenance; } this.removeSlot(block.slot); prior = null; }
     if (prior && prior.blockhash === block.blockhash) {
       if (prior.provenance?.commitment === "confirmed" && block.provenance?.commitment === "finalized") {
         prior.provenance = block.provenance; for (const swap of this.state.swaps) if (swap.slot === block.slot) swap.provenance = block.provenance;
@@ -42,8 +44,8 @@ export class IndexStore {
       return { inserted: false, updated: false, reason: "duplicate" };
     }
     if (prior?.provenance?.commitment === "finalized" && block.provenance?.commitment !== "finalized") throw new Error(`refusing to replace finalized slot ${block.slot} with non-finalized data`);
-    if (prior) this.removeSlot(block.slot);
-    this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, provenance: block.provenance, transactionCount: block.transactions.length, transferCount: block.transfers.length };
+    if (prior) { this.state.reorgCorrections.push({ slot: block.slot, replacedBlockhash: prior.blockhash, canonicalBlockhash: block.blockhash, observedAt: new Date().toISOString() }); if (this.state.reorgCorrections.length > 10_000) this.state.reorgCorrections.splice(0, this.state.reorgCorrections.length - 10_000); this.removeSlot(block.slot); }
+    this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, provenance: block.provenance, transactionCount: block.transactions.length, instructionCount: (block.instructions ?? []).length, transferCount: block.transfers.length };
     for (const transaction of block.transactions) {
       this.state.transactions[transaction.signature] = transaction;
       for (const account of transaction.accounts) {
@@ -52,6 +54,7 @@ export class IndexStore {
         this.state.accounts[account] = current;
       }
     }
+    this.state.instructions.push(...(block.instructions ?? [])); this.state.programEvents.push(...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId })));
     this.state.transfers.push(...block.transfers);
     this.state.balanceChanges.push(...(block.balanceChanges ?? [])); for (const change of block.balanceChanges ?? []) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
     this.state.swaps.push(...block.swaps);
@@ -75,6 +78,7 @@ export class IndexStore {
     const signatures = new Set(Object.values(this.state.transactions).filter((tx) => tx.slot === slot).map((tx) => tx.signature));
     for (const signature of signatures) delete this.state.transactions[signature];
     this.state.transfers = this.state.transfers.filter((row) => row.slot !== slot);
+    this.state.instructions = this.state.instructions.filter((row) => row.slot !== slot); this.state.programEvents = this.state.programEvents.filter((row) => row.slot !== slot);
     this.state.balanceChanges = this.state.balanceChanges.filter((row) => row.slot !== slot);
     this.state.swaps = this.state.swaps.filter((row) => row.slot !== slot);
     delete this.state.blocks[String(slot)];
@@ -102,6 +106,7 @@ export class IndexStore {
     const keep = new Set(rows.sort((a, b) => b.slot - a.slot).slice(0, this.maxTransactions).map((row) => row.signature));
     for (const signature of Object.keys(this.state.transactions)) if (!keep.has(signature)) delete this.state.transactions[signature];
     this.state.transfers = this.state.transfers.filter((row) => keep.has(row.signature));
+    this.state.instructions = this.state.instructions.filter((row) => keep.has(row.signature)); this.state.programEvents = this.state.programEvents.filter((row) => keep.has(row.signature));
     this.state.balanceChanges = this.state.balanceChanges.filter((row) => keep.has(row.signature));
     this.state.swaps = this.state.swaps.filter((row) => keep.has(row.signature));
     this.rebuildAggregates();
@@ -111,9 +116,14 @@ export class IndexStore {
     for (const change of [...this.state.balanceChanges].sort((a, b) => a.slot - b.slot)) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
   }
   computeTip() { const slots = Object.keys(this.state.blocks).map(Number); return slots.length ? Math.max(...slots) : null; }
+  evidence(mint, staleAfterMs = 120_000, now = Date.now()) {
+    const token = this.mint(mint, 100); const swaps = this.state.swaps.filter((row) => row.inputMint === mint || row.outputMint === mint).sort((a, b) => b.slot - a.slot); const pools = [...new Set(swaps.map((row) => row.pool))].map((address) => this.pool(address).summary).filter(Boolean); const latest = swaps[0] ?? null; const ageMs = latest?.blockTime == null ? null : Math.max(0, now - latest.blockTime * 1_000); const missing = [];
+    if (!latest) missing.push("market_activity"); if (!pools.length) missing.push("pool_state"); if (!token.observedHolders.observedHolders) missing.push("holder_evidence"); if (!token.observedHolders.complete) missing.push("complete_holder_snapshot"); missing.push("mint_authority", "freeze_authority", "executable_route", "usd_reference_price");
+    return { schemaVersion: 1, mint, observedAt: new Date(now).toISOString(), immutableSnapshotId: `solana:${this.state.tip ?? "empty"}:${mint}`, freshness: { latestMarketSlot: latest?.slot ?? null, latestBlockTime: latest?.blockTime ?? null, ageMs, stale: ageMs == null || ageMs > staleAfterMs }, provenance: latest?.provenance ?? null, identity: { mint }, market: { latestSwap: latest, pools }, holders: token.observedHolders, security: { assessable: false }, missing: [...new Set(missing)], confidence: missing.length ? "insufficient" : "complete", safeForAutomation: false };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
-    return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, transfers: this.state.transfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
+    return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
   }
   chainQuality() {
     const slots = Object.keys(this.state.blocks).map(Number).sort((a, b) => a - b);

@@ -18,6 +18,7 @@ const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixture
 test("parses a canonical parsed block and SPL transfer", async () => {
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
   assert.equal(block.transactions.length, 1); assert.equal(block.transfers.length, 1);
+  assert.equal(block.instructions.length, 1); assert.equal(block.instructions[0].eventId, "solana:100:signature-1:0:-1:instruction"); assert.equal(block.instructions[0].protocol, "spl-token"); assert.match(block.instructions[0].rawPayloadHash, /^[0-9a-f]{64}$/);
   assert.equal(block.transfers[0].mint, "mint-address");
   assert.equal(block.provenance.commitment, "finalized");
   assert.deepEqual({ amountRaw: block.transfers[0].amountRaw, decimals: block.transfers[0].decimals, amountUiString: block.transfers[0].amountUiString }, { amountRaw: "12500000", decimals: 6, amountUiString: "12.5" });
@@ -56,6 +57,12 @@ test("checkpoint fingerprints detect same-sized content replacement", async () =
   const store = new IndexStore(path.join(root, "data.json"), 1000); const config = { inbox, dataFile: path.join(root, "data.json"), maxTransactions: 1000 };
   await indexInbox(config, store); await fs.writeFile(filename, second); const result = await indexInbox(config, store);
   assert.equal(result.files, 1); assert.equal(store.state.blocks["100"].blockhash, "clock-100");
+});
+
+test("persists bounded dead-letter evidence for invalid inbox payloads", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-dead-letter-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "bad.json"), "not-json"); const dataFile = path.join(root, "index.json"); const store = new IndexStore(dataFile);
+  const result = await indexInbox({ inbox, dataFile, maxTransactions: 1000 }, store); assert.equal(result.errors.length, 1); assert.equal(store.state.deadLetters.length, 1); assert.match(store.state.deadLetters[0].fingerprint, /^[0-9a-f]{64}$/);
+  const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); assert.equal(persisted.deadLetters[0].attempts, 1);
 });
 
 test("replaces a conflicting slot without retaining orphaned records", async () => {
@@ -293,9 +300,16 @@ test("API authentication and quotas fail closed", async (t) => {
   const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/stats`;
   assert.equal((await fetch(endpoint)).status, 401); assert.equal((await fetch(endpoint, { headers: { "x-api-key": "wrong" } })).status, 401);
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/internal/feed/health`)).status, 401);
   const first = await fetch(endpoint, { headers: { authorization: "Bearer secret" } }); assert.equal(first.status, 200); assert.equal(first.headers.get("x-ratelimit-remaining"), "1");
   assert.equal((await fetch(endpoint, { headers: { "x-api-key": "secret" } })).status, 200);
   const limited = await fetch(endpoint, { headers: { "x-api-key": "secret" } }); assert.equal(limited.status, 429); assert.ok(limited.headers.get("retry-after"));
+});
+
+test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const evidence = await (await fetch(`${base}/internal/evidence/mint-address`)).json(); assert.equal(evidence.schemaVersion, 1); assert.match(evidence.immutableSnapshotId, /^solana:100:/); assert.equal(evidence.safeForAutomation, false); assert.ok(evidence.missing.includes("executable_route"));
+  const registry = await (await fetch(`${base}/internal/registry`)).json(); assert.equal(registry.version, 1); assert.ok(registry.programs.some((row) => row.protocol === "pump-bonding-curve"));
 });
 
 test("WebSocket replays only persisted ordered events and resumes by cursor", async (t) => {

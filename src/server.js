@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { attachWebSocket } from "./websocket.js";
+import { registrySnapshot } from "./program-registry.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
@@ -61,7 +62,7 @@ export function createServer(config, store) {
   const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
-      const protectedRoute = url.pathname === "/rpc" || url.pathname.startsWith("/api/");
+      const protectedRoute = url.pathname === "/rpc" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/internal/");
       const apiKeys = config.apiKeys ?? [];
       if (protectedRoute && apiKeys.length && !keyMatches(presentedApiKey(request), apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
       if (protectedRoute && config.rateLimitPerMinute) {
@@ -80,6 +81,18 @@ export function createServer(config, store) {
         const payload = { available: exporter != null, exporter, index: store.stats().ingestion };
         return json(response, exporter ? 200 : 503, payload);
       }
+      if (url.pathname === "/internal/registry") return json(response, 200, registrySnapshot());
+      if (url.pathname === "/internal/feed/health") { const health = store.health(config.staleAfterMs); return json(response, health.healthy ? 200 : 503, { ...health, ingestion: await readJsonFile(config.exporterStatusFile), deadLetters: store.state.deadLetters.length, unresolvedDeadLetters: store.state.deadLetters.filter((row) => !row.resolved).length }); }
+      if (url.pathname === "/internal/feed/gaps") { const ingestion = await readJsonFile(config.exporterStatusFile); return json(response, ingestion ? 200 : 503, { available: Boolean(ingestion), durableSkippedSlots: ingestion?.durableSkippedSlots ?? [], reorgCorrections: store.state.reorgCorrections.slice(-100), checkpoint: store.state.checkpoints.inbox ?? null }); }
+      if (url.pathname === "/internal/trending") { const window = trendingWindow(url); return json(response, 200, { schemaVersion: 1, window: window.label, scoreVersion: "activity-v1", tokens: store.trending(limit(url), window.seconds) }); }
+      if (url.pathname === "/internal/new-pairs") { const rows = Object.entries(store.state.pools).map(([address, row]) => ({ address, ...row })).sort((a, b) => b.lastSlot - a.lastSlot).slice(0, limit(url)); return json(response, 200, { schemaVersion: 1, data: rows }); }
+      if (url.pathname === "/internal/candidates") { const window = trendingWindow(url); const data = store.trending(limit(url), window.seconds).map((row) => ({ mint: row.mint, evidence: store.evidence(row.mint, config.staleAfterMs) })); return json(response, 200, { schemaVersion: 1, scoreVersion: "activity-v1", data }); }
+      const evidence = url.pathname.match(/^\/internal\/evidence\/([^/]+)$/); if (evidence) return json(response, 200, store.evidence(decodeURIComponent(evidence[1]), config.staleAfterMs));
+      const internalToken = url.pathname.match(/^\/internal\/tokens\/([^/]+)(?:\/(market|security|holders|trades|ohlcv|liquidity|executable-depth))?$/); if (internalToken) {
+        const mintAddress = decodeURIComponent(internalToken[1]), view = internalToken[2] ?? "token", token = store.mint(mintAddress, limit(url)), swaps = store.state.swaps.filter((row) => row.inputMint === mintAddress || row.outputMint === mintAddress).sort((a, b) => b.slot - a.slot), poolAddresses = [...new Set(swaps.map((row) => row.pool))];
+        if (view === "holders") return json(response, 200, token.observedHolders); if (view === "trades") return json(response, 200, { schemaVersion: 1, data: swaps.slice(0, limit(url)) }); if (view === "liquidity") return json(response, 200, { schemaVersion: 1, pools: poolAddresses.map((address) => ({ address, ...store.pool(address).summary })) }); if (view === "ohlcv") return json(response, 200, { schemaVersion: 1, pools: poolAddresses.map((address) => store.candles(address, candleInterval(url), limit(url))) }); if (view === "market") return json(response, 200, store.evidence(mintAddress, config.staleAfterMs).market); if (view === "security") return json(response, 200, { schemaVersion: 1, assessable: false, safeForAutomation: false, missing: ["mint_authority", "freeze_authority", "complete_holder_snapshot", "token_2022_extensions"] }); if (view === "executable-depth") return json(response, 503, { schemaVersion: 1, available: false, reason: "jupiter_or_local_router_not_configured" }); return json(response, 200, token);
+      }
+      const internalWallet = url.pathname.match(/^\/internal\/wallets\/([^/]+)(?:\/(performance))?$/); if (internalWallet) { const address = decodeURIComponent(internalWallet[1]); return json(response, 200, internalWallet[2] ? { schemaVersion: 1, address, available: false, reason: "cost_basis_not_implemented" } : store.account(address, limit(url))); }
       if (url.pathname === "/api/v1/blocks") {
         const rows = Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot);
         return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot)));

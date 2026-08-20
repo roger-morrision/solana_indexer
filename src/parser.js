@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { PROGRAM_REGISTRY_VERSION, programRegistration } from "./program-registry.js";
 
 const TOKEN_PROGRAMS = new Set([
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
@@ -103,6 +104,7 @@ function dexSwaps(block, transactions, decodedEvents) {
     const inputMint = field("inputMint"), outputMint = field("outputMint"); const authoritativeBase = event.baseMint ?? (event.protocol === "pump-bonding-curve" ? event.mint : null); const baseMint = authoritativeBase ?? [inputMint, outputMint].sort()[0]; const quoteMint = event.quoteMint ?? (baseMint === inputMint ? outputMint : inputMint);
     const normalized = { swapId: `${signature}:${eventIndex}`, eventIndex, protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), baseMint, quoteMint, pairIdentitySource: authoritativeBase && event.quoteMint ? "protocol_event" : "canonical_lexical", inputMint, outputMint, inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, baseDecimals: baseMint === inputMint ? inputDecimals : outputDecimals, quoteDecimals: quoteMint === inputMint ? inputDecimals : outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
     if (event.protocol === "pump-bonding-curve") for (const name of ["mint", "quoteMint", "user", "creator", "feeRecipient", "creatorFeeRaw", "cashbackRaw", "buybackRaw", "feeBasisPoints", "creatorFeeBasisPoints", "cashbackFeeBasisPoints", "buybackFeeBasisPoints", "virtualSolReservesRaw", "virtualTokenReservesRaw", "realSolReservesRaw", "realTokenReservesRaw", "virtualQuoteReservesRaw", "realQuoteReservesRaw", "ixName", "mayhemMode", "shareholderCount"]) normalized[name] = event[name];
+    const registration = programRegistration(event.programId, block.slot); normalized.eventId = `solana:${block.slot}:${signature}:-1:${eventIndex}:swap`; normalized.registryVersion = PROGRAM_REGISTRY_VERSION; normalized.decoderVersion = registration?.decoderVersion ?? null; normalized.rawPayloadHash = event.rawPayloadHash ?? crypto.createHash("sha256").update(JSON.stringify(event)).digest("hex"); normalized.payloadHashKind = event.rawPayloadHash ? "raw" : "source_event";
     return normalized;
   });
 }
@@ -128,6 +130,17 @@ function instructionRows(transaction) {
   const outer = transaction?.transaction?.message?.instructions ?? [];
   const inner = (transaction?.meta?.innerInstructions ?? []).flatMap((group) => group.instructions ?? []);
   return [...outer, ...inner];
+}
+
+function normalizedInstructions(entry, keys, signature, slot, blockTime) {
+  const outer = entry.transaction?.message?.instructions ?? []; const innerGroups = new Map((entry.meta?.innerInstructions ?? []).map((group) => [group.index, group.instructions ?? []])); const rows = [];
+  const append = (instruction, instructionIndex, innerIndex) => {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null); if (!programId) return;
+    const accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account).filter(Boolean); const rawPayloadHash = crypto.createHash("sha256").update(JSON.stringify(instruction)).digest("hex"); const registration = programRegistration(programId, slot);
+    rows.push({ eventId: `solana:${slot}:${signature}:${instructionIndex}:${innerIndex ?? -1}:instruction`, chain: "solana", slot, blockTime, signature, instructionIndex, innerIndex, programId, protocol: registration?.protocol ?? null, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null, parsedType: instruction.parsed?.type ?? null, accounts, data: typeof instruction.data === "string" ? instruction.data : null, parsed: instruction.parsed ?? null, rawPayloadHash });
+  };
+  outer.forEach((instruction, instructionIndex) => { append(instruction, instructionIndex, null); (innerGroups.get(instructionIndex) ?? []).forEach((inner, innerIndex) => append(inner, instructionIndex, innerIndex)); });
+  return rows;
 }
 
 function parsedTransfer(instruction) {
@@ -159,6 +172,7 @@ export function parseBlock(block) {
   const transactions = [];
   const transfers = [];
   const balanceChanges = [];
+  const instructions = [];
   const decodedDexEvents = [];
   for (const entry of block.transactions) {
     const signature = entry?.transaction?.signatures?.[0];
@@ -172,6 +186,7 @@ export function parseBlock(block) {
       logCount: entry.meta?.logMessages?.length ?? 0,
     };
     transactions.push(record);
+    instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
@@ -188,7 +203,7 @@ export function parseBlock(block) {
     exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
   };
   const swaps = dexSwaps(block, transactions, decodedDexEvents);
-  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, transfers, balanceChanges, swaps };
+  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, instructions, transfers, balanceChanges, swaps };
 }
 
 export function parseInput(text, filename = "input") {

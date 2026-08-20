@@ -163,6 +163,15 @@ Configuration:
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
 - `WS /ws?cursor=<sequence>&topic=blocks|swaps&mint=&pool=&protocol=` (filtered persisted events with replay/resume)
 
+Frontend, AI, and paper-bot services should prefer the authenticated internal
+contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
+`trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
+`/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
+`/internal/candidates`; `/internal/wallets/:address`; `/internal/feed/health`;
+and `/internal/feed/gaps`. Evidence responses include stable schema versions,
+provenance, freshness, confidence, and explicit missing fields. The program
+registry is available at `/internal/registry`.
+
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers
 must not use binary floating-point values for balances or trading decisions.
