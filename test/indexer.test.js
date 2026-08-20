@@ -15,6 +15,7 @@ import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator
 import { createAccountSnapshot } from "../src/account-snapshot.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("parses a canonical parsed block and SPL transfer", async () => {
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
@@ -171,6 +172,11 @@ test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
   assert.equal(stats.status, 200); assert.deepEqual((await stats.json()).chain, { canonical: true, conflicts: [], conflictCount: 0 });
 });
 
+test("Prometheus endpoint exposes fail-closed SLO signals", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/metrics`), body = await response.text(); assert.equal(response.status, 200); assert.match(response.headers.get("content-type"), /text\/plain/); assert.match(body, /terminal_dex_index_healthy 0/); assert.match(body, /terminal_dex_dead_letters 0/); assert.match(body, /terminal_dex_http_requests_total/);
+});
+
 test("REST v1 paginates stably and rejects invalid cursors", async (t) => {
   const store = new IndexStore("unused"); await store.load();
   const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
@@ -259,7 +265,7 @@ test("builds direction-stable exact OHLCV candles without floating point", async
 test("pool risk and bot readiness require explicit mature two-way finalized evidence", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
   for (let index = 0; index < 20; index++) { const swap = { ...block.swaps[0], swapId: `risk-${index}:0`, eventIndex: 0, signature: `risk-${index}`, slot: 100 + index, blockTime: 1_700_000_000 + index, inputMint: index % 2 ? "quote-mint" : "mint-address", outputMint: index % 2 ? "mint-address" : "quote-mint" }; store.state.swaps.push(swap); }
-  const now = 1_700_000_020_000; const risk = store.poolRisk("pool-address", 120_000, now); assert.equal(risk.assessable, true); assert.equal(risk.safeForAutomation, false); assert.deepEqual(risk.flags, []); assert.ok(risk.blockers.includes("holder_concentration_unknown"));
+  const now = 1_700_000_020_000; const risk = store.poolRisk("pool-address", 120_000, now); assert.equal(risk.assessable, true); assert.equal(risk.safeForAutomation, false); assert.deepEqual(risk.flags, []); assert.ok(risk.blockers.includes("holder_concentration_exclusions_incomplete")); assert.equal(risk.manipulation.assessable, false); assert.equal(risk.liquidity.assessable, false);
   store.state.blocks["119"] = { blockTime: 1_700_000_019, provenance: { commitment: "finalized" } }; store.state.tip = 119; store.state.updatedAt = new Date(now).toISOString(); store.state.pools["pool-address"] = { swapCount: 20 };
   const readiness = store.botReadiness(120_000, now, "pool-address"); assert.equal(readiness.ready, false); assert.deepEqual(readiness.missing, ["riskSignals"]);
 });
@@ -286,6 +292,7 @@ test("wallet cost basis and PnL remain exact and disclose partial coverage", asy
   const store = new IndexStore("unused"); await store.load(); const common = { user: "wallet-a", baseMint: "token", quoteMint: "quote", inputDecimals: 6, outputDecimals: 6, slot: 1, eventIndex: 0 };
   store.state.swaps = [{ ...common, swapId: "buy:0", inputMint: "quote", outputMint: "token", inputAmountRaw: "200", outputAmountRaw: "100" }, { ...common, swapId: "sell:0", slot: 2, inputMint: "token", outputMint: "quote", inputAmountRaw: "40", outputAmountRaw: "120" }];
   const result = store.walletPerformance("wallet-a"), position = result.positions[0]; assert.equal(result.complete, false); assert.equal(result.safeForAutomation, false); assert.equal(position.quantityRaw, "60"); assert.deepEqual(position.costBasis, { numeratorRaw: "120", denominatorRaw: "1", quoteMint: "quote" }); assert.deepEqual(position.realizedPnl, { numeratorRaw: "40", denominatorRaw: "1", quoteMint: "quote" }); assert.deepEqual(position.unrealizedPnl, { numeratorRaw: "60", denominatorRaw: "1", quoteMint: "quote" });
+  const profile = store.walletProfile("wallet-a"); assert.equal(profile.smartMoney, false); assert.equal(profile.observations, 2); assert.deepEqual(profile.missing, ["complete_wallet_history", "usd_reference_prices", "funding_graph", "sybil_cluster_analysis"]);
 });
 
 test("JSON-RPC exposes only read-only indexed methods", async (t) => {
@@ -321,6 +328,16 @@ test("storage deployment requires reviewed images, loopback ports, secrets, and 
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); const compose = await fs.readFile(path.join(root, "infra/compose.yaml"), "utf8"); const ignored = await fs.readFile(path.join(root, ".gitignore"), "utf8");
   assert.doesNotMatch(compose, /image:\s+\S+:latest/); assert.match(compose, /POSTGRES_IMAGE:\?Set POSTGRES_IMAGE/); assert.match(compose, /127\.0\.0\.1:5432:5432/); assert.match(compose, /postgres_password: \{ file:/); assert.match(ignored, /infra\/secrets\/\*/);
   const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /UInt256/);
+});
+
+test("mTLS gateway and production SLO alerts fail closed", async () => {
+  const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), nginx = await fs.readFile(path.join(rootDir, "infra/gateway/nginx.conf"), "utf8"), alerts = await fs.readFile(path.join(rootDir, "infra/monitoring/alerts.yaml"), "utf8");
+  assert.match(compose, /NGINX_IMAGE:\?Set NGINX_IMAGE/); assert.match(compose, /client_ca_certificate/); assert.match(nginx, /ssl_verify_client on/); assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/); assert.match(alerts, /terminal_dex_index_healthy == 0/); assert.match(alerts, /terminal_dex_dead_letters > 0/);
+});
+
+test("backup and restore tooling verifies integrity and gates destructive restore", async () => {
+  const backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"), restore = await fs.readFile(path.join(rootDir, "ops/restore.sh"), "utf8");
+  assert.match(backup, /sha256sum .*SHA256SUMS/); assert.match(backup, /BACKUP_S3_URI/); assert.match(backup, /BACKUP_WRITERS_QUIESCED/); assert.match(backup, /pg_dump/); assert.match(backup, /FORMAT Native/); assert.match(restore, /--confirm-empty-target/); assert.match(restore, /sha256sum --check SHA256SUMS/); assert.match(restore, /pg_restore --clean --if-exists/); assert.match(restore, /TRUNCATE TABLE/);
 });
 
 test("API authentication and quotas fail closed", async (t) => {

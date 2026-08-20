@@ -1,0 +1,23 @@
+groups:
+  - name: terminal-dex-indexer
+    rules:
+      - alert: TerminalDexIndexerUnavailable
+        expr: up{job="terminal-dex-indexer"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Terminal DEX indexer metrics endpoint is unavailable" }
+      - alert: TerminalDexIndexerStale
+        expr: terminal_dex_index_healthy == 0 or terminal_dex_index_age_seconds > 120
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Canonical Solana index is stale or unhealthy" }
+      - alert: TerminalDexDeadLetters
+        expr: terminal_dex_dead_letters > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Indexer has unresolved dead-letter evidence" }
+      - alert: TerminalDexHttpErrors
+        expr: rate(terminal_dex_http_requests_total{status_class="5xx"}[5m]) > 0.05
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Indexer HTTP 5xx rate exceeds the production objective" }

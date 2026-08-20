@@ -131,6 +131,10 @@ security/candidate state and audit records. ClickHouse owns immutable
 instructions, swaps, balance history and dead letters. Redis is reserved for
 hot state, locks, rankings and fan-out. The application does not claim these
 stores are active until connector health and dual-write validation are added.
+An optional `gateway` Compose profile adds a reviewed-image-required nginx mTLS
+boundary on port 8443. It requires a server certificate/private key and a client
+CA in ignored secret files and rejects clients without a trusted certificate.
+API keys remain required as an independent application-layer control.
 
 Configuration:
 
@@ -157,6 +161,7 @@ Configuration:
 ## API
 
 - `GET /api/health`
+- `GET /metrics` (Prometheus format; keep private or behind mTLS)
 - `GET /api/stats`
 - `GET /api/blocks?limit=100`
 - `GET /api/transactions?limit=100`
@@ -194,7 +199,16 @@ already discovered by the index. This is intentionally bounded because
 automation until pool, burn, locker, and exchange exclusions are authoritative.
 `/internal/tokens/:mint/security` reports snapshot-backed authority/extension
 findings. `/internal/wallets/:address/performance` reports exact rational cost
-basis/PnL only for decoded swaps carrying an explicit user address.
+basis/PnL only for decoded swaps carrying an explicit user address. The
+`/internal/wallets/:address/profile` contract exposes evidence-backed activity
+signals but never labels a wallet “smart money” without complete history, USD
+references, funding-graph, and sybil evidence.
+
+Production objectives and alert rules are documented in `docs/SLO.md`.
+`ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
+and inbox archives and can upload them to an operator-approved S3-compatible
+URI. `ops/restore.sh` verifies checksums and requires the explicit
+`--confirm-empty-target` flag because it replaces database and local state.
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers

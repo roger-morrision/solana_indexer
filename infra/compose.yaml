@@ -57,10 +57,33 @@ services:
       retries: 12
     security_opt: ["no-new-privileges:true"]
 
+  mtls-gateway:
+    profiles: ["gateway"]
+    image: ${NGINX_IMAGE:?Set NGINX_IMAGE to a reviewed nginx image digest}
+    restart: unless-stopped
+    depends_on: []
+    ports: ["8443:8443"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    user: "101:101"
+    cap_drop: ["ALL"]
+    secrets: [gateway_certificate, gateway_private_key, client_ca_certificate]
+    volumes: ["./gateway/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    read_only: true
+    tmpfs: ["/var/cache/nginx", "/var/run"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   clickhouse_password: { file: ./secrets/clickhouse_password }
   redis_password: { file: ./secrets/redis_password }
+  gateway_certificate: { file: ./secrets/gateway.crt }
+  gateway_private_key: { file: ./secrets/gateway.key }
+  client_ca_certificate: { file: ./secrets/client-ca.crt }
 
 volumes:
   postgres-data:

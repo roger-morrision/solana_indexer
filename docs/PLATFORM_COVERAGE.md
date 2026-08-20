@@ -17,7 +17,10 @@ synthetically populated.
 | OHLCV | partial | exact raw 1m/5m/15m/1h/4h/1d pool candles | unique traders, USD/native references and late-event worker |
 | Internal evidence API | partial | authenticated token, market, snapshot-backed security/holders, trades, OHLCV, liquidity, trending, candidates, exact partial wallet performance, feed health/gaps | routes, USD references and complete risk workers |
 | PostgreSQL/ClickHouse/Redis | deployable, not integrated | reviewed-image-required Compose, secret files, loopback ports, health checks, PostgreSQL metadata/ops schema and ClickHouse immutable-event schema | connector interfaces and verified dual-write migration |
-| Object storage | contract pending | secrets and generated archives remain excluded from Git | select approved S3-compatible implementation, retention and backup policy |
+| Object storage | deployable contract | checksummed multi-store backup with optional operator-approved S3-compatible upload; credentials and archives excluded | select endpoint, encryption/object-lock and retention policy; conduct restore drill |
 | Yellowstone/Geyser | blocked on compatible release | repository Agave 3.1.14 cannot load current Yellowstone 14.2.2 built for Agave 4.1.0 | operator-approved Agave 4.1 upgrade or reviewed Yellowstone 11.x pin; load/leak qualification |
 | Executable routing | external by design initially | explicit unavailable response | approved Jupiter integration or local router |
+| Security/liquidity/manipulation | partial, fail closed | finalized authority/extensions, holder evidence, exact venue reserve coverage, trader coverage/concentration and repeated-amount signals | holder exclusions, funding clusters, locks, executable sell route and protocol-specific liquidity state |
+| Smart money | evidence only | exact partial cost basis/PnL and activity profile | complete wallet history, USD references, funding graph and sybil clustering |
+| mTLS/SLO/backup | deployable | optional mTLS gateway, Prometheus endpoint, alert rules, stated SLO/RPO/RTO and checksum-gated restore | production PKI, monitoring destination and quarterly recovery drill |
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |

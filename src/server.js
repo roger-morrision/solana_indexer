@@ -56,13 +56,37 @@ function keyMatches(presented, configured) {
   const candidate = crypto.createHash("sha256").update(presented).digest();
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
+function prometheus(metrics, store, staleAfterMs) {
+  const health = store.health(staleAfterMs), stats = store.stats(), lines = [
+    "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
+    "# TYPE terminal_dex_http_requests_total counter",
+    ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
+    "# HELP terminal_dex_http_request_duration_seconds_sum Total HTTP request duration.",
+    "# TYPE terminal_dex_http_request_duration_seconds_sum counter",
+    `terminal_dex_http_request_duration_seconds_sum ${metrics.durationMs / 1000}`,
+    "# HELP terminal_dex_http_request_duration_seconds_count Timed HTTP requests.",
+    "# TYPE terminal_dex_http_request_duration_seconds_count counter",
+    `terminal_dex_http_request_duration_seconds_count ${metrics.requests}`,
+    "# HELP terminal_dex_index_healthy Whether the canonical index meets freshness and chain checks.",
+    "# TYPE terminal_dex_index_healthy gauge",
+    `terminal_dex_index_healthy ${health.healthy ? 1 : 0}`,
+    "# HELP terminal_dex_index_age_seconds Age of the newest indexed block.",
+    "# TYPE terminal_dex_index_age_seconds gauge",
+    `terminal_dex_index_age_seconds ${health.ageMs == null ? "NaN" : health.ageMs / 1000}`,
+    "# TYPE terminal_dex_index_tip_slot gauge", `terminal_dex_index_tip_slot ${stats.tip ?? "NaN"}`,
+    "# TYPE terminal_dex_dead_letters gauge", `terminal_dex_dead_letters ${stats.unresolvedDeadLetters}`,
+    "# TYPE terminal_dex_reorg_corrections_total counter", `terminal_dex_reorg_corrections_total ${stats.reorgCorrections}`,
+    "# TYPE terminal_dex_indexed_swaps gauge", `terminal_dex_indexed_swaps ${stats.swaps}`,
+  ]; return `${lines.join("\n")}\n`;
+}
 
 export function createServer(config, store) {
-  const quotas = new Map();
+  const quotas = new Map(), metrics = { requests: 0, durationMs: 0, statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } };
   const server = http.createServer(async (request, response) => {
+    const started = process.hrtime.bigint(); response.once("finish", () => { metrics.requests++; metrics.durationMs += Number(process.hrtime.bigint() - started) / 1_000_000; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; });
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
-      const protectedRoute = url.pathname === "/rpc" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/internal/");
+      const protectedRoute = url.pathname === "/rpc" || url.pathname === "/metrics" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/internal/");
       const apiKeys = config.apiKeys ?? [];
       if (protectedRoute && apiKeys.length && !keyMatches(presentedApiKey(request), apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
       if (protectedRoute && config.rateLimitPerMinute) {
@@ -74,6 +98,7 @@ export function createServer(config, store) {
       }
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpc(await readJsonBody(request), config, store));
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
+      if (url.pathname === "/metrics") { const body = prometheus(metrics, store, config.staleAfterMs); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }
       if (url.pathname === "/api/stats") return json(response, 200, { ...store.stats(), chain: store.chainQuality() });
       if (url.pathname === "/api/v1/ingestion") {
@@ -92,7 +117,7 @@ export function createServer(config, store) {
         const mintAddress = decodeURIComponent(internalToken[1]), view = internalToken[2] ?? "token", token = store.mint(mintAddress, limit(url)), swaps = store.state.swaps.filter((row) => row.inputMint === mintAddress || row.outputMint === mintAddress).sort((a, b) => b.slot - a.slot), poolAddresses = [...new Set(swaps.map((row) => row.pool))];
         if (view === "holders") return json(response, 200, token.observedHolders); if (view === "trades") return json(response, 200, { schemaVersion: 1, data: swaps.slice(0, limit(url)) }); if (view === "liquidity") return json(response, 200, { schemaVersion: 1, pools: poolAddresses.map((address) => ({ address, ...store.pool(address).summary })) }); if (view === "ohlcv") return json(response, 200, { schemaVersion: 1, pools: poolAddresses.map((address) => store.candles(address, candleInterval(url), limit(url))) }); if (view === "market") return json(response, 200, store.evidence(mintAddress, config.staleAfterMs).market); if (view === "security") return json(response, 200, store.tokenSecurity(mintAddress)); if (view === "executable-depth") return json(response, 503, { schemaVersion: 1, available: false, reason: "jupiter_or_local_router_not_configured" }); return json(response, 200, token);
       }
-      const internalWallet = url.pathname.match(/^\/internal\/wallets\/([^/]+)(?:\/(performance))?$/); if (internalWallet) { const address = decodeURIComponent(internalWallet[1]); return json(response, 200, internalWallet[2] ? store.walletPerformance(address) : store.account(address, limit(url))); }
+      const internalWallet = url.pathname.match(/^\/internal\/wallets\/([^/]+)(?:\/(performance|profile))?$/); if (internalWallet) { const address = decodeURIComponent(internalWallet[1]); return json(response, 200, internalWallet[2] === "performance" ? store.walletPerformance(address) : internalWallet[2] === "profile" ? store.walletProfile(address) : store.account(address, limit(url))); }
       if (url.pathname === "/api/v1/blocks") {
         const rows = Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot);
         return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot)));

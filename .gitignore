@@ -4,6 +4,7 @@ inbox/*.ndjson
 !inbox/.gitkeep
 *.tmp
 *.log
+backups/
 infra/.env
 infra/secrets/*
 !infra/secrets/.gitkeep
