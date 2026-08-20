@@ -2,15 +2,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 function emptyState() {
-  return { version: 1, tip: null, blocks: {}, transactions: {}, transfers: [], accounts: {}, mints: {}, processedFiles: {}, updatedAt: null };
+  return { version: 2, tip: null, blocks: {}, transactions: {}, transfers: [], accounts: {}, mints: {}, processedFiles: {}, events: [], eventSequence: 0, updatedAt: null };
 }
 
 export class IndexStore {
-  constructor(filename, maxTransactions = 250_000) { this.filename = filename; this.maxTransactions = maxTransactions; this.state = emptyState(); this.loaded = false; }
+  constructor(filename, maxTransactions = 250_000) { this.filename = filename; this.maxTransactions = maxTransactions; this.state = emptyState(); this.loaded = false; this.listeners = new Set(); this.pendingEvents = []; }
   async load() {
     if (this.loaded) return;
     try { this.state = JSON.parse(await fs.readFile(this.filename, "utf8")); }
     catch (error) { if (error.code !== "ENOENT") throw error; }
+    this.state.events ??= []; this.state.eventSequence ??= 0; this.state.version = 2;
     this.loaded = true;
   }
   async save() {
@@ -19,6 +20,8 @@ export class IndexStore {
     this.state.updatedAt = new Date().toISOString();
     await fs.writeFile(temporary, `${JSON.stringify(this.state)}\n`);
     await fs.rename(temporary, this.filename);
+    const committed = this.pendingEvents.splice(0);
+    for (const event of committed) for (const listener of this.listeners) listener(event);
   }
   hasFile(name, fingerprint) { return this.state.processedFiles[name] === fingerprint; }
   markFile(name, fingerprint) { this.state.processedFiles[name] = fingerprint; }
@@ -44,6 +47,8 @@ export class IndexStore {
     }
     this.prune();
     this.state.tip = this.computeTip();
+    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, provenance: block.provenance };
+    this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
     return { inserted: true, reason: prior ? "replaced" : "new" };
   }
   removeSlot(slot) {
@@ -110,6 +115,11 @@ export class IndexStore {
     const required = ["canonicalBlocks", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const missing = required.filter((name) => !capabilities[name]);
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities };
+  }
+  subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  replayEvents(cursor = this.state.eventSequence) {
+    const oldest = this.state.events[0]?.sequence ?? this.state.eventSequence + 1;
+    return { cursor, latestCursor: this.state.eventSequence, cursorTooOld: cursor < oldest - 1, events: this.state.events.filter((event) => event.sequence > cursor) };
   }
   health(staleAfterMs = 120_000, now = Date.now()) {
     const stats = this.stats();

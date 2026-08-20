@@ -15,6 +15,8 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     maxTransactions: boundedInt(env.INDEXER_MAX_TRANSACTIONS, 250_000, 1000, 2_000_000),
     apiKeys,
     rateLimitPerMinute: boundedInt(env.INDEXER_RATE_LIMIT_PER_MINUTE, 600, 1, 100_000),
+    webSocketHeartbeatMs: boundedInt(env.INDEXER_WS_HEARTBEAT_MS, 30_000, 1_000, 300_000),
+    webSocketMaxBufferedBytes: boundedInt(env.INDEXER_WS_MAX_BUFFERED_BYTES, 1_048_576, 65_536, 16_777_216),
   };
 }
 

@@ -1,0 +1,44 @@
+import crypto from "node:crypto";
+
+function frame(opcode, payload = Buffer.alloc(0)) {
+  const body = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
+  if (body.length < 126) return Buffer.concat([Buffer.from([0x80 | opcode, body.length]), body]);
+  if (body.length <= 65_535) { const header = Buffer.alloc(4); header[0] = 0x80 | opcode; header[1] = 126; header.writeUInt16BE(body.length, 2); return Buffer.concat([header, body]); }
+  const header = Buffer.alloc(10); header[0] = 0x80 | opcode; header[1] = 127; header.writeBigUInt64BE(BigInt(body.length), 2); return Buffer.concat([header, body]);
+}
+function reject(socket, status, reason) { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`); }
+function send(socket, value, maximumBufferedBytes) {
+  if (socket.destroyed) return false;
+  if (socket.writableLength > maximumBufferedBytes) { socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); return false; }
+  socket.write(frame(0x1, JSON.stringify(value))); return true;
+}
+
+export function attachWebSocket(server, store, config, authorize = () => true) {
+  const clients = new Set(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576;
+  const unsubscribe = store.subscribe((event) => { for (const socket of clients) if (!send(socket, event, maximumBufferedBytes)) clients.delete(socket); });
+  server.on("upgrade", (request, socket) => {
+    const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
+    if (url.pathname !== "/ws") return reject(socket, "404 Not Found", "not_found");
+    if (!authorize(request)) return reject(socket, "401 Unauthorized", "unauthorized");
+    const key = request.headers["sec-websocket-key"];
+    if (request.headers["sec-websocket-version"] !== "13" || typeof key !== "string") return reject(socket, "400 Bad Request", "invalid_websocket_handshake");
+    const cursorText = url.searchParams.get("cursor") ?? String(store.state.eventSequence); const cursor = Number(cursorText);
+    if (!Number.isSafeInteger(cursor) || cursor < 0) return reject(socket, "400 Bad Request", "invalid_cursor");
+    const accept = crypto.createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+    const protocols = String(request.headers["sec-websocket-protocol"] ?? "").split(",").map((value) => value.trim());
+    const selectedProtocol = protocols.includes("indexer.v1") ? "Sec-WebSocket-Protocol: indexer.v1\r\n" : "";
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}\r\n`); clients.add(socket);
+    const replay = store.replayEvents(cursor);
+    if (replay.cursorTooOld) send(socket, { type: "resync_required", requestedCursor: cursor, latestCursor: replay.latestCursor }, maximumBufferedBytes);
+    else { send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor }, maximumBufferedBytes); for (const event of replay.events) send(socket, event, maximumBufferedBytes); }
+    socket.on("data", (chunk) => {
+      const opcode = chunk[0] & 0x0f;
+      if (opcode === 0x8) socket.end(frame(0x8));
+      else if (opcode === 0x9) socket.write(frame(0x0a, Buffer.alloc(0)));
+    });
+    socket.on("close", () => clients.delete(socket)); socket.on("error", () => clients.delete(socket));
+  });
+  const timer = setInterval(() => { for (const socket of clients) { if (socket.destroyed || socket.writableLength > maximumBufferedBytes) { socket.destroy(); clients.delete(socket); } else socket.write(frame(0x9)); } }, heartbeatMs); timer.unref();
+  server.on("close", () => { clearInterval(timer); unsubscribe(); for (const socket of clients) socket.destroy(); clients.clear(); });
+  return server;
+}

@@ -3,6 +3,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { attachWebSocket } from "./websocket.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
@@ -42,7 +43,10 @@ function dispatchRpc(payload, config, store) {
 }
 function presentedApiKey(request) {
   const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-  return String(request.headers["x-api-key"] ?? bearer ?? "");
+  const protocols = String(request.headers["sec-websocket-protocol"] ?? "").split(",").map((value) => value.trim());
+  const encoded = protocols.find((value) => value.startsWith("bearer."))?.slice(7);
+  let websocketBearer = ""; try { if (encoded) websocketBearer = Buffer.from(encoded, "base64url").toString("utf8"); } catch { websocketBearer = ""; }
+  return String(request.headers["x-api-key"] ?? bearer ?? websocketBearer ?? "");
 }
 function keyMatches(presented, configured) {
   if (!presented) return false;
@@ -52,7 +56,7 @@ function keyMatches(presented, configured) {
 
 export function createServer(config, store) {
   const quotas = new Map();
-  return http.createServer(async (request, response) => {
+  const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
       const protectedRoute = url.pathname === "/rpc" || url.pathname.startsWith("/api/");
@@ -93,4 +97,5 @@ export function createServer(config, store) {
       return json(response, 404, { error: "not_found" });
     } catch (error) { const badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code); return json(response, badRequest ? 400 : 500, { error: error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", detail: error.message }); }
   });
+  return attachWebSocket(server, store, config, (request) => !(config.apiKeys ?? []).length || keyMatches(presentedApiKey(request), config.apiKeys));
 }

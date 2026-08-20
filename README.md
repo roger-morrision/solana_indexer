@@ -92,6 +92,8 @@ Configuration:
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
+| `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |
+| `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
 
 ## API
 
@@ -108,6 +110,7 @@ Configuration:
 - `GET /api/v1/bot/readiness` (fail-closed capability gate)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
+- `WS /ws?cursor=<sequence>` (persisted block events with replay/resume)
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers
@@ -117,6 +120,14 @@ or transaction-submission methods return JSON-RPC `Method not found`.
 When API keys are configured, all `/api/*` and `/rpc` calls require `X-API-Key`
 or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
 returned or logged. Public binding is refused unless at least one key is configured.
+WebSocket clients receive `ready`, then ordered `block_indexed` or
+`block_replaced` events after atomic index persistence. Supply the last consumed
+sequence as `cursor` to replay retained events. An expired cursor produces
+`resync_required`; clients must rebuild from REST. Heartbeat pings and bounded
+socket buffers evict stalled consumers. When API keys are enabled, WebSocket
+clients must present the key as an HTTP authorization or `X-API-Key` header.
+Browser clients can request subprotocols `indexer.v1` and
+`bearer.<base64url-api-key>`; the server negotiates only `indexer.v1`.
 
 “Trending” is explicitly transfer-activity ranking from locally indexed evidence. It does not claim price, liquidity, USD volume, holder count, or swap direction. Those values cannot be derived faithfully from generic block transfer instructions alone. DEX-specific decoders can be added at the parser boundary without introducing a hosted service.
 
