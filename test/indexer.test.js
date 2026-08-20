@@ -240,6 +240,12 @@ test("decodes Raydium CPMM Anchor swap events only inside its invocation", () =>
   assert.equal(decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program other invoke [1]`, `Program data: ${encoded}`, "Program other success"] } }, "sig").length, 0);
 });
 
+test("indexes canonical blocks while withholding decoded swaps with unknown decimals", async () => {
+  const input = JSON.parse(await fs.readFile(fixture, "utf8")); const data = Buffer.alloc(170); crypto.createHash("sha256").update("event:SwapEvent").digest().copy(data, 0, 0, 8); data.fill(1, 8, 40); data.writeBigUInt64LE(100n, 56); data.writeBigUInt64LE(190n, 64); data.fill(2, 89, 121); data.fill(3, 121, 153); const program = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
+  input.dexEvents = []; input.transactions[0].meta.preTokenBalances = []; input.transactions[0].meta.postTokenBalances = []; input.transactions[0].meta.logMessages = [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`];
+  const block = parseBlock(input); assert.equal(block.transactions.length, 1); assert.equal(block.swaps.length, 0); assert.ok(block.instructions.length > 0);
+});
+
 test("decodes PumpSwap sell events with exact directional amounts and reserves", () => {
   const data = Buffer.alloc(417); crypto.createHash("sha256").update("event:SellEvent").digest().copy(data, 0, 0, 8);
   data.writeBigUInt64LE(100n, 16); data.writeBigUInt64LE(900n, 48); data.writeBigUInt64LE(1800n, 56); data.writeBigUInt64LE(190n, 64); data.writeBigUInt64LE(2n, 80); data.writeBigUInt64LE(1n, 96);

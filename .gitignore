@@ -2,9 +2,11 @@ data/
 inbox/*.json
 inbox/*.ndjson
 !inbox/.gitkeep
+inbox-mainnet/
 *.tmp
 *.log
 backups/
 infra/.env
+validator/external-rpc.env
 infra/secrets/*
 !infra/secrets/.gitkeep

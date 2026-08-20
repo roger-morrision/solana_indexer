@@ -92,7 +92,12 @@ export function decodePumpTradeEvents(entry, signature) {
 function dexSwaps(block, transactions, decodedEvents) {
   const successful = new Set(transactions.filter((row) => row.success).map((row) => row.signature));
   const sidecar = block.dexEvents ?? []; const covered = new Set(sidecar.map((event) => `${event.signature}:${event.protocol}`));
-  const events = [...sidecar, ...decodedEvents.filter((event) => !covered.has(`${event.signature}:${event.protocol}`))]; const indices = new Map();
+  // Provider blocks do not guarantee that every mint touched by a program log
+  // appears in pre/post token balances. Preserve the canonical block and raw
+  // instruction evidence, but do not publish a swap whose decimal precision is
+  // unknown. Explicit sidecars remain strict contracts and are validated below.
+  const completeDecoded = decodedEvents.filter((event) => Number.isInteger(event.inputDecimals) && Number.isInteger(event.outputDecimals));
+  const events = [...sidecar, ...completeDecoded.filter((event) => !covered.has(`${event.signature}:${event.protocol}`))]; const indices = new Map();
   return events.map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
     const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM);
