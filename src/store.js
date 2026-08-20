@@ -107,7 +107,7 @@ export class IndexStore {
     }
     return { canonical: conflicts.length === 0, conflicts: conflicts.slice(0, 100), conflictCount: conflicts.length };
   }
-  dataCapabilities() {
+  dataCapabilities(staleAfterMs = 120_000, now = Date.now()) {
     const blocks = Object.values(this.state.blocks);
     const finalizedBlocks = blocks.filter((block) => block.provenance?.commitment === "finalized").length;
     return {
@@ -117,17 +117,24 @@ export class IndexStore {
       dexSwaps: this.state.swaps.length > 0,
       poolLiquidity: Object.keys(this.state.pools).length > 0,
       marketPrices: this.state.swaps.length > 0,
-      riskSignals: false,
+      riskSignals: Object.keys(this.state.pools).some((pool) => this.poolRisk(pool, staleAfterMs, now).assessable),
       finalizedBlocks,
       totalBlocks: blocks.length,
     };
   }
-  botReadiness(staleAfterMs = 120_000, now = Date.now()) {
+  poolRisk(address, staleAfterMs = 120_000, now = Date.now()) {
+    const swaps = this.state.swaps.filter((row) => row.pool === address); const directions = new Set(swaps.map((row) => `${row.inputMint}>${row.outputMint}`)); const signatures = new Set(swaps.map((row) => row.signature));
+    const latestBlockTime = swaps.reduce((latest, row) => Math.max(latest, Number(row.blockTime ?? 0) * 1_000), 0); const ageMs = latestBlockTime ? Math.max(0, now - latestBlockTime) : null;
+    const flags = []; if (swaps.length < 20) flags.push("insufficient_observations"); if (directions.size < 2) flags.push("one_sided_flow"); if (signatures.size !== swaps.length) flags.push("duplicate_signatures"); if (!swaps.length || swaps.some((row) => row.provenance?.commitment !== "finalized")) flags.push("unfinalized_or_unknown_provenance"); if (ageMs == null || ageMs > staleAfterMs) flags.push("stale_market_activity");
+    const assessable = flags.length === 0; const blockers = ["mint_authority_unknown", "freeze_authority_unknown", "holder_concentration_unknown", "manipulation_detection_unavailable"];
+    return { pool: address, assessable, dataQualityPass: assessable, safeForAutomation: false, scope: "data_quality_only", observations: swaps.length, uniqueSignatures: signatures.size, directions: directions.size, latestBlockTime: latestBlockTime ? new Date(latestBlockTime).toISOString() : null, ageMs, flags, blockers };
+  }
+  botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
-    const capabilities = this.dataCapabilities();
+    const capabilities = this.dataCapabilities(staleAfterMs, now);
     const required = ["canonicalBlocks", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
-    const missing = required.filter((name) => !capabilities[name]);
-    return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities };
+    const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (!poolAddress) missing.unshift("targetPool");
+    return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk };
   }
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   replayEvents(cursor = this.state.eventSequence) {

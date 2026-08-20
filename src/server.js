@@ -87,7 +87,7 @@ export function createServer(config, store) {
         return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}`));
       }
       if (url.pathname === "/api/v1/swaps") { const rows = [...store.state.swaps].sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature)); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}:${row.pool}`)); }
-      if (url.pathname === "/api/v1/bot/readiness") { const readiness = store.botReadiness(config.staleAfterMs); return json(response, readiness.ready ? 200 : 503, readiness); }
+      if (url.pathname === "/api/v1/bot/readiness") { const readiness = store.botReadiness(config.staleAfterMs, Date.now(), url.searchParams.get("pool")); return json(response, readiness.ready ? 200 : 503, readiness); }
       if (url.pathname === "/api/blocks") return json(response, 200, Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
       if (url.pathname === "/api/transactions") return json(response, 200, Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
       if (url.pathname === "/api/trending") return json(response, 200, { methodology: "ranked by verified DEX swap count, then indexed SPL transfer count; no USD volume claim", tokens: store.trending(limit(url)) });
@@ -95,6 +95,7 @@ export function createServer(config, store) {
       const account = url.pathname.match(/^\/api\/account\/([^/]+)$/); if (account) return json(response, 200, store.account(decodeURIComponent(account[1]), limit(url)));
       const mint = url.pathname.match(/^\/api\/mint\/([^/]+)$/); if (mint) return json(response, 200, store.mint(decodeURIComponent(mint[1]), limit(url)));
       const pool = url.pathname.match(/^\/api\/v1\/pool\/([^/]+)$/); if (pool) { const row = store.pool(decodeURIComponent(pool[1])); return json(response, row.summary ? 200 : 404, row.summary ? row : { error: "not_found" }); }
+      const risk = url.pathname.match(/^\/api\/v1\/risk\/([^/]+)$/); if (risk) return json(response, 200, store.poolRisk(decodeURIComponent(risk[1]), config.staleAfterMs));
       if (url.pathname === "/" || url.pathname === "/index.html") { const body = await fs.readFile(path.join(PUBLIC, "index.html")); response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return response.end(body); }
       return json(response, 404, { error: "not_found" });
     } catch (error) { const badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code); return json(response, badRequest ? 400 : 500, { error: error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", detail: error.message }); }

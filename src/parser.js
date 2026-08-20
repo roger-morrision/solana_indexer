@@ -5,6 +5,7 @@ const TOKEN_PROGRAMS = new Set([
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
 ]);
 const RAYDIUM_CPMM = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
+const PUMP_AMM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte !== 0) break; output = `1${output}`; } return output || "1"; }
 function readU64(buffer, offset) { return buffer.readBigUInt64LE(offset).toString(); }
@@ -24,15 +25,43 @@ export function decodeRaydiumSwapEvents(entry, signature) {
   }
   return events;
 }
+function pumpPoolContext(entry) {
+  for (const instruction of instructionRows(entry)) {
+    if ((instruction.programId ?? instruction.program) !== PUMP_AMM || !Array.isArray(instruction.accounts) || instruction.accounts.length < 5) continue;
+    return { pool: instruction.accounts[0], baseMint: instruction.accounts[3], quoteMint: instruction.accounts[4] };
+  }
+  return null;
+}
+export function decodePumpSwapEvents(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const context = pumpPoolContext(entry); if (!context) return [];
+  const decimals = new Map([...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])].map((row) => [row.mint, row.uiTokenAmount?.decimals]));
+  const buyDiscriminator = crypto.createHash("sha256").update("event:BuyEvent").digest().subarray(0, 8); const sellDiscriminator = crypto.createHash("sha256").update("event:SellEvent").digest().subarray(0, 8);
+  const events = []; const stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== PUMP_AMM || !line.startsWith("Program data: ")) continue;
+    const data = Buffer.from(line.slice(14), "base64"); const buy = data.subarray(0, 8).equals(buyDiscriminator); const sell = data.subarray(0, 8).equals(sellDiscriminator);
+    if (!buy && !sell) continue;
+    const minimum = buy ? 442 : 417; if (data.length < minimum) continue;
+    const amountBase = readU64(data, 16); const poolBaseReserve = readU64(data, 48); const poolQuoteReserve = readU64(data, 56); const actualQuote = readU64(data, 64);
+    const inputMint = buy ? context.quoteMint : context.baseMint; const outputMint = buy ? context.baseMint : context.quoteMint;
+    const tradeFeeRaw = (BigInt(readU64(data, 80)) + BigInt(readU64(data, 96))).toString();
+    events.push({ protocol: "pump-swap", programId: PUMP_AMM, type: "swap", side: buy ? "buy" : "sell", signature, pool: context.pool, inputMint, outputMint, inputAmountRaw: buy ? actualQuote : amountBase, outputAmountRaw: buy ? amountBase : actualQuote, inputVaultBeforeRaw: buy ? poolQuoteReserve : poolBaseReserve, outputVaultBeforeRaw: buy ? poolBaseReserve : poolQuoteReserve, tradeFeeRaw, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint), reserveTiming: "after" });
+  }
+  return events;
+}
 function dexSwaps(block, transactions, decodedEvents) {
   const successful = new Set(transactions.filter((row) => row.success).map((row) => row.signature));
   return [...(block.dexEvents ?? []), ...decodedEvents].map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
-    if (event.protocol !== "raydium-cpmm" || event.programId !== RAYDIUM_CPMM || event.type !== "swap") throw new Error(`dexEvents[${index}] is not a supported Raydium CPMM swap`);
+    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM);
+    if (!supported || event.type !== "swap") throw new Error(`dexEvents[${index}] is not a supported DEX swap`);
     const signature = field("signature"); if (!successful.has(signature)) throw new Error(`dexEvents[${index}].signature must reference a successful transaction`);
     const inputDecimals = event.inputDecimals; const outputDecimals = event.outputDecimals;
     if (!Number.isInteger(inputDecimals) || inputDecimals < 0 || inputDecimals > 255 || !Number.isInteger(outputDecimals) || outputDecimals < 0 || outputDecimals > 255) throw new Error(`dexEvents[${index}] decimals must be integers from 0 to 255`);
-    return { protocol: event.protocol, programId: event.programId, signature, pool: field("pool"), inputMint: field("inputMint"), outputMint: field("outputMint"), inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), inputDecimals, outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null };
+    return { protocol: event.protocol, programId: event.programId, side: event.side ?? null, signature, pool: field("pool"), inputMint: field("inputMint"), outputMint: field("outputMint"), inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
   });
 }
 
@@ -88,7 +117,7 @@ export function parseBlock(block) {
     };
     transactions.push(record);
     if (failed) continue;
-    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature));
+    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature));
     for (const instruction of instructionRows(entry)) {
       const transfer = parsedTransfer(instruction);
       if (transfer) transfers.push({ ...transfer, signature, slot: block.slot, blockTime });

@@ -109,7 +109,8 @@ Configuration:
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/swaps?limit=100&cursor=...` (verified Raydium CPMM swaps)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
-- `GET /api/v1/bot/readiness` (fail-closed capability gate)
+- `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
+- `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
 - `WS /ws?cursor=<sequence>` (persisted block events with replay/resume)
@@ -144,6 +145,13 @@ string. Execution price is exposed as an exact raw numerator/denominator with
 both mint decimals. It is not labeled as USD price. Unsupported programs fail
 the whole input file instead of silently producing market data.
 
+PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
+supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
+the same swap contract with `protocol: "pump-swap"`, explicit buy/sell side,
+directional mints, exact amounts and fees, and reserves marked
+`reserveTiming: "after"`. Pump.fun bonding-curve trades are a distinct venue
+and are not mislabeled as PumpSwap pool swaps.
+
 ## Operational safety
 
 - Bind defaults to loopback.
@@ -156,3 +164,4 @@ the whole input file instead of silently producing market data.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
 - Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.
 - The bot-readiness endpoint returns HTTP 503 until canonical finalized provenance, decoded swaps, liquidity, prices, and risk signals are all available and the index is healthy.
+- Pool risk currently measures data quality only. Even mature two-way history remains blocked for automated trading until mint/freeze authority, holder concentration, and manipulation evidence are indexed.
