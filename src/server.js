@@ -26,7 +26,7 @@ function page(rows, size, cursor, key) {
   return { data, nextCursor: hasMore && data.length ? encodeCursor({ key: key(data.at(-1)) }) : null };
 }
 async function readJsonFile(filename) { if (!filename) return null; try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
-function exporterHealth(exporter, staleAfterMs, now = Date.now()) { const observed = Date.parse(exporter?.observedAt ?? ""), ageMs = Number.isFinite(observed) ? Math.max(0, now - observed) : null; return { available: exporter != null, healthy: exporter != null && ageMs != null && ageMs <= staleAfterMs && exporter.commitment === "finalized", ageMs, staleAfterMs, reason: exporter == null ? "status_unavailable" : ageMs == null ? "invalid_observed_at" : exporter.commitment !== "finalized" ? "not_finalized" : ageMs > staleAfterMs ? "exporter_stale" : null }; }
+function exporterHealth(exporter, staleAfterMs, now = Date.now()) { const observed = Date.parse(exporter?.observedAt ?? ""), ageMs = Number.isFinite(observed) ? Math.max(0, now - observed) : null, failed = (Number(exporter?.consecutiveFailures) || 0) > 0; return { available: exporter != null, healthy: exporter != null && !failed && ageMs != null && ageMs <= staleAfterMs && exporter.commitment === "finalized", ageMs, staleAfterMs, reason: exporter == null ? "status_unavailable" : failed ? "exporter_failure" : ageMs == null ? "invalid_observed_at" : exporter.commitment !== "finalized" ? "not_finalized" : ageMs > staleAfterMs ? "exporter_stale" : null }; }
 async function readJsonBody(request, maximum = 65_536) {
   const chunks = []; let size = 0;
   for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error("request body exceeds 64 KiB"); error.code = "BAD_REQUEST"; throw error; } chunks.push(chunk); }
@@ -77,6 +77,7 @@ function prometheus(metrics, store, staleAfterMs, exporter) {
     "# TYPE terminal_dex_exporter_healthy gauge", `terminal_dex_exporter_healthy ${exporterStatus.healthy ? 1 : 0}`,
     "# TYPE terminal_dex_exporter_age_seconds gauge", `terminal_dex_exporter_age_seconds ${exporterStatus.ageMs == null ? "NaN" : exporterStatus.ageMs / 1000}`,
     "# TYPE terminal_dex_exporter_lag_slots gauge", `terminal_dex_exporter_lag_slots ${Number.isInteger(exporter?.lagSlots) ? exporter.lagSlots : "NaN"}`,
+    "# TYPE terminal_dex_exporter_consecutive_failures gauge", `terminal_dex_exporter_consecutive_failures ${Number.isInteger(exporter?.consecutiveFailures) ? exporter.consecutiveFailures : 0}`,
     "# TYPE terminal_dex_index_tip_slot gauge", `terminal_dex_index_tip_slot ${stats.tip ?? "NaN"}`,
     "# TYPE terminal_dex_dead_letters gauge", `terminal_dex_dead_letters ${stats.unresolvedDeadLetters}`,
     "# TYPE terminal_dex_reorg_corrections_total counter", `terminal_dex_reorg_corrections_total ${stats.reorgCorrections}`,

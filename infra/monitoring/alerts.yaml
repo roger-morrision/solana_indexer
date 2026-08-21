@@ -21,6 +21,11 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations: { summary: "Finalized Solana exporter is unavailable, stale, or non-finalized" }
+      - alert: TerminalDexExporterFailures
+        expr: terminal_dex_exporter_consecutive_failures > 0
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "Solana exporter is repeatedly failing; inspect redacted durable status evidence" }
       - alert: TerminalDexHttpErrors
         expr: rate(terminal_dex_http_requests_total{status_class="5xx"}[5m]) > 0.05
         for: 10m

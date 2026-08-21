@@ -10,7 +10,7 @@ import { loadConfig } from "../src/config.js";
 import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
-import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
+import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
@@ -187,7 +187,15 @@ test("exporter records finalized provenance, lag, and skipped slots", async () =
   const block = JSON.parse(await fs.readFile(path.join(root, "inbox", "10.json"), "utf8"));
   assert.deepEqual({ source: block.provenance.source, commitment: block.provenance.commitment, sourceTip: block.provenance.sourceTip, exportLagSlots: block.provenance.exportLagSlots }, { source: "local-agave-rpc", commitment: "finalized", sourceTip: 12, exportLagSlots: 2 });
   const status = JSON.parse(await fs.readFile(statusFile, "utf8"));
-  assert.deepEqual({ commitment: status.commitment, lagSlots: status.lagSlots, durableSkippedSlots: status.durableSkippedSlots }, { commitment: "finalized", lagSlots: 1, durableSkippedSlots: [11] });
+  assert.deepEqual({ commitment: status.commitment, lagSlots: status.lagSlots, durableSkippedSlots: status.durableSkippedSlots, failures: status.consecutiveFailures, error: status.lastError }, { commitment: "finalized", lagSlots: 1, durableSkippedSlots: [11], failures: 0, error: null });
+});
+
+test("exporter failure evidence is durable, redacted, and preserves the last success", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-failure-")), statusFile = path.join(root, "status.json");
+  await fs.writeFile(statusFile, JSON.stringify({ version: 2, source: "external-rpc-alchemy", commitment: "finalized", observedAt: "2026-08-20T00:00:00.000Z", cursor: 42, consecutiveFailures: 1 }));
+  const status = await recordExporterFailure(statusFile, new Error("request failed at https://provider.invalid/?api-key=secret"), { source: "external-rpc-pool", attemptedAt: "2026-08-21T00:00:00.000Z" });
+  assert.equal(status.cursor, 42); assert.equal(status.observedAt, "2026-08-20T00:00:00.000Z"); assert.equal(status.lastAttemptAt, "2026-08-21T00:00:00.000Z"); assert.equal(status.consecutiveFailures, 2); assert.equal(status.lastError, "request failed at [redacted-url]"); assert.equal(JSON.stringify(status).includes("secret"), false);
+  assert.deepEqual(JSON.parse(await fs.readFile(statusFile, "utf8")), status);
 });
 
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
@@ -360,11 +368,12 @@ test("ingestion API distinguishes unavailable from durable exporter evidence", a
   await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: new Date().toISOString(), lagSlots: 0, durableSkippedSlots: [7] }));
   const response = await fetch(endpoint); const body = await response.json();
   assert.equal(response.status, 200); assert.equal(body.available, true); assert.deepEqual(body.exporter.durableSkippedSlots, [7]);
+  await fs.writeFile(statusFile, JSON.stringify({ ...body.exporter, consecutiveFailures: 1, lastAttemptAt: new Date().toISOString(), lastError: "HTTP 429" })); const failed = await fetch(endpoint); assert.equal(failed.status, 503); assert.equal((await failed.json()).reason, "exporter_failure");
 });
 
 test("ingestion and metrics fail closed for stale exporter status", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stale-exporter-")), statusFile = path.join(root, "status.json"); await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: "2020-01-01T00:00:00.000Z", lagSlots: 9 })); const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000, exporterStatusFile: statusFile }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
-  const ingestion = await fetch(`${base}/api/v1/ingestion`); assert.equal(ingestion.status, 503); assert.equal((await ingestion.json()).reason, "exporter_stale"); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_exporter_healthy 0/); assert.match(metrics, /terminal_dex_exporter_lag_slots 9/);
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stale-exporter-")), statusFile = path.join(root, "status.json"); await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: "2020-01-01T00:00:00.000Z", lagSlots: 9, consecutiveFailures: 3 })); const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000, exporterStatusFile: statusFile }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const ingestion = await fetch(`${base}/api/v1/ingestion`); assert.equal(ingestion.status, 503); assert.equal((await ingestion.json()).reason, "exporter_failure"); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_exporter_healthy 0/); assert.match(metrics, /terminal_dex_exporter_lag_slots 9/); assert.match(metrics, /terminal_dex_exporter_consecutive_failures 3/);
 });
 
 test("configuration refuses public binding without API keys", () => {

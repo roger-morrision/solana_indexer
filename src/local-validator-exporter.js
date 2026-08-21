@@ -28,6 +28,20 @@ async function readCursor(filename) { try { return Number((await fs.readFile(fil
 async function atomicWrite(filename, body) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, body); await fs.rename(temporary, filename); }
 async function readStatus(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
 
+function safeError(error) {
+  return String(error?.message ?? error?.name ?? "exporter failure")
+    .replace(/https?:\/\/[^\s]+/gi, "[redacted-url]")
+    .slice(0, 512);
+}
+
+export async function recordExporterFailure(statusFile, error, { source = "unknown", attemptedAt = new Date().toISOString() } = {}) {
+  if (!statusFile) return null;
+  const previous = await readStatus(statusFile);
+  const status = { ...previous, version: 2, source: previous.source ?? source, lastAttemptAt: attemptedAt, lastError: safeError(error), consecutiveFailures: (Number(previous.consecutiveFailures) || 0) + 1 };
+  await atomicWrite(statusFile, `${JSON.stringify(status)}\n`);
+  return status;
+}
+
 export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null }) {
   let genesisHash = null;
   if (expectedGenesisHash) {
@@ -52,7 +66,8 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   if (statusFile) {
     const previous = await readStatus(statusFile);
     const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
-    await atomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), ...result, durableSkippedSlots })}\n`);
+    const observedAt = new Date().toISOString();
+    await atomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt, lastAttemptAt: observedAt, lastError: null, consecutiveFailures: 0, ...result, durableSkippedSlots })}\n`);
   }
   return result;
 }
@@ -61,7 +76,7 @@ async function main() {
   const config = loadConfig(); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899");
   const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/exporter.cursor"); const batchSize = Math.min(256, Math.max(1, Number(process.env.EXPORTER_BATCH_SIZE) || 32)); const once = process.argv.includes("--once");
   const expectedGenesisHash = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH;
-  do { console.log(JSON.stringify(await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }))); if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
+  do { try { console.log(JSON.stringify(await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }))); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: "local-agave-rpc" }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
 }
 
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";

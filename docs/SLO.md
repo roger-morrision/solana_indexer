@@ -8,6 +8,7 @@ maintenance is reported separately and is not silently removed from raw data.
 |---|---:|---|
 | Canonical feed availability | 99.9% monthly | trading-bot readiness returns unavailable |
 | Newest finalized block age | <=120 seconds for 99.9% of minutes | page and bot responses disclose stale data |
+| Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
 | REST read latency | p99 <=500 ms monthly | alert and shed expensive requests |
 | WebSocket persisted-event delivery | p99 <=2 seconds after index commit | reconnect and resume from cursor |
 | Unresolved decoder dead letters | zero older than 10 minutes | affected protocol coverage becomes incomplete |

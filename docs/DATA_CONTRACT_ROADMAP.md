@@ -16,7 +16,7 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 ## Dependency-ordered roadmap
 
 1. ~~Add deterministic REST contract tests, validation errors, stable cursor pagination, and response envelopes without breaking legacy routes.~~ Completed for block and transaction lists.
-2. ~~Persist explicit ingestion provenance, finalized commitment, exporter lag, skipped-slot evidence, and bounded data-quality telemetry.~~ Completed with atomic exporter status and a bounded 10,000-slot history.
+2. ~~Persist explicit ingestion provenance, finalized commitment, exporter lag, skipped-slot evidence, and bounded data-quality telemetry.~~ Completed with atomic exporter status, a bounded 10,000-slot history, and redacted durable failure-attempt evidence that preserves the last successful checkpoint.
 3. Decode supported DEX swaps and pool lifecycle events behind protocol-specific fixtures; never infer swaps from generic transfers. Raydium CPMM, PumpSwap and Pump bonding-curve trade events are covered; pool lifecycle and additional protocols remain.
 4. Normalize token metadata, pool identity, reserves, liquidity, price and volume with exact decimal arithmetic and source timestamps. Protocol-oriented identity, reserves, execution ratios, raw OHLCV and nominal USD references through finalized USDC paths are complete; metadata, lifecycle state, depeg/TWAP safeguards and robust USD volume remain.
 5. ~~Add replayable WebSocket subscriptions with monotonic sequence IDs, resume cursors, heartbeats, bounded queues and slow-consumer eviction.~~ Completed for canonical block and mint/pool/protocol-filtered swap topics.
