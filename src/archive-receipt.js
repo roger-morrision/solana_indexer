@@ -24,11 +24,12 @@ export async function createInboxManifest({ inbox, output, archiveId }) {
   return manifest;
 }
 
-export async function completeArchiveReceipt({ manifestFile, output, completedAt = new Date().toISOString() }) {
+export async function completeArchiveReceipt({ manifestFile, output, completedAt = new Date().toISOString(), status = "uploaded" }) {
   const manifestBytes = await fs.readFile(manifestFile);
   const manifest = JSON.parse(manifestBytes.toString("utf8"));
   if (manifest.schemaVersion !== 1 || !manifest.archiveId || !manifest.files) throw new Error("invalid inbox archive manifest");
-  const receipt = { ...manifest, storage: "self-hosted", status: "uploaded", uploadCompletedAt: completedAt, manifestSha256: sha256(manifestBytes) };
+  if (!["uploaded", "verified_local"].includes(status)) throw new Error("invalid archive receipt status");
+  const receipt = { ...manifest, storage: "self-hosted", status, completedAt, ...(status === "uploaded" ? { uploadCompletedAt: completedAt } : {}), manifestSha256: sha256(manifestBytes) };
   await writeAtomic(output, receipt);
   return receipt;
 }

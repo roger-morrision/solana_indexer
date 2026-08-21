@@ -3,6 +3,7 @@ inbox/*.json
 inbox/*.ndjson
 !inbox/.gitkeep
 inbox-mainnet/
+archive-mainnet/
 *.tmp
 *.log
 backups/

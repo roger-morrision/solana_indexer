@@ -64,7 +64,10 @@ publishes no port, caps indexed history at one day/50,000 transactions, uses
 bounded logs, and reports health from durable exporter evidence. The API binds
 only to `127.0.0.1:8787` and requires `INDEXER_API_KEYS` in the ignored
 environment file before Compose will keep it running. Raw blocks are never
-silently deleted; use the self-hosted archive and receipt-gated retention flow.
+silently deleted. `docker compose -f infra/reduced/compose.yaml --profile tools
+run --rm archive` creates verified per-file gzip copies under ignored
+`archive-mainnet`, then installs the exact-fingerprint receipt. Review
+`npm run retention:inbox` before separately confirming deletion.
 
 `npm run health:public-rpc` uses the Solana public endpoint only for genesis and
 health checks. `npm run export:external -- --emergency-public --once` is the only

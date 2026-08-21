@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
@@ -18,6 +19,7 @@ import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { exporterHealthCheck } from "../src/exporter-health.js";
+import { archiveInbox } from "../src/inbox-archive.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -95,6 +97,10 @@ test("raw inbox retention is dry-run-first and deletes only unchanged durable fi
   const blocked = await retainInbox({ inbox, dataFile, archiveReceiptFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z"), confirmDelete: true }); assert.deepEqual(blocked.deleted, []); assert.equal(blocked.retained.unarchived, 1); assert.equal(blocked.archiveReceiptValid, false);
   await createInboxManifest({ inbox, output: manifestFile, archiveId: "20200101T000000Z" }); await completeArchiveReceipt({ manifestFile, output: archiveReceiptFile, completedAt: "2020-01-01T01:00:00.000Z" });
   const preview = await retainInbox({ inbox, dataFile, archiveReceiptFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z") }); assert.deepEqual(preview.eligible, ["old.json"]); assert.equal(preview.deleted.length, 0); assert.equal(preview.retained.changed, 1); assert.equal(preview.retained.uncheckpointed, 1); const applied = await retainInbox({ inbox, dataFile, archiveReceiptFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z"), confirmDelete: true }); assert.deepEqual(applied.deleted, ["old.json"]); await assert.rejects(fs.access(old)); assert.doesNotReject(fs.access(changed));
+});
+
+test("self-hosted inbox archive verifies compressed copies before installing its receipt", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-inbox-archive-")), inbox = path.join(root, "inbox"), archiveRoot = path.join(root, "archive"), receiptFile = path.join(root, "data", "receipt.json"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "10.json"), "raw-block-one"); await fs.writeFile(path.join(inbox, "11.ndjson"), "raw-block-two\n"); const result = await archiveInbox({ inbox, archiveRoot, receiptFile, archiveId: "20260821T000000Z" }); assert.equal(result.files, 2); assert.equal(gunzipSync(await fs.readFile(path.join(result.archiveDirectory, "10.json.gz"))).toString(), "raw-block-one"); assert.equal(gunzipSync(await fs.readFile(path.join(result.archiveDirectory, "11.ndjson.gz"))).toString(), "raw-block-two\n"); const receipt = JSON.parse(await fs.readFile(receiptFile, "utf8")); assert.equal(receipt.status, "verified_local"); assert.equal(receipt.storage, "self-hosted"); assert.equal(receipt.archiveId, "20260821T000000Z"); assert.equal(Object.keys(receipt.files).length, 2); assert.equal(await fs.readFile(path.join(inbox, "10.json"), "utf8"), "raw-block-one");
 });
 
 test("persists bounded dead-letter evidence for invalid inbox payloads", async () => {
@@ -408,7 +414,7 @@ test("storage deployment requires reviewed images, loopback ports, secrets, and 
 });
 
 test("Docker Desktop reduced mode is bounded, private, and credential-externalized", async () => {
-  const compose = await fs.readFile(path.join(rootDir, "infra/reduced/compose.yaml"), "utf8"), dockerfile = await fs.readFile(path.join(rootDir, "infra/reduced/Dockerfile"), "utf8"); assert.match(dockerfile, /ARG NODE_IMAGE/); assert.match(compose, /NODE_IMAGE:\s*\$\{NODE_IMAGE:\?Set NODE_IMAGE/); assert.match(compose, /env_file:\s*\.\.\/\.\.\/validator\/external-rpc\.env/); assert.match(compose, /INDEXER_RETENTION_SECONDS:\s*"86400"/); assert.match(compose, /INDEXER_MAX_TRANSACTIONS:\s*"50000"/); assert.match(compose, /read_only:\s*true/); assert.match(compose, /cap_drop:\s*\[ALL\]/); assert.match(compose, /ports:\s*\[127\.0\.0\.1:8787:8787\]/); assert.doesNotMatch(compose, /HELIUS_RPC_URL:|ALCHEMY_RPC_URL:/);
+  const compose = await fs.readFile(path.join(rootDir, "infra/reduced/compose.yaml"), "utf8"), dockerfile = await fs.readFile(path.join(rootDir, "infra/reduced/Dockerfile"), "utf8"); assert.match(dockerfile, /ARG NODE_IMAGE/); assert.match(compose, /NODE_IMAGE:\s*\$\{NODE_IMAGE:\?Set NODE_IMAGE/); assert.match(compose, /env_file:\s*\.\.\/\.\.\/validator\/external-rpc\.env/); assert.match(compose, /INDEXER_RETENTION_SECONDS:\s*"86400"/); assert.match(compose, /INDEXER_MAX_TRANSACTIONS:\s*"50000"/); assert.match(compose, /read_only:\s*true/); assert.match(compose, /cap_drop:\s*\[ALL\]/); assert.match(compose, /ports:\s*\[127\.0\.0\.1:8787:8787\]/); assert.match(compose, /profiles:\s*\[tools\]/); assert.match(compose, /\.\.\/\.\.\/inbox-mainnet:\/app\/inbox-mainnet:ro/); assert.match(compose, /command:\s*\[src\/inbox-archive\.js\]/); assert.doesNotMatch(compose, /HELIUS_RPC_URL:|ALCHEMY_RPC_URL:/);
 });
 
 test("external mainnet services are supervised, isolated, and never auto-started", async () => {
