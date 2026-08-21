@@ -326,6 +326,7 @@ they are never mislabeled as PumpSwap AMM reserves.
 - Failed transactions are indexed but never emitted as successful transfers.
 - Slot replacement removes orphaned derived records.
 - Input errors are isolated per file and returned in cycle diagnostics.
+- Dead letters remain as audit evidence but are marked resolved when the exact file fingerprint later receives a successful parser-v2 checkpoint; a repeated failure reopens the record.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
 - `npm run retention:inbox` previews old raw inbox files eligible for deletion. It only selects parser-v2 checkpointed files whose current SHA-256 matches both the checkpoint and the last successfully uploaded self-hosted archive receipt, and excludes unresolved dead letters. `ops/backup.sh` installs that receipt only after the manifest and archive uploads succeed. Rerun with `-- --confirm-delete`; deletion is never implicit.
 - Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.

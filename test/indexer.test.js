@@ -101,6 +101,13 @@ test("persists bounded dead-letter evidence for invalid inbox payloads", async (
   const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); assert.equal(persisted.deadLetters[0].attempts, 1);
 });
 
+test("successful exact-fingerprint checkpoints resolve stale dead letters and later failures reopen them", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-dead-letter-resolution-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); await fs.mkdir(inbox); const filename = path.join(inbox, "100.json"), content = await fs.readFile(fixture), fingerprint = crypto.createHash("sha256").update(content).digest("hex"); await fs.writeFile(filename, content);
+  const seed = new IndexStore(dataFile); await seed.load(); seed.state.processedFiles["100.json"] = { fingerprint, parserVersion: 2 }; seed.recordDeadLetter("100.json", fingerprint, "old parser rejected input"); await seed.save();
+  const store = new IndexStore(dataFile); const result = await indexInbox({ inbox, dataFile, maxTransactions: 1000 }, store); assert.equal(result.skippedFiles, 1); assert.equal(result.resolvedDeadLetters, 1); assert.equal(store.state.deadLetters[0].resolved, true); assert.equal(store.state.deadLetters[0].resolution, "parser_v2_checkpoint"); assert.ok(store.state.deadLetters[0].resolvedAt);
+  store.recordDeadLetter("100.json", fingerprint, "decoder regression"); assert.equal(store.state.deadLetters[0].resolved, false); assert.equal(store.state.deadLetters[0].resolution, undefined); assert.equal(store.state.deadLetters[0].attempts, 2);
+});
+
 test("replaces a conflicting slot without retaining orphaned records", async () => {
   const store = new IndexStore("unused"); await store.load();
   const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(original);
