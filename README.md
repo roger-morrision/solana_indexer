@@ -338,6 +338,8 @@ mainnet validator to capture the official PoolState header and both parsed token
 vault balances. State and balance context slots are retained separately, stale
 snapshots cannot replace newer evidence, and snapshots remain unsafe for route
 execution until tick arrays and local simulation are available.
+Liquidity risk reports snapshot age and fails closed with
+`liquidity_state_stale` once the configured freshness threshold is exceeded.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
