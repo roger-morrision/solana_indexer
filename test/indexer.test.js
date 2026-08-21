@@ -74,7 +74,9 @@ test("finalized Raydium CLMM snapshots decode canonical pool state and vault bal
   const store = new IndexStore("unused"); await store.load(); store.applyPoolSnapshot(snapshot); const pool = store.pool("pool-a").summary; assert.equal(pool.pairIdentitySource, "protocol_account"); assert.equal(pool.accountSnapshot.commitment, "finalized"); assert.equal(pool.accountSnapshot.tick, -42); assert.equal(store.stats().poolSnapshots, 1); store.rebuildAggregates(); assert.equal(store.pool("pool-a").summary.accountSnapshot.balanceSlot, 501);
   const freshRisk = store.poolRisk("pool-a", 120_000, Date.parse(snapshot.observedAt) + 60_000); assert.equal(freshRisk.liquidity.assessable, true); assert.equal(freshRisk.liquidity.stale, false); assert.equal(freshRisk.liquidity.ageMs, 60_000);
   const staleRisk = store.poolRisk("pool-a", 120_000, Date.parse(snapshot.observedAt) + 180_000); assert.equal(staleRisk.liquidity.assessable, false); assert.equal(staleRisk.liquidity.stale, true); assert.ok(staleRisk.blockers.includes("liquidity_state_stale"));
+  const futureRisk = store.poolRisk("pool-a", 120_000, Date.parse(snapshot.observedAt) - 1); assert.equal(futureRisk.liquidity.assessable, false); assert.equal(futureRisk.liquidity.observedInFuture, true); assert.equal(futureRisk.liquidity.ageMs, -1);
   store.applyPoolSnapshot({ ...snapshot, stateSlot: 499, balanceSlot: 499, pools: [{ ...snapshot.pools[0], vault0AmountRaw: "1" }] }); assert.equal(store.pool("pool-a").summary.accountSnapshot.vault0AmountRaw, "1000");
+  store.applyPoolSnapshot({ ...snapshot, stateSlot: 499, balanceSlot: 501, pools: [{ ...snapshot.pools[0], vault0AmountRaw: "1" }] }); assert.equal(store.pool("pool-a").summary.accountSnapshot.vault0AmountRaw, "1000");
   assert.throws(() => store.applyPoolSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized CLMM pool snapshot/);
 });
 
@@ -161,6 +163,10 @@ test("health fails closed for empty and stale indexes", async () => {
   assert.equal(store.health(5000, 1_700_000_002_000).status, "healthy");
 });
 
+test("health rejects future canonical block timestamps", async () => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString(); const result = store.health(120_000, block.blockTime * 1_000 - 1); assert.equal(result.healthy, false); assert.equal(result.status, "clock_skew"); assert.equal(result.reason, "latest_block_time_is_in_future"); assert.equal(result.ageMs, -1);
+});
+
 test("health fails closed when indexed parent hashes conflict", async () => {
   const store = new IndexStore("unused"); await store.load();
   const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
@@ -238,6 +244,7 @@ test("exporter failure evidence is durable, redacted, and preserves the last suc
 
 test("exporter health probe fails closed for missing, stale, and failed durable status", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-health-")), statusFile = path.join(root, "status.json"), now = Date.parse("2026-08-21T00:00:00.000Z"); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "status_unavailable"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-alchemy", commitment: "finalized", cursor: 42, lagSlots: 0, observedAt: "2026-08-20T00:00:00.000Z" })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_stale"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 43, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_failure"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 44, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).healthy, true);
+  await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 45, observedAt: "2026-08-21T00:00:00.001Z" })); const future = await exporterHealthCheck(statusFile, 120_000, now); assert.equal(future.healthy, false); assert.equal(future.reason, "observed_at_in_future"); assert.equal(future.ageMs, -1);
 });
 
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {

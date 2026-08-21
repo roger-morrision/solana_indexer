@@ -340,6 +340,8 @@ snapshots cannot replace newer evidence, and snapshots remain unsafe for route
 execution until tick arrays and local simulation are available.
 Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
+Future-dated block, exporter, market, and pool-snapshot timestamps are treated
+as clock-skew failures rather than being clamped to zero age.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
