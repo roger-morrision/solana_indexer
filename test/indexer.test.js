@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
-import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
+import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -362,6 +362,15 @@ test("decodes Raydium CPMM Anchor swap events only inside its invocation", () =>
   const events = decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program ${program} invoke [1]`, `Program data: ${encoded}`, `Program ${program} success`], preTokenBalances: [], postTokenBalances: [] } }, "sig");
   assert.equal(events.length, 1); assert.deepEqual({ inputAmountRaw: events[0].inputAmountRaw, outputAmountRaw: events[0].outputAmountRaw, tradeFeeRaw: events[0].tradeFeeRaw }, { inputAmountRaw: "100", outputAmountRaw: "190", tradeFeeRaw: "1" });
   assert.equal(decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program other invoke [1]`, `Program data: ${encoded}`, "Program other success"] } }, "sig").length, 0);
+});
+
+test("decodes and persists successful Raydium CPMM pool initialization lifecycle", async () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; };
+  const programId = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C", accounts = Array.from({ length: 20 }, (_, index) => `account-${index}`), data = Buffer.alloc(32); crypto.createHash("sha256").update("global:initialize").digest().copy(data, 0, 0, 8); data.writeBigUInt64LE(10n, 8); data.writeBigUInt64LE(20n, 16); data.writeBigUInt64LE(30n, 24);
+  const entry = { transaction: { signatures: ["create-pool-signature"], message: { accountKeys: ["payer"], instructions: [{ programId, accounts, data: encode58(data) }] } }, meta: { err: null, fee: 1, logMessages: [], preTokenBalances: [], postTokenBalances: [] } };
+  const decoded = decodeRaydiumCpmmPoolInitializations(entry, "create-pool-signature"); assert.deepEqual({ pool: decoded[0].pool, tokenMint0: decoded[0].tokenMint0, tokenMint1: decoded[0].tokenMint1, initialAmount0Raw: decoded[0].initialAmount0Raw, initialAmount1Raw: decoded[0].initialAmount1Raw, requestedOpenTime: decoded[0].requestedOpenTime }, { pool: "account-3", tokenMint0: "account-4", tokenMint1: "account-5", initialAmount0Raw: "10", initialAmount1Raw: "20", requestedOpenTime: "30" });
+  const block = parseBlock({ slot: 900, blockhash: "block-900", previousBlockhash: "block-899", parentSlot: 899, blockTime: 1_700_000_000, transactions: [entry], provenance: { commitment: "finalized" } }); assert.equal(block.poolLifecycleEvents.length, 1); const store = new IndexStore("unused"); await store.load(); store.apply(block); assert.equal(store.pool("account-3").summary.lifecycle.initialAmount1Raw, "20"); store.rebuildAggregates(); assert.equal(store.pool("account-3").summary.pairIdentitySource, "protocol_instruction");
+  assert.deepEqual(decodeRaydiumCpmmPoolInitializations({ ...entry, meta: { ...entry.meta, err: { InstructionError: [0, "failed"] } } }, "failed"), []); const malformed = structuredClone(entry); malformed.transaction.message.instructions[0].data = "0OIl"; assert.deepEqual(decodeRaydiumCpmmPoolInitializations(malformed, "bad"), []);
 });
 
 test("decodes Raydium CLMM SwapEvent with exact price state and explicit unavailable reserves", async () => {

@@ -12,9 +12,23 @@ const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
 function u128(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 340_282_366_920_938_463_463_374_607_431_768_211_455n) throw new Error(`${field} must be a decimal u128 string`); return value; }
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte !== 0) break; output = `1${output}`; } return output || "1"; }
+function decodeBase58(value) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", indexes = new Map([...alphabet].map((character, index) => [character, index])); if (typeof value !== "string" || !value) throw new Error("invalid base58 payload"); let number = 0n; for (const character of value) { const digit = indexes.get(character); if (digit == null) throw new Error("invalid base58 payload"); number = number * 58n + BigInt(digit); } const bytes = []; while (number) { bytes.unshift(Number(number & 255n)); number >>= 8n; } for (const character of value) { if (character !== "1") break; bytes.unshift(0); } return Buffer.from(bytes); }
 function readU64(buffer, offset) { return buffer.readBigUInt64LE(offset).toString(); }
 function readU128(buffer, offset) { return (buffer.readBigUInt64LE(offset + 8) << 64n | buffer.readBigUInt64LE(offset)).toString(); }
 const SWAP_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:SwapEvent").digest().subarray(0, 8);
+const RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR = crypto.createHash("sha256").update("global:initialize").digest().subarray(0, 8);
+export function decodeRaydiumCpmmPoolInitializations(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], keys = accountKeys(entry.transaction?.message, entry.meta);
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== RAYDIUM_CPMM || accounts.length < 14 || accounts.some((account) => typeof account !== "string" || !account) || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    if (data.length !== 32 || !data.subarray(0, 8).equals(RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR)) continue;
+    events.push({ type: "pool_created", protocol: "raydium-cpmm", programId: RAYDIUM_CPMM, signature, creator: accounts[0], ammConfig: accounts[1], pool: accounts[3], tokenMint0: accounts[4], tokenMint1: accounts[5], lpMint: accounts[6], tokenVault0: accounts[10], tokenVault1: accounts[11], observationKey: accounts[13], initialAmount0Raw: readU64(data, 8), initialAmount1Raw: readU64(data, 16), requestedOpenTime: readU64(data, 24), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
 export function decodeRaydiumSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
   const decimals = new Map([...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])].map((row) => [row.mint, row.uiTokenAmount?.decimals]));
@@ -208,6 +222,7 @@ export function parseBlock(block) {
   const balanceChanges = [];
   const instructions = [];
   const decodedDexEvents = [];
+  const poolLifecycleEvents = [];
   for (const entry of block.transactions) {
     const signature = entry?.transaction?.signatures?.[0];
     if (!signature) continue;
@@ -222,6 +237,7 @@ export function parseBlock(block) {
     transactions.push(record);
     instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
+    poolLifecycleEvents.push(...decodeRaydiumCpmmPoolInitializations(entry, signature).map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:pool_created`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {
@@ -237,7 +253,7 @@ export function parseBlock(block) {
     exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
   };
   const swaps = dexSwaps(block, transactions, decodedDexEvents);
-  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, instructions, transfers, balanceChanges, swaps };
+  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, instructions, transfers, balanceChanges, swaps, poolLifecycleEvents };
 }
 
 export function parseInput(text, filename = "input") {

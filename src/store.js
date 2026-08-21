@@ -94,10 +94,11 @@ export class IndexStore {
         this.state.accounts[account] = current;
       }
     }
-    this.state.instructions.push(...(block.instructions ?? [])); this.state.programEvents.push(...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId })));
+    this.state.instructions.push(...(block.instructions ?? [])); this.state.programEvents.push(...(block.poolLifecycleEvents ?? []), ...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId })));
     this.state.transfers.push(...block.transfers);
     this.state.balanceChanges.push(...(block.balanceChanges ?? [])); for (const change of block.balanceChanges ?? []) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
     this.state.swaps.push(...block.swaps);
+    for (const event of block.poolLifecycleEvents ?? []) this.state.pools[event.pool] = { ...(this.state.pools[event.pool] ?? {}), protocol: event.protocol, venueType: "amm", baseMint: event.tokenMint0, quoteMint: event.tokenMint1, pairIdentitySource: "protocol_instruction", lifecycle: { type: event.type, slot: event.slot, blockTime: event.blockTime, signature: event.signature, creator: event.creator, ammConfig: event.ammConfig, lpMint: event.lpMint, tokenVault0: event.tokenVault0, tokenVault1: event.tokenVault1, observationKey: event.observationKey, initialAmount0Raw: event.initialAmount0Raw, initialAmount1Raw: event.initialAmount1Raw, requestedOpenTime: event.requestedOpenTime } };
     for (const transfer of block.transfers) if (transfer.mint) {
       const current = this.state.mints[transfer.mint] ?? { transferCount: 0, lastSlot: 0, lastBlockTime: null };
       current.transferCount += 1; current.lastSlot = Math.max(current.lastSlot, transfer.slot); current.lastBlockTime = Math.max(current.lastBlockTime ?? 0, transfer.blockTime ?? 0) || null;
@@ -126,6 +127,7 @@ export class IndexStore {
   }
   rebuildAggregates() {
     this.state.accounts = {}; this.state.mints = {}; this.state.pools = {}; this.rebuildTokenAccounts();
+    for (const event of this.state.programEvents) if (event.type === "pool_created" && event.pool) this.state.pools[event.pool] = { protocol: event.protocol, venueType: "amm", baseMint: event.tokenMint0, quoteMint: event.tokenMint1, pairIdentitySource: "protocol_instruction", lifecycle: { type: event.type, slot: event.slot, blockTime: event.blockTime, signature: event.signature, creator: event.creator, ammConfig: event.ammConfig, lpMint: event.lpMint, tokenVault0: event.tokenVault0, tokenVault1: event.tokenVault1, observationKey: event.observationKey, initialAmount0Raw: event.initialAmount0Raw, initialAmount1Raw: event.initialAmount1Raw, requestedOpenTime: event.requestedOpenTime } };
     for (const tx of Object.values(this.state.transactions)) for (const account of tx.accounts) {
       const row = this.state.accounts[account] ?? { transactionCount: 0, successfulTransactionCount: 0, lastSlot: 0 };
       row.transactionCount++; row.successfulTransactionCount += tx.success ? 1 : 0; row.lastSlot = Math.max(row.lastSlot, tx.slot); this.state.accounts[account] = row;
