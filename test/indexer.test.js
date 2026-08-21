@@ -17,6 +17,7 @@ import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../sr
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
+import { exporterHealthCheck } from "../src/exporter-health.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -212,6 +213,10 @@ test("exporter failure evidence is durable, redacted, and preserves the last suc
   assert.deepEqual(JSON.parse(await fs.readFile(statusFile, "utf8")), status);
 });
 
+test("exporter health probe fails closed for missing, stale, and failed durable status", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-health-")), statusFile = path.join(root, "status.json"), now = Date.parse("2026-08-21T00:00:00.000Z"); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "status_unavailable"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-alchemy", commitment: "finalized", cursor: 42, lagSlots: 0, observedAt: "2026-08-20T00:00:00.000Z" })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_stale"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 43, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_failure"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 44, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).healthy, true);
+});
+
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
   const store = new IndexStore("unused"); await store.load();
   const server = createServer({ staleAfterMs: 120_000 }, store);
@@ -400,6 +405,10 @@ test("storage deployment requires reviewed images, loopback ports, secrets, and 
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); const compose = await fs.readFile(path.join(root, "infra/compose.yaml"), "utf8"); const ignored = await fs.readFile(path.join(root, ".gitignore"), "utf8");
   assert.doesNotMatch(compose, /image:\s+\S+:latest/); assert.match(compose, /POSTGRES_IMAGE:\?Set POSTGRES_IMAGE/); assert.match(compose, /127\.0\.0\.1:5432:5432/); assert.match(compose, /postgres_password: \{ file:/); assert.match(ignored, /infra\/secrets\/\*/);
   const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /UInt256/);
+});
+
+test("Docker Desktop reduced mode is bounded, private, and credential-externalized", async () => {
+  const compose = await fs.readFile(path.join(rootDir, "infra/reduced/compose.yaml"), "utf8"), dockerfile = await fs.readFile(path.join(rootDir, "infra/reduced/Dockerfile"), "utf8"); assert.match(dockerfile, /ARG NODE_IMAGE/); assert.match(compose, /NODE_IMAGE:\s*\$\{NODE_IMAGE:\?Set NODE_IMAGE/); assert.match(compose, /env_file:\s*\.\.\/\.\.\/validator\/external-rpc\.env/); assert.match(compose, /INDEXER_RETENTION_SECONDS:\s*"86400"/); assert.match(compose, /INDEXER_MAX_TRANSACTIONS:\s*"50000"/); assert.match(compose, /read_only:\s*true/); assert.match(compose, /cap_drop:\s*\[ALL\]/); assert.match(compose, /ports:\s*\[127\.0\.0\.1:8787:8787\]/); assert.doesNotMatch(compose, /HELIUS_RPC_URL:|ALCHEMY_RPC_URL:/);
 });
 
 test("external mainnet services are supervised, isolated, and never auto-started", async () => {

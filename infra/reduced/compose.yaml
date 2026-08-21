@@ -1,0 +1,60 @@
+name: terminal-dex-reduced
+
+x-indexer: &indexer
+  build:
+    context: ../..
+    dockerfile: infra/reduced/Dockerfile
+    args:
+      NODE_IMAGE: ${NODE_IMAGE:?Set NODE_IMAGE to a reviewed Node image digest}
+  env_file: ../../validator/external-rpc.env
+  environment:
+    INDEXER_INBOX: /app/inbox-mainnet
+    INDEXER_DATA_FILE: /app/data/mainnet-index.json
+    EXPORTER_STATUS_FILE: /app/data/external-exporter-status.json
+    EXPORTER_CURSOR_FILE: /app/data/external-exporter.cursor
+    EXPORTER_BATCH_SIZE: "4"
+    INDEXER_MAX_TRANSACTIONS: "50000"
+    INDEXER_RETENTION_SECONDS: "86400"
+    INDEXER_STALE_AFTER_MS: "120000"
+  volumes:
+    - ../../inbox-mainnet:/app/inbox-mainnet
+    - ../../data:/app/data
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  user: "1000:1000"
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: "3" }
+
+services:
+  exporter:
+    <<: *indexer
+    command: [src/external-rpc.js]
+    healthcheck:
+      test: [CMD, node, src/exporter-health.js]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  api:
+    <<: *indexer
+    command: [src/cli.js, serve]
+    environment:
+      INDEXER_INBOX: /app/inbox-mainnet
+      INDEXER_DATA_FILE: /app/data/mainnet-index.json
+      EXPORTER_STATUS_FILE: /app/data/external-exporter-status.json
+      INDEXER_MAX_TRANSACTIONS: "50000"
+      INDEXER_RETENTION_SECONDS: "86400"
+      INDEXER_STALE_AFTER_MS: "120000"
+      INDEXER_HOST: 0.0.0.0
+      INDEXER_PORT: "8787"
+    ports: [127.0.0.1:8787:8787]
+    healthcheck:
+      test: [CMD, node, src/exporter-health.js]
+      interval: 30s
+      timeout: 5s
+      retries: 3

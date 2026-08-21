@@ -58,6 +58,14 @@ before running `npm run export:external`. Both private URLs are mandatory. The
 exporter validates mainnet genesis, uses bounded batches, opens a provider circuit
 after repeated failures, and persists only provider names—never URLs or keys.
 
+`infra/reduced/compose.yaml` packages this lane for Docker Desktop. Set
+`NODE_IMAGE` to a reviewed digest and start the default exporter service. It
+publishes no port, caps indexed history at one day/50,000 transactions, uses
+bounded logs, and reports health from durable exporter evidence. The API binds
+only to `127.0.0.1:8787` and requires `INDEXER_API_KEYS` in the ignored
+environment file before Compose will keep it running. Raw blocks are never
+silently deleted; use the self-hosted archive and receipt-gated retention flow.
+
 `npm run health:public-rpc` uses the Solana public endpoint only for genesis and
 health checks. `npm run export:external -- --emergency-public --once` is the only
 public-RPC backfill mode; it is forced to one cycle and at most four slots. It

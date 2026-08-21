@@ -9,7 +9,7 @@ synthetically populated.
 |---|---|---|---|
 | Mainnet RPC | deployable, not running here | non-voting Agave unit, genesis verifier, private loopback RPC | production Ubuntu hosts and snapshots |
 | Secondary RPC/load balancing | missing | none | second host and operator network decision |
-| Reduced external RPC | deployable, credentials configured locally | supervised external exporter/API units, Helius primary, Alchemy failover, redacted telemetry, Retry-After circuits, strict mainnet genesis, fail-closed exporter freshness/lag metrics; public RPC health/emergency-only | operator installation and quota monitoring |
+| Reduced external RPC | deployable, credentials configured locally | supervised Linux units and bounded Docker Desktop profile, Helius primary, Alchemy failover, redacted telemetry, Retry-After circuits, strict mainnet genesis, durable fail-closed exporter health probe/metrics; public RPC health/emergency-only | reviewed Node image digest, operator start and quota monitoring |
 | Confirmed/finalized streaming | complete for block PubSub | serialized stream, durable status, gap repair, fork promotion | Yellowstone parallel lane |
 | Immutable instruction facts | complete in compatibility store | stable location identity, registry version, decoder version and payload hash | ClickHouse sink |
 | Dead letters/checkpoints/reorg corrections | complete in compatibility store | bounded persisted evidence, dry-run-first exact-fingerprint reconciliation, resolution/reopen lifecycle, REST health, and archive-receipt/checkpoint-gated raw inbox retention | protocol-aware retry queue and durable database sink |
