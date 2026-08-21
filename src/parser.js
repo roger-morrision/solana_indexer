@@ -19,6 +19,8 @@ const SWAP_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:SwapE
 const RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR = crypto.createHash("sha256").update("global:initialize").digest().subarray(0, 8);
 const PUMP_AMM_CREATE_POOL_DISCRIMINATOR = Buffer.from([233, 146, 209, 142, 207, 104, 64, 188]);
 const PUMP_CREATE_V2_DISCRIMINATOR = Buffer.from([214, 144, 76, 236, 95, 139, 49, 180]);
+const PUMP_MIGRATE_DISCRIMINATOR = Buffer.from([155, 234, 231, 146, 236, 158, 162, 30]);
+const PUMP_MIGRATE_V2_DISCRIMINATOR = Buffer.from([187, 203, 18, 31, 206, 237, 254, 41]);
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");
@@ -65,6 +67,19 @@ export function decodePumpBondingCurveInitializations(entry, signature) {
       if (cursor + 34 !== data.length || data[cursor + 32] > 1 || data[cursor + 33] > 1) continue;
       events.push({ type: "pool_created", protocol: "pump-bonding-curve", programId: PUMP_PROGRAM, venueType: "bonding_curve", signature, pool: accounts[2], creator: base58(data.subarray(cursor, cursor + 32)), tokenMint0: accounts[0], tokenMint1: accounts[16] ?? WRAPPED_SOL, tokenVault0: accounts[3], tokenVault1: accounts[17] ?? null, globalConfig: accounts[4], payer: accounts[5], baseTokenProgram: accounts[7], quoteTokenProgram: accounts[18] ?? null, name: name.value, symbol: symbol.value, uri: uri.value, mayhemMode: data[cursor + 32] === 1, cashbackCoin: data[cursor + 33] === 1, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
     } catch { continue; }
+  }
+  return events;
+}
+export function decodePumpMigrations(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], keys = accountKeys(entry.transaction?.message, entry.meta);
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== PUMP_PROGRAM || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    const legacy = data.length === 8 && data.equals(PUMP_MIGRATE_DISCRIMINATOR), v2 = data.length === 8 && data.equals(PUMP_MIGRATE_V2_DISCRIMINATOR);
+    if ((!legacy && !v2) || accounts.length !== (legacy ? 25 : 27) || accounts.some((account) => typeof account !== "string" || !account)) continue;
+    events.push({ type: "pool_migrated", protocol: "pump-bonding-curve", destinationProtocol: "pump-swap", programId: PUMP_PROGRAM, venueType: "amm", signature, pool: accounts[legacy ? 9 : 10], sourcePool: accounts[legacy ? 3 : 4], migrator: accounts[legacy ? 5 : 7], tokenMint0: accounts[2], tokenMint1: legacy ? accounts[14] : accounts[3], lpMint: accounts[15], tokenVault0: accounts[legacy ? 17 : 17], tokenVault1: accounts[legacy ? 18 : 18], ammConfig: accounts[legacy ? 13 : 14], poolAuthority: accounts[legacy ? 10 : 11], baseTokenProgram: accounts[legacy ? 7 : 19], quoteTokenProgram: legacy ? accounts[7] : accounts[20], migrationVersion: legacy ? 1 : 2, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -276,7 +291,7 @@ export function parseBlock(block) {
     transactions.push(record);
     instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
-    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:pool_created`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
+    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {
