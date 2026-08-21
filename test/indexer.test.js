@@ -14,7 +14,7 @@ import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
-import { createClmmPoolSnapshot, decodeClmmPoolAccount, decodeClmmTickArrayAccount, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
+import { createClmmPoolSnapshot, decodeClmmBitmapExtensionAccount, decodeClmmPoolAccount, decodeClmmTickArrayAccount, parseClmmBitmapExtensionMap, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
@@ -96,6 +96,11 @@ test("finalized Raydium CLMM snapshots bind canonical tick-array headers to thei
   assert.deepEqual(parseClmmTickArrayMap(JSON.stringify({ [pool]: ["ticks-a"] }), [pool]), { [pool]: ["ticks-a"] }); assert.throws(() => parseClmmTickArrayMap(JSON.stringify({ unknown: ["ticks-a"] }), [pool]), /unknown pool/); assert.throws(() => parseClmmTickArrayMap(JSON.stringify({ [pool]: ["ticks-a", "ticks-a"] }), [pool]), /unique/);
 });
 
+test("Raydium CLMM overflow bitmap extensions preserve pool-bound raw segments", () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let out = ""; while (value) { out = alphabet[Number(value % 58n)] + out; value /= 58n; } for (const byte of bytes) { if (byte) break; out = `1${out}`; } return out || "1"; }, poolBytes = Buffer.alloc(32, 8), pool = encode58(poolBytes), data = Buffer.alloc(1_832); crypto.createHash("sha256").update("account:TickArrayBitmapExtension").digest().copy(data, 0, 0, 8); poolBytes.copy(data, 8); data.writeBigUInt64LE(5n, 40); data.writeBigUInt64LE(7n, 40 + (14 * 64)); const account = { owner: RAYDIUM_CLMM_PROGRAM, data: [data.toString("base64"), "base64"] }, decoded = decodeClmmBitmapExtensionAccount("extension-a", account);
+  assert.equal(decoded.pool, pool); assert.equal(decoded.positiveBitmapSegments.length, 14); assert.match(decoded.positiveBitmapSegments[0], /^0500000000000000/); assert.match(decoded.negativeBitmapSegments[0], /^0700000000000000/); assert.match(decoded.rawPayloadHash, /^[0-9a-f]{64}$/); assert.deepEqual(parseClmmBitmapExtensionMap(JSON.stringify({ [pool]: "extension-a" }), [pool]), { [pool]: "extension-a" }); assert.throws(() => parseClmmBitmapExtensionMap(JSON.stringify({ unknown: "extension-a" }), [pool]), /unknown pool/);
+});
+
 test("token security blocks authority and hazardous Token-2022 extension evidence", async () => {
   const store = new IndexStore("unused"); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 700, observedAt: "2026-08-20T00:00:00.000Z", mints: [{ mint: "mint-risk", mintInfo: { mintAuthority: "authority", freezeAuthority: null, extensions: [{ extension: "transferHook" }, { extension: "transferFeeConfig" }] }, accounts: [] }] });
   const security = store.tokenSecurity("mint-risk"); assert.equal(security.assessable, true); assert.deepEqual(security.findings.map((row) => row.code), ["mint_authority_present", "token_2022_extension", "transfer_fee_extension"]); assert.ok(security.findings.every((row) => row.blocksAutomation));
@@ -112,6 +117,7 @@ test("snapshot batches validate atomically before mutating canonical state", asy
   assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, tickArraySlot: 800, tickArrays: [{ address: "ticks-a", pool: "wrong-pool", startTickIndex: 0, initializedTickCount: 1, recentEpoch: "1", rawPayloadHash: "a".repeat(64) }] }] }), /invalid CLMM tick array snapshot row/);
   const tickEvidence = { address: "ticks-a", pool: "pool-a", startTickIndex: 0, initializedTickCount: 1, initializedTicks: [{ tick: 61, liquidityNetRaw: "-1", liquidityGrossRaw: "1", feeGrowthOutside0X64: "0", feeGrowthOutside1X64: "0", rewardGrowthsOutsideX64: ["0", "0", "0"] }], recentEpoch: "1", rawPayloadHash: "a".repeat(64) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, tickArraySlot: 800, tickArrays: [tickEvidence] }] }), /invalid CLMM initialized tick snapshot row/);
   const falseBitmap = { bitCount: 1024, minStartTickIndex: -30_720, maxStartTickIndexExclusive: 30_720, initializedTickArrayStartIndexes: [0], rawHex: "00".repeat(128) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, defaultTickArrayBitmap: falseBitmap }] }), /invalid CLMM pool snapshot row/);
+  const falseExtension = { address: "extension-a", pool: "wrong-pool", segmentBits: 512, positiveBitmapSegments: Array(14).fill("00".repeat(64)), negativeBitmapSegments: Array(14).fill("00".repeat(64)), rawPayloadHash: "a".repeat(64) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, bitmapExtension: falseExtension, bitmapExtensionSlot: 800 }] }), /invalid CLMM pool snapshot row/);
   assert.equal(store.state.poolSnapshots["pool-a"], undefined); assert.equal(store.state.pools["pool-a"], undefined);
 });
 
