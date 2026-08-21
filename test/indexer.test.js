@@ -243,14 +243,22 @@ test("validator exporter accepts only loopback RPC", () => {
 
 test("external RPC pool enforces providers, fails over, and never exposes credential URLs", async () => {
   assert.throws(() => providerPoolFromEnv({}), /HELIUS_RPC_URL and ALCHEMY_RPC_URL/); assert.throws(() => validateProviderUrl("helius", "https://example.com/key"), /invalid helius/);
-  const calls = [], fetchImpl = async (endpoint) => { calls.push(new URL(endpoint).hostname); if (endpoint.includes("helius")) throw new Error("offline"); return { ok: true, json: async () => ({ result: MAINNET_GENESIS_HASH }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl });
+  const calls = [], fetchImpl = async (endpoint, options) => { calls.push(new URL(endpoint).hostname); if (endpoint.includes("helius")) throw new Error("offline"); const request = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl });
   assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.deepEqual(calls, ["mainnet.helius-rpc.com", "solana-mainnet.g.alchemy.com"]); assert.equal(pool.provenanceSource, "external-rpc-alchemy"); assert.equal("endpoint" in pool.telemetry()[0], false); assert.equal(JSON.stringify(pool.telemetry()).includes("secret"), false);
 });
 
 test("external RPC pool honors bounded Retry-After without retrying a limited primary", async () => {
-  let now = 1_000, heliusCalls = 0; const fetchImpl = async (endpoint) => endpoint.includes("helius") ? (heliusCalls++, { ok: false, status: 429, headers: { get: () => "120" } }) : { ok: true, json: async () => ({ result: "ok" }) };
+  let now = 1_000, heliusCalls = 0; const fetchImpl = async (endpoint, options) => { if (endpoint.includes("helius")) return heliusCalls++, { ok: false, status: 429, headers: { get: () => "120" } }; const request = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: "ok" }) }; };
   const pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl, now: () => now });
   assert.equal(await pool.call("getHealth"), "ok"); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusCalls, 1); assert.equal(pool.telemetry()[0].openUntil, 121_000); now = 121_001; await pool.call("getHealth"); assert.equal(heliusCalls, 2);
+});
+
+test("external RPC pool rejects mismatched and malformed response envelopes", async () => {
+  const calls = []; const fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); calls.push([new URL(endpoint).hostname, request.id]); return endpoint.includes("helius") ? { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id + 1, result: "stale" }) } : { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: "ok" }) }; };
+  const pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl });
+  assert.equal(await pool.call("getHealth"), "ok"); assert.deepEqual(calls.map(([host]) => host), ["mainnet.helius-rpc.com", "solana-mainnet.g.alchemy.com"]); assert.notEqual(calls[0][1], calls[1][1]); assert.equal(pool.provenanceSource, "external-rpc-alchemy"); assert.equal(pool.telemetry()[0].errors, 1);
+  const malformed = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }], { fetchImpl: async (_endpoint, options) => { const { id } = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id, result: null, error: null }) }; } });
+  await assert.rejects(() => malformed.call("getHealth"), /all external RPC providers unavailable/);
 });
 
 test("mainnet verification rejects a private validator genesis", async () => {
