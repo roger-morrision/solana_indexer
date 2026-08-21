@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
-import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
+import { decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -389,7 +389,7 @@ test("decodes Raydium CLMM SwapEvent with exact price state and explicit unavail
   assert.equal(decodeRaydiumClmmSwapEvents({ ...entry, meta: { ...entry.meta, logMessages: [`Program other invoke [1]`, `Program data: ${data.toString("base64")}`, "Program other success"] } }, "clmm-signature").length, 0);
   data[168] = 2; const malformedLogs = [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`]; assert.equal(decodeRaydiumClmmSwapEvents({ ...entry, meta: { ...entry.meta, logMessages: malformedLogs } }, "clmm-signature").length, 0); data[168] = 1;
   const input = JSON.parse(await fs.readFile(fixture, "utf8")); input.dexEvents = []; input.transactions[0] = { transaction: { signatures: ["clmm-signature"], message: entry.transaction.message }, meta: entry.meta };
-  const block = parseBlock(input), swap = block.swaps[0]; assert.equal(swap.registryVersion, 2); assert.equal(swap.decoderVersion, 1); assert.equal(swap.inputVaultBeforeRaw, null); assert.equal(swap.sqrtPriceX64, sqrtPriceX64.toString());
+  const block = parseBlock(input), swap = block.swaps[0]; assert.equal(swap.registryVersion, 3); assert.equal(swap.decoderVersion, 1); assert.equal(swap.inputVaultBeforeRaw, null); assert.equal(swap.sqrtPriceX64, sqrtPriceX64.toString());
   const store = new IndexStore("unused"); await store.load(); store.apply(block); const summary = store.pool(encode58(poolBytes)).summary; assert.equal(summary.liquidityRaw, liquidity.toString()); assert.equal(summary.tick, -123); assert.equal(summary.reserveTiming, "unavailable");
 });
 
@@ -415,6 +415,13 @@ test("decodes PumpSwap sell events with exact directional amounts and reserves",
   const entry = { transaction: { message: { instructions: [{ programId: program, accounts: ["pump-pool", "user", "config", "base-mint", "quote-mint"] }] } }, meta: { err: null, logMessages: [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`], preTokenBalances: [{ mint: "base-mint", uiTokenAmount: { decimals: 6 } }, { mint: "quote-mint", uiTokenAmount: { decimals: 9 } }] } };
   const [swap] = decodePumpSwapEvents(entry, "pump-signature");
   assert.deepEqual({ side: swap.side, pool: swap.pool, inputMint: swap.inputMint, outputMint: swap.outputMint, inputAmountRaw: swap.inputAmountRaw, outputAmountRaw: swap.outputAmountRaw, inputVaultBeforeRaw: swap.inputVaultBeforeRaw, outputVaultBeforeRaw: swap.outputVaultBeforeRaw, tradeFeeRaw: swap.tradeFeeRaw, reserveTiming: swap.reserveTiming }, { side: "sell", pool: "pump-pool", inputMint: "base-mint", outputMint: "quote-mint", inputAmountRaw: "100", outputAmountRaw: "190", inputVaultBeforeRaw: "900", outputVaultBeforeRaw: "1800", tradeFeeRaw: "3", reserveTiming: "after" });
+});
+
+test("decodes and persists PumpSwap create-pool lifecycle flags", async () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }, programId = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA", accounts = Array.from({ length: 16 }, (_, index) => `pump-account-${index}`), data = Buffer.alloc(60); Buffer.from([233, 146, 209, 142, 207, 104, 64, 188]).copy(data); data.writeUInt16LE(7, 8); data.writeBigUInt64LE(100n, 10); data.writeBigUInt64LE(200n, 18); Buffer.alloc(32, 9).copy(data, 26); data[58] = 1;
+  const entry = { transaction: { signatures: ["pump-create"], message: { accountKeys: ["payer"], instructions: [{ programId, accounts, data: encode58(data) }] } }, meta: { err: null, fee: 1, logMessages: [], preTokenBalances: [], postTokenBalances: [] } }, decoded = decodePumpSwapPoolInitializations(entry, "pump-create"); assert.deepEqual({ pool: decoded[0].pool, index: decoded[0].poolIndex, base: decoded[0].tokenMint0, quote: decoded[0].tokenMint1, baseIn: decoded[0].initialAmount0Raw, quoteIn: decoded[0].initialAmount1Raw, mayhem: decoded[0].mayhemMode, cashback: decoded[0].cashbackCoin }, { pool: "pump-account-0", index: 7, base: "pump-account-3", quote: "pump-account-4", baseIn: "100", quoteIn: "200", mayhem: true, cashback: false });
+  const block = parseBlock({ slot: 901, blockhash: "block-901", previousBlockhash: "block-900", parentSlot: 900, blockTime: 1_700_000_001, transactions: [entry], provenance: { commitment: "finalized" } }), store = new IndexStore("unused"); await store.load(); store.apply(block); assert.equal(store.pool("pump-account-0").summary.lifecycle.poolIndex, 7); assert.equal(store.pool("pump-account-0").summary.lifecycle.mayhemMode, true); store.rebuildAggregates(); assert.equal(store.pool("pump-account-0").summary.lifecycle.coinCreator, decoded[0].coinCreator);
+  const invalidBool = structuredClone(entry), invalidBytes = Buffer.from(data); invalidBytes[59] = 2; invalidBool.transaction.message.instructions[0].data = encode58(invalidBytes); assert.deepEqual(decodePumpSwapPoolInitializations(invalidBool, "invalid"), []);
 });
 
 test("decodes Pump.fun bonding-curve TradeEvent with exact quote and reserve evidence", () => {
@@ -593,7 +600,7 @@ test("API authentication and quotas fail closed", async (t) => {
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   const evidence = await (await fetch(`${base}/internal/evidence/mint-address`)).json(); assert.equal(evidence.schemaVersion, 1); assert.match(evidence.immutableSnapshotId, /^solana:100:/); assert.equal(evidence.safeForAutomation, false); assert.ok(evidence.missing.includes("executable_route")); const route = await (await fetch(`${base}/internal/tokens/mint-address/executable-depth`)).json(); assert.equal(route.selfHosted, true); assert.equal(route.available, false); assert.ok(route.missing.includes("local_simulation"));
-  const registry = await (await fetch(`${base}/internal/registry`)).json(); assert.equal(registry.version, 2); assert.ok(registry.programs.some((row) => row.protocol === "pump-bonding-curve")); assert.ok(registry.programs.some((row) => row.protocol === "raydium-clmm"));
+  const registry = await (await fetch(`${base}/internal/registry`)).json(); assert.equal(registry.version, 3); assert.ok(registry.programs.some((row) => row.protocol === "pump-bonding-curve")); assert.ok(registry.programs.some((row) => row.protocol === "raydium-clmm")); assert.ok(registry.programs.some((row) => row.protocol === "pump-swap" && row.eventTypes.includes("pool_created")));
 });
 
 test("WebSocket replays only persisted ordered events and resumes by cursor", async (t) => {

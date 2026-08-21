@@ -17,6 +17,7 @@ function readU64(buffer, offset) { return buffer.readBigUInt64LE(offset).toStrin
 function readU128(buffer, offset) { return (buffer.readBigUInt64LE(offset + 8) << 64n | buffer.readBigUInt64LE(offset)).toString(); }
 const SWAP_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:SwapEvent").digest().subarray(0, 8);
 const RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR = crypto.createHash("sha256").update("global:initialize").digest().subarray(0, 8);
+const PUMP_AMM_CREATE_POOL_DISCRIMINATOR = Buffer.from([233, 146, 209, 142, 207, 104, 64, 188]);
 export function decodeRaydiumCpmmPoolInitializations(entry, signature) {
   if (entry.meta?.err != null) return [];
   const events = [], keys = accountKeys(entry.transaction?.message, entry.meta);
@@ -26,6 +27,18 @@ export function decodeRaydiumCpmmPoolInitializations(entry, signature) {
     let data; try { data = decodeBase58(instruction.data); } catch { continue; }
     if (data.length !== 32 || !data.subarray(0, 8).equals(RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR)) continue;
     events.push({ type: "pool_created", protocol: "raydium-cpmm", programId: RAYDIUM_CPMM, signature, creator: accounts[0], ammConfig: accounts[1], pool: accounts[3], tokenMint0: accounts[4], tokenMint1: accounts[5], lpMint: accounts[6], tokenVault0: accounts[10], tokenVault1: accounts[11], observationKey: accounts[13], initialAmount0Raw: readU64(data, 8), initialAmount1Raw: readU64(data, 16), requestedOpenTime: readU64(data, 24), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
+export function decodePumpSwapPoolInitializations(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], keys = accountKeys(entry.transaction?.message, entry.meta);
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== PUMP_AMM || accounts.length < 11 || accounts.some((account) => typeof account !== "string" || !account) || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    if (data.length !== 60 || !data.subarray(0, 8).equals(PUMP_AMM_CREATE_POOL_DISCRIMINATOR) || data[58] > 1 || data[59] > 1) continue;
+    events.push({ type: "pool_created", protocol: "pump-swap", programId: PUMP_AMM, signature, pool: accounts[0], ammConfig: accounts[1], creator: accounts[2], tokenMint0: accounts[3], tokenMint1: accounts[4], lpMint: accounts[5], tokenVault0: accounts[9], tokenVault1: accounts[10], poolIndex: data.readUInt16LE(8), initialAmount0Raw: readU64(data, 10), initialAmount1Raw: readU64(data, 18), coinCreator: base58(data.subarray(26, 58)), mayhemMode: data[58] === 1, cashbackCoin: data[59] === 1, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -237,7 +250,7 @@ export function parseBlock(block) {
     transactions.push(record);
     instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
-    poolLifecycleEvents.push(...decodeRaydiumCpmmPoolInitializations(entry, signature).map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:pool_created`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
+    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:pool_created`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {
