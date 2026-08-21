@@ -136,6 +136,12 @@ test("external RPC pool enforces providers, fails over, and never exposes creden
   assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.deepEqual(calls, ["mainnet.helius-rpc.com", "solana-mainnet.g.alchemy.com"]); assert.equal(pool.provenanceSource, "external-rpc-alchemy"); assert.equal("endpoint" in pool.telemetry()[0], false); assert.equal(JSON.stringify(pool.telemetry()).includes("secret"), false);
 });
 
+test("external RPC pool honors bounded Retry-After without retrying a limited primary", async () => {
+  let now = 1_000, heliusCalls = 0; const fetchImpl = async (endpoint) => endpoint.includes("helius") ? (heliusCalls++, { ok: false, status: 429, headers: { get: () => "120" } }) : { ok: true, json: async () => ({ result: "ok" }) };
+  const pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl, now: () => now });
+  assert.equal(await pool.call("getHealth"), "ok"); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusCalls, 1); assert.equal(pool.telemetry()[0].openUntil, 121_000); now = 121_001; await pool.call("getHealth"); assert.equal(heliusCalls, 2);
+});
+
 test("mainnet verification rejects a private validator genesis", async () => {
   const client = Object.create(LocalValidatorClient.prototype); client.call = async () => "private-development-genesis";
   await assert.rejects(() => client.assertGenesis(MAINNET_GENESIS_HASH), /validator genesis mismatch/);
