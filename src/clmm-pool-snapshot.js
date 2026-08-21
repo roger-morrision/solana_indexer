@@ -12,9 +12,12 @@ export const RAYDIUM_CLMM_PROGRAM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWq
 const DISCRIMINATOR = crypto.createHash("sha256").update("account:PoolState").digest().subarray(0, 8);
 const TICK_ARRAY_DISCRIMINATOR = crypto.createHash("sha256").update("account:TickArrayState").digest().subarray(0, 8);
 const TICK_ARRAY_LENGTH = 10_240;
+const TICK_ARRAY_HEADER_LENGTH = 8 + 32 + 4;
+const TICK_STATE_LENGTH = 168;
 const TICK_ARRAY_COUNT_OFFSET = 8 + 32 + 4 + (168 * 60);
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
 function u128(buffer, offset) { return ((buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset)).toString(); }
+function i128(buffer, offset) { const unsigned = (buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset); return (unsigned >= (1n << 127n) ? unsigned - (1n << 128n) : unsigned).toString(); }
 function accountBytes(account) { const encoded = account?.data; if (!Array.isArray(encoded) || encoded[1] !== "base64" || typeof encoded[0] !== "string") throw new Error("CLMM pool account must use base64 encoding"); return Buffer.from(encoded[0], "base64"); }
 
 export function decodeClmmPoolAccount(address, account) {
@@ -23,13 +26,22 @@ export function decodeClmmPoolAccount(address, account) {
   return { address, programId: RAYDIUM_CLMM_PROGRAM, ammConfig: base58(data.subarray(9, 41)), owner: base58(data.subarray(41, 73)), tokenMint0: base58(data.subarray(73, 105)), tokenMint1: base58(data.subarray(105, 137)), tokenVault0: base58(data.subarray(137, 169)), tokenVault1: base58(data.subarray(169, 201)), observationKey: base58(data.subarray(201, 233)), mintDecimals0: data[233], mintDecimals1: data[234], tickSpacing: data.readUInt16LE(235), liquidityRaw: u128(data, 237), sqrtPriceX64: u128(data, 253), tick: data.readInt32LE(269), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
-export function decodeClmmTickArrayAccount(address, account) {
+export function decodeClmmTickArrayAccount(address, account, tickSpacing = null) {
   if (account?.owner !== RAYDIUM_CLMM_PROGRAM) throw new Error(`CLMM tick array ${address} has unexpected owner`);
   const data = accountBytes(account);
   if (data.length !== TICK_ARRAY_LENGTH || !data.subarray(0, 8).equals(TICK_ARRAY_DISCRIMINATOR)) throw new Error(`CLMM tick array ${address} has invalid TickArrayState data`);
   const initializedTickCount = data[TICK_ARRAY_COUNT_OFFSET];
   if (initializedTickCount > 60) throw new Error(`CLMM tick array ${address} has invalid initialized tick count`);
-  return { address, pool: base58(data.subarray(8, 40)), startTickIndex: data.readInt32LE(40), initializedTickCount, recentEpoch: data.readBigUInt64LE(TICK_ARRAY_COUNT_OFFSET + 1).toString(), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
+  const startTickIndex = data.readInt32LE(40), initializedTicks = [];
+  for (let index = 0; index < 60; index++) {
+    const offset = TICK_ARRAY_HEADER_LENGTH + (index * TICK_STATE_LENGTH), liquidityGrossRaw = u128(data, offset + 20);
+    if (liquidityGrossRaw === "0") continue;
+    const tick = data.readInt32LE(offset);
+    if (Number.isInteger(tickSpacing) && tickSpacing > 0 && tick !== startTickIndex + (index * tickSpacing)) throw new Error(`CLMM tick array ${address} has inconsistent initialized tick`);
+    initializedTicks.push({ tick, liquidityNetRaw: i128(data, offset + 4), liquidityGrossRaw, feeGrowthOutside0X64: u128(data, offset + 36), feeGrowthOutside1X64: u128(data, offset + 52), rewardGrowthsOutsideX64: [u128(data, offset + 68), u128(data, offset + 84), u128(data, offset + 100)] });
+  }
+  if (initializedTicks.length !== initializedTickCount) throw new Error(`CLMM tick array ${address} initialized tick count mismatch`);
+  return { address, pool: base58(data.subarray(8, 40)), startTickIndex, initializedTickCount, initializedTicks, recentEpoch: data.readBigUInt64LE(TICK_ARRAY_COUNT_OFFSET + 1).toString(), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
 export function parseClmmTickArrayMap(value, pools) {
@@ -54,7 +66,7 @@ export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, g
   if (requestedTickArrays.length) {
     const tickResponse = await client.call("getMultipleAccounts", [requestedTickArrays.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]);
     if (!Number.isSafeInteger(tickResponse?.context?.slot) || tickResponse.context.slot < stateSlot || tickResponse.value?.length !== requestedTickArrays.length) throw new Error("invalid CLMM tick array account response");
-    requestedTickArrays.forEach((requested, index) => { const tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index]); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); const pool = decoded.find((row) => row.address === requested.pool); pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
+    requestedTickArrays.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index], pool.tickSpacing); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
   }
   for (const row of decoded) { row.tickArrays ??= []; row.tickArraySlot ??= null; }
   const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]);
