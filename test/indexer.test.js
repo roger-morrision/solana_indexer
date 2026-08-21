@@ -20,6 +20,7 @@ import { completeArchiveReceipt, createInboxManifest } from "../src/archive-rece
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { exporterHealthCheck } from "../src/exporter-health.js";
 import { archiveInbox } from "../src/inbox-archive.js";
+import { reducedPreflight } from "../src/reduced-preflight.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -415,6 +416,11 @@ test("storage deployment requires reviewed images, loopback ports, secrets, and 
 
 test("Docker Desktop reduced mode is bounded, private, and credential-externalized", async () => {
   const compose = await fs.readFile(path.join(rootDir, "infra/reduced/compose.yaml"), "utf8"), dockerfile = await fs.readFile(path.join(rootDir, "infra/reduced/Dockerfile"), "utf8"); assert.match(dockerfile, /ARG NODE_IMAGE/); assert.match(compose, /NODE_IMAGE:\s*\$\{NODE_IMAGE:\?Set NODE_IMAGE/); assert.match(compose, /env_file:\s*\.\.\/\.\.\/validator\/external-rpc\.env/); assert.match(compose, /INDEXER_RETENTION_SECONDS:\s*"86400"/); assert.match(compose, /INDEXER_MAX_TRANSACTIONS:\s*"50000"/); assert.match(compose, /read_only:\s*true/); assert.match(compose, /cap_drop:\s*\[ALL\]/); assert.match(compose, /ports:\s*\[127\.0\.0\.1:8787:8787\]/); assert.match(compose, /profiles:\s*\[tools\]/); assert.match(compose, /\.\.\/\.\.\/inbox-mainnet:\/app\/inbox-mainnet:ro/); assert.match(compose, /command:\s*\[src\/inbox-archive\.js\]/); assert.doesNotMatch(compose, /HELIUS_RPC_URL:|ALCHEMY_RPC_URL:/);
+});
+
+test("reduced Docker preflight requires digests, mainnet providers, API keys, and writable mounts", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-reduced-preflight-")), envFile = path.join(root, "external.env"); await fs.mkdir(path.join(root, "data")); await fs.mkdir(path.join(root, "inbox-mainnet")); await fs.writeFile(envFile, `HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=private\nALCHEMY_RPC_URL=https://solana-mainnet.g.alchemy.com/v2/private\nINDEXER_EXPECTED_GENESIS_HASH=${MAINNET_GENESIS_HASH}\nINDEXER_API_KEYS=${"a".repeat(32)}\n`); const digest = `node@sha256:${"a".repeat(64)}`; const result = await reducedPreflight({ root, nodeImage: digest, envFile }); assert.deepEqual(result.providers, ["helius", "alchemy"]); assert.equal(result.apiKeys, 1); assert.equal(JSON.stringify(result).includes("private"), false); await assert.rejects(reducedPreflight({ root, nodeImage: "node:latest", envFile }), /explicit sha256/); await fs.writeFile(envFile, "HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=REPLACE\n"); await assert.rejects(reducedPreflight({ root, nodeImage: digest, envFile }), /HELIUS_RPC_URL must be configured/);
+  const starter = await fs.readFile(path.join(rootDir, "infra/reduced/start.ps1"), "utf8"); assert.match(starter, /if \(-not \$Start\)/); assert.match(starter, /--no-env-resolution/); assert.match(starter, /up -d --build exporter api/);
 });
 
 test("external mainnet services are supervised, isolated, and never auto-started", async () => {

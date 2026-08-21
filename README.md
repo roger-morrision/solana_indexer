@@ -69,6 +69,12 @@ run --rm archive` creates verified per-file gzip copies under ignored
 `archive-mainnet`, then installs the exact-fingerprint receipt. Review
 `npm run retention:inbox` before separately confirming deletion.
 
+Run `infra/reduced/start.ps1 -NodeImage '<reviewed-name>@sha256:<digest>'`
+for a non-starting preflight. It validates provider hostnames without printing
+URLs, the mainnet genesis pin, a non-placeholder API key, writable bind mounts,
+the Docker daemon, and the Compose schema. Add `-Start` only after reviewing the
+result; the automation never supplies that switch.
+
 `npm run health:public-rpc` uses the Solana public endpoint only for genesis and
 health checks. `npm run export:external -- --emergency-public --once` is the only
 public-RPC backfill mode; it is forced to one cycle and at most four slots. It
