@@ -418,6 +418,16 @@ test("rolling trending excludes stale activity and exposes trader and protocol e
   assert.equal(rows.some((row) => row.mint === "stale"), false);
 });
 
+test("future market observations fail closed across consumer projections", async () => {
+  const store = new IndexStore("unused"); await store.load(); const now = 1_700_000_100_000, future = 1_700_000_101;
+  const swap = { swapId: "future:0", signature: "future", eventIndex: 0, slot: 10, blockTime: future, pool: "future-pool", protocol: "fixture", provenance: { commitment: "finalized" }, side: "buy", user: "future-trader", inputMint: "token", outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", inputAmountRaw: "1000000", outputAmountRaw: "2000000", inputDecimals: 6, outputDecimals: 6, baseMint: "token", quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", baseDecimals: 6, quoteDecimals: 6 };
+  store.state.swaps = [swap]; store.state.transfers = [{ mint: "token", slot: 10, blockTime: future }];
+  assert.equal(store.referencePrice("token", 120_000, now).available, false);
+  assert.equal(store.trending(10, 300, now).some((row) => row.mint === "token"), false);
+  const candles = store.candles("future-pool", 60, 10, now); assert.equal(candles.data.length, 0); assert.equal(candles.futureRejectedSwaps, 1);
+  const evidence = store.evidence("token", 120_000, now); assert.equal(evidence.freshness.observedInFuture, true); assert.equal(evidence.freshness.stale, true); assert.ok(evidence.missing.includes("market_clock_skew"));
+});
+
 test("wallet cost basis and PnL remain exact and disclose partial coverage", async () => {
   const store = new IndexStore("unused"); await store.load(); const common = { user: "wallet-a", baseMint: "token", quoteMint: "quote", inputDecimals: 6, outputDecimals: 6, slot: 1, eventIndex: 0 };
   store.state.swaps = [{ ...common, swapId: "buy:0", inputMint: "quote", outputMint: "token", inputAmountRaw: "200", outputAmountRaw: "100" }, { ...common, swapId: "sell:0", slot: 2, inputMint: "token", outputMint: "quote", inputAmountRaw: "40", outputAmountRaw: "120" }];
