@@ -271,6 +271,14 @@ test("exporter records finalized provenance, lag, and skipped slots", async () =
   assert.deepEqual({ commitment: status.commitment, lagSlots: status.lagSlots, durableSkippedSlots: status.durableSkippedSlots, failures: status.consecutiveFailures, error: status.lastError }, { commitment: "finalized", lagSlots: 1, durableSkippedSlots: [11], failures: 0, error: null });
 });
 
+test("exporter rejects corrupt and future cursors without false progress", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-cursor-")), cursorFile = path.join(root, "cursor"), inbox = path.join(root, "inbox");
+  const client = { call: async (method) => method === "getSlot" ? 12 : null };
+  await fs.writeFile(cursorFile, "not-a-slot\n"); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /non-negative integer/);
+  await fs.writeFile(cursorFile, "13\n"); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /ahead of finalized tip 12/);
+  assert.equal(await fs.readFile(cursorFile, "utf8"), "13\n"); await assert.rejects(() => fs.access(inbox), /ENOENT/);
+});
+
 test("exporter failure evidence is durable, redacted, and preserves the last success", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-failure-")), statusFile = path.join(root, "status.json");
   await fs.writeFile(statusFile, JSON.stringify({ version: 2, source: "external-rpc-alchemy", commitment: "finalized", observedAt: "2026-08-20T00:00:00.000Z", cursor: 42, consecutiveFailures: 1 }));
@@ -281,7 +289,14 @@ test("exporter failure evidence is durable, redacted, and preserves the last suc
 
 test("exporter health probe fails closed for missing, stale, and failed durable status", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-health-")), statusFile = path.join(root, "status.json"), now = Date.parse("2026-08-21T00:00:00.000Z"); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "status_unavailable"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-alchemy", commitment: "finalized", cursor: 42, lagSlots: 0, observedAt: "2026-08-20T00:00:00.000Z" })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_stale"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 43, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_failure"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 44, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).healthy, true);
-  await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 45, observedAt: "2026-08-21T00:00:00.001Z" })); const future = await exporterHealthCheck(statusFile, 120_000, now); assert.equal(future.healthy, false); assert.equal(future.reason, "observed_at_in_future"); assert.equal(future.ageMs, -1);
+  await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 45, lagSlots: 0, observedAt: "2026-08-21T00:00:00.001Z" })); const future = await exporterHealthCheck(statusFile, 120_000, now); assert.equal(future.healthy, false); assert.equal(future.reason, "observed_at_in_future"); assert.equal(future.ageMs, -1);
+});
+
+test("exporter health rejects invalid progress evidence", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-progress-")), statusFile = path.join(root, "status.json"), base = { source: "external-rpc-helius", commitment: "finalized", observedAt: "2026-08-21T00:00:00.000Z", consecutiveFailures: 0 };
+  await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: "42", lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "invalid_cursor");
+  await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 42, lagSlots: -1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "invalid_lag");
+  await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 43, localValidatorTip: 42, lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "cursor_ahead_of_tip");
 });
 
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {

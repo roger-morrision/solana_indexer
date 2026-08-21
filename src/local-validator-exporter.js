@@ -24,7 +24,15 @@ export class LocalValidatorClient {
   async assertGenesis(expected = MAINNET_GENESIS_HASH) { const actual = await this.call("getGenesisHash"); if (expected !== "any" && actual !== expected) throw new Error(`validator genesis mismatch: expected ${expected}, received ${actual}`); return actual; }
 }
 
-async function readCursor(filename) { try { return Number((await fs.readFile(filename, "utf8")).trim()); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
+async function readCursor(filename) {
+  try {
+    const raw = (await fs.readFile(filename, "utf8")).trim();
+    if (!/^\d+$/.test(raw)) throw new Error("exporter cursor must be a non-negative integer");
+    const cursor = Number(raw);
+    if (!Number.isSafeInteger(cursor)) throw new Error("exporter cursor exceeds the safe integer range");
+    return cursor;
+  } catch (error) { if (error.code === "ENOENT") return null; throw error; }
+}
 async function atomicWrite(filename, body) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, body); await fs.rename(temporary, filename); }
 async function readStatus(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
 
@@ -51,8 +59,10 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
     if (prior.genesisHash && prior.genesisHash !== genesisHash) throw new Error(`refusing to reuse exporter state from genesis ${prior.genesisHash}`);
   }
   const tip = await client.call("getSlot", [{ commitment: "finalized" }]);
+  if (!Number.isSafeInteger(tip) || tip < 0) throw new Error("finalized RPC tip must be a non-negative safe integer");
   let cursor = await readCursor(cursorFile);
   if (cursor == null) cursor = Math.max(0, tip - 1);
+  if (cursor > tip) throw new Error(`exporter cursor ${cursor} is ahead of finalized tip ${tip}; inspect provider/network state and cursor ownership`);
   const end = Math.min(tip, cursor + batchSize); let exported = 0; const skippedSlots = [];
   for (let slot = cursor + 1; slot <= end; slot++) {
     const block = await client.call("getBlock", [slot, { commitment: "finalized", encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
