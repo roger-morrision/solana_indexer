@@ -281,8 +281,9 @@ or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
 returned or logged. Public binding is refused unless at least one key is configured.
 WebSocket clients receive `ready`, then ordered `block_indexed` or
 `block_replaced` events after atomic index persistence. Confirmed blocks are
-promoted with `block_finalized`; a confirmed fork can never downgrade a finalized
-slot. Supply the last consumed
+preserved as provisional evidence and promoted with `block_finalized` when the
+matching finalized inbox record arrives; a confirmed fork can never downgrade a
+finalized slot. Supply the last consumed
 sequence as `cursor` to replay retained events. An expired cursor produces
 `resync_required`; clients must rebuild from REST. Heartbeat pings and bounded
 socket buffers evict stalled consumers. When API keys are enabled, WebSocket

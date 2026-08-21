@@ -316,7 +316,7 @@ export function parseBlock(block) {
   }
   const provenance = {
     source: typeof block.provenance?.source === "string" ? block.provenance.source : "unknown",
-    commitment: block.provenance?.commitment === "finalized" ? "finalized" : "unknown",
+    commitment: block.provenance?.commitment === "finalized" || block.provenance?.commitment === "confirmed" ? block.provenance.commitment : "unknown",
     observedAt: typeof block.provenance?.observedAt === "string" ? block.provenance.observedAt : null,
     sourceTip: Number.isInteger(block.provenance?.sourceTip) ? block.provenance.sourceTip : null,
     exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,

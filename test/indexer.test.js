@@ -134,6 +134,13 @@ test("indexes idempotently and persists queryable state", async () => {
   assert.equal(store.mint("mint-address").transfers[0].amountRaw, "12500000");
 });
 
+test("inbox preserves confirmed provenance and promotes the matching finalized file", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-indexer-finality-inbox-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); await fs.mkdir(inbox); const input = JSON.parse(await fs.readFile(fixture, "utf8"));
+  await fs.writeFile(path.join(inbox, "100.confirmed.json"), JSON.stringify({ ...input, provenance: { ...input.provenance, commitment: "confirmed" } })); await fs.writeFile(path.join(inbox, "100.finalized.json"), JSON.stringify({ ...input, provenance: { ...input.provenance, commitment: "finalized" } }));
+  const store = new IndexStore(dataFile); const result = await indexInbox({ inbox, dataFile, maxTransactions: 1000 }, store); assert.equal(result.files, 2); assert.equal(result.blocks, 1); assert.equal(store.state.blocks["100"].provenance.commitment, "finalized"); assert.equal(store.state.swaps[0].provenance.commitment, "finalized"); assert.deepEqual(store.state.events.map((event) => [event.type, event.provenance.commitment]), [["block_indexed", "confirmed"], ["block_finalized", "finalized"]]);
+  const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); assert.equal(persisted.blocks["100"].provenance.commitment, "finalized"); assert.ok(persisted.processedFiles["100.confirmed.json"]); assert.ok(persisted.processedFiles["100.finalized.json"]);
+});
+
 test("time retention follows indexed time and preserves canonical snapshot authority", async () => {
   const store = new IndexStore("unused", 1000, 3600); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, chain: "solana", commitment: "finalized", slot: 50, observedAt: "2026-08-20T00:00:00.000Z", genesisHash: MAINNET_GENESIS_HASH, mints: [{ mint: "mint-a", mintInfo: { mintAuthority: null, freezeAuthority: null, extensions: [] }, accounts: [] }] }); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.apply({ ...block, slot: 200, blockhash: "block-200", previousBlockhash: "unknown", parentSlot: 199, blockTime: block.blockTime + 7200, transactions: [], instructions: [], transfers: [], balanceChanges: [], swaps: [] });
   assert.equal(store.state.blocks["100"], undefined); assert.ok(store.state.blocks["200"]); assert.equal(store.tokenSecurity("mint-a").assessable, true); assert.equal(store.state.mints["mint-a"].authoritySourceSlot, 50);
