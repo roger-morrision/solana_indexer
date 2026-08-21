@@ -376,6 +376,17 @@ test("pool state keeps exact reserve and execution-price evidence", async () => 
   assert.equal(store.mint("mint-address").swaps[0].pool, "pool-address"); assert.equal(store.mint("quote-mint").swaps[0].signature, "signature-1");
 });
 
+test("pool projection remains monotonic when older swaps arrive after newer swaps", async () => {
+  const store = new IndexStore("unused"); await store.load();
+  const common = { pool: "pool", protocol: "raydium-clmm", venueType: "clmm", baseMint: "base", quoteMint: "quote", pairIdentitySource: "protocol_event", inputMint: "base", outputMint: "quote", inputDecimals: 6, outputDecimals: 6, inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable" };
+  store.state.swaps = [
+    { ...common, swapId: "new:1", signature: "new", slot: 20, eventIndex: 1, blockTime: 200, inputAmountRaw: "20", outputAmountRaw: "40", sqrtPriceX64: "200", liquidityRaw: "2000", tick: 2 },
+    { ...common, swapId: "old:0", signature: "old", slot: 10, eventIndex: 0, blockTime: 100, inputAmountRaw: "10", outputAmountRaw: "15", sqrtPriceX64: "100", liquidityRaw: "1000", tick: 1 },
+  ];
+  store.rebuildAggregates(); const summary = store.pool("pool").summary;
+  assert.equal(summary.swapCount, 2); assert.equal(summary.lastSlot, 20); assert.equal(summary.lastEventIndex, 1); assert.equal(summary.sqrtPriceX64, "200"); assert.equal(summary.tick, 2); assert.deepEqual(summary.executionPrice, { numeratorRaw: "40", denominatorRaw: "20", inputDecimals: 6, outputDecimals: 6 });
+});
+
 test("builds direction-stable exact OHLCV candles without floating point", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); const first = block.swaps[0];
   store.state.swaps.push({ ...first, swapId: "reverse:0", signature: "reverse", eventIndex: 0, inputMint: first.quoteMint, outputMint: first.baseMint, inputAmountRaw: "3000000", outputAmountRaw: "10000000", inputDecimals: first.quoteDecimals, outputDecimals: first.baseDecimals, blockTime: first.blockTime + 1 });
