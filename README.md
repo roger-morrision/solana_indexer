@@ -327,6 +327,7 @@ they are never mislabeled as PumpSwap AMM reserves.
 - Slot replacement removes orphaned derived records.
 - Input errors are isolated per file and returned in cycle diagnostics.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
+- `npm run retention:inbox` previews old raw inbox files eligible for deletion. It only selects parser-v2 checkpointed files whose current SHA-256 still matches and excludes unresolved dead letters. After a verified self-hosted backup, rerun with `-- --confirm-delete`; deletion is never implicit.
 - Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.
 - The bot-readiness endpoint returns HTTP 503 until canonical finalized provenance, decoded swaps, liquidity, prices, and risk signals are all available and the index is healthy.
 - Pool risk currently measures data quality only. Even mature two-way history remains blocked for automated trading until mint/freeze authority, holder concentration, and manipulation evidence are indexed.

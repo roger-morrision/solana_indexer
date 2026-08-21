@@ -9,6 +9,7 @@
     "export": "node src/local-validator-exporter.js",
     "export:external": "node src/external-rpc.js",
     "health:public-rpc": "node src/external-rpc.js --health-public",
+    "retention:inbox": "node src/inbox-retention.js",
     "stream": "node src/local-validator-stream.js",
     "verify:mainnet": "node src/verify-mainnet.js",
     "snapshot:accounts": "node src/account-snapshot.js",
