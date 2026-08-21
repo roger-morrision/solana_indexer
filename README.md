@@ -300,7 +300,9 @@ cursor.
 Use `topic=lifecycle` to receive compact pool/curve creation, completion, and
 migration batches. Filters accept mint, source or destination pool, source or
 destination protocol, and exact `eventType`, while retaining the same durable
-block cursor used by the other topics.
+block cursor used by the other topics. Lifecycle records carry provenance on
+both their initial observation and later finality-promotion event, allowing
+consumers to replace provisional state deterministically.
 
 “Trending” defaults to a rolling one-hour window and ranks verified DEX swap
 count, decoded unique traders, then locally indexed transfer count. It exposes

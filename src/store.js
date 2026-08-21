@@ -78,8 +78,11 @@ export class IndexStore {
     if (enrichment) { if (prior.provenance?.commitment === "finalized") { block.provenance = prior.provenance; for (const swap of block.swaps) swap.provenance = prior.provenance; } this.removeSlot(block.slot); prior = null; }
     if (prior && prior.blockhash === block.blockhash) {
       if (prior.provenance?.commitment === "confirmed" && block.provenance?.commitment === "finalized") {
-        prior.provenance = block.provenance; for (const swap of this.state.swaps) if (swap.slot === block.slot) swap.provenance = block.provenance;
-        const event = { sequence: ++this.state.eventSequence, type: "block_finalized", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, swaps: block.swaps.map((swap) => ({ ...swap, provenance: block.provenance })), provenance: block.provenance };
+        prior.provenance = block.provenance;
+        this.state.swaps = this.state.swaps.map((swap) => swap.slot === block.slot ? { ...swap, provenance: block.provenance } : swap);
+        this.state.programEvents = this.state.programEvents.map((programEvent) => programEvent.slot === block.slot ? { ...programEvent, provenance: block.provenance } : programEvent);
+        const lifecycleEvents = (block.poolLifecycleEvents ?? []).map((lifecycleEvent) => ({ ...lifecycleEvent, provenance: block.provenance }));
+        const event = { sequence: ++this.state.eventSequence, type: "block_finalized", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: lifecycleEvents.length, swaps: block.swaps.map((swap) => ({ ...swap, provenance: block.provenance })), lifecycleEvents, provenance: block.provenance };
         this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
         return { inserted: false, updated: true, reason: "finalized" };
       }
@@ -96,11 +99,12 @@ export class IndexStore {
         this.state.accounts[account] = current;
       }
     }
-    this.state.instructions.push(...(block.instructions ?? [])); this.state.programEvents.push(...(block.poolLifecycleEvents ?? []), ...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId })));
+    const lifecycleEvents = (block.poolLifecycleEvents ?? []).map((event) => ({ ...event, provenance: block.provenance }));
+    this.state.instructions.push(...(block.instructions ?? [])); this.state.programEvents.push(...lifecycleEvents, ...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId, provenance: block.provenance })));
     this.state.transfers.push(...block.transfers);
     this.state.balanceChanges.push(...(block.balanceChanges ?? [])); for (const change of block.balanceChanges ?? []) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
     this.state.swaps.push(...block.swaps);
-    for (const event of block.poolLifecycleEvents ?? []) this.state.pools[event.pool] = mergePoolLifecycle(this.state.pools[event.pool], event);
+    for (const event of lifecycleEvents) this.state.pools[event.pool] = mergePoolLifecycle(this.state.pools[event.pool], event);
     for (const transfer of block.transfers) if (transfer.mint) {
       const current = this.state.mints[transfer.mint] ?? { transferCount: 0, lastSlot: 0, lastBlockTime: null };
       current.transferCount += 1; current.lastSlot = Math.max(current.lastSlot, transfer.slot); current.lastBlockTime = Math.max(current.lastBlockTime ?? 0, transfer.blockTime ?? 0) || null;
@@ -113,7 +117,7 @@ export class IndexStore {
     }
     this.prune();
     this.state.tip = this.computeTip();
-    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: (block.poolLifecycleEvents ?? []).length, swaps: block.swaps, lifecycleEvents: block.poolLifecycleEvents ?? [], provenance: block.provenance };
+    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: lifecycleEvents.length, swaps: block.swaps, lifecycleEvents, provenance: block.provenance };
     this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
     return { inserted: true, reason: prior ? "replaced" : "new" };
   }
