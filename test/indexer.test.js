@@ -61,6 +61,8 @@ test("canonical finalized account snapshots persist complete holder and authorit
   assert.equal(reloaded.evidence("mint-a").missing.includes("mint_authority"), false);
   reloaded.applyAccountSnapshot({ ...snapshot, slot: 499, mints: [{ ...snapshot.mints[0], mintInfo: { ...snapshot.mints[0].mintInfo, mintAuthority: "stale-authority" }, accounts: [] }] });
   assert.equal(reloaded.state.holderSnapshots["mint-a"].slot, 500); assert.equal(reloaded.tokenSecurity("mint-a").evidence.mintAuthority, null);
+  assert.throws(() => reloaded.applyAccountSnapshot({ ...snapshot, genesisHash: "devnet" }), /invalid finalized mainnet account snapshot/);
+  assert.throws(() => reloaded.applyAccountSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized mainnet account snapshot/);
 });
 
 test("finalized Raydium CLMM snapshots decode canonical pool state and vault balances", async () => {
@@ -77,7 +79,8 @@ test("finalized Raydium CLMM snapshots decode canonical pool state and vault bal
   const futureRisk = store.poolRisk("pool-a", 120_000, Date.parse(snapshot.observedAt) - 1); assert.equal(futureRisk.liquidity.assessable, false); assert.equal(futureRisk.liquidity.observedInFuture, true); assert.equal(futureRisk.liquidity.ageMs, -1);
   store.applyPoolSnapshot({ ...snapshot, stateSlot: 499, balanceSlot: 499, pools: [{ ...snapshot.pools[0], vault0AmountRaw: "1" }] }); assert.equal(store.pool("pool-a").summary.accountSnapshot.vault0AmountRaw, "1000");
   store.applyPoolSnapshot({ ...snapshot, stateSlot: 499, balanceSlot: 501, pools: [{ ...snapshot.pools[0], vault0AmountRaw: "1" }] }); assert.equal(store.pool("pool-a").summary.accountSnapshot.vault0AmountRaw, "1000");
-  assert.throws(() => store.applyPoolSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized CLMM pool snapshot/);
+  assert.throws(() => store.applyPoolSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized mainnet CLMM pool snapshot/);
+  assert.throws(() => store.applyPoolSnapshot({ ...snapshot, genesisHash: "devnet" }), /invalid finalized mainnet CLMM pool snapshot/);
 });
 
 test("token security blocks authority and hazardous Token-2022 extension evidence", async () => {
@@ -98,7 +101,7 @@ test("indexes idempotently and persists queryable state", async () => {
 });
 
 test("time retention follows indexed time and preserves canonical snapshot authority", async () => {
-  const store = new IndexStore("unused", 1000, 3600); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, commitment: "finalized", slot: 50, observedAt: "2026-08-20T00:00:00.000Z", genesisHash: MAINNET_GENESIS_HASH, mints: [{ mint: "mint-a", mintInfo: { mintAuthority: null, freezeAuthority: null, extensions: [] }, accounts: [] }] }); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.apply({ ...block, slot: 200, blockhash: "block-200", previousBlockhash: "unknown", parentSlot: 199, blockTime: block.blockTime + 7200, transactions: [], instructions: [], transfers: [], balanceChanges: [], swaps: [] });
+  const store = new IndexStore("unused", 1000, 3600); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, chain: "solana", commitment: "finalized", slot: 50, observedAt: "2026-08-20T00:00:00.000Z", genesisHash: MAINNET_GENESIS_HASH, mints: [{ mint: "mint-a", mintInfo: { mintAuthority: null, freezeAuthority: null, extensions: [] }, accounts: [] }] }); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.apply({ ...block, slot: 200, blockhash: "block-200", previousBlockhash: "unknown", parentSlot: 199, blockTime: block.blockTime + 7200, transactions: [], instructions: [], transfers: [], balanceChanges: [], swaps: [] });
   assert.equal(store.state.blocks["100"], undefined); assert.ok(store.state.blocks["200"]); assert.equal(store.tokenSecurity("mint-a").assessable, true); assert.equal(store.state.mints["mint-a"].authoritySourceSlot, 50);
 });
 
