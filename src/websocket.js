@@ -14,11 +14,15 @@ function send(socket, value, maximumBufferedBytes) {
 }
 function subscription(url) {
   const topic = url.searchParams.get("topic") ?? "blocks";
-  if (!new Set(["blocks", "swaps"]).has(topic)) return null;
-  return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol") };
+  if (!new Set(["blocks", "swaps", "lifecycle"]).has(topic)) return null;
+  return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol"), eventType: url.searchParams.get("eventType") };
 }
 function project(event, filter) {
   if (filter.topic === "blocks") return event;
+  if (filter.topic === "lifecycle") {
+    const lifecycleEvents = (event.lifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
+    return lifecycleEvents.length ? { type: "lifecycle", sequence: event.sequence, slot: event.slot, blockhash: event.blockhash, blockTime: event.blockTime, provenance: event.provenance, lifecycleEvents } : null;
+  }
   const swaps = (event.swaps ?? []).filter((swap) => (!filter.mint || swap.inputMint === filter.mint || swap.outputMint === filter.mint) && (!filter.pool || swap.pool === filter.pool) && (!filter.protocol || swap.protocol === filter.protocol));
   return swaps.length ? { type: "swaps", sequence: event.sequence, slot: event.slot, blockhash: event.blockhash, blockTime: event.blockTime, provenance: event.provenance, swaps } : null;
 }

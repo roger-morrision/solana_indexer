@@ -229,7 +229,7 @@ Configuration:
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
-- `WS /ws?cursor=<sequence>&topic=blocks|swaps&mint=&pool=&protocol=` (filtered persisted events with replay/resume)
+- `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume)
 
 Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
@@ -296,6 +296,11 @@ is retained, so the same cursor resumes filtered and unfiltered feeds. PubSub
 notifications are processed through one ordered queue before gap detection and
 atomic persistence, preventing concurrent notifications from racing the durable
 cursor.
+
+Use `topic=lifecycle` to receive compact pool/curve creation, completion, and
+migration batches. Filters accept mint, source or destination pool, source or
+destination protocol, and exact `eventType`, while retaining the same durable
+block cursor used by the other topics.
 
 “Trending” defaults to a rolling one-hour window and ranks verified DEX swap
 count, decoded unique traders, then locally indexed transfer count. It exposes

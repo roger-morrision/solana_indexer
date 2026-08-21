@@ -113,7 +113,7 @@ export class IndexStore {
     }
     this.prune();
     this.state.tip = this.computeTip();
-    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, swaps: block.swaps, provenance: block.provenance };
+    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: (block.poolLifecycleEvents ?? []).length, swaps: block.swaps, lifecycleEvents: block.poolLifecycleEvents ?? [], provenance: block.provenance };
     this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
     return { inserted: true, reason: prior ? "replaced" : "new" };
   }

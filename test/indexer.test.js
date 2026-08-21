@@ -662,3 +662,11 @@ test("WebSocket swap topic replays only matching token activity", async (t) => {
   while (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 5));
   assert.equal(messages[0].subscription.topic, "swaps"); assert.equal(messages[1].type, "swaps"); assert.equal(messages[1].swaps[0].pool, "pool-address"); socket.close();
 });
+
+test("WebSocket lifecycle topic replays source-filtered graduation events", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-websocket-lifecycle-")), store = new IndexStore(path.join(root, "index.json")); await store.load();
+  store.apply({ slot: 200, blockhash: "block-200", previousBlockhash: "block-199", parentSlot: 199, blockTime: 1_700_000_000, provenance: { source: "fixture", commitment: "finalized", observedAt: "2023-11-14T22:13:20.000Z", sourceTip: 200, exportLagSlots: 0 }, transactions: [], instructions: [], transfers: [], balanceChanges: [], swaps: [], poolLifecycleEvents: [{ eventId: "lifecycle-1", type: "migration_completed", slot: 200, blockTime: 1_700_000_000, signature: "migration", programId: "pump", protocol: "pump-bonding-curve", destinationProtocol: "pump-swap", pool: "destination-pool", sourcePool: "source-curve", tokenMint0: "base-mint", tokenMint1: "quote-mint", migratedBaseAmountRaw: "100", migratedQuoteAmountRaw: "200", poolMigrationFeeRaw: "3", innerIndex: 0 }] }); await store.save();
+  const server = createServer({ webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws?cursor=0&topic=lifecycle&pool=source-curve&protocol=pump-swap&eventType=migration_completed`), messages = []; socket.onmessage = ({ data }) => messages.push(JSON.parse(data)); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); while (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(messages[0].subscription.topic, "lifecycle"); assert.equal(messages[1].type, "lifecycle"); assert.equal(messages[1].sequence, 1); assert.equal(messages[1].lifecycleEvents[0].pool, "destination-pool"); assert.equal(messages[1].lifecycleEvents[0].sourcePool, "source-curve"); socket.close();
+});
