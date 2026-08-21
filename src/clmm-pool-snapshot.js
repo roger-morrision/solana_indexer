@@ -15,6 +15,7 @@ const TICK_ARRAY_LENGTH = 10_240;
 const TICK_ARRAY_HEADER_LENGTH = 8 + 32 + 4;
 const TICK_STATE_LENGTH = 168;
 const TICK_ARRAY_COUNT_OFFSET = 8 + 32 + 4 + (168 * 60);
+const POOL_TICK_ARRAY_BITMAP_OFFSET = 904;
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
 function u128(buffer, offset) { return ((buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset)).toString(); }
 function i128(buffer, offset) { const unsigned = (buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset); return (unsigned >= (1n << 127n) ? unsigned - (1n << 128n) : unsigned).toString(); }
@@ -23,7 +24,9 @@ function accountBytes(account) { const encoded = account?.data; if (!Array.isArr
 export function decodeClmmPoolAccount(address, account) {
   if (account?.owner !== RAYDIUM_CLMM_PROGRAM) throw new Error(`CLMM pool ${address} has unexpected owner`);
   const data = accountBytes(account); if (data.length !== 1_544 || !data.subarray(0, 8).equals(DISCRIMINATOR)) throw new Error(`CLMM pool ${address} has invalid PoolState data`);
-  return { address, programId: RAYDIUM_CLMM_PROGRAM, ammConfig: base58(data.subarray(9, 41)), owner: base58(data.subarray(41, 73)), tokenMint0: base58(data.subarray(73, 105)), tokenMint1: base58(data.subarray(105, 137)), tokenVault0: base58(data.subarray(137, 169)), tokenVault1: base58(data.subarray(169, 201)), observationKey: base58(data.subarray(201, 233)), mintDecimals0: data[233], mintDecimals1: data[234], tickSpacing: data.readUInt16LE(235), liquidityRaw: u128(data, 237), sqrtPriceX64: u128(data, 253), tick: data.readInt32LE(269), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
+  const tickSpacing = data.readUInt16LE(235); if (!tickSpacing) throw new Error(`CLMM pool ${address} has invalid tick spacing`);
+  const initializedTickArrayStartIndexes = []; for (let word = 0; word < 16; word++) { const bits = data.readBigUInt64LE(POOL_TICK_ARRAY_BITMAP_OFFSET + (word * 8)); for (let bit = 0; bit < 64; bit++) if ((bits & (1n << BigInt(bit))) !== 0n) initializedTickArrayStartIndexes.push(((word * 64) + bit - 512) * 60 * tickSpacing); }
+  return { address, programId: RAYDIUM_CLMM_PROGRAM, ammConfig: base58(data.subarray(9, 41)), owner: base58(data.subarray(41, 73)), tokenMint0: base58(data.subarray(73, 105)), tokenMint1: base58(data.subarray(105, 137)), tokenVault0: base58(data.subarray(137, 169)), tokenVault1: base58(data.subarray(169, 201)), observationKey: base58(data.subarray(201, 233)), mintDecimals0: data[233], mintDecimals1: data[234], tickSpacing, liquidityRaw: u128(data, 237), sqrtPriceX64: u128(data, 253), tick: data.readInt32LE(269), defaultTickArrayBitmap: { bitCount: 1024, minStartTickIndex: -512 * 60 * tickSpacing, maxStartTickIndexExclusive: 512 * 60 * tickSpacing, initializedTickArrayStartIndexes, rawHex: data.subarray(POOL_TICK_ARRAY_BITMAP_OFFSET, POOL_TICK_ARRAY_BITMAP_OFFSET + 128).toString("hex") }, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
 export function decodeClmmTickArrayAccount(address, account, tickSpacing = null) {
@@ -66,7 +69,7 @@ export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, g
   if (requestedTickArrays.length) {
     const tickResponse = await client.call("getMultipleAccounts", [requestedTickArrays.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]);
     if (!Number.isSafeInteger(tickResponse?.context?.slot) || tickResponse.context.slot < stateSlot || tickResponse.value?.length !== requestedTickArrays.length) throw new Error("invalid CLMM tick array account response");
-    requestedTickArrays.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index], pool.tickSpacing); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
+    requestedTickArrays.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index], pool.tickSpacing); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); const bitmap = pool.defaultTickArrayBitmap, insideDefaultBitmap = tickArray.startTickIndex >= bitmap.minStartTickIndex && tickArray.startTickIndex < bitmap.maxStartTickIndexExclusive; if (insideDefaultBitmap && !bitmap.initializedTickArrayStartIndexes.includes(tickArray.startTickIndex)) throw new Error(`CLMM tick array ${requested.address} is absent from pool bitmap`); tickArray.bitmapSource = insideDefaultBitmap ? "pool_default" : "extension_unverified"; pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
   }
   for (const row of decoded) { row.tickArrays ??= []; row.tickArraySlot ??= null; }
   const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]);
