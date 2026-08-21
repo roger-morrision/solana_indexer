@@ -74,6 +74,7 @@ export class IndexStore {
   mergePoolSnapshots() { for (const [address, snapshot] of Object.entries(this.state.poolSnapshots ?? {})) { const current = this.state.pools[address] ?? { protocol: "raydium-clmm", venueType: "clmm", swapCount: 0, baseMint: snapshot.tokenMint0, quoteMint: snapshot.tokenMint1, pairIdentitySource: "protocol_account" }; this.state.pools[address] = { ...current, accountSnapshot: snapshot }; } }
   apply(block) {
     const slot = String(block.slot);
+    let revertedSwaps = [], revertedLifecycleEvents = [];
     let prior = this.state.blocks[slot]; const enrichment = prior?.blockhash === block.blockhash && prior.instructionCount == null;
     if (enrichment) { if (prior.provenance?.commitment === "finalized") { block.provenance = prior.provenance; for (const swap of block.swaps) swap.provenance = prior.provenance; } this.removeSlot(block.slot); prior = null; }
     if (prior && prior.blockhash === block.blockhash) {
@@ -89,7 +90,7 @@ export class IndexStore {
       return { inserted: false, updated: false, reason: "duplicate" };
     }
     if (prior?.provenance?.commitment === "finalized" && block.provenance?.commitment !== "finalized") throw new Error(`refusing to replace finalized slot ${block.slot} with non-finalized data`);
-    if (prior) { this.state.reorgCorrections.push({ slot: block.slot, replacedBlockhash: prior.blockhash, canonicalBlockhash: block.blockhash, observedAt: new Date().toISOString() }); if (this.state.reorgCorrections.length > 10_000) this.state.reorgCorrections.splice(0, this.state.reorgCorrections.length - 10_000); this.removeSlot(block.slot); }
+    if (prior) { revertedSwaps = this.state.swaps.filter((row) => row.slot === block.slot).map((row) => ({ ...row, revertedByBlockhash: block.blockhash })); revertedLifecycleEvents = this.state.programEvents.filter((row) => row.slot === block.slot && row.type !== "swap").map((row) => ({ ...row, revertedByBlockhash: block.blockhash })); this.state.reorgCorrections.push({ slot: block.slot, replacedBlockhash: prior.blockhash, canonicalBlockhash: block.blockhash, observedAt: new Date().toISOString() }); if (this.state.reorgCorrections.length > 10_000) this.state.reorgCorrections.splice(0, this.state.reorgCorrections.length - 10_000); this.removeSlot(block.slot); }
     this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, provenance: block.provenance, transactionCount: block.transactions.length, instructionCount: (block.instructions ?? []).length, transferCount: block.transfers.length };
     for (const transaction of block.transactions) {
       this.state.transactions[transaction.signature] = transaction;
@@ -117,7 +118,7 @@ export class IndexStore {
     }
     this.prune();
     this.state.tip = this.computeTip();
-    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: lifecycleEvents.length, swaps: block.swaps, lifecycleEvents, provenance: block.provenance };
+    const event = { sequence: ++this.state.eventSequence, type: prior ? "block_replaced" : "block_indexed", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: lifecycleEvents.length, revertedSwapCount: revertedSwaps.length, revertedLifecycleEventCount: revertedLifecycleEvents.length, swaps: block.swaps, lifecycleEvents, revertedSwaps, revertedLifecycleEvents, provenance: block.provenance };
     this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
     return { inserted: true, reason: prior ? "replaced" : "new" };
   }

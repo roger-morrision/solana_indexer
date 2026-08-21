@@ -21,10 +21,12 @@ function project(event, filter) {
   if (filter.topic === "blocks") return event;
   if (filter.topic === "lifecycle") {
     const lifecycleEvents = (event.lifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
-    return lifecycleEvents.length ? { type: "lifecycle", sequence: event.sequence, slot: event.slot, blockhash: event.blockhash, blockTime: event.blockTime, provenance: event.provenance, lifecycleEvents } : null;
+    const revertedLifecycleEvents = (event.revertedLifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
+    return lifecycleEvents.length || revertedLifecycleEvents.length ? { type: "lifecycle", sequence: event.sequence, slot: event.slot, blockhash: event.blockhash, blockTime: event.blockTime, provenance: event.provenance, lifecycleEvents, revertedLifecycleEvents } : null;
   }
   const swaps = (event.swaps ?? []).filter((swap) => (!filter.mint || swap.inputMint === filter.mint || swap.outputMint === filter.mint) && (!filter.pool || swap.pool === filter.pool) && (!filter.protocol || swap.protocol === filter.protocol));
-  return swaps.length ? { type: "swaps", sequence: event.sequence, slot: event.slot, blockhash: event.blockhash, blockTime: event.blockTime, provenance: event.provenance, swaps } : null;
+  const revertedSwaps = (event.revertedSwaps ?? []).filter((swap) => (!filter.mint || swap.inputMint === filter.mint || swap.outputMint === filter.mint) && (!filter.pool || swap.pool === filter.pool) && (!filter.protocol || swap.protocol === filter.protocol));
+  return swaps.length || revertedSwaps.length ? { type: "swaps", sequence: event.sequence, slot: event.slot, blockhash: event.blockhash, blockTime: event.blockTime, provenance: event.provenance, swaps, revertedSwaps } : null;
 }
 
 export function attachWebSocket(server, store, config, authorize = () => true) {

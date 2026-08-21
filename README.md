@@ -302,7 +302,9 @@ migration batches. Filters accept mint, source or destination pool, source or
 destination protocol, and exact `eventType`, while retaining the same durable
 block cursor used by the other topics. Lifecycle records carry provenance on
 both their initial observation and later finality-promotion event, allowing
-consumers to replace provisional state deterministically.
+consumers to replace provisional state deterministically. Fork replacements
+emit filtered `revertedSwaps` and `revertedLifecycleEvents` tombstones carrying
+the canonical replacement blockhash; consumers must remove those event IDs.
 
 “Trending” defaults to a rolling one-hour window and ranks verified DEX swap
 count, decoded unique traders, then locally indexed transfer count. It exposes
