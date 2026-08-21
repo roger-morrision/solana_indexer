@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
-import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
+import { decodePumpSwapEvents, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -289,6 +289,25 @@ test("decodes Raydium CPMM Anchor swap events only inside its invocation", () =>
   assert.equal(decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program other invoke [1]`, `Program data: ${encoded}`, "Program other success"] } }, "sig").length, 0);
 });
 
+test("decodes Raydium CLMM SwapEvent with exact price state and explicit unavailable reserves", async () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let out = ""; while (value) { out = alphabet[Number(value % 58n)] + out; value /= 58n; } for (const byte of bytes) { if (byte) break; out = `1${out}`; } return out || "1"; };
+  const writeU128 = (buffer, value, offset) => { buffer.writeBigUInt64LE(value & ((1n << 64n) - 1n), offset); buffer.writeBigUInt64LE(value >> 64n, offset + 8); };
+  const data = Buffer.alloc(221); crypto.createHash("sha256").update("event:SwapEvent").digest().copy(data, 0, 0, 8);
+  const poolBytes = Buffer.alloc(32, 1), userBytes = Buffer.alloc(32, 2), account0Bytes = Buffer.alloc(32, 3), account1Bytes = Buffer.alloc(32, 4);
+  poolBytes.copy(data, 8); userBytes.copy(data, 40); account0Bytes.copy(data, 72); account1Bytes.copy(data, 104);
+  data.writeBigUInt64LE(1_000n, 136); data.writeBigUInt64LE(5n, 144); data.writeBigUInt64LE(1_900n, 152); data.writeBigUInt64LE(7n, 160); data[168] = 1;
+  const sqrtPriceX64 = (1n << 80n) + 5n, liquidity = (1n << 96n) + 9n; writeU128(data, sqrtPriceX64, 169); writeU128(data, liquidity, 185); data.writeInt32LE(-123, 201); data.writeBigUInt64LE(3n, 205); data.writeBigUInt64LE(4n, 213);
+  const program = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", account0 = encode58(account0Bytes), account1 = encode58(account1Bytes); const logs = [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`];
+  const entry = { transaction: { message: { accountKeys: [account0, account1], instructions: [] } }, meta: { err: null, logMessages: logs, preTokenBalances: [{ accountIndex: 0, mint: "mint-0", uiTokenAmount: { decimals: 6 } }, { accountIndex: 1, mint: "mint-1", uiTokenAmount: { decimals: 9 } }], postTokenBalances: [] } };
+  const [event] = decodeRaydiumClmmSwapEvents(entry, "clmm-signature");
+  assert.deepEqual({ protocol: event.protocol, pool: event.pool, user: event.user, inputMint: event.inputMint, outputMint: event.outputMint, inputAmountRaw: event.inputAmountRaw, outputAmountRaw: event.outputAmountRaw, inputTransferFeeRaw: event.inputTransferFeeRaw, outputTransferFeeRaw: event.outputTransferFeeRaw, tradeFeeRaw: event.tradeFeeRaw, sqrtPriceX64: event.sqrtPriceX64, liquidityRaw: event.liquidityRaw, tick: event.tick, reserveTiming: event.reserveTiming }, { protocol: "raydium-clmm", pool: encode58(poolBytes), user: encode58(userBytes), inputMint: "mint-0", outputMint: "mint-1", inputAmountRaw: "1000", outputAmountRaw: "1900", inputTransferFeeRaw: "5", outputTransferFeeRaw: "7", tradeFeeRaw: "3", sqrtPriceX64: sqrtPriceX64.toString(), liquidityRaw: liquidity.toString(), tick: -123, reserveTiming: "unavailable" });
+  assert.equal(event.inputVaultBeforeRaw, null); assert.equal(event.outputVaultBeforeRaw, null);
+  assert.equal(decodeRaydiumClmmSwapEvents({ ...entry, meta: { ...entry.meta, logMessages: [`Program other invoke [1]`, `Program data: ${data.toString("base64")}`, "Program other success"] } }, "clmm-signature").length, 0);
+  const input = JSON.parse(await fs.readFile(fixture, "utf8")); input.dexEvents = []; input.transactions[0] = { transaction: { signatures: ["clmm-signature"], message: entry.transaction.message }, meta: entry.meta };
+  const block = parseBlock(input), swap = block.swaps[0]; assert.equal(swap.registryVersion, 2); assert.equal(swap.decoderVersion, 1); assert.equal(swap.inputVaultBeforeRaw, null); assert.equal(swap.sqrtPriceX64, sqrtPriceX64.toString());
+  const store = new IndexStore("unused"); await store.load(); store.apply(block); const summary = store.pool(encode58(poolBytes)).summary; assert.equal(summary.liquidityRaw, liquidity.toString()); assert.equal(summary.tick, -123); assert.equal(summary.reserveTiming, "unavailable");
+});
+
 test("indexes canonical blocks while withholding decoded swaps with unknown decimals", async () => {
   const input = JSON.parse(await fs.readFile(fixture, "utf8")); const data = Buffer.alloc(170); crypto.createHash("sha256").update("event:SwapEvent").digest().copy(data, 0, 0, 8); data.fill(1, 8, 40); data.writeBigUInt64LE(100n, 56); data.writeBigUInt64LE(190n, 64); data.fill(2, 89, 121); data.fill(3, 121, 153); const program = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
   input.dexEvents = []; input.transactions[0].meta.preTokenBalances = []; input.transactions[0].meta.postTokenBalances = []; input.transactions[0].meta.logMessages = [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`];
@@ -458,7 +477,7 @@ test("API authentication and quotas fail closed", async (t) => {
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   const evidence = await (await fetch(`${base}/internal/evidence/mint-address`)).json(); assert.equal(evidence.schemaVersion, 1); assert.match(evidence.immutableSnapshotId, /^solana:100:/); assert.equal(evidence.safeForAutomation, false); assert.ok(evidence.missing.includes("executable_route")); const route = await (await fetch(`${base}/internal/tokens/mint-address/executable-depth`)).json(); assert.equal(route.selfHosted, true); assert.equal(route.available, false); assert.ok(route.missing.includes("local_simulation"));
-  const registry = await (await fetch(`${base}/internal/registry`)).json(); assert.equal(registry.version, 1); assert.ok(registry.programs.some((row) => row.protocol === "pump-bonding-curve"));
+  const registry = await (await fetch(`${base}/internal/registry`)).json(); assert.equal(registry.version, 2); assert.ok(registry.programs.some((row) => row.protocol === "pump-bonding-curve")); assert.ok(registry.programs.some((row) => row.protocol === "raydium-clmm"));
 });
 
 test("WebSocket replays only persisted ordered events and resumes by cursor", async (t) => {

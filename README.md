@@ -310,11 +310,11 @@ before holder concentration can unlock trading-bot decisions.
 Pool candles support 60, 300, 900, 3600, 14400, and 86400-second intervals.
 Prices remain exact `quote_raw/base_raw` fractions and volumes remain separate
 base/quote raw integer strings. Protocol events provide pair orientation for
-Raydium CPMM, PumpSwap, and Pump bonding curves; sidecars without authoritative
+Raydium CPMM/CLMM, PumpSwap, and Pump bonding curves; sidecars without authoritative
 pair fields use a visibly labeled deterministic lexical fallback. No USD value
 is inferred.
 
-The first supported decoder is Raydium CPMM mainnet program
+The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may
 attach `dexEvents` matching Raydium's emitted `SwapEvent`, and the indexer also
 decodes the canonical Anchor event directly from scoped program logs. It accepts
@@ -322,6 +322,13 @@ only events tied to successful transactions and stores every u64 as a decimal
 string. Execution price is exposed as an exact raw numerator/denominator with
 both mint decimals. It is not labeled as USD price. Unsupported programs fail
 the whole input file instead of silently producing market data.
+
+Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
+`SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
+resolution, transfer fees, post-swap sqrt price, liquidity, and tick. The event
+does not contain vault reserves, so those fields remain `null` with
+`reserveTiming: "unavailable"`; liquidity and routing safety must not treat the
+CLMM liquidity scalar as spendable token reserves.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
