@@ -14,7 +14,7 @@ import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
-import { createClmmPoolSnapshot, decodeClmmPoolAccount, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
+import { createClmmPoolSnapshot, decodeClmmPoolAccount, decodeClmmTickArrayAccount, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
@@ -76,7 +76,7 @@ test("finalized Raydium CLMM snapshots decode canonical pool state and vault bal
   const mint0 = encode58(mint0Bytes), mint1 = encode58(mint1Bytes), vault0 = encode58(vault0Bytes), vault1 = encode58(vault1Bytes), account = { owner: RAYDIUM_CLMM_PROGRAM, data: [data.toString("base64"), "base64"] };
   assert.equal(decodeClmmPoolAccount("pool-a", account).tickSpacing, 64); assert.throws(() => decodeClmmPoolAccount("pool-a", { ...account, owner: "untrusted" }), /unexpected owner/);
   const client = { call: async (method, params) => { assert.equal(method, "getMultipleAccounts"); if (params[1].encoding === "base64") return { context: { slot: 500 }, value: [account] }; assert.equal(params[1].minContextSlot, 500); return { context: { slot: 501 }, value: [{ data: { parsed: { info: { mint: mint0, tokenAmount: { amount: "1000" } } } } }, { data: { parsed: { info: { mint: mint1, tokenAmount: { amount: "2000" } } } } }] }; } };
-  const snapshot = await createClmmPoolSnapshot({ client, pools: ["pool-a"], genesisHash: MAINNET_GENESIS_HASH, observedAt: "2026-08-21T00:00:00.000Z" }); assert.equal(snapshot.stateSlot, 500); assert.equal(snapshot.balanceSlot, 501); assert.equal(snapshot.pools[0].tokenVault0, vault0); assert.equal(snapshot.pools[0].tokenVault1, vault1); assert.equal(snapshot.pools[0].vault0AmountRaw, "1000"); assert.equal(snapshot.pools[0].vault1AmountRaw, "2000");
+  const snapshot = await createClmmPoolSnapshot({ client, pools: ["pool-a"], genesisHash: MAINNET_GENESIS_HASH, observedAt: "2026-08-21T00:00:00.000Z" }); assert.equal(snapshot.stateSlot, 500); assert.equal(snapshot.balanceSlot, 501); assert.equal(snapshot.pools[0].tokenVault0, vault0); assert.equal(snapshot.pools[0].tokenVault1, vault1); assert.equal(snapshot.pools[0].vault0AmountRaw, "1000"); assert.equal(snapshot.pools[0].vault1AmountRaw, "2000"); assert.deepEqual({ tickArraySlot: snapshot.pools[0].tickArraySlot, tickArrays: snapshot.pools[0].tickArrays }, { tickArraySlot: null, tickArrays: [] });
   const store = new IndexStore("unused"); await store.load(); store.applyPoolSnapshot(snapshot); const pool = store.pool("pool-a").summary; assert.equal(pool.pairIdentitySource, "protocol_account"); assert.equal(pool.accountSnapshot.commitment, "finalized"); assert.equal(pool.accountSnapshot.tick, -42); assert.equal(store.stats().poolSnapshots, 1); store.rebuildAggregates(); assert.equal(store.pool("pool-a").summary.accountSnapshot.balanceSlot, 501);
   const freshRisk = store.poolRisk("pool-a", 120_000, Date.parse(snapshot.observedAt) + 60_000); assert.equal(freshRisk.liquidity.assessable, true); assert.equal(freshRisk.liquidity.stale, false); assert.equal(freshRisk.liquidity.ageMs, 60_000);
   const staleRisk = store.poolRisk("pool-a", 120_000, Date.parse(snapshot.observedAt) + 180_000); assert.equal(staleRisk.liquidity.assessable, false); assert.equal(staleRisk.liquidity.stale, true); assert.ok(staleRisk.blockers.includes("liquidity_state_stale"));
@@ -85,6 +85,14 @@ test("finalized Raydium CLMM snapshots decode canonical pool state and vault bal
   store.applyPoolSnapshot({ ...snapshot, stateSlot: 499, balanceSlot: 501, pools: [{ ...snapshot.pools[0], vault0AmountRaw: "1" }] }); assert.equal(store.pool("pool-a").summary.accountSnapshot.vault0AmountRaw, "1000");
   assert.throws(() => store.applyPoolSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized mainnet CLMM pool snapshot/);
   assert.throws(() => store.applyPoolSnapshot({ ...snapshot, genesisHash: "devnet" }), /invalid finalized mainnet CLMM pool snapshot/);
+});
+
+test("finalized Raydium CLMM snapshots bind canonical tick-array headers to their pool", async () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let out = ""; while (value) { out = alphabet[Number(value % 58n)] + out; value /= 58n; } for (const byte of bytes) { if (byte) break; out = `1${out}`; } return out || "1"; };
+  const poolBytes = Buffer.alloc(32, 9), pool = encode58(poolBytes), data = Buffer.alloc(10_240); crypto.createHash("sha256").update("account:TickArrayState").digest().copy(data, 0, 0, 8); poolBytes.copy(data, 8); data.writeInt32LE(-3_840, 40); data[10_124] = 2; data.writeBigUInt64LE(77n, 10_125); const account = { owner: RAYDIUM_CLMM_PROGRAM, data: [data.toString("base64"), "base64"] };
+  const decoded = decodeClmmTickArrayAccount("ticks-a", account); assert.deepEqual({ pool: decoded.pool, startTickIndex: decoded.startTickIndex, initializedTickCount: decoded.initializedTickCount, recentEpoch: decoded.recentEpoch }, { pool, startTickIndex: -3_840, initializedTickCount: 2, recentEpoch: "77" }); assert.match(decoded.rawPayloadHash, /^[0-9a-f]{64}$/);
+  data[10_124] = 61; assert.throws(() => decodeClmmTickArrayAccount("ticks-a", { ...account, data: [data.toString("base64"), "base64"] }), /invalid initialized tick count/);
+  assert.deepEqual(parseClmmTickArrayMap(JSON.stringify({ [pool]: ["ticks-a"] }), [pool]), { [pool]: ["ticks-a"] }); assert.throws(() => parseClmmTickArrayMap(JSON.stringify({ unknown: ["ticks-a"] }), [pool]), /unknown pool/); assert.throws(() => parseClmmTickArrayMap(JSON.stringify({ [pool]: ["ticks-a", "ticks-a"] }), [pool]), /unique/);
 });
 
 test("token security blocks authority and hazardous Token-2022 extension evidence", async () => {
@@ -100,6 +108,7 @@ test("snapshot batches validate atomically before mutating canonical state", asy
   const poolRow = { address: "pool-a", programId: RAYDIUM_CLMM_PROGRAM, tokenMint0: "mint-a", tokenMint1: "mint-b", tokenVault0: "vault-a", tokenVault1: "vault-b", vault0AmountRaw: "1", vault1AmountRaw: "2", liquidityRaw: "3", sqrtPriceX64: "4", tick: 0, tickSpacing: 1 };
   const poolEnvelope = { ...accountEnvelope, type: "raydium_clmm_pool_snapshot", stateSlot: 800, balanceSlot: 801 };
   assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [poolRow, { ...poolRow, address: "pool-b", liquidityRaw: "invalid" }] }), /invalid CLMM pool snapshot row/);
+  assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, tickArraySlot: 800, tickArrays: [{ address: "ticks-a", pool: "wrong-pool", startTickIndex: 0, initializedTickCount: 1, recentEpoch: "1", rawPayloadHash: "a".repeat(64) }] }] }), /invalid CLMM tick array snapshot row/);
   assert.equal(store.state.poolSnapshots["pool-a"], undefined); assert.equal(store.state.pools["pool-a"], undefined);
 });
 

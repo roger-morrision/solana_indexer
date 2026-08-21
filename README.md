@@ -189,6 +189,7 @@ Configuration:
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic finalized mint/account snapshot evidence |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
+| `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized headers only and does not enable routing |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
 | `INDEXER_PORT` | `8787` | API port |
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |

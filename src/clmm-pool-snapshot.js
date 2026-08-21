@@ -10,6 +10,9 @@ import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-ex
 
 export const RAYDIUM_CLMM_PROGRAM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 const DISCRIMINATOR = crypto.createHash("sha256").update("account:PoolState").digest().subarray(0, 8);
+const TICK_ARRAY_DISCRIMINATOR = crypto.createHash("sha256").update("account:TickArrayState").digest().subarray(0, 8);
+const TICK_ARRAY_LENGTH = 10_240;
+const TICK_ARRAY_COUNT_OFFSET = 8 + 32 + 4 + (168 * 60);
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
 function u128(buffer, offset) { return ((buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset)).toString(); }
 function accountBytes(account) { const encoded = account?.data; if (!Array.isArray(encoded) || encoded[1] !== "base64" || typeof encoded[0] !== "string") throw new Error("CLMM pool account must use base64 encoding"); return Buffer.from(encoded[0], "base64"); }
@@ -20,11 +23,41 @@ export function decodeClmmPoolAccount(address, account) {
   return { address, programId: RAYDIUM_CLMM_PROGRAM, ammConfig: base58(data.subarray(9, 41)), owner: base58(data.subarray(41, 73)), tokenMint0: base58(data.subarray(73, 105)), tokenMint1: base58(data.subarray(105, 137)), tokenVault0: base58(data.subarray(137, 169)), tokenVault1: base58(data.subarray(169, 201)), observationKey: base58(data.subarray(201, 233)), mintDecimals0: data[233], mintDecimals1: data[234], tickSpacing: data.readUInt16LE(235), liquidityRaw: u128(data, 237), sqrtPriceX64: u128(data, 253), tick: data.readInt32LE(269), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
-export async function createClmmPoolSnapshot({ client, pools, genesisHash, observedAt = new Date().toISOString() }) {
+export function decodeClmmTickArrayAccount(address, account) {
+  if (account?.owner !== RAYDIUM_CLMM_PROGRAM) throw new Error(`CLMM tick array ${address} has unexpected owner`);
+  const data = accountBytes(account);
+  if (data.length !== TICK_ARRAY_LENGTH || !data.subarray(0, 8).equals(TICK_ARRAY_DISCRIMINATOR)) throw new Error(`CLMM tick array ${address} has invalid TickArrayState data`);
+  const initializedTickCount = data[TICK_ARRAY_COUNT_OFFSET];
+  if (initializedTickCount > 60) throw new Error(`CLMM tick array ${address} has invalid initialized tick count`);
+  return { address, pool: base58(data.subarray(8, 40)), startTickIndex: data.readInt32LE(40), initializedTickCount, recentEpoch: data.readBigUInt64LE(TICK_ARRAY_COUNT_OFFSET + 1).toString(), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
+}
+
+export function parseClmmTickArrayMap(value, pools) {
+  if (!value) return {};
+  let parsed; try { parsed = JSON.parse(value); } catch { throw new Error("CLMM_TICK_ARRAYS_JSON must be valid JSON"); }
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("CLMM_TICK_ARRAYS_JSON must map pool addresses to arrays");
+  const allowed = new Set(pools), addresses = new Set();
+  for (const [pool, entries] of Object.entries(parsed)) {
+    if (!allowed.has(pool) || !Array.isArray(entries)) throw new Error("CLMM_TICK_ARRAYS_JSON contains an unknown pool or non-array value");
+    for (const address of entries) { if (typeof address !== "string" || !address || addresses.has(address)) throw new Error("CLMM_TICK_ARRAYS_JSON addresses must be non-empty and unique"); addresses.add(address); }
+  }
+  return parsed;
+}
+
+export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(pools) || !pools.length) throw new Error("at least one CLMM pool is required");
   const stateResponse = await client.call("getMultipleAccounts", [pools, { commitment: "finalized", encoding: "base64" }]); const stateSlot = stateResponse?.context?.slot;
   if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid CLMM pool account response");
-  const decoded = pools.map((address, index) => decodeClmmPoolAccount(address, stateResponse.value[index])); const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]);
+  const decoded = pools.map((address, index) => decodeClmmPoolAccount(address, stateResponse.value[index]));
+  const requestedTickArrays = decoded.flatMap((row) => (tickArrays[row.address] ?? []).map((address) => ({ address, pool: row.address })));
+  if (new Set(requestedTickArrays.map((row) => row.address)).size !== requestedTickArrays.length) throw new Error("CLMM tick array addresses must be unique");
+  if (requestedTickArrays.length) {
+    const tickResponse = await client.call("getMultipleAccounts", [requestedTickArrays.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]);
+    if (!Number.isSafeInteger(tickResponse?.context?.slot) || tickResponse.context.slot < stateSlot || tickResponse.value?.length !== requestedTickArrays.length) throw new Error("invalid CLMM tick array account response");
+    requestedTickArrays.forEach((requested, index) => { const tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index]); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); const pool = decoded.find((row) => row.address === requested.pool); pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
+  }
+  for (const row of decoded) { row.tickArrays ??= []; row.tickArraySlot ??= null; }
+  const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]);
   const balanceResponse = await client.call("getMultipleAccounts", [vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: stateSlot }]); const balanceSlot = balanceResponse?.context?.slot;
   if (!Number.isSafeInteger(balanceSlot) || balanceSlot < stateSlot || balanceResponse.value?.length !== vaults.length) throw new Error("invalid CLMM vault account response");
   for (let index = 0; index < decoded.length; index++) {
@@ -38,6 +71,6 @@ export async function createClmmPoolSnapshot({ client, pools, genesisHash, obser
 async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
 async function main() {
   const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const requested = process.argv.slice(2).filter(Boolean); const pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-clmm").map(([address]) => address); if (!pools.length) throw new Error("no Raydium CLMM pools supplied or discovered");
-  const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createClmmPoolSnapshot({ client, pools, genesisHash }); store.applyPoolSnapshot(snapshot); await store.save(); await atomicWrite(path.resolve(process.cwd(), process.env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"), snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length }));
+  const tickArrays = parseClmmTickArrayMap(process.env.CLMM_TICK_ARRAYS_JSON, pools); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createClmmPoolSnapshot({ client, pools, tickArrays, genesisHash }); store.applyPoolSnapshot(snapshot); await store.save(); await atomicWrite(path.resolve(process.cwd(), process.env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"), snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, tickArrays: snapshot.pools.reduce((sum, row) => sum + row.tickArrays.length, 0) }));
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
