@@ -303,9 +303,19 @@ test("decodes Raydium CLMM SwapEvent with exact price state and explicit unavail
   assert.deepEqual({ protocol: event.protocol, pool: event.pool, user: event.user, inputMint: event.inputMint, outputMint: event.outputMint, inputAmountRaw: event.inputAmountRaw, outputAmountRaw: event.outputAmountRaw, inputTransferFeeRaw: event.inputTransferFeeRaw, outputTransferFeeRaw: event.outputTransferFeeRaw, tradeFeeRaw: event.tradeFeeRaw, sqrtPriceX64: event.sqrtPriceX64, liquidityRaw: event.liquidityRaw, tick: event.tick, reserveTiming: event.reserveTiming }, { protocol: "raydium-clmm", pool: encode58(poolBytes), user: encode58(userBytes), inputMint: "mint-0", outputMint: "mint-1", inputAmountRaw: "1000", outputAmountRaw: "1900", inputTransferFeeRaw: "5", outputTransferFeeRaw: "7", tradeFeeRaw: "3", sqrtPriceX64: sqrtPriceX64.toString(), liquidityRaw: liquidity.toString(), tick: -123, reserveTiming: "unavailable" });
   assert.equal(event.inputVaultBeforeRaw, null); assert.equal(event.outputVaultBeforeRaw, null);
   assert.equal(decodeRaydiumClmmSwapEvents({ ...entry, meta: { ...entry.meta, logMessages: [`Program other invoke [1]`, `Program data: ${data.toString("base64")}`, "Program other success"] } }, "clmm-signature").length, 0);
+  data[168] = 2; const malformedLogs = [`Program ${program} invoke [1]`, `Program data: ${data.toString("base64")}`, `Program ${program} success`]; assert.equal(decodeRaydiumClmmSwapEvents({ ...entry, meta: { ...entry.meta, logMessages: malformedLogs } }, "clmm-signature").length, 0); data[168] = 1;
   const input = JSON.parse(await fs.readFile(fixture, "utf8")); input.dexEvents = []; input.transactions[0] = { transaction: { signatures: ["clmm-signature"], message: entry.transaction.message }, meta: entry.meta };
   const block = parseBlock(input), swap = block.swaps[0]; assert.equal(swap.registryVersion, 2); assert.equal(swap.decoderVersion, 1); assert.equal(swap.inputVaultBeforeRaw, null); assert.equal(swap.sqrtPriceX64, sqrtPriceX64.toString());
   const store = new IndexStore("unused"); await store.load(); store.apply(block); const summary = store.pool(encode58(poolBytes)).summary; assert.equal(summary.liquidityRaw, liquidity.toString()); assert.equal(summary.tick, -123); assert.equal(summary.reserveTiming, "unavailable");
+});
+
+test("rejects malformed or reserve-fabricating Raydium CLMM sidecars", async () => {
+  const input = JSON.parse(await fs.readFile(fixture, "utf8")), original = input.dexEvents[0]; input.dexEvents = [{ ...original, protocol: "raydium-clmm", programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", venueType: "clmm", user: "user", zeroForOne: true, sqrtPriceX64: "18446744073709551616", liquidityRaw: "1000", tick: 10, inputTransferFeeRaw: "1", outputTransferFeeRaw: "2", inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable" }];
+  assert.equal(parseBlock(input).swaps[0].liquidityRaw, "1000");
+  input.dexEvents[0].sqrtPriceX64 = "not-an-integer"; assert.throws(() => parseBlock(input), /sqrtPriceX64 must be a decimal u128 string/);
+  input.dexEvents[0].sqrtPriceX64 = (1n << 128n).toString(); assert.throws(() => parseBlock(input), /sqrtPriceX64 must be a decimal u128 string/);
+  input.dexEvents[0].sqrtPriceX64 = "18446744073709551616"; input.dexEvents[0].tick = 2_147_483_648; assert.throws(() => parseBlock(input), /tick must be an i32/);
+  input.dexEvents[0].tick = 10; input.dexEvents[0].inputVaultBeforeRaw = "1"; assert.throws(() => parseBlock(input), /reserves must be explicitly unavailable/);
 });
 
 test("indexes canonical blocks while withholding decoded swaps with unknown decimals", async () => {

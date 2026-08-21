@@ -329,6 +329,9 @@ resolution, transfer fees, post-swap sqrt price, liquidity, and tick. The event
 does not contain vault reserves, so those fields remain `null` with
 `reserveTiming: "unavailable"`; liquidity and routing safety must not treat the
 CLMM liquidity scalar as spendable token reserves.
+Validator-provided CLMM sidecars pass the same strict contract: u128 bounds,
+i32 tick, boolean direction, u64 fees, required user identity, and explicitly
+unavailable event reserves are validated before any market record is accepted.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into

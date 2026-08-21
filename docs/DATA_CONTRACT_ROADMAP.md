@@ -34,6 +34,6 @@ The current index is an offline local prototype. It is not yet a SolanaTracker-e
 
 - Raydium's official CPMM repository identifies the mainnet program as `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`.
 - Raydium's official `SwapEvent` definition is the authoritative field order for the Anchor log decoder: pool, pre-swap vault amounts, input/output amounts and fees, direction, mints, trade fee, and creator fee.
-- Raydium's official CLMM program declares mainnet program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`; its 221-byte Anchor `SwapEvent` defines pool, sender, token accounts, amounts/transfer fees, direction, post-swap sqrt price, liquidity, tick and trade fees. It does not emit vault reserves, which remain explicitly unavailable.
+- Raydium's official CLMM program declares mainnet program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`; its 221-byte Anchor `SwapEvent` defines pool, sender, token accounts, amounts/transfer fees, direction, post-swap sqrt price, liquidity, tick and trade fees. It does not emit vault reserves, which remain explicitly unavailable. Direct logs and validator sidecars share strict u64/u128/i32/boolean validation.
 - Pump.fun's official PumpSwap IDL is authoritative for the `BuyEvent` and `SellEvent` layouts and program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA`.
 - Pump.fun's official Pump IDL is authoritative for the bonding-curve `TradeEvent` layout and program `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`.
