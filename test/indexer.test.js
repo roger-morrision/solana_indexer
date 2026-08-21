@@ -14,6 +14,7 @@ import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
+import { createClmmPoolSnapshot, decodeClmmPoolAccount, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
@@ -60,6 +61,18 @@ test("canonical finalized account snapshots persist complete holder and authorit
   assert.equal(reloaded.evidence("mint-a").missing.includes("mint_authority"), false);
   reloaded.applyAccountSnapshot({ ...snapshot, slot: 499, mints: [{ ...snapshot.mints[0], mintInfo: { ...snapshot.mints[0].mintInfo, mintAuthority: "stale-authority" }, accounts: [] }] });
   assert.equal(reloaded.state.holderSnapshots["mint-a"].slot, 500); assert.equal(reloaded.tokenSecurity("mint-a").evidence.mintAuthority, null);
+});
+
+test("finalized Raydium CLMM snapshots decode canonical pool state and vault balances", async () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let out = ""; while (value) { out = alphabet[Number(value % 58n)] + out; value /= 58n; } for (const byte of bytes) { if (byte) break; out = `1${out}`; } return out || "1"; };
+  const writeU128 = (buffer, value, offset) => { buffer.writeBigUInt64LE(value & ((1n << 64n) - 1n), offset); buffer.writeBigUInt64LE(value >> 64n, offset + 8); };
+  const data = Buffer.alloc(1_544); crypto.createHash("sha256").update("account:PoolState").digest().copy(data, 0, 0, 8); data[8] = 255; const mint0Bytes = Buffer.alloc(32, 1), mint1Bytes = Buffer.alloc(32, 2), vault0Bytes = Buffer.alloc(32, 3), vault1Bytes = Buffer.alloc(32, 4); mint0Bytes.copy(data, 73); mint1Bytes.copy(data, 105); vault0Bytes.copy(data, 137); vault1Bytes.copy(data, 169); data[233] = 6; data[234] = 9; data.writeUInt16LE(64, 235); writeU128(data, (1n << 90n) + 7n, 237); writeU128(data, (1n << 80n) + 5n, 253); data.writeInt32LE(-42, 269);
+  const mint0 = encode58(mint0Bytes), mint1 = encode58(mint1Bytes), vault0 = encode58(vault0Bytes), vault1 = encode58(vault1Bytes), account = { owner: RAYDIUM_CLMM_PROGRAM, data: [data.toString("base64"), "base64"] };
+  assert.equal(decodeClmmPoolAccount("pool-a", account).tickSpacing, 64); assert.throws(() => decodeClmmPoolAccount("pool-a", { ...account, owner: "untrusted" }), /unexpected owner/);
+  const client = { call: async (method, params) => { assert.equal(method, "getMultipleAccounts"); if (params[1].encoding === "base64") return { context: { slot: 500 }, value: [account] }; assert.equal(params[1].minContextSlot, 500); return { context: { slot: 501 }, value: [{ data: { parsed: { info: { mint: mint0, tokenAmount: { amount: "1000" } } } } }, { data: { parsed: { info: { mint: mint1, tokenAmount: { amount: "2000" } } } } }] }; } };
+  const snapshot = await createClmmPoolSnapshot({ client, pools: ["pool-a"], genesisHash: MAINNET_GENESIS_HASH, observedAt: "2026-08-21T00:00:00.000Z" }); assert.equal(snapshot.stateSlot, 500); assert.equal(snapshot.balanceSlot, 501); assert.equal(snapshot.pools[0].tokenVault0, vault0); assert.equal(snapshot.pools[0].tokenVault1, vault1); assert.equal(snapshot.pools[0].vault0AmountRaw, "1000"); assert.equal(snapshot.pools[0].vault1AmountRaw, "2000");
+  const store = new IndexStore("unused"); await store.load(); store.applyPoolSnapshot(snapshot); const pool = store.pool("pool-a").summary; assert.equal(pool.pairIdentitySource, "protocol_account"); assert.equal(pool.accountSnapshot.commitment, "finalized"); assert.equal(pool.accountSnapshot.tick, -42); assert.equal(store.stats().poolSnapshots, 1); store.rebuildAggregates(); assert.equal(store.pool("pool-a").summary.accountSnapshot.balanceSlot, 501);
+  store.applyPoolSnapshot({ ...snapshot, stateSlot: 499, balanceSlot: 499, pools: [{ ...snapshot.pools[0], vault0AmountRaw: "1" }] }); assert.equal(store.pool("pool-a").summary.accountSnapshot.vault0AmountRaw, "1000");
 });
 
 test("token security blocks authority and hazardous Token-2022 extension evidence", async () => {

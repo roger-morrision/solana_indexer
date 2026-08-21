@@ -188,6 +188,7 @@ Configuration:
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic finalized mint/account snapshot evidence |
+| `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
 | `INDEXER_PORT` | `8787` | API port |
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
@@ -332,6 +333,11 @@ CLMM liquidity scalar as spendable token reserves.
 Validator-provided CLMM sidecars pass the same strict contract: u128 bounds,
 i32 tick, boolean direction, u64 fees, required user identity, and explicitly
 unavailable event reserves are validated before any market record is accepted.
+Run `npm run snapshot:clmm-pools -- <POOL_ADDRESS...>` against the loopback
+mainnet validator to capture the official PoolState header and both parsed token
+vault balances. State and balance context slots are retained separately, stale
+snapshots cannot replace newer evidence, and snapshots remain unsafe for route
+execution until tick arrays and local simulation are available.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
