@@ -1,0 +1,24 @@
+[Unit]
+Description=Terminal DEX external-mainnet indexer API and WebSocket service
+After=network-online.target solana-indexer-external-exporter.service
+Wants=network-online.target solana-indexer-external-exporter.service
+
+[Service]
+Type=simple
+User=sol
+WorkingDirectory=/home/sol/solana-indexer
+EnvironmentFile=/etc/solana-indexer-external.env
+ExecStart=/usr/bin/env npm start
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/sol/solana-indexer/inbox-mainnet /home/sol/solana-indexer/data
+
+[Install]
+WantedBy=multi-user.target

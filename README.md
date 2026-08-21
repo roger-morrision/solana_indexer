@@ -64,6 +64,14 @@ public-RPC backfill mode; it is forced to one cycle and at most four slots. It
 must not be used as the normal ingestion lane. Use a new `inbox-mainnet` and
 mainnet data/status files so private-chain evidence can never be mixed in.
 
+For a supervised Ubuntu deployment, copy the protected environment to
+`/etc/solana-indexer-external.env` with root ownership and mode `0600`, then run
+`sudo bash validator/install-external-services.sh`. The installer validates the
+approved provider hosts and installs separate external exporter/API units but
+does not start them. After tests pass, enable `solana-indexer-external-exporter`
+and `solana-indexer-external-api`. Do not enable these alongside the equivalent
+local-validator API/stream units against the same files or port.
+
 ## Self-hosted mainnet validator
 
 The `validator/` directory contains a production-oriented, non-voting Agave RPC-node deployment kit:

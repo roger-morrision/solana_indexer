@@ -370,6 +370,12 @@ test("storage deployment requires reviewed images, loopback ports, secrets, and 
   const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /UInt256/);
 });
 
+test("external mainnet services are supervised, isolated, and never auto-started", async () => {
+  const exporter = await fs.readFile(path.join(rootDir, "validator/solana-indexer-external-exporter.service"), "utf8"), api = await fs.readFile(path.join(rootDir, "validator/solana-indexer-external-api.service"), "utf8"), installer = await fs.readFile(path.join(rootDir, "validator/install-external-services.sh"), "utf8");
+  for (const unit of [exporter, api]) { assert.match(unit, /EnvironmentFile=\/etc\/solana-indexer-external\.env/); assert.match(unit, /Restart=on-failure/); assert.match(unit, /ProtectSystem=strict/); assert.match(unit, /ReadWritePaths=.*inbox-mainnet .*data/); }
+  assert.match(exporter, /npm run export:external/); assert.match(api, /npm start/); assert.match(installer, /must have mode 0600/); assert.match(installer, /systemctl daemon-reload/); assert.doesNotMatch(installer, /enable --now|systemctl start/);
+});
+
 test("object archives remain fully self-hosted without S3 or cloud endpoints", async () => {
   const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"); assert.match(compose, /SEAWEEDFS_IMAGE:\?Set SEAWEEDFS_IMAGE/); assert.match(compose, /127\.0\.0\.1:8888:8888/); assert.match(backup, /SELF_HOSTED_ARCHIVE_URL/); assert.match(backup, /must be loopback HTTP/); assert.doesNotMatch(backup, /BACKUP_S3|aws s3/);
 });
