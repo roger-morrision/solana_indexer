@@ -283,7 +283,9 @@ WebSocket clients receive `ready`, then ordered `block_indexed` or
 `block_replaced` events after atomic index persistence. Confirmed blocks are
 preserved as provisional evidence and promoted with `block_finalized` when the
 matching finalized inbox record arrives; a confirmed fork can never downgrade a
-finalized slot. Supply the last consumed
+finalized slot. Promotion atomically upgrades provenance on transactions,
+instructions, transfers, token-balance changes, token-account projections,
+swaps, and program events. Supply the last consumed
 sequence as `cursor` to replay retained events. An expired cursor produces
 `resync_required`; clients must rebuild from REST. Heartbeat pings and bounded
 socket buffers evict stalled consumers. When API keys are enabled, WebSocket

@@ -39,6 +39,9 @@ export class IndexStore {
     const indices = new Map(); for (const swap of this.state.swaps) if (Number.isSafeInteger(swap.eventIndex)) indices.set(swap.signature, Math.max(indices.get(swap.signature) ?? 0, swap.eventIndex + 1));
     for (const swap of this.state.swaps) if (!swap.swapId) { const eventIndex = indices.get(swap.signature) ?? 0; indices.set(swap.signature, eventIndex + 1); swap.eventIndex = eventIndex; swap.swapId = `${swap.signature}:${eventIndex}`; }
     for (const swap of this.state.swaps) if (!swap.baseMint || !swap.quoteMint) { swap.baseMint = [swap.inputMint, swap.outputMint].sort()[0]; swap.quoteMint = swap.baseMint === swap.inputMint ? swap.outputMint : swap.inputMint; swap.pairIdentitySource = "canonical_lexical"; swap.baseDecimals = swap.baseMint === swap.inputMint ? swap.inputDecimals : swap.outputDecimals; swap.quoteDecimals = swap.quoteMint === swap.inputMint ? swap.inputDecimals : swap.outputDecimals; }
+    const canonicalProvenance = (row) => this.state.blocks[String(row.slot)]?.provenance ?? row.provenance ?? null;
+    for (const [signature, transaction] of Object.entries(this.state.transactions)) this.state.transactions[signature] = { ...transaction, provenance: canonicalProvenance(transaction) };
+    this.state.instructions = this.state.instructions.map((row) => ({ ...row, provenance: canonicalProvenance(row) })); this.state.programEvents = this.state.programEvents.map((row) => ({ ...row, provenance: canonicalProvenance(row) })); this.state.transfers = this.state.transfers.map((row) => ({ ...row, provenance: canonicalProvenance(row) })); this.state.balanceChanges = this.state.balanceChanges.map((row) => ({ ...row, provenance: canonicalProvenance(row) })); this.state.swaps = this.state.swaps.map((row) => ({ ...row, provenance: canonicalProvenance(row) }));
     this.state.version = 9; this.rebuildTokenAccounts(); this.mergePoolSnapshots();
     this.loaded = true;
   }
@@ -80,8 +83,13 @@ export class IndexStore {
     if (prior && prior.blockhash === block.blockhash) {
       if (prior.provenance?.commitment === "confirmed" && block.provenance?.commitment === "finalized") {
         prior.provenance = block.provenance;
+        for (const [signature, transaction] of Object.entries(this.state.transactions)) if (transaction.slot === block.slot) this.state.transactions[signature] = { ...transaction, provenance: block.provenance };
+        this.state.instructions = this.state.instructions.map((instruction) => instruction.slot === block.slot ? { ...instruction, provenance: block.provenance } : instruction);
+        this.state.transfers = this.state.transfers.map((transfer) => transfer.slot === block.slot ? { ...transfer, provenance: block.provenance } : transfer);
+        this.state.balanceChanges = this.state.balanceChanges.map((change) => change.slot === block.slot ? { ...change, provenance: block.provenance } : change);
         this.state.swaps = this.state.swaps.map((swap) => swap.slot === block.slot ? { ...swap, provenance: block.provenance } : swap);
         this.state.programEvents = this.state.programEvents.map((programEvent) => programEvent.slot === block.slot ? { ...programEvent, provenance: block.provenance } : programEvent);
+        this.rebuildTokenAccounts();
         const lifecycleEvents = (block.poolLifecycleEvents ?? []).map((lifecycleEvent) => ({ ...lifecycleEvent, provenance: block.provenance }));
         const event = { sequence: ++this.state.eventSequence, type: "block_finalized", slot: block.slot, blockhash: block.blockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, transactionCount: block.transactions.length, transferCount: block.transfers.length, balanceChangeCount: (block.balanceChanges ?? []).length, swapCount: block.swaps.length, lifecycleEventCount: lifecycleEvents.length, swaps: block.swaps.map((swap) => ({ ...swap, provenance: block.provenance })), lifecycleEvents, provenance: block.provenance };
         this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event);
@@ -93,7 +101,7 @@ export class IndexStore {
     if (prior) { revertedSwaps = this.state.swaps.filter((row) => row.slot === block.slot).map((row) => ({ ...row, revertedByBlockhash: block.blockhash })); revertedLifecycleEvents = this.state.programEvents.filter((row) => row.slot === block.slot && row.type !== "swap").map((row) => ({ ...row, revertedByBlockhash: block.blockhash })); this.state.reorgCorrections.push({ slot: block.slot, replacedBlockhash: prior.blockhash, canonicalBlockhash: block.blockhash, observedAt: new Date().toISOString() }); if (this.state.reorgCorrections.length > 10_000) this.state.reorgCorrections.splice(0, this.state.reorgCorrections.length - 10_000); this.removeSlot(block.slot); }
     this.state.blocks[slot] = { blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime: block.blockTime, provenance: block.provenance, transactionCount: block.transactions.length, instructionCount: (block.instructions ?? []).length, transferCount: block.transfers.length };
     for (const transaction of block.transactions) {
-      this.state.transactions[transaction.signature] = transaction;
+      this.state.transactions[transaction.signature] = { ...transaction, provenance: block.provenance };
       for (const account of transaction.accounts) {
         const current = this.state.accounts[account] ?? { transactionCount: 0, successfulTransactionCount: 0, lastSlot: 0 };
         current.transactionCount += 1; current.successfulTransactionCount += transaction.success ? 1 : 0; current.lastSlot = Math.max(current.lastSlot, transaction.slot);
@@ -101,9 +109,9 @@ export class IndexStore {
       }
     }
     const lifecycleEvents = (block.poolLifecycleEvents ?? []).map((event) => ({ ...event, provenance: block.provenance }));
-    this.state.instructions.push(...(block.instructions ?? [])); this.state.programEvents.push(...lifecycleEvents, ...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId, provenance: block.provenance })));
-    this.state.transfers.push(...block.transfers);
-    this.state.balanceChanges.push(...(block.balanceChanges ?? [])); for (const change of block.balanceChanges ?? []) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
+    this.state.instructions.push(...(block.instructions ?? []).map((instruction) => ({ ...instruction, provenance: block.provenance }))); this.state.programEvents.push(...lifecycleEvents, ...block.swaps.map((swap) => ({ eventId: swap.eventId, type: "swap", slot: swap.slot, blockTime: swap.blockTime, signature: swap.signature, programId: swap.programId, protocol: swap.protocol, instructionIndex: -1, innerIndex: swap.eventIndex, registryVersion: swap.registryVersion, decoderVersion: swap.decoderVersion, rawPayloadHash: swap.rawPayloadHash, payloadHashKind: swap.payloadHashKind, swapId: swap.swapId, provenance: block.provenance })));
+    this.state.transfers.push(...block.transfers.map((transfer) => ({ ...transfer, provenance: block.provenance })));
+    const balanceChanges = (block.balanceChanges ?? []).map((change) => ({ ...change, provenance: block.provenance })); this.state.balanceChanges.push(...balanceChanges); for (const change of balanceChanges) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed, provenance: change.provenance };
     this.state.swaps.push(...block.swaps);
     for (const event of lifecycleEvents) this.state.pools[event.pool] = mergePoolLifecycle(this.state.pools[event.pool], event);
     for (const transfer of block.transfers) if (transfer.mint) {
@@ -164,7 +172,7 @@ export class IndexStore {
   }
   rebuildTokenAccounts() {
     this.state.tokenAccounts = {};
-    for (const change of [...this.state.balanceChanges].sort((a, b) => a.slot - b.slot)) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed };
+    for (const change of [...this.state.balanceChanges].sort((a, b) => a.slot - b.slot)) this.state.tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed, provenance: change.provenance ?? null };
     for (const [mint, snapshot] of Object.entries(this.state.holderSnapshots)) for (const account of snapshot.accounts ?? []) { const prior = this.state.tokenAccounts[account.tokenAccount]; if (!prior || snapshot.slot >= prior.lastSlot) this.state.tokenAccounts[account.tokenAccount] = { mint, owner: account.owner, programId: account.programId, decimals: account.decimals, amountRaw: account.amountRaw, lastSlot: snapshot.slot, lastSignature: null, closed: BigInt(account.amountRaw) === 0n }; }
   }
   computeTip() { const slots = Object.keys(this.state.blocks).map(Number); return slots.length ? Math.max(...slots) : null; }
