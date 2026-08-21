@@ -8,6 +8,10 @@ is uploaded with `curl` to the loopback-only self-hosted SeaweedFS filer at
 archive endpoints. It does not use AWS, S3, hosted storage, or cloud credentials.
 Quiesce every indexer writer first and set `BACKUP_WRITERS_QUIESCED=yes`; the
 script refuses a potentially inconsistent cross-store backup otherwise.
+The backup records exact SHA-256 fingerprints for raw inbox files and uploads a
+completion receipt last. Only after that final upload succeeds is the receipt
+installed under `data/`; inbox retention requires this receipt and the matching
+parser checkpoint before any old raw file can be deleted.
 
 `fetch-backup.sh <UTC-stamp>` downloads a known archive from that same loopback
 filer and verifies its manifest before it can be passed to `restore.sh`. It does

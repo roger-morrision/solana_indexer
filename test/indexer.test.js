@@ -15,6 +15,7 @@ import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator
 import { createAccountSnapshot } from "../src/account-snapshot.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
+import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -88,8 +89,10 @@ test("checkpoint fingerprints detect same-sized content replacement", async () =
 });
 
 test("raw inbox retention is dry-run-first and deletes only unchanged durable files", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-inbox-retention-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); await fs.mkdir(inbox); const old = path.join(inbox, "old.json"), changed = path.join(inbox, "changed.json"), pending = path.join(inbox, "pending.json"); await fs.writeFile(old, "durable"); await fs.writeFile(changed, "changed-now"); await fs.writeFile(pending, "pending"); const hash = (value) => crypto.createHash("sha256").update(value).digest("hex"); await fs.writeFile(dataFile, JSON.stringify({ processedFiles: { "old.json": { fingerprint: hash("durable"), parserVersion: 2 }, "changed.json": { fingerprint: hash("changed-before"), parserVersion: 2 } }, deadLetters: [] })); const past = new Date("2020-01-01T00:00:00Z"); await Promise.all([fs.utimes(old, past, past), fs.utimes(changed, past, past), fs.utimes(pending, past, past)]);
-  const preview = await retainInbox({ inbox, dataFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z") }); assert.deepEqual(preview.eligible, ["old.json"]); assert.equal(preview.deleted.length, 0); assert.equal(preview.retained.changed, 1); assert.equal(preview.retained.uncheckpointed, 1); const applied = await retainInbox({ inbox, dataFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z"), confirmDelete: true }); assert.deepEqual(applied.deleted, ["old.json"]); await assert.rejects(fs.access(old)); assert.doesNotReject(fs.access(changed));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-inbox-retention-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"), manifestFile = path.join(root, "manifest.json"), archiveReceiptFile = path.join(root, "receipt.json"); await fs.mkdir(inbox); const old = path.join(inbox, "old.json"), changed = path.join(inbox, "changed.json"), pending = path.join(inbox, "pending.json"); await fs.writeFile(old, "durable"); await fs.writeFile(changed, "changed-now"); await fs.writeFile(pending, "pending"); const hash = (value) => crypto.createHash("sha256").update(value).digest("hex"); await fs.writeFile(dataFile, JSON.stringify({ processedFiles: { "old.json": { fingerprint: hash("durable"), parserVersion: 2 }, "changed.json": { fingerprint: hash("changed-before"), parserVersion: 2 } }, deadLetters: [] })); const past = new Date("2020-01-01T00:00:00Z"); await Promise.all([fs.utimes(old, past, past), fs.utimes(changed, past, past), fs.utimes(pending, past, past)]);
+  const blocked = await retainInbox({ inbox, dataFile, archiveReceiptFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z"), confirmDelete: true }); assert.deepEqual(blocked.deleted, []); assert.equal(blocked.retained.unarchived, 1); assert.equal(blocked.archiveReceiptValid, false);
+  await createInboxManifest({ inbox, output: manifestFile, archiveId: "20200101T000000Z" }); await completeArchiveReceipt({ manifestFile, output: archiveReceiptFile, completedAt: "2020-01-01T01:00:00.000Z" });
+  const preview = await retainInbox({ inbox, dataFile, archiveReceiptFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z") }); assert.deepEqual(preview.eligible, ["old.json"]); assert.equal(preview.deleted.length, 0); assert.equal(preview.retained.changed, 1); assert.equal(preview.retained.uncheckpointed, 1); const applied = await retainInbox({ inbox, dataFile, archiveReceiptFile, retentionSeconds: 3600, now: Date.parse("2020-01-02T00:00:00Z"), confirmDelete: true }); assert.deepEqual(applied.deleted, ["old.json"]); await assert.rejects(fs.access(old)); assert.doesNotReject(fs.access(changed));
 });
 
 test("persists bounded dead-letter evidence for invalid inbox payloads", async () => {
@@ -384,6 +387,7 @@ test("external mainnet services are supervised, isolated, and never auto-started
 
 test("object archives remain fully self-hosted without S3 or cloud endpoints", async () => {
   const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"); assert.match(compose, /SEAWEEDFS_IMAGE:\?Set SEAWEEDFS_IMAGE/); assert.match(compose, /127\.0\.0\.1:8888:8888/); assert.match(backup, /SELF_HOSTED_ARCHIVE_URL/); assert.match(backup, /must be loopback HTTP/); assert.doesNotMatch(backup, /BACKUP_S3|aws s3/);
+  assert.match(backup, /archive-receipt\.js complete/); assert.match(backup, /install -m 0600 .*inbox-archive-receipt\.json/);
 });
 
 test("mTLS gateway and production SLO alerts fail closed", async () => {
