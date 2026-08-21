@@ -21,6 +21,8 @@ const PUMP_AMM_CREATE_POOL_DISCRIMINATOR = Buffer.from([233, 146, 209, 142, 207,
 const PUMP_CREATE_V2_DISCRIMINATOR = Buffer.from([214, 144, 76, 236, 95, 139, 49, 180]);
 const PUMP_MIGRATE_DISCRIMINATOR = Buffer.from([155, 234, 231, 146, 236, 158, 162, 30]);
 const PUMP_MIGRATE_V2_DISCRIMINATOR = Buffer.from([187, 203, 18, 31, 206, 237, 254, 41]);
+const PUMP_COMPLETE_EVENT_DISCRIMINATOR = Buffer.from([95, 114, 97, 156, 212, 46, 152, 8]);
+const PUMP_COMPLETE_MIGRATION_EVENT_DISCRIMINATOR = Buffer.from([189, 233, 93, 185, 92, 148, 234, 148]);
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");
@@ -80,6 +82,19 @@ export function decodePumpMigrations(entry, signature) {
     const legacy = data.length === 8 && data.equals(PUMP_MIGRATE_DISCRIMINATOR), v2 = data.length === 8 && data.equals(PUMP_MIGRATE_V2_DISCRIMINATOR);
     if ((!legacy && !v2) || accounts.length !== (legacy ? 25 : 27) || accounts.some((account) => typeof account !== "string" || !account)) continue;
     events.push({ type: "pool_migrated", protocol: "pump-bonding-curve", destinationProtocol: "pump-swap", programId: PUMP_PROGRAM, venueType: "amm", signature, pool: accounts[legacy ? 9 : 10], sourcePool: accounts[legacy ? 3 : 4], migrator: accounts[legacy ? 5 : 7], tokenMint0: accounts[2], tokenMint1: legacy ? accounts[14] : accounts[3], lpMint: accounts[15], tokenVault0: accounts[legacy ? 17 : 17], tokenVault1: accounts[legacy ? 18 : 18], ammConfig: accounts[legacy ? 13 : 14], poolAuthority: accounts[legacy ? 10 : 11], baseTokenProgram: accounts[legacy ? 7 : 19], quoteTokenProgram: legacy ? accounts[7] : accounts[20], migrationVersion: legacy ? 1 : 2, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
+export function decodePumpCompletionEvents(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== PUMP_PROGRAM || !line.startsWith("Program data: ")) continue;
+    let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
+    if (data.length === 144 && data.subarray(0, 8).equals(PUMP_COMPLETE_EVENT_DISCRIMINATOR)) events.push({ type: "curve_completed", protocol: "pump-bonding-curve", programId: PUMP_PROGRAM, venueType: "bonding_curve", signature, user: base58(data.subarray(8, 40)), tokenMint0: base58(data.subarray(40, 72)), pool: base58(data.subarray(72, 104)), completedAtUnix: data.readBigInt64LE(104).toString(), tokenMint1: base58(data.subarray(112, 144)), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+    if (data.length === 200 && data.subarray(0, 8).equals(PUMP_COMPLETE_MIGRATION_EVENT_DISCRIMINATOR)) events.push({ type: "migration_completed", protocol: "pump-bonding-curve", destinationProtocol: "pump-swap", programId: PUMP_PROGRAM, venueType: "amm", signature, user: base58(data.subarray(8, 40)), tokenMint0: base58(data.subarray(40, 72)), migratedBaseAmountRaw: readU64(data, 72), migratedQuoteAmountRaw: readU64(data, 80), poolMigrationFeeRaw: readU64(data, 88), sourcePool: base58(data.subarray(96, 128)), completedAtUnix: data.readBigInt64LE(128).toString(), pool: base58(data.subarray(136, 168)), tokenMint1: base58(data.subarray(168, 200)), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -291,7 +306,7 @@ export function parseBlock(block) {
     transactions.push(record);
     instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
-    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
+    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {

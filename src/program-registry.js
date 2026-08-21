@@ -1,4 +1,4 @@
-export const PROGRAM_REGISTRY_VERSION = 5;
+export const PROGRAM_REGISTRY_VERSION = 6;
 
 const programs = [
   { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", protocol: "spl-token", deploymentVersion: "legacy", decoderVersion: 1, activationSlot: 0, eventTypes: ["instruction", "transfer", "balance_change"] },
@@ -8,7 +8,7 @@ const programs = [
   { programId: "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C", protocol: "raydium-cpmm", deploymentVersion: "mainnet", decoderVersion: 2, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
   { programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", protocol: "raydium-clmm", deploymentVersion: "mainnet", decoderVersion: 1, activationSlot: 0, eventTypes: ["swap"] },
   { programId: "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA", protocol: "pump-swap", deploymentVersion: "mainnet", decoderVersion: 2, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
-  { programId: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P", protocol: "pump-bonding-curve", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created", "pool_migrated"] },
+  { programId: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P", protocol: "pump-bonding-curve", deploymentVersion: "mainnet", decoderVersion: 4, activationSlot: 0, eventTypes: ["swap", "pool_created", "curve_completed", "pool_migrated", "migration_completed"] },
 ];
 
 export const PROGRAM_REGISTRY = new Map(programs.map((row) => [row.programId, Object.freeze(row)]));
