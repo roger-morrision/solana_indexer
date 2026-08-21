@@ -377,6 +377,7 @@ they are never mislabeled as PumpSwap AMM reserves.
 - Failed transactions are indexed but never emitted as successful transfers.
 - Slot replacement removes orphaned derived records.
 - Input errors are isolated per file and returned in cycle diagnostics.
+- Multi-record inbox files are batch-atomic: every record is parsed before mutation, and a later apply failure rolls back canonical state, cycle counters, and queued WebSocket events before durable dead-lettering.
 - Dead letters remain as audit evidence but are marked resolved when the exact file fingerprint later receives a successful parser-v2 checkpoint; a repeated failure reopens the record.
 - `npm run reconcile:dead-letters` previews historical dead letters eligible for exact-checkpoint reconciliation. Use `-- --confirm` only after reviewing the IDs; the command never retries or rewrites raw events.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.

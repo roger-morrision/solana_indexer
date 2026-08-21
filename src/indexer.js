@@ -16,10 +16,21 @@ export async function indexInbox(config, store) {
       hash = fingerprint(content);
       if (store.hasFile(name, hash)) { result.resolvedDeadLetters += store.resolveDeadLetters(name, hash); result.skippedFiles++; continue; }
       const inputs = parseInput(content.toString("utf8"), name);
-      for (const input of inputs) {
-        const block = parseBlock(input); const applied = store.apply(block);
-        if (applied.inserted) { result.blocks++; result.transactions += block.transactions.length; result.transfers += block.transfers.length; result.balanceChanges += block.balanceChanges.length; result.swaps += block.swaps.length; }
+      const blocks = inputs.map(parseBlock);
+      const stateBeforeBatch = blocks.length > 1 ? structuredClone(store.state) : null;
+      const pendingEventCount = store.pendingEvents.length;
+      const fileResult = { blocks: 0, transactions: 0, transfers: 0, balanceChanges: 0, swaps: 0 };
+      try {
+        for (const block of blocks) {
+          const applied = store.apply(block);
+          if (applied.inserted) { fileResult.blocks++; fileResult.transactions += block.transactions.length; fileResult.transfers += block.transfers.length; fileResult.balanceChanges += block.balanceChanges.length; fileResult.swaps += block.swaps.length; }
+        }
+      } catch (error) {
+        if (stateBeforeBatch) store.state = stateBeforeBatch;
+        store.pendingEvents.splice(pendingEventCount);
+        throw error;
       }
+      for (const key of Object.keys(fileResult)) result[key] += fileResult[key];
       result.resolvedDeadLetters += store.markFile(name, hash); result.files++;
     } catch (error) { store.recordDeadLetter(name, hash, error.message); result.errors.push({ file: name, error: error.message }); }
   }

@@ -174,6 +174,16 @@ test("persists bounded dead-letter evidence for invalid inbox payloads", async (
   const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); assert.equal(persisted.deadLetters[0].attempts, 1);
 });
 
+test("rejects multi-record inbox files atomically before checkpointing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-inbox-batch-atomic-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); await fs.mkdir(inbox);
+  const valid = JSON.parse(await fs.readFile(fixture, "utf8")); const invalidDowngrade = { ...valid, blockhash: "late-confirmed-fork", provenance: { ...valid.provenance, commitment: "confirmed" } };
+  await fs.writeFile(path.join(inbox, "100.ndjson"), `${JSON.stringify(valid)}\n${JSON.stringify(invalidDowngrade)}\n`);
+  const store = new IndexStore(dataFile, 1000); const result = await indexInbox({ inbox, dataFile, maxTransactions: 1000 }, store);
+  assert.equal(result.errors.length, 1); assert.deepEqual({ files: result.files, blocks: result.blocks, transactions: result.transactions, transfers: result.transfers, balanceChanges: result.balanceChanges, swaps: result.swaps }, { files: 0, blocks: 0, transactions: 0, transfers: 0, balanceChanges: 0, swaps: 0 });
+  assert.equal(store.state.tip, null); assert.equal(Object.keys(store.state.blocks).length, 0); assert.equal(Object.keys(store.state.transactions).length, 0); assert.equal(store.state.swaps.length, 0); assert.equal(store.state.processedFiles["100.ndjson"], undefined); assert.equal(store.pendingEvents.length, 0); assert.equal(store.state.deadLetters.length, 1);
+  const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); assert.equal(Object.keys(persisted.blocks).length, 0); assert.equal(Object.keys(persisted.transactions).length, 0); assert.equal(persisted.swaps.length, 0); assert.equal(persisted.processedFiles["100.ndjson"], undefined); assert.equal(persisted.deadLetters.length, 1);
+});
+
 test("successful exact-fingerprint checkpoints resolve stale dead letters and later failures reopen them", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-dead-letter-resolution-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); await fs.mkdir(inbox); const filename = path.join(inbox, "100.json"), content = await fs.readFile(fixture), fingerprint = crypto.createHash("sha256").update(content).digest("hex"); await fs.writeFile(filename, content);
   const seed = new IndexStore(dataFile); await seed.load(); seed.state.processedFiles["100.json"] = { fingerprint, parserVersion: 2 }; seed.recordDeadLetter("100.json", fingerprint, "old parser rejected input"); await seed.save();
