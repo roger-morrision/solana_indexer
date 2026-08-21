@@ -88,6 +88,17 @@ test("token security blocks authority and hazardous Token-2022 extension evidenc
   const security = store.tokenSecurity("mint-risk"); assert.equal(security.assessable, true); assert.deepEqual(security.findings.map((row) => row.code), ["mint_authority_present", "token_2022_extension", "transfer_fee_extension"]); assert.ok(security.findings.every((row) => row.blocksAutomation));
 });
 
+test("snapshot batches validate atomically before mutating canonical state", async () => {
+  const store = new IndexStore("unused"); await store.load();
+  const accountEnvelope = { schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 800, observedAt: "2026-08-21T00:00:00.000Z" };
+  assert.throws(() => store.applyAccountSnapshot({ ...accountEnvelope, mints: [{ mint: "valid", mintInfo: {}, accounts: [{ tokenAccount: "account-a", owner: "wallet", programId: "token", decimals: 6, amountRaw: "1" }] }, { mint: "invalid", mintInfo: {}, accounts: [{ tokenAccount: "account-b", decimals: 999, amountRaw: "1" }] }] }), /invalid token account snapshot row/);
+  assert.equal(store.state.holderSnapshots.valid, undefined); assert.equal(store.state.tokenAccounts["account-a"], undefined);
+  const poolRow = { address: "pool-a", programId: RAYDIUM_CLMM_PROGRAM, tokenMint0: "mint-a", tokenMint1: "mint-b", tokenVault0: "vault-a", tokenVault1: "vault-b", vault0AmountRaw: "1", vault1AmountRaw: "2", liquidityRaw: "3", sqrtPriceX64: "4", tick: 0, tickSpacing: 1 };
+  const poolEnvelope = { ...accountEnvelope, type: "raydium_clmm_pool_snapshot", stateSlot: 800, balanceSlot: 801 };
+  assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [poolRow, { ...poolRow, address: "pool-b", liquidityRaw: "invalid" }] }), /invalid CLMM pool snapshot row/);
+  assert.equal(store.state.poolSnapshots["pool-a"], undefined); assert.equal(store.state.pools["pool-a"], undefined);
+});
+
 test("indexes idempotently and persists queryable state", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-indexer-"));
   const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.copyFile(fixture, path.join(inbox, "100.json"));
