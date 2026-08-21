@@ -62,6 +62,8 @@ test("canonical finalized account snapshots persist complete holder and authorit
   assert.equal(reloaded.evidence("mint-a", 120_000, observedAt + 60_000).missing.includes("mint_authority"), false);
   reloaded.applyAccountSnapshot({ ...snapshot, slot: 499, mints: [{ ...snapshot.mints[0], mintInfo: { ...snapshot.mints[0].mintInfo, mintAuthority: "stale-authority" }, accounts: [] }] });
   assert.equal(reloaded.state.holderSnapshots["mint-a"].slot, 500); assert.equal(reloaded.tokenSecurity("mint-a").evidence.mintAuthority, null);
+  reloaded.applyAccountSnapshot({ ...snapshot, slot: 501, mints: [{ ...snapshot.mints[0], accounts: [] }] }); assert.equal(reloaded.tokenAccount("token-a"), null); assert.equal(reloaded.holders("mint-a").observedRaw, "0");
+  reloaded.state.tokenAccounts["newer-token-a"] = { mint: "mint-a", owner: "wallet-a", programId: "token", decimals: 6, amountRaw: "7", lastSlot: 503, lastSignature: "newer", closed: false }; reloaded.state.holderSnapshots["mint-a"] = { ...reloaded.state.holderSnapshots["mint-a"], accounts: [{ tokenAccount: "newer-token-a", owner: "wallet-a", programId: "token", decimals: 6, amountRaw: "7" }] }; reloaded.applyAccountSnapshot({ ...snapshot, slot: 502, mints: [{ ...snapshot.mints[0], accounts: [] }] }); assert.equal(reloaded.tokenAccount("newer-token-a").amountRaw, "7");
   assert.throws(() => reloaded.applyAccountSnapshot({ ...snapshot, genesisHash: "devnet" }), /invalid finalized mainnet account snapshot/);
   assert.throws(() => reloaded.applyAccountSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized mainnet account snapshot/);
 });
