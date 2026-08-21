@@ -348,9 +348,14 @@ test("ingestion API distinguishes unavailable from durable exporter evidence", a
   const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/v1/ingestion`;
   assert.equal((await fetch(endpoint)).status, 503);
-  await fs.writeFile(statusFile, JSON.stringify({ version: 1, commitment: "finalized", lagSlots: 0, durableSkippedSlots: [7] }));
+  await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: new Date().toISOString(), lagSlots: 0, durableSkippedSlots: [7] }));
   const response = await fetch(endpoint); const body = await response.json();
   assert.equal(response.status, 200); assert.equal(body.available, true); assert.deepEqual(body.exporter.durableSkippedSlots, [7]);
+});
+
+test("ingestion and metrics fail closed for stale exporter status", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stale-exporter-")), statusFile = path.join(root, "status.json"); await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: "2020-01-01T00:00:00.000Z", lagSlots: 9 })); const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000, exporterStatusFile: statusFile }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const ingestion = await fetch(`${base}/api/v1/ingestion`); assert.equal(ingestion.status, 503); assert.equal((await ingestion.json()).reason, "exporter_stale"); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_exporter_healthy 0/); assert.match(metrics, /terminal_dex_exporter_lag_slots 9/);
 });
 
 test("configuration refuses public binding without API keys", () => {
