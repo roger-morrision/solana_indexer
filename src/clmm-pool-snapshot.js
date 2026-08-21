@@ -48,11 +48,29 @@ export function decodeClmmTickArrayAccount(address, account, tickSpacing = null)
   return { address, pool: base58(data.subarray(8, 40)), startTickIndex, initializedTickCount, initializedTicks, recentEpoch: data.readBigUInt64LE(TICK_ARRAY_COUNT_OFFSET + 1).toString(), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
-export function decodeClmmBitmapExtensionAccount(address, account) {
+export function decodeClmmBitmapExtensionIndexes(bitmapSegments, tickSpacing, negative = false) {
+  if (!Number.isInteger(tickSpacing) || tickSpacing <= 0) throw new Error("CLMM bitmap extension requires positive integer tick spacing");
+  if (!Array.isArray(bitmapSegments) || bitmapSegments.length !== 14 || bitmapSegments.some((value) => !/^[0-9a-f]{128}$/.test(value))) throw new Error("CLMM bitmap extension has invalid segments");
+  const tickArrayWidth = 60 * tickSpacing, indexes = [];
+  for (let segment = 0; segment < bitmapSegments.length; segment++) {
+    const bytes = Buffer.from(bitmapSegments[segment], "hex");
+    for (let word = 0; word < 8; word++) {
+      const bits = bytes.readBigUInt64LE(word * 8);
+      for (let bit = 0; bit < 64; bit++) if ((bits & (1n << BigInt(bit))) !== 0n) {
+        const bitmapBit = (word * 64) + bit;
+        indexes.push(negative ? -(((segment + 2) * 512) - bitmapBit) * tickArrayWidth : ((segment + 1) * 512 + bitmapBit) * tickArrayWidth);
+      }
+    }
+  }
+  return indexes.sort((left, right) => left - right);
+}
+
+export function decodeClmmBitmapExtensionAccount(address, account, tickSpacing) {
   if (account?.owner !== RAYDIUM_CLMM_PROGRAM) throw new Error(`CLMM bitmap extension ${address} has unexpected owner`);
   const data = accountBytes(account); if (data.length !== 1_832 || !data.subarray(0, 8).equals(BITMAP_EXTENSION_DISCRIMINATOR)) throw new Error(`CLMM bitmap extension ${address} has invalid TickArrayBitmapExtension data`);
   const segments = (offset) => Array.from({ length: 14 }, (_, index) => data.subarray(offset + (index * 64), offset + ((index + 1) * 64)).toString("hex"));
-  return { address, pool: base58(data.subarray(8, 40)), segmentBits: 512, positiveBitmapSegments: segments(40), negativeBitmapSegments: segments(40 + (14 * 64)), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
+  const positiveBitmapSegments = segments(40), negativeBitmapSegments = segments(40 + (14 * 64));
+  return { address, pool: base58(data.subarray(8, 40)), segmentBits: 512, positiveBitmapSegments, negativeBitmapSegments, initializedTickArrayStartIndexes: [...decodeClmmBitmapExtensionIndexes(negativeBitmapSegments, tickSpacing, true), ...decodeClmmBitmapExtensionIndexes(positiveBitmapSegments, tickSpacing)], rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
 export function parseClmmTickArrayMap(value, pools) {
@@ -81,14 +99,14 @@ export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, b
   if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid CLMM pool account response");
   const decoded = pools.map((address, index) => decodeClmmPoolAccount(address, stateResponse.value[index]));
   const requestedExtensions = decoded.filter((row) => bitmapExtensions[row.address]).map((row) => ({ address: bitmapExtensions[row.address], pool: row.address }));
-  if (requestedExtensions.length) { const extensionResponse = await client.call("getMultipleAccounts", [requestedExtensions.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]); if (!Number.isSafeInteger(extensionResponse?.context?.slot) || extensionResponse.context.slot < stateSlot || extensionResponse.value?.length !== requestedExtensions.length) throw new Error("invalid CLMM bitmap extension account response"); requestedExtensions.forEach((requested, index) => { const extension = decodeClmmBitmapExtensionAccount(requested.address, extensionResponse.value[index]); if (extension.pool !== requested.pool) throw new Error(`CLMM bitmap extension ${requested.address} pool identity mismatch`); const pool = decoded.find((row) => row.address === requested.pool); pool.bitmapExtension = extension; pool.bitmapExtensionSlot = extensionResponse.context.slot; }); }
+  if (requestedExtensions.length) { const extensionResponse = await client.call("getMultipleAccounts", [requestedExtensions.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]); if (!Number.isSafeInteger(extensionResponse?.context?.slot) || extensionResponse.context.slot < stateSlot || extensionResponse.value?.length !== requestedExtensions.length) throw new Error("invalid CLMM bitmap extension account response"); requestedExtensions.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), extension = decodeClmmBitmapExtensionAccount(requested.address, extensionResponse.value[index], pool.tickSpacing); if (extension.pool !== requested.pool) throw new Error(`CLMM bitmap extension ${requested.address} pool identity mismatch`); pool.bitmapExtension = extension; pool.bitmapExtensionSlot = extensionResponse.context.slot; }); }
   for (const row of decoded) { row.bitmapExtension ??= null; row.bitmapExtensionSlot ??= null; }
   const requestedTickArrays = decoded.flatMap((row) => (tickArrays[row.address] ?? []).map((address) => ({ address, pool: row.address })));
   if (new Set(requestedTickArrays.map((row) => row.address)).size !== requestedTickArrays.length) throw new Error("CLMM tick array addresses must be unique");
   if (requestedTickArrays.length) {
     const tickResponse = await client.call("getMultipleAccounts", [requestedTickArrays.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]);
     if (!Number.isSafeInteger(tickResponse?.context?.slot) || tickResponse.context.slot < stateSlot || tickResponse.value?.length !== requestedTickArrays.length) throw new Error("invalid CLMM tick array account response");
-    requestedTickArrays.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index], pool.tickSpacing); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); const bitmap = pool.defaultTickArrayBitmap, insideDefaultBitmap = tickArray.startTickIndex >= bitmap.minStartTickIndex && tickArray.startTickIndex < bitmap.maxStartTickIndexExclusive; if (insideDefaultBitmap && !bitmap.initializedTickArrayStartIndexes.includes(tickArray.startTickIndex)) throw new Error(`CLMM tick array ${requested.address} is absent from pool bitmap`); tickArray.bitmapSource = insideDefaultBitmap ? "pool_default" : pool.bitmapExtension ? "extension_captured_unverified" : "extension_unavailable"; pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
+    requestedTickArrays.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index], pool.tickSpacing); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); const bitmap = pool.defaultTickArrayBitmap, insideDefaultBitmap = tickArray.startTickIndex >= bitmap.minStartTickIndex && tickArray.startTickIndex < bitmap.maxStartTickIndexExclusive, initializedIndexes = insideDefaultBitmap ? bitmap.initializedTickArrayStartIndexes : pool.bitmapExtension?.initializedTickArrayStartIndexes; if (!initializedIndexes?.includes(tickArray.startTickIndex)) throw new Error(`CLMM tick array ${requested.address} is absent from ${insideDefaultBitmap ? "pool" : "extension"} bitmap`); tickArray.bitmapSource = insideDefaultBitmap ? "pool_default" : "extension_bitmap"; pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
   }
   for (const row of decoded) { row.tickArrays ??= []; row.tickArraySlot ??= null; }
   const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]);
