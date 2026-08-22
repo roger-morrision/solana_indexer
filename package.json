@@ -20,6 +20,7 @@
     "stream": "node src/local-validator-stream.js",
     "verify:mainnet": "node src/verify-mainnet.js",
     "snapshot:accounts": "node src/account-snapshot.js",
+    "snapshot:cpmm-pools": "node src/cpmm-pool-snapshot.js",
     "snapshot:clmm-pools": "node src/clmm-pool-snapshot.js",
     "snapshot:orca-pools": "node src/orca-pool-snapshot.js",
     "snapshot:offchain-metadata": "node src/offchain-metadata-snapshot.js",

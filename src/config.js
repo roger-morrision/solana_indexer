@@ -13,6 +13,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     usdDepegReferenceFile: env.USD_DEPEG_REFERENCE_FILE ? path.resolve(cwd, env.USD_DEPEG_REFERENCE_FILE) : null,
     usdcMaxDeviationBasisPoints: boundedInt(env.USDC_MAX_DEVIATION_BASIS_POINTS, 200, 1, 5_000),
     accountSnapshotFile: path.resolve(cwd, env.ACCOUNT_SNAPSHOT_FILE || "data/account-snapshot.json"),
+    cpmmPoolSnapshotFile: path.resolve(cwd, env.CPMM_POOL_SNAPSHOT_FILE || "data/cpmm-pool-snapshot.json"),
     clmmPoolSnapshotFile: path.resolve(cwd, env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"),
     orcaPoolSnapshotFile: path.resolve(cwd, env.ORCA_POOL_SNAPSHOT_FILE || "data/orca-pool-snapshot.json"),
     offchainMetadataSnapshotFile: path.resolve(cwd, env.OFFCHAIN_METADATA_SNAPSHOT_FILE || "data/offchain-metadata-snapshot.json"),
