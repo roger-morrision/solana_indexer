@@ -82,6 +82,7 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     if (url.pathname !== "/ws") return reject(socket, "404 Not Found", "not_found");
     const filter = subscription(url); if (!filter) return reject(socket, "400 Bad Request", "invalid_topic");
     if (!authorize(request)) return reject(socket, "401 Unauthorized", "unauthorized");
+    if (!store.structureQuality().canonical) return reject(socket, "503 Service Unavailable", "index_state_unavailable");
     if (clients.size >= maximumClients) { stats.capacityRejections++; return reject(socket, "503 Service Unavailable", "websocket_capacity_exceeded"); }
     const key = request.headers["sec-websocket-key"];
     if (!validWebSocketHandshake(request)) return reject(socket, "400 Bad Request", "invalid_websocket_handshake");

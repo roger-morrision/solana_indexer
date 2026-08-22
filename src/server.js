@@ -63,6 +63,7 @@ function dispatchRpc(payload, config, store) {
   if (!payload || payload.jsonrpc !== "2.0" || typeof payload.method !== "string" || !("id" in payload)) return rpcError(payload?.id, -32600, "Invalid Request");
   if (payload.method === "getIndexerHealth") return rpcResult(payload.id, store.health(config.staleAfterMs));
   if (payload.method === "getIndexerStats") { const structure = store.structureQuality(); return rpcResult(payload.id, { ...store.stats(), structure, chain: structure.canonical ? store.chainQuality() : { canonical: false, conflicts: [], conflictCount: 0, invalidStateStructure: true } }); }
+  if (!store.structureQuality().canonical) return rpcError(payload.id, -32000, "Index state unavailable");
   if (payload.method === "getIndexedBlock") {
     const slot = Array.isArray(payload.params) ? payload.params[0] : payload.params?.slot;
     if (!Number.isSafeInteger(slot) || slot < 0) return rpcError(payload.id, -32602, "Invalid params");
@@ -156,6 +157,8 @@ export function createServer(config, store) {
         response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); }
         if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) });
       }
+      const structure = store.structureQuality(), diagnosticRoute = new Set(["/metrics", "/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/internal/registry", "/internal/feed/health", "/internal/execution-policy"]).has(url.pathname);
+      if (protectedRoute && url.pathname !== "/rpc" && !diagnosticRoute && !structure.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: structure.reason, fields: structure.fields });
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpcEnvelope(rpcPayload, config, store));
       if (preparePoolSwap) {
         const poolAddress = decodeURIComponent(preparePoolSwap[1]), row = store.state.poolSnapshots[poolAddress];

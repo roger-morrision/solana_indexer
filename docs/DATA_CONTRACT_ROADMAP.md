@@ -159,7 +159,10 @@ read-only quarantine with only a reason and invalid field names exposed;
 ingestion mutations and durable saves are rejected, and the original file is
 never repaired or overwritten implicitly. Health remains available with
 `indexed_state_structure_invalid` or `indexed_state_json_invalid` so recovery
-can operate from preserved source evidence.
+can operate from preserved source evidence. REST data and preparation routes,
+read-only data RPC methods, and WebSocket upgrades share the same admission
+gate; only redacted health/statistics/metrics and independent ingestion,
+warehouse, registry, and execution-policy diagnostics remain available.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
