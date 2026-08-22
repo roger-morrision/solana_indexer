@@ -544,7 +544,8 @@ the leased operational worker and imported content-addressedly by index cycles.
 Its exact-input quote subtracts accrued protocol, fund, and creator fees from
 spendable reserves and mirrors ceiling-rounded fee-on-input/output behavior.
 Token-2022 pools fail closed until mint-extension transfer fees are captured;
-quotes are analysis-only and are not yet exposed as executable routes.
+quotes share the analysis-only internal pool endpoint and are never labeled as
+executable routes.
 
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
