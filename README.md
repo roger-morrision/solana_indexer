@@ -333,7 +333,7 @@ automatically.
 - `GET /api/account/:address?limit=100`
 - `GET /api/mint/:mint?limit=100`
 - `GET /api/trending?window=5m|1h|6h|24h|all&limit=50`
-- `GET /api/v1/blocks?limit=100&cursor=...` (stable scope-bound response envelope)
+- `GET /api/v1/blocks?limit=100&cursor=...` (stable exact versioned scope-bound response envelope)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable scope-bound response envelope)
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps; cursors bind the exact filter scope)
 - `GET /api/v1/tokens?limit=100&cursor=...` (compact canonical token catalog)

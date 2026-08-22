@@ -36,20 +36,20 @@ function reportDiagnostic(config, metrics, event, error) { metrics.internalFailu
 function limit(url) { const raw = url.searchParams.get("limit"); if (raw == null) return 100; if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) < 1 || Number(raw) > 500) { const error = new Error("limit must be an integer from 1 through 500"); error.code = "BAD_REQUEST"; throw error; } return Number(raw); }
 function trendingWindow(url) { const value = url.searchParams.get("window") ?? "1h"; const windows = { "5m": 300, "1h": 3600, "6h": 21_600, "24h": 86_400, all: null }; if (!(value in windows)) { const error = new Error("window must be 5m, 1h, 6h, 24h, or all"); error.code = "BAD_REQUEST"; throw error; } return { label: value, seconds: windows[value] }; }
 function candleInterval(url) { const value = Number(url.searchParams.get("interval") ?? 60); if (![60, 300, 900, 3600, 14_400, 86_400].includes(value)) { const error = new Error("interval must be 60, 300, 900, 3600, 14400, or 86400 seconds"); error.code = "BAD_REQUEST"; throw error; } return value; }
-function encodeCursor(value) { return Buffer.from(JSON.stringify(value)).toString("base64url"); }
+function encodeCursor(key, scope) { return Buffer.from(JSON.stringify({ version: 1, key, scope })).toString("base64url"); }
 function decodeCursor(value) {
   if (!value) return null;
-  try { return JSON.parse(Buffer.from(value, "base64url").toString("utf8")); }
-  catch { const error = new Error("cursor must be valid base64url JSON"); error.code = "INVALID_CURSOR"; throw error; }
+  try { const bytes = Buffer.from(value, "base64url"), decoded = JSON.parse(bytes.toString("utf8")), keys = Object.keys(decoded ?? {}).sort().join(","); if (value.length > 1_024 || !/^[A-Za-z0-9_-]+$/.test(value) || bytes.toString("base64url") !== value || keys !== "key,scope,version" || decoded.version !== 1 || typeof decoded.key !== "string" || !decoded.key || decoded.key.length > 256 || decoded.scope !== null && (typeof decoded.scope !== "string" || !decoded.scope || decoded.scope.length > 256)) throw new Error("invalid cursor contract"); return decoded; }
+  catch { const error = new Error("cursor must be canonical version-1 base64url JSON"); error.code = "INVALID_CURSOR"; throw error; }
 }
 function page(rows, size, cursor, key, scope = null) {
   const decoded = decodeCursor(cursor);
-  if (decoded != null && decoded.scope != null && scope != null && decoded.scope !== scope) { const error = new Error("cursor does not match the requested collection or filters"); error.code = "INVALID_CURSOR"; throw error; }
+  if (decoded != null && decoded.scope !== scope) { const error = new Error("cursor does not match the requested collection or filters"); error.code = "INVALID_CURSOR"; throw error; }
   const start = decoded == null ? 0 : rows.findIndex((row) => key(row) === decoded.key) + 1;
   if (decoded != null && start === 0) { const error = new Error("cursor does not reference a retained record"); error.code = "INVALID_CURSOR"; throw error; }
   const data = rows.slice(start, start + size);
   const hasMore = start + data.length < rows.length;
-  return { data, nextCursor: hasMore && data.length ? encodeCursor({ key: key(data.at(-1)), ...(scope == null ? {} : { scope }) }) : null };
+  return { data, nextCursor: hasMore && data.length ? encodeCursor(key(data.at(-1)), scope) : null };
 }
 function tokenCatalogRow(address, row) { const enrichment = row.offchainMetadata; return { address, transferCount: row.transferCount ?? 0, swapCount: row.swapCount ?? 0, lastSlot: row.lastSlot ?? null, lastBlockTime: row.lastBlockTime ?? null, decimals: row.mintInfo?.decimals ?? null, metadata: row.metadata ?? null, offchainMetadata: enrichment ? { observedAt: enrichment.observedAt, rawPayloadHash: enrichment.rawPayloadHash, sourceUri: enrichment.sourceUri, trusted: false, automationSafe: false } : null, authoritySourceSlot: row.authoritySourceSlot ?? null }; }
 function poolCatalogRow(address, row) { const snapshot = row.accountSnapshot; return { address, protocol: row.protocol ?? null, venueType: row.venueType ?? null, baseMint: row.baseMint ?? null, quoteMint: row.quoteMint ?? null, pairIdentitySource: row.pairIdentitySource ?? null, swapCount: row.swapCount ?? 0, lastSlot: row.lastSlot ?? null, lastEventIndex: row.lastEventIndex ?? null, lastBlockTime: row.lastBlockTime ?? null, lifecycleState: row.lifecycleState ?? null, lifecycle: row.lifecycle ?? null, snapshot: snapshot ? { commitment: snapshot.commitment, stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, observedAt: snapshot.observedAt, liquidityRaw: snapshot.liquidityRaw, sqrtPriceX64: snapshot.sqrtPriceX64, tick: snapshot.tick, tickSpacing: snapshot.tickSpacing, tickArrayCoverage: snapshot.tickArrayCoverage } : null }; }
@@ -81,7 +81,7 @@ function dispatchRpc(payload, config, store) {
     if (!params || typeof params !== "object" || Array.isArray(params)) return rpcError(payload.id, -32602, "Invalid params");
     const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || (cursor !== null && typeof cursor !== "string")) return rpcError(payload.id, -32602, "Invalid params");
     const view = store.indexedBlocks(); if (!view.available) return rpcError(payload.id, -32001, "Indexed block evidence unavailable");
-    try { return rpcResult(payload.id, page(view.data, size, cursor, (row) => String(row.slot))); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+    try { return rpcResult(payload.id, page(view.data, size, cursor, (row) => String(row.slot), "rpc:getIndexedBlocks:v1")); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   if (payload.method === "getIndexedTransaction") {
     const signature = Array.isArray(payload.params) ? payload.params[0] : payload.params?.signature;
