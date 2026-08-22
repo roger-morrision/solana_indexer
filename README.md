@@ -535,6 +535,13 @@ only events tied to successful transactions and stores every u64 as a decimal
 string. Execution price is exposed as an exact raw numerator/denominator with
 both mint decimals. It is not labeled as USD price. Unsupported programs fail
 the whole input file instead of silently producing market data.
+The read-only CPMM snapshot boundary decodes the official packed PoolState and
+AmmConfig layouts, advances finalized read barriers from pool state through fee
+config to both vaults, and binds vault mint, token-program, and decimal identity.
+Its exact-input quote subtracts accrued protocol, fund, and creator fees from
+spendable reserves and mirrors ceiling-rounded fee-on-input/output behavior.
+Token-2022 pools fail closed until mint-extension transfer fees are captured;
+quotes are analysis-only and are not yet exposed as executable routes.
 
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
