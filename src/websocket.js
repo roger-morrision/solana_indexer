@@ -9,8 +9,9 @@ function frame(opcode, payload = Buffer.alloc(0)) {
 function reject(socket, status, reason) { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`); }
 function send(socket, value, maximumBufferedBytes) {
   if (socket.destroyed) return false;
-  if (socket.writableLength > maximumBufferedBytes) { socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); return false; }
-  socket.write(frame(0x1, JSON.stringify(value))); return true;
+  const message = frame(0x1, JSON.stringify(value));
+  if (message.length > maximumBufferedBytes || socket.writableLength + message.length > maximumBufferedBytes) { socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); return false; }
+  socket.write(message); return true;
 }
 function subscription(url) {
   const topic = url.searchParams.get("topic") ?? "blocks";
@@ -46,8 +47,9 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     const selectedProtocol = protocols.includes("indexer.v1") ? "Sec-WebSocket-Protocol: indexer.v1\r\n" : "";
     socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}\r\n`); clients.set(socket, filter);
     const replay = store.replayEvents(cursor);
-    if (replay.cursorTooOld) send(socket, { type: "resync_required", requestedCursor: cursor, latestCursor: replay.latestCursor }, maximumBufferedBytes);
-    else { send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes); for (const event of replay.events) { const value = project(event, filter); if (value) send(socket, value, maximumBufferedBytes); } }
+    if (replay.cursorTooOld) { if (!send(socket, { type: "resync_required", requestedCursor: cursor, latestCursor: replay.latestCursor }, maximumBufferedBytes)) clients.delete(socket); }
+    else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes)) clients.delete(socket);
+    else for (const event of replay.events) { const value = project(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) { clients.delete(socket); break; } }
     socket.on("data", (chunk) => {
       const opcode = chunk[0] & 0x0f;
       if (opcode === 0x8) socket.end(frame(0x8));

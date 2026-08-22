@@ -749,6 +749,14 @@ test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) =
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); assert.equal(socket.protocol, "indexer.v1"); socket.close();
 });
 
+test("WebSocket evicts a replay consumer before one frame exceeds its buffer cap", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); store.state.eventSequence = 1; store.state.events = [{ sequence: 1, type: "block_indexed", slot: 1, payload: "x".repeat(70_000) }];
+  const server = createServer({ webSocketHeartbeatMs: 60_000, webSocketMaxBufferedBytes: 65_536 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws?cursor=0`), messages = []; socket.onmessage = ({ data }) => messages.push(JSON.parse(data));
+  const closed = new Promise((resolve, reject) => { socket.onclose = resolve; socket.onerror = reject; }), closeEvent = await closed;
+  assert.equal(closeEvent.code, 1013); assert.equal(messages[0].type, "ready"); assert.equal(messages.length, 1);
+});
+
 test("WebSocket swap topic replays only matching token activity", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-websocket-filter-")); const store = new IndexStore(path.join(root, "index.json")); await store.load();
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.apply({ ...block, blockhash: "swap-filter-fork", transactions: [], instructions: [], transfers: [], balanceChanges: [], swaps: [], poolLifecycleEvents: [] }); await store.save();

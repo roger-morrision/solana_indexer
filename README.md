@@ -290,7 +290,8 @@ instructions, transfers, token-balance changes, token-account projections,
 swaps, and program events. Supply the last consumed
 sequence as `cursor` to replay retained events. An expired cursor produces
 `resync_required`; clients must rebuild from REST. Heartbeat pings and bounded
-socket buffers evict stalled consumers. When API keys are enabled, WebSocket
+socket buffers reject any single oversized frame and evict stalled consumers
+before the next write would exceed the cap. When API keys are enabled, WebSocket
 clients must present the key as an HTTP authorization or `X-API-Key` header.
 Browser clients can request subprotocols `indexer.v1` and
 `bearer.<base64url-api-key>`; the server negotiates only `indexer.v1`.
