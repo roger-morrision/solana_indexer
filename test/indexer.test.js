@@ -36,7 +36,7 @@ import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT } from "../src/usd-depeg-reference.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
-import { computeStaticFeeExactInputStep, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
+import { computeStaticFeeExactInputStep, quoteRaydiumSnapshotExactInput, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -68,6 +68,12 @@ test("Raydium static-fee quotes cross initialized ticks with exact liquidity net
   const limited = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: "1000000", amountIn: "1000000", feeRateMillionths: 0, zeroForOne: true, limitTick: -100, tickSpacing: 10, coverageMinTick: -100, coverageMaxTickExclusive: 100, initializedTicks: [] }); assert.equal(limited.status, "price_limit_reached"); assert.equal(limited.fullyConsumed, false); assert.ok(BigInt(limited.amountUnconsumedRaw) > 0n);
   assert.throws(() => quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: 1, amountIn: 1, feeRateMillionths: 0, zeroForOne: true, limitTick: -20, tickSpacing: 10, coverageMinTick: -10, coverageMaxTickExclusive: 10, initializedTicks: [] }), /not covered/);
   assert.throws(() => quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: 1, amountIn: 1, feeRateMillionths: 0, zeroForOne: false, limitTick: 20, tickSpacing: 10, coverageMinTick: -10, coverageMaxTickExclusive: 30, initializedTicks: [], transferFeeAmount: 1 }), /unsupported/);
+});
+
+test("Raydium snapshot quotes require fresh finalized static fee evidence", () => {
+  const observedAt = "2026-08-22T00:00:00.000Z", pool = { address: "pool", tokenMint0: "mint-0", tokenMint1: "mint-1", sqrtPriceX64: raydiumSqrtPriceX64AtTick(0).toString(), tick: 0, tickSpacing: 10, liquidityRaw: "1000000", status: 0, feeOn: 0, dynamicFeeEnabled: false, tickArrayCoverage: "finalized_program_account_snapshot", tickArraySlot: 101, ammConfigSlot: 100, ammConfigState: { tradeFeeRate: 3000 }, defaultTickArrayBitmap: { minStartTickIndex: -100, maxStartTickIndexExclusive: 100 }, tickArrays: [] }, snapshot = { schemaVersion: 1, type: "raydium_clmm_pool_snapshot", commitment: "finalized", stateSlot: 100, balanceSlot: 102, observedAt, pools: [pool] }, now = Date.parse(observedAt) + 1_000;
+  const quote = quoteRaydiumSnapshotExactInput({ snapshot, poolAddress: "pool", inputMint: "mint-0", amountIn: "1000", limitTick: -50, now }); assert.equal(quote.status, "quoted"); assert.deepEqual({ outputMint: quote.outputMint, zeroForOne: quote.zeroForOne, feeMode: quote.feeMode, feeRate: quote.feeRateMillionths, stateSlot: quote.stateSlot }, { outputMint: "mint-1", zeroForOne: true, feeMode: "from_input_static", feeRate: "3000", stateSlot: 100 });
+  assert.throws(() => quoteRaydiumSnapshotExactInput({ snapshot: { ...snapshot, pools: [{ ...pool, dynamicFeeEnabled: true }] }, poolAddress: "pool", inputMint: "mint-0", amountIn: 1, limitTick: -10, now }), /dynamic-fee/); assert.throws(() => quoteRaydiumSnapshotExactInput({ snapshot: { ...snapshot, pools: [{ ...pool, feeOn: 1 }] }, poolAddress: "pool", inputMint: "mint-0", amountIn: 1, limitTick: -10, now }), /fee-on-output/); assert.throws(() => quoteRaydiumSnapshotExactInput({ snapshot, poolAddress: "pool", inputMint: "other", amountIn: 1, limitTick: -10, now }), /input mint/); assert.throws(() => quoteRaydiumSnapshotExactInput({ snapshot, poolAddress: "pool", inputMint: "mint-0", amountIn: 1, limitTick: -10, now: now + 120_001 }), /stale/);
 });
 
 test("getMultipleAccounts batching honors the RPC cap and one snapshot context", async () => {

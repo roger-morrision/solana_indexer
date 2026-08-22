@@ -112,4 +112,18 @@ export function quoteRaydiumStaticFeeExactInput({ sqrtPriceX64, currentTick, liq
   return { status: remaining === 0n ? "quoted" : "price_limit_reached", amountSpecifiedRaw: BigInt(amountIn).toString(), amountInRaw: totalIn.toString(), amountOutRaw: totalOut.toString(), feeAmountRaw: totalFee.toString(), amountUnconsumedRaw: remaining.toString(), endSqrtPriceX64: price.toString(), endLiquidityRaw: activeLiquidity.toString(), crossedTicks, fullyConsumed: remaining === 0n };
 }
 
+export function quoteRaydiumSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, limitTick, transferFeeAmount = 0, now = Date.now(), maxAgeMs = 120_000 }) {
+  if (snapshot?.schemaVersion !== 1 || snapshot.type !== "raydium_clmm_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < snapshot.stateSlot || !Number.isFinite(Date.parse(snapshot.observedAt ?? "")) || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) throw new Error("finalized Raydium snapshot evidence is invalid");
+  const ageMs = now - Date.parse(snapshot.observedAt); if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Raydium snapshot evidence is stale");
+  const pool = snapshot.pools?.find((row) => row.address === poolAddress); if (!pool || pool.tickArrayCoverage !== "finalized_program_account_snapshot" || !pool.ammConfigState || !Number.isSafeInteger(pool.tickArraySlot) || !Number.isSafeInteger(pool.ammConfigSlot)) throw new Error("Raydium snapshot lacks complete quote evidence");
+  if ((pool.status & (1 << 4)) !== 0) throw new Error("Raydium pool swaps are disabled");
+  if (pool.dynamicFeeEnabled) throw new Error("Raydium dynamic-fee quoting is unsupported");
+  if (pool.feeOn !== 0) throw new Error("Raydium fee-on-output quoting is unsupported");
+  if (inputMint !== pool.tokenMint0 && inputMint !== pool.tokenMint1) throw new Error("input mint is not part of the Raydium pool");
+  const zeroForOne = inputMint === pool.tokenMint0, bitmap = pool.defaultTickArrayBitmap;
+  if (!bitmap || !Number.isInteger(bitmap.minStartTickIndex) || !Number.isInteger(bitmap.maxStartTickIndexExclusive)) throw new Error("Raydium default bitmap evidence is invalid");
+  const quote = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: pool.sqrtPriceX64, currentTick: pool.tick, liquidity: pool.liquidityRaw, amountIn, feeRateMillionths: pool.ammConfigState.tradeFeeRate, zeroForOne, limitTick, tickSpacing: pool.tickSpacing, initializedTicks: pool.tickArrays.flatMap((array) => array.initializedTicks), coverageMinTick: bitmap.minStartTickIndex, coverageMaxTickExclusive: bitmap.maxStartTickIndexExclusive, transferFeeAmount });
+  return { ...quote, protocol: "raydium-clmm", pool: pool.address, inputMint, outputMint: zeroForOne ? pool.tokenMint1 : pool.tokenMint0, zeroForOne, commitment: "finalized", stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, tickArraySlot: pool.tickArraySlot, ammConfigSlot: pool.ammConfigSlot, observedAt: snapshot.observedAt, ageMs, feeRateMillionths: String(pool.ammConfigState.tradeFeeRate), feeMode: "from_input_static" };
+}
+
 export const CLMM_MATH_CONSTANTS = Object.freeze({ Q64: Q64.toString(), feeDenominator: FEE_DENOMINATOR.toString(), minRaydiumTick: MIN_RAYDIUM_TICK, maxRaydiumTick: MAX_RAYDIUM_TICK });
