@@ -458,12 +458,13 @@ authorizes or performs a restore. `ops/restore.sh` repeats it before mutation an
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is
-time-weighted over its retained fresh observations. An edge with at least three
-independent venues uses their exact rational median so one venue outlier cannot
-dominate; thinner edges use the mean and retain explicit manipulation-coverage
+time-weighted over its retained fresh observations and pools within one decoded
+protocol are collapsed into one protocol-level rate. An edge with at least three
+independent decoded protocols uses their exact rational median so extra pools on
+one protocol cannot manufacture independence; thinner edges use the mean and retain explicit manipulation-coverage
 missing signals. When direct-USDC and wrapped-SOL paths both exist, complete
 paths are ranked deterministically by robust median coverage, minimum independent
-venue count, and hop count, so one weak direct pool cannot override stronger
+protocol count, and hop count, so one weak direct pool cannot override stronger
 indirect evidence. Paths with fewer than two venues also retain a
 `multi_venue_twap` missing signal. Amounts and decimal normalization remain
 exact rational integers. These references are suitable for display/research
