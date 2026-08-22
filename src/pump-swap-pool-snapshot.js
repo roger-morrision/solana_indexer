@@ -11,6 +11,7 @@ import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 export const PUMP_SWAP_PROGRAM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 export const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 export const PUMP_FEE_PROGRAM = "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ";
+export const ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 const POOL_DISCRIMINATOR = Buffer.from([241, 154, 109, 4, 17, 177, 109, 188]);
 const FEE_CONFIG_DISCRIMINATOR = Buffer.from([143, 52, 146, 187, 219, 123, 76, 155]);
 const GLOBAL_CONFIG_DISCRIMINATOR = Buffer.from([149, 8, 156, 202, 160, 252, 176, 217]);
@@ -32,6 +33,10 @@ function findProgramAddress(seeds, programId) { const program = base58Bytes(prog
 export function derivePumpPoolAuthority(baseMint) { return findProgramAddress([Buffer.from("pool-authority"), base58Bytes(baseMint)], PUMP_PROGRAM); }
 export function derivePumpSwapFeeConfig() { return findProgramAddress([Buffer.from("fee_config"), base58Bytes(PUMP_SWAP_PROGRAM)], PUMP_FEE_PROGRAM); }
 export function derivePumpSwapGlobalConfig() { return findProgramAddress([Buffer.from("global_config")], PUMP_SWAP_PROGRAM); }
+export function derivePumpSwapEventAuthority() { return findProgramAddress([Buffer.from("__event_authority")], PUMP_SWAP_PROGRAM); }
+export function derivePumpSwapCoinCreatorVaultAuthority(coinCreator) { return findProgramAddress([Buffer.from("creator_vault"), base58Bytes(coinCreator)], PUMP_SWAP_PROGRAM); }
+export function derivePumpSwapPoolV2(baseMint) { return findProgramAddress([Buffer.from("pool-v2"), base58Bytes(baseMint)], PUMP_SWAP_PROGRAM); }
+export function deriveAssociatedTokenAddress({ owner, mint, tokenProgram = SPL_TOKEN_PROGRAM }) { return findProgramAddress([base58Bytes(owner), base58Bytes(tokenProgram), base58Bytes(mint)], ASSOCIATED_TOKEN_PROGRAM); }
 function accountBytes(account, label) { if (!Array.isArray(account?.data) || account.data[1] !== "base64" || typeof account.data[0] !== "string") throw new Error(`${label} must use base64 encoding`); return Buffer.from(account.data[0], "base64"); }
 function i128(data, offset) { const value = (data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset); return (value >= (1n << 127n) ? value - (1n << 128n) : value).toString(); }
 function exact(value, label, positive = false) { if (typeof value !== "string" || !/^\d+$/.test(value) || (positive && value === "0")) throw new Error(`${label} must be an exact ${positive ? "positive " : ""}integer string`); return BigInt(value); }
@@ -64,7 +69,7 @@ export function quotePumpSwapSnapshotExactInput({ snapshot, poolAddress, inputMi
   } else {
     grossQuote = effectiveQuoteReserve * amount / (baseReserve + amount); lpFee = ceilFee(grossQuote, lpRate); protocolFee = ceilFee(grossQuote, protocolRate); creatorFee = ceilFee(grossQuote, creatorRate); if (realQuoteReserve < grossQuote - lpFee) throw new Error("PumpSwap real quote reserves cannot cover sell output"); output = grossQuote - lpFee - protocolFee - creatorFee; curveQuote = grossQuote; if (output <= 0n) throw new Error("PumpSwap sell output is consumed by fees");
   }
-  if (output > MAX_U64) throw new Error("PumpSwap output exceeds u64"); return { schemaVersion: 1, protocol: "pump-swap", status: "quoted", executable: false, safeForAutomation: false, pool: pool.address, inputMint, outputMint: quoteToBase ? pool.tokenMint0 : pool.tokenMint1, direction: quoteToBase ? "quote_to_base" : "base_to_quote", amountInRaw: amount.toString(), amountOutRaw: output.toString(), curveQuoteAmountRaw: curveQuote.toString(), lpFeeRaw: lpFee.toString(), protocolFeeRaw: protocolFee.toString(), creatorFeeRaw: creatorFee.toString(), baseReserveRaw: baseReserve.toString(), effectiveQuoteReserveRaw: effectiveQuoteReserve.toString(), realQuoteReserveRaw: realQuoteReserve.toString(), feeSource: selected.source, marketCapLamportsRaw: selected.marketCapLamportsRaw, stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, configSlot: snapshot.configSlot, observedAt: snapshot.observedAt, missing: ["transaction_builder", "local_simulation", "landed_transaction_confirmation"] };
+  if (output > MAX_U64) throw new Error("PumpSwap output exceeds u64"); return { schemaVersion: 1, protocol: "pump-swap", status: "quoted", executable: false, safeForAutomation: false, pool: pool.address, inputMint, outputMint: quoteToBase ? pool.tokenMint0 : pool.tokenMint1, direction: quoteToBase ? "quote_to_base" : "base_to_quote", amountInRaw: amount.toString(), amountOutRaw: output.toString(), curveQuoteAmountRaw: curveQuote.toString(), lpFeeRaw: lpFee.toString(), protocolFeeRaw: protocolFee.toString(), creatorFeeRaw: creatorFee.toString(), baseReserveRaw: baseReserve.toString(), effectiveQuoteReserveRaw: effectiveQuoteReserve.toString(), realQuoteReserveRaw: realQuoteReserve.toString(), feeSource: selected.source, marketCapLamportsRaw: selected.marketCapLamportsRaw, stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, configSlot: snapshot.configSlot, observedAt: snapshot.observedAt, missing: [...(quoteToBase ? ["transaction_builder"] : []), "local_simulation", "external_signer_approval", "landed_transaction_confirmation"] };
 }
 
 export function decodePumpSwapGlobalConfigAccount(address, account) {

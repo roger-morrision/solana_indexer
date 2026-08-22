@@ -7,8 +7,10 @@ synthetically populated.
 
 Current route analysis includes fresh finalized exact-input Raydium CPMM/CLMM
 and PumpSwap quotes. PumpSwap mirrors the official SDK's integer buy/sell and
-fee rounding, binds finalized global disable/fee-mode evidence, and remains
-non-executable while failing closed for Token-2022, cashback and SOL buyback.
+fee rounding and binds finalized global disable/fee-mode evidence. Base-to-quote
+sells can be prepared as deterministic unsigned, policy-bound transactions for
+local simulation; buy construction, signing and submission remain unavailable,
+and Token-2022, cashback and SOL buyback continue to fail closed.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
