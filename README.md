@@ -189,7 +189,7 @@ Configuration:
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
-| `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic finalized mint/account snapshot evidence |
+| `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized headers only and does not enable routing |
 | `CLMM_BITMAP_EXTENSIONS_JSON` | unset | Optional JSON map of Raydium CLMM pool addresses to unique overflow bitmap-extension addresses; captures pool-bound finalized raw segments without claiming executable coverage |

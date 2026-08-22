@@ -11,12 +11,15 @@ const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQd
 async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
 
 export async function createAccountSnapshot({ client, mints, genesisHash, observedAt = new Date().toISOString() }) {
-  const slot = await client.call("getSlot", [{ commitment: "finalized" }]); const mintAccounts = await client.call("getMultipleAccounts", [mints, { commitment: "finalized", encoding: "jsonParsed" }]); const rows = [];
+  if (!Array.isArray(mints) || !mints.length || new Set(mints).size !== mints.length || mints.some((mint) => typeof mint !== "string" || !mint)) throw new Error("snapshot mints must be unique non-empty addresses");
+  const slot = await client.call("getSlot", [{ commitment: "finalized" }]); if (!Number.isSafeInteger(slot) || slot < 0) throw new Error("invalid finalized account snapshot slot");
+  const mintAccounts = await client.call("getMultipleAccounts", [mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }]); if (mintAccounts?.context?.slot !== slot || mintAccounts.value?.length !== mints.length) throw new Error("mint accounts did not share the exact finalized snapshot context"); const rows = [];
   for (let index = 0; index < mints.length; index++) {
     const mint = mints[index], mintInfo = mintAccounts?.value?.[index]?.data?.parsed?.info ?? null; const accounts = new Map();
     for (const programId of TOKEN_PROGRAMS) {
-      const found = await client.call("getProgramAccounts", [programId, { commitment: "finalized", encoding: "jsonParsed", filters: [{ memcmp: { offset: 0, bytes: mint } }] }]);
-      for (const row of found ?? []) { const info = row.account?.data?.parsed?.info; if (info?.mint !== mint || !info.tokenAmount?.amount) continue; accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner ?? null, programId, amountRaw: String(info.tokenAmount.amount), decimals: info.tokenAmount.decimals, state: info.state ?? null }); }
+      const found = await client.call("getProgramAccounts", [programId, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot, withContext: true, filters: [{ memcmp: { offset: 0, bytes: mint } }] }]);
+      if (found?.context?.slot !== slot || !Array.isArray(found.value)) throw new Error(`token accounts for ${mint} did not share the exact finalized snapshot context`);
+      for (const row of found.value) { const info = row.account?.data?.parsed?.info; if (info?.mint !== mint || !info.tokenAmount?.amount) continue; accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner ?? null, programId, amountRaw: String(info.tokenAmount.amount), decimals: info.tokenAmount.decimals, state: info.state ?? null }); }
     }
     rows.push({ mint, mintInfo, accounts: [...accounts.values()].sort((a, b) => a.tokenAccount.localeCompare(b.tokenAccount)) });
   }
