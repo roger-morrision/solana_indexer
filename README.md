@@ -564,9 +564,12 @@ quotes share the analysis-only internal pool endpoint and are never labeled as
 executable routes.
 
 The shared quote endpoint dispatches only snapshots whose canonical program ID
-matches an implemented quote engine. Raydium CPMM/CLMM and PumpSwap are
-supported; Orca and unknown snapshots fail closed with
-`unsupported_quote_protocol` until their exact math is implemented.
+matches an implemented quote engine. Raydium CPMM/CLMM, PumpSwap, and legacy-SPL
+Orca Whirlpools have exact-input analysis quotes. Orca quotes require complete
+finalized pool/vault/tick-array evidence plus an explicit directional tick limit,
+use the program's Q64.64 tick and millionths fee rounding, and expose
+`executionBoundary: "analysis_only_quote"`; Token-2022 Orca pools and unknown
+programs fail closed. Orca transaction construction is not implemented.
 
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
