@@ -390,6 +390,11 @@ transaction token-balance evidence. It also decodes the exact Token-2022
 `TransferCheckedWithFee` wire format: sender
 totals use the gross amount while recipient and cluster totals use the net
 amount after the instruction-declared fee. Fee values are never inferred.
+Static and versioned loaded account-key arrays preserve their original index
+positions. A malformed key array rejects the transaction boundary, and an
+instruction with an invalid program or account index is omitted in full, so a
+missing key can never shift a later address into a transfer, balance, or
+protocol account role.
 Parsed transfer facts require an exact canonical token-program ID, decimal-u64
 amount, non-empty mint identity, u8 decimals, and consistency with any
 transaction token-balance mint/decimal evidence; conflicts are discarded.

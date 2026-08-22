@@ -276,8 +276,15 @@ function dexSwaps(block, transactions, decodedEvents) {
 }
 
 function accountKeys(message, meta = null) {
-  const staticKeys = (message?.accountKeys ?? []).map((key) => typeof key === "string" ? key : key.pubkey).filter(Boolean);
-  return [...staticKeys, ...(meta?.loadedAddresses?.writable ?? []), ...(meta?.loadedAddresses?.readonly ?? [])];
+  if (message?.accountKeys == null) return [];
+  if (!Array.isArray(message.accountKeys)) throw new Error("transaction message accountKeys must be an array");
+  const normalize = (key) => typeof key === "string" ? key : key?.pubkey;
+  const staticKeys = message.accountKeys.map(normalize);
+  const loadedWritable = meta?.loadedAddresses?.writable ?? [], loadedReadonly = meta?.loadedAddresses?.readonly ?? [];
+  if (!Array.isArray(loadedWritable) || !Array.isArray(loadedReadonly)) throw new Error("transaction loaded addresses must be arrays");
+  const keys = [...staticKeys, ...loadedWritable.map(normalize), ...loadedReadonly.map(normalize)];
+  if (keys.some((key) => typeof key !== "string" || !key)) throw new Error("transaction account keys must be non-empty strings");
+  return keys;
 }
 
 function tokenBalanceChanges(entry, keys, signature, slot, blockTime) {
@@ -304,8 +311,12 @@ function instructionRows(transaction) {
 function normalizedInstructions(entry, keys, signature, slot, blockTime) {
   const outer = entry.transaction?.message?.instructions ?? []; const innerGroups = new Map((entry.meta?.innerInstructions ?? []).map((group) => [group.index, group.instructions ?? []])); const rows = [];
   const append = (instruction, instructionIndex, innerIndex) => {
-    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null); if (!programId) return;
-    const accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account).filter(Boolean); const rawPayloadHash = crypto.createHash("sha256").update(JSON.stringify(instruction)).digest("hex"); const registration = programRegistration(programId, slot);
+    const indexedProgram = instruction.programId == null && instruction.program == null;
+    if (indexedProgram && (!Number.isSafeInteger(instruction.programIdIndex) || instruction.programIdIndex < 0 || instruction.programIdIndex >= keys.length)) return;
+    const programId = instruction.programId ?? instruction.program ?? keys[instruction.programIdIndex]; if (typeof programId !== "string" || !programId) return;
+    const instructionAccounts = instruction.accounts ?? []; if (!Array.isArray(instructionAccounts)) return;
+    const accounts = instructionAccounts.map((account) => Number.isSafeInteger(account) && account >= 0 && account < keys.length ? keys[account] : typeof account === "string" && account ? account : null); if (accounts.some((account) => account == null)) return;
+    const rawPayloadHash = crypto.createHash("sha256").update(JSON.stringify(instruction)).digest("hex"); const registration = programRegistration(programId, slot);
     rows.push({ eventId: `solana:${slot}:${signature}:${instructionIndex}:${innerIndex ?? -1}:instruction`, chain: "solana", slot, blockTime, signature, instructionIndex, innerIndex, programId, protocol: registration?.protocol ?? null, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null, parsedType: instruction.parsed?.type ?? null, accounts, data: typeof instruction.data === "string" ? instruction.data : null, parsed: instruction.parsed ?? null, rawPayloadHash });
   };
   outer.forEach((instruction, instructionIndex) => { append(instruction, instructionIndex, null); (innerGroups.get(instructionIndex) ?? []).forEach((inner, innerIndex) => append(inner, instructionIndex, innerIndex)); });
@@ -330,7 +341,7 @@ export function decodeSystemTransfers(rows) {
     else if (row.parsed == null && typeof row.data === "string") { let data; try { data = decodeBase58(row.data); } catch { continue; } const discriminator = data.length >= 4 ? data.readUInt32LE(0) : -1; if (discriminator === 2 && data.length === 12 && row.accounts?.length === 2) { [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); transferKind = "transfer"; } else if (discriminator === 0 && data.length === 52 && row.accounts?.length === 2) { [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); allocatedSpaceRaw = readU64(data, 12); ownerProgram = base58(data.subarray(20, 52)); transferKind = "account_creation"; } else if (discriminator === 3 && data.length >= 92 && [2, 3].includes(row.accounts?.length)) { const seedLength = Number(data.readBigUInt64LE(36)); if (!Number.isSafeInteger(seedLength) || seedLength > 32 || data.length !== 92 + seedLength) continue; const seedBytes = data.subarray(44, 44 + seedLength); if ([...seedBytes].some((byte) => byte > 0x7f)) continue; [source, destination] = row.accounts; baseAddress = base58(data.subarray(4, 36)); seed = seedBytes.toString("ascii"); lamportsRaw = readU64(data, 44 + seedLength); allocatedSpaceRaw = readU64(data, 52 + seedLength); ownerProgram = base58(data.subarray(60 + seedLength, 92 + seedLength)); transferKind = "seeded_account_creation"; } else if (discriminator === 5 && data.length === 12 && row.accounts?.length === 5) { [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); transferKind = "nonce_withdrawal"; } else if (discriminator === 11 && data.length >= 52 && row.accounts?.length === 3) { const seedLength = Number(data.readBigUInt64LE(12)); if (!Number.isSafeInteger(seedLength) || seedLength > 32 || data.length !== 52 + seedLength) continue; const seedBytes = data.subarray(20, 20 + seedLength); if ([...seedBytes].some((byte) => byte > 0x7f)) continue; [source, baseAddress, destination] = row.accounts; lamportsRaw = readU64(data, 4); seed = seedBytes.toString("ascii"); ownerProgram = base58(data.subarray(20 + seedLength, 52 + seedLength)); transferKind = "seeded_transfer"; } else if (discriminator === 13 && data.length === 52 && row.accounts?.length === 2) { [destination, source] = row.accounts; lamportsRaw = readU64(data, 4); if (lamportsRaw === "0") continue; allocatedSpaceRaw = readU64(data, 12); ownerProgram = base58(data.subarray(20, 52)); transferKind = "prefunded_account_creation"; } else continue; }
     else continue;
     const accountCreation = ["account_creation", "seeded_account_creation", "prefunded_account_creation"].includes(transferKind), seeded = ["seeded_account_creation", "seeded_transfer"].includes(transferKind); if (typeof source !== "string" || !source || typeof destination !== "string" || !destination || lamportsRaw == null || (accountCreation && (allocatedSpaceRaw == null || typeof ownerProgram !== "string" || !ownerProgram)) || (seeded && (typeof baseAddress !== "string" || !baseAddress || typeof seed !== "string" || seed.length > 32 || [...seed].some((character) => character.charCodeAt(0) > 0x7f) || typeof ownerProgram !== "string" || !ownerProgram))) continue;
-    transfers.push({ transferId: row.eventId.replace(/:instruction$/, ":native_transfer"), chain: "solana", slot: row.slot, blockTime: row.blockTime, signature: row.signature, instructionIndex: row.instructionIndex, innerIndex: row.innerIndex, programId: stakeInstruction ? STAKE_PROGRAM : SYSTEM_PROGRAM, transferKind, source, destination, lamportsRaw, allocatedSpaceRaw, ownerProgram, baseAddress, seed, decoderVersion: 6, rawPayloadHash: row.rawPayloadHash });
+    transfers.push({ transferId: row.eventId.replace(/:instruction$/, ":native_transfer"), chain: "solana", slot: row.slot, blockTime: row.blockTime, signature: row.signature, instructionIndex: row.instructionIndex, innerIndex: row.innerIndex, programId: stakeInstruction ? STAKE_PROGRAM : SYSTEM_PROGRAM, transferKind, source, destination, lamportsRaw, allocatedSpaceRaw, ownerProgram, baseAddress, seed, decoderVersion: 7, rawPayloadHash: row.rawPayloadHash });
   }
   return transfers;
 }
@@ -426,7 +437,7 @@ export function parseBlock(block) {
     const tokenAccounts = tokenAccountEvidence(entry, keys);
     for (const instruction of normalized) {
       const transfer = parsedTransfer(instruction, tokenAccounts);
-      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 6, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
+      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 7, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
     }
   }
   const provenance = {
