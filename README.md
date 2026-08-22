@@ -569,7 +569,12 @@ Orca Whirlpools have exact-input analysis quotes. Orca quotes require complete
 finalized pool/vault/tick-array evidence plus an explicit directional tick limit,
 use the program's Q64.64 tick and millionths fee rounding, and expose
 `executionBoundary: "analysis_only_quote"`; Token-2022 Orca pools and unknown
-programs fail closed. Orca transaction construction is not implemented.
+programs fail closed. The execution library can bind a fully consumed legacy-SPL
+quote to the official legacy `swap` discriminator/account order, three contiguous
+finalized tick arrays, the derived oracle PDA, an unsigned legacy transaction,
+and exact input/output token-effect simulation policy. This is an offline,
+read-only boundary: the API still does not return an executable route, and no
+signing, submission, or landed confirmation is performed for Orca.
 
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
