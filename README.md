@@ -580,8 +580,13 @@ exact. DLMM event logs do not provide spendable bin liquidity. Run
 `npm run snapshot:meteora-dlmm-pools -- <POOL_ADDRESS...>` to acquire an exact
 finalized pair, vault, mint, bitmap, and complete 70-bin-per-array snapshot.
 Snapshots are persisted and automatically repaired when missing, partial, or
-stale. Quotes and bot execution remain disabled until exact DLMM route
-traversal, fee, rounding, and price math are implemented and verified.
+stale. `GET /internal/pools/:address/quote` now provides exact-input,
+analysis-only quotes for fresh finalized pools whose function mode is explicit.
+The quote traverses MM, processed-order, and open-order liquidity in canonical
+bin order; applies Q64 rounding, dynamic/base fees, fee-on-input/output modes,
+protocol/limit-order splits, and finalized Token-2022 transfer fees. Ambiguous
+undetermined function state fails closed. Transaction construction, simulation,
+signing, submission, and bot execution remain unavailable.
 
 The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may
