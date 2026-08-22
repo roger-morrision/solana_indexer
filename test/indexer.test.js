@@ -642,6 +642,12 @@ test("pool risk and bot readiness require explicit mature two-way finalized evid
   const readiness = store.botReadiness(120_000, now, "pool-address"); assert.equal(readiness.ready, false); assert.deepEqual(readiness.missing, ["riskSignals"]);
 });
 
+test("pool manipulation risk detects exact notional concentration and burst patterns", async () => {
+  const store = new IndexStore("unused"); await store.load(); const source = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))).swaps[0];
+  store.state.swaps = Array.from({ length: 20 }, (_, index) => { const sell = index % 2 === 0, whale = index < 4, baseAmount = whale ? "1000000" : String(100 + index); return { ...source, pool: "risk-pool", swapId: `signal-${index}`, signature: `signal-signature-${index}`, slot: index < 12 ? 500 : 500 + index, blockTime: 1_700_000_000 + index, user: whale ? "whale" : `trader-${Math.floor(index / 2)}`, baseMint: "base", quoteMint: "quote", inputMint: sell ? "base" : "quote", outputMint: sell ? "quote" : "base", inputAmountRaw: sell ? baseAmount : "1000", outputAmountRaw: sell ? "1000" : baseAmount, provenance: { ...source.provenance, commitment: "finalized" } }; });
+  const risk = store.poolRisk("risk-pool", 120_000, 1_700_000_020_000); assert.equal(risk.scope, "multi-signal-risk-v2"); assert.equal(risk.manipulation.assessable, true); assert.ok(risk.manipulation.flags.includes("dominant_trader_notional")); assert.ok(risk.manipulation.flags.includes("single_slot_burst")); assert.ok(risk.manipulation.flags.includes("concentrated_round_trip_flow")); assert.deepEqual(risk.manipulation.baseNotionalCoverage, { numeratorRaw: "20", denominatorRaw: "20" }); assert.ok(BigInt(risk.manipulation.topTraderBaseNotionalShare.numeratorRaw) * 2n > BigInt(risk.manipulation.topTraderBaseNotionalShare.denominatorRaw)); assert.ok(risk.blockers.includes("manipulation_signals_detected")); assert.equal(risk.safeForAutomation, false);
+});
+
 test("trending is deterministic for equal transfer counts", async () => {
   const store = new IndexStore("unused"); await store.load();
   store.state.mints = { older: { transferCount: 2, lastSlot: 10 }, newer: { transferCount: 2, lastSlot: 11 }, busy: { transferCount: 3, lastSlot: 9 } };
