@@ -39,6 +39,11 @@ while process restarts cannot reset or hot-loop an unchanged failure schedule.
 Stats and Prometheus expose only aggregate due, deferred, legacy, next-delay, and
 bounded-stage counts. They never expose filenames, fingerprints, errors, or
 payload contents; due or legacy work remaining for ten minutes alerts operators.
+Public HTTP failures are a trust boundary: unexpected exceptions return only
+`internal_error`, `quote_unavailable`, or `execution_preparation_unavailable`.
+Only controlled 4xx validation failures may include bounded detail. Optional
+internal diagnostics apply the same credential, URL, control-character, and
+length redaction policy as durable dead-letter evidence.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of

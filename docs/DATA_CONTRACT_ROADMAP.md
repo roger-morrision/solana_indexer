@@ -244,6 +244,9 @@ confirmed audit-retention replacements use that same durability boundary.
 Append-only API audit records preserve submission order and synchronize each
 record, while recovery qualification reports preserve exclusive creation and
 are synchronized before their consumer-enablement evidence is returned.
+Commercial HTTP contracts expose stable codes rather than exception text for
+unexpected server, quote, or preparation failures. Controlled validation detail
+remains bounded; optional operator diagnostics reuse the shared redaction policy.
 Graceful API shutdown stops producers, drains HTTP requests, closes idle
 connections, and flushes pending durable audit records before successful exit.
 Versioned Redis hot-state stats carry the same chain and genesis identity, and

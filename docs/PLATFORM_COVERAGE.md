@@ -94,3 +94,7 @@ account-key, and account-data seeds in order; pubkey-data forms resolve from
 instruction or account bytes. Missing, stale, oversized, or corrupt evidence
 fails closed and simulation uses the newest bound evidence slot.
 The indexer never signs or submits and automation remains disabled.
+All REST and internal execution surfaces now use stable non-leaking failure
+envelopes. Redacted callback diagnostics preserve operator visibility without
+making provider URLs, credentials, filesystem details, or exception text part
+of a commercial consumer contract.

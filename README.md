@@ -607,6 +607,10 @@ RPC JSON bodies are capped by `INDEXER_RPC_MAX_BODY_BYTES` (default 65536)
 and execution-preparation bodies by `INDEXER_EXECUTION_MAX_BODY_BYTES`
 (default 524288). Oversized declared or streamed payloads fail with a stable
 HTTP 413 `payload_too_large` response before JSON dispatch.
+Controlled request-validation failures retain bounded, stable detail. Unexpected
+HTTP, quote, and execution-preparation exceptions expose only versioned reason
+codes; their exception text is available solely through the optional redacted
+internal diagnostic callback and is never reflected to API consumers.
 The HTTP upgrade requires GET, canonical RFC 6455 Upgrade/Connection/version
 headers, and an exactly 16-byte canonical Base64 nonce.
 When API keys are enabled, WebSocket
