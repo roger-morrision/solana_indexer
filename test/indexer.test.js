@@ -1187,6 +1187,12 @@ test("validator stream rotates a subscribed socket that stops delivering blocks"
   idleTimers[1][0](); await stream.messageQueue; assert.equal(socket.closed, true); assert.equal(stream.lastError.message, "validator stream idle timeout"); assert.equal(stream.endpointIndex, 1); assert.equal(reconnects.length, 1); await stream.stop();
 });
 
+test("validator stream actively rotates on a transport error without waiting for close", async () => {
+  class FakeSocket { constructor() { this.readyState = 1; this.closed = false; } send() {} close() { this.closed = true; } }
+  const reconnects = []; const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, scheduleReconnect: (callback, delay) => { reconnects.push([callback, delay]); return "reconnect"; } }); stream.writeStatus = async () => {};
+  stream.connect(); const socket = stream.socket; socket.onerror(new Error("secret transport detail")); await stream.messageQueue; assert.equal(socket.closed, true); assert.equal(stream.socket, null); assert.equal(stream.endpointIndex, 1); assert.equal(stream.lastError.message, "validator stream transport error"); assert.equal(reconnects[0][1], 500); assert.equal(JSON.stringify(stream.lastError).includes("secret"), false); await stream.stop();
+});
+
 test("validator stream durably reports open and closed lifecycle without stale-socket mutation", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-lifecycle-")), statusFile = path.join(root, "status.json"), scheduled = []; class FakeSocket { constructor() { this.readyState = 1; this.sent = []; } send(value) { this.sent.push(value); } close() {} }
   const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox: path.join(root, "inbox"), statusFile, WebSocketClass: FakeSocket, scheduleReconnect: (callback) => scheduled.push(callback) }); stream.genesisHash = MAINNET_GENESIS_HASH; stream.lastSlots = { confirmed: 100, finalized: 98 };
