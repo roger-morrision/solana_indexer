@@ -12,7 +12,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | Newest finalized block age | <=120 seconds for 99.9% of minutes | page and bot responses disclose stale data |
 | Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
 | Private block stream connection | connected during normal operation | readiness fails immediately on a durable disconnect transition; rotate nodes and repair gaps over verified RPC |
-| REST read latency | p99 <=500 ms monthly | alert and shed expensive requests |
+| REST read latency | p99 <=500 ms monthly | route-free fixed-bucket histogram alerts after a sustained five-minute-window breach; shed expensive requests |
 | WebSocket persisted-event delivery | p99 <=2 seconds after index commit | reconnect and resume from cursor |
 | WebSocket admission/backpressure | no capacity rejection or slow-consumer eviction during normal operation | alert on any sustained five-minute increase; scale or isolate slow consumers |
 | WebSocket protocol errors | <=100 closes per five minutes | alert on sustained abuse or client incompatibility while preserving bounded parser limits |
@@ -56,6 +56,8 @@ Audit-sink failure, WebSocket capacity rejection and slow-consumer counters aler
 on any sustained five-minute increase. Protocol-error closes use a bounded
 five-minute threshold so malformed-client floods are visible without embedding
 client identity or frame contents in monitoring.
+HTTP latency is exported as a fixed route-free Prometheus histogram, allowing
+the 500 ms p99 objective to be evaluated without tenant, URL, or query labels.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of

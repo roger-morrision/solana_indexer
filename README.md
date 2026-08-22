@@ -606,6 +606,8 @@ until an existing socket closes. `/metrics` reports active clients, capacity
 rejections, slow-consumer evictions, and protocol closes without client keys.
 Baseline alerts page on durable audit failure, report sustained capacity or
 backpressure rejection, and flag protocol-error floods without client labels.
+HTTP duration uses fixed route-free histogram buckets so the documented 500 ms
+p99 can alert without exposing tenant or request-path cardinality.
 Graceful process shutdown stops subscriptions and closes upgraded sockets with
 going-away code 1001 before draining HTTP and flushing the durable audit sink,
 so a connected subscriber cannot indefinitely hold shutdown open.

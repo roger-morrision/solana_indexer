@@ -30,6 +30,7 @@ import { redactDiagnostic } from "./diagnostic-redaction.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const INTERNAL_FAILURE_EVENTS = ["http_internal_error", "pool_quote_failed", "pool_swap_preparation_failed", "curve_swap_preparation_failed"];
+const HTTP_DURATION_BUCKETS_SECONDS = [0.05, 0.1, 0.25, 0.5, 1, 2, 5];
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
 function reportDiagnostic(config, metrics, event, error) { metrics.internalFailures[event]++; if (typeof config.onDiagnostic !== "function") return; try { const result = config.onDiagnostic({ event, error: redactDiagnostic(error, "internal server failure") }); if (result?.then) result.catch(() => {}); } catch {} }
 function limit(url) { const raw = url.searchParams.get("limit"); if (raw == null) return 100; if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) < 1 || Number(raw) > 500) { const error = new Error("limit must be an integer from 1 through 500"); error.code = "BAD_REQUEST"; throw error; } return Number(raw); }
@@ -108,11 +109,11 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
-    "# HELP terminal_dex_http_request_duration_seconds_sum Total HTTP request duration.",
-    "# TYPE terminal_dex_http_request_duration_seconds_sum counter",
+    "# HELP terminal_dex_http_request_duration_seconds HTTP request duration in fixed route-free buckets.",
+    "# TYPE terminal_dex_http_request_duration_seconds histogram",
+    ...HTTP_DURATION_BUCKETS_SECONDS.map((le) => `terminal_dex_http_request_duration_seconds_bucket{le="${le}"} ${metrics.durationBuckets[le]}`),
+    `terminal_dex_http_request_duration_seconds_bucket{le="+Inf"} ${metrics.requests}`,
     `terminal_dex_http_request_duration_seconds_sum ${metrics.durationMs / 1000}`,
-    "# HELP terminal_dex_http_request_duration_seconds_count Timed HTTP requests.",
-    "# TYPE terminal_dex_http_request_duration_seconds_count counter",
     `terminal_dex_http_request_duration_seconds_count ${metrics.requests}`,
     "# HELP terminal_dex_index_healthy Whether the canonical index meets freshness and chain checks.",
     "# TYPE terminal_dex_index_healthy gauge",
@@ -167,10 +168,10 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
 }
 
 export function createServer(config, store) {
-  const quotas = new Map(), metrics = { requests: 0, durationMs: 0, distributedQuotaFailures: 0, internalFailures: Object.fromEntries(INTERNAL_FAILURE_EVENTS.map((event) => [event, 0])), statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
+  const quotas = new Map(), metrics = { requests: 0, durationMs: 0, durationBuckets: Object.fromEntries(HTTP_DURATION_BUCKETS_SECONDS.map((le) => [le, 0])), distributedQuotaFailures: 0, internalFailures: Object.fromEntries(INTERNAL_FAILURE_EVENTS.map((event) => [event, 0])), statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
   const server = http.createServer(async (request, response) => {
     const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress), tenant = resolveApiTenant(config.apiTenants, presented); let auditPath = null, auditUnits = 1;
-    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000, quotaUnits: auditUnits }); });
+    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; for (const le of HTTP_DURATION_BUCKETS_SECONDS) if (durationMs <= le * 1_000) metrics.durationBuckets[le]++; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000, quotaUnits: auditUnits }); });
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
       auditPath = url.pathname;

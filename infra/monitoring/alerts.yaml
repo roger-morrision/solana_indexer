@@ -56,6 +56,11 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "Indexer HTTP 5xx rate exceeds the production objective" }
+      - alert: TerminalDexHttpReadLatency
+        expr: histogram_quantile(0.99, sum by (le) (rate(terminal_dex_http_request_duration_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Indexer HTTP p99 latency exceeds the 500 ms production objective" }
       - alert: TerminalDexInternalFailures
         expr: sum(increase(terminal_dex_internal_failures_total[5m])) > 0
         for: 1m
