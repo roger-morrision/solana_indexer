@@ -36,9 +36,29 @@ import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT } from "../src/usd-depeg-reference.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
+import { computeStaticFeeExactInputStep, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("Raydium CLMM tick math preserves protocol Q64.64 integer vectors", () => {
+  assert.deepEqual([0, 1, -1, 2, -2].map((tick) => raydiumSqrtPriceX64AtTick(tick).toString()), ["18446744073709551616", "18447666387855957090", "18445821805675395072", "18448588748116922877", "18444899583751176192"]);
+  assert.ok(raydiumSqrtPriceX64AtTick(-443_636) < raydiumSqrtPriceX64AtTick(0));
+  assert.ok(raydiumSqrtPriceX64AtTick(443_636) > raydiumSqrtPriceX64AtTick(0));
+  assert.throws(() => raydiumSqrtPriceX64AtTick(443_637), /out of range/);
+  assert.throws(() => raydiumSqrtPriceX64AtTick(1.5), /out of range/);
+});
+
+test("CLMM exact-input swap steps round fees and deltas fail closed", () => {
+  const q64 = 1n << 64n, downTarget = raydiumSqrtPriceX64AtTick(-100), upTarget = raydiumSqrtPriceX64AtTick(100);
+  const partialDown = computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: downTarget, liquidity: 1_000_000n, amountRemaining: 1_000n, feeRateMillionths: 3_000n, zeroForOne: true });
+  assert.deepEqual(partialDown, { nextSqrtPriceX64: "18428370987834680440", amountIn: "997", amountOut: "996", feeAmount: "3", reachedTarget: false });
+  const reachedUp = computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: upTarget, liquidity: 1_000_000n, amountRemaining: 10_000n, feeRateMillionths: 3_000n, zeroForOne: false });
+  assert.equal(reachedUp.nextSqrtPriceX64, upTarget.toString()); assert.equal(reachedUp.reachedTarget, true); assert.ok(BigInt(reachedUp.amountIn) + BigInt(reachedUp.feeAmount) <= 10_000n); assert.ok(BigInt(reachedUp.amountOut) > 0n);
+  assert.throws(() => computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: downTarget, liquidity: 0, amountRemaining: 1, feeRateMillionths: 0, zeroForOne: true }), /liquidity/);
+  assert.throws(() => computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: downTarget, liquidity: 1, amountRemaining: 1, feeRateMillionths: 1_000_000, zeroForOne: true }), /feeRate/);
+  assert.throws(() => computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: upTarget, liquidity: 1, amountRemaining: 1, feeRateMillionths: 0, zeroForOne: true }), /direction/);
+});
 
 test("getMultipleAccounts batching honors the RPC cap and one snapshot context", async () => {
   const addresses = Array.from({ length: 205 }, (_, index) => `address-${index}`), calls = [];
