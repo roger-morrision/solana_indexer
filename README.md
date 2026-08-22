@@ -436,6 +436,11 @@ both their initial observation and later finality-promotion event, allowing
 consumers to replace provisional state deterministically. Fork replacements
 emit filtered `revertedSwaps` and `revertedLifecycleEvents` tombstones carrying
 the canonical replacement blockhash; consumers must remove those event IDs.
+Pool summaries normalize these events into `lifecycleState`: created and
+migrated destination pools are `active`, completed curves are `completed`, and
+source curves become `migrated` with the exact destination pool/protocol link.
+The transition slot/index and commitment are rebuilt from canonical events, so
+fork replacement removes stale source and destination state together.
 
 “Trending” defaults to a rolling one-hour window and ranks verified DEX swap
 count, decoded unique traders, then locally indexed transfer count. It exposes
