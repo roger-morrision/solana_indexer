@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { raydiumSqrtPriceX64AtTick } from "./clmm-math.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
-import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction } from "./transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
 
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
@@ -51,6 +51,13 @@ export function createRaydiumClmmSigningRequest({ preparation, simulationReceipt
   const amount = integer(evidence?.amountInRaw, "Raydium amount", U64_MAX), maximum = integer(maxInputRaw, "Raydium maximum input", U64_MAX), quoted = integer(evidence?.quotedOutputRaw, "Raydium quoted output", U64_MAX), minimum = integer(evidence?.minimumOutputRaw, "Raydium minimum output", U64_MAX); if (amount === 0n || amount > maximum || quoted === 0n || minimum > quoted) throw new Error("Raydium signer limits are exceeded"); const slippageBps = Number(((quoted - minimum) * 10_000n + quoted - 1n) / quoted); if (slippageBps > maxSlippageBps) throw new Error("Raydium signer limits are exceeded");
   const request = { schemaVersion: 1, type: "raydium_clmm_swap_v2_signing_request", protocol: "raydium-clmm", approvalRequired: true, signingPerformed: false, submissionPerformed: false, feePayer: payer.address, transactionBase64: preparation.transaction.transactionBase64, transactionHash: preparation.transaction.transactionHash, messageHash: preparation.transaction.messageHash, preparationHash, simulationReceiptHash: receiptHash, simulationSlot: simulationReceipt.simulationSlot, currentSlot, expiresSlot: currentSlot + ttlSlots, maxInputRaw: maximum.toString(), amountInRaw: amount.toString(), quotedOutputRaw: quoted.toString(), minimumOutputRaw: minimum.toString(), slippageBps, instructionEvidence: evidence };
   request.signingRequestHash = crypto.createHash("sha256").update(JSON.stringify(request)).digest("hex"); return request;
+}
+
+export function verifyRaydiumClmmSignedRequest({ signingRequest, signedTransactionBase64, currentSlot }) {
+  const { signingRequestHash, ...unsignedRequest } = signingRequest ?? {}, expectedRequestHash = crypto.createHash("sha256").update(JSON.stringify(unsignedRequest)).digest("hex");
+  if (signingRequest?.schemaVersion !== 1 || signingRequest.type !== "raydium_clmm_swap_v2_signing_request" || signingRequest.protocol !== "raydium-clmm" || signingRequest.approvalRequired !== true || signingRequest.signingPerformed !== false || signingRequest.submissionPerformed !== false || signingRequestHash !== expectedRequestHash || !Number.isSafeInteger(currentSlot) || currentSlot < signingRequest.currentSlot || currentSlot > signingRequest.expiresSlot) throw new Error("Raydium signing request is invalid or expired");
+  const verified = verifySignedTransactionBase64({ signedTransactionBase64, unsignedTransactionBase64: signingRequest.transactionBase64, expectedMessageHash: signingRequest.messageHash }); if (verified.approvedTransactionHash !== signingRequest.transactionHash || verified.signerAddresses[0] !== signingRequest.feePayer) throw new Error("Raydium signed transaction does not match approval");
+  const result = { ...verified, type: "raydium_clmm_swap_v2_signed_transaction", protocol: "raydium-clmm", signingRequestHash, verifiedSlot: currentSlot, expiresSlot: signingRequest.expiresSlot, approvalRequired: false, submissionPerformed: false }; result.signedArtifactHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;
 }
 
 export const RAYDIUM_CLMM_EXECUTION_CONSTANTS = Object.freeze({ tokenProgram: TOKEN_PROGRAM, token2022Program: TOKEN_2022_PROGRAM, memoProgram: MEMO_PROGRAM, swapV2DiscriminatorHex: SWAP_V2_DISCRIMINATOR.toString("hex") });

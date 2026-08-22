@@ -503,6 +503,9 @@ and token effects before emitting a protocol-typed receipt.
 A separate external-signer request gate requires an allowed fee payer, raw-input
 and ceiling-rounded slippage caps, a recent matching simulation, and a short slot
 expiry. It emits a content-addressed approval request but never signs or submits.
+Returned signed bytes are accepted only when the complete serialized message is
+unchanged and every required Ed25519 signature verifies against its message key;
+the resulting signed artifact remains content-addressed and unsubmitted.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Signature bytes are intentionally

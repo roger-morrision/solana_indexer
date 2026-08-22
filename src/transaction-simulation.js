@@ -45,6 +45,16 @@ export function buildUnsignedLegacyTransaction({ feePayer, recentBlockhash, inst
   return { schemaVersion: 1, transactionBase64, transactionHash: crypto.createHash("sha256").update(transaction).digest("hex"), messageHash: inspection.messageHash, signatureCount: requiredSignatures, messageVersion: "legacy", instructionPolicies: policy, submitted: false, signed: false };
 }
 
+export function verifySignedTransactionBase64({ signedTransactionBase64, unsignedTransactionBase64, expectedMessageHash }) {
+  const unsigned = validateUnsignedTransactionBase64(unsignedTransactionBase64);
+  if (unsigned.messageHash !== expectedMessageHash || typeof signedTransactionBase64 !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(signedTransactionBase64)) throw new Error("signed transaction identity is invalid");
+  const signedBytes = Buffer.from(signedTransactionBase64, "base64"); if (signedBytes.toString("base64").replace(/=+$/, "") !== signedTransactionBase64.replace(/=+$/, "") || signedBytes.length > MAX_TRANSACTION_BYTES) throw new Error("signed transaction encoding or size is invalid");
+  const signatures = decodeShortVec(signedBytes), messageOffset = signatures.offset + signatures.value * 64; if (signatures.value !== unsigned.signatureCount || messageOffset >= signedBytes.length || !signedBytes.subarray(messageOffset).equals(unsigned.bytes.subarray(unsigned.messageOffset))) throw new Error("signed transaction message does not match approval");
+  const message = signedBytes.subarray(messageOffset); if ((message[0] & 0x80) !== 0 || message[0] !== signatures.value) throw new Error("signed transaction header is invalid"); const cursor = { offset: 3 }, accountCount = takeShortVec(message, cursor); if (accountCount < signatures.value) throw new Error("signed transaction accounts are invalid"); const signerKeys = Array.from({ length: signatures.value }, () => take(message, cursor, 32)), spkiPrefix = Buffer.from("302a300506032b6570032100", "hex"), signerAddresses = [];
+  for (let index = 0; index < signatures.value; index++) { const signature = signedBytes.subarray(signatures.offset + index * 64, signatures.offset + (index + 1) * 64), publicKey = crypto.createPublicKey({ key: Buffer.concat([spkiPrefix, signerKeys[index]]), format: "der", type: "spki" }); if (!crypto.verify(null, message, publicKey, signature)) throw new Error("signed transaction signature is invalid"); signerAddresses.push(base58(signerKeys[index])); }
+  return { schemaVersion: 1, status: "signature_verified", submitted: false, signed: true, transactionBase64: signedTransactionBase64, transactionHash: crypto.createHash("sha256").update(signedBytes).digest("hex"), approvedTransactionHash: unsigned.transactionHash, messageHash: expectedMessageHash, signatureCount: signatures.value, signerAddresses };
+}
+
 function decodeShortVec(bytes) {
   let value = 0, shift = 0, offset = 0;
   while (offset < bytes.length && offset < 3) { const byte = bytes[offset++]; value |= (byte & 0x7f) << shift; if ((byte & 0x80) === 0) return { value, offset }; shift += 7; }
