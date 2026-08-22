@@ -24,7 +24,7 @@ function decodeCursor(value) {
 }
 function page(rows, size, cursor, key, scope = null) {
   const decoded = decodeCursor(cursor);
-  if (decoded != null && scope != null && decoded.scope !== scope) { const error = new Error("cursor does not match the requested collection or filters"); error.code = "INVALID_CURSOR"; throw error; }
+  if (decoded != null && decoded.scope != null && scope != null && decoded.scope !== scope) { const error = new Error("cursor does not match the requested collection or filters"); error.code = "INVALID_CURSOR"; throw error; }
   const start = decoded == null ? 0 : rows.findIndex((row) => key(row) === decoded.key) + 1;
   if (decoded != null && start === 0) { const error = new Error("cursor does not reference a retained record"); error.code = "INVALID_CURSOR"; throw error; }
   const data = rows.slice(start, start + size);
@@ -159,13 +159,13 @@ export function createServer(config, store) {
       const internalWallet = url.pathname.match(/^\/internal\/wallets\/([^/]+)(?:\/(performance|profile))?$/); if (internalWallet) { const address = decodeURIComponent(internalWallet[1]); return json(response, 200, internalWallet[2] === "performance" ? store.walletPerformance(address) : internalWallet[2] === "profile" ? store.walletProfile(address) : store.account(address, limit(url))); }
       if (url.pathname === "/api/v1/blocks") {
         const rows = Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot);
-        return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot)));
+        return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot), "blocks:v1"));
       }
       if (url.pathname === "/api/v1/transactions") {
         const rows = Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature));
-        return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}`));
+        return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}`, "transactions:v1"));
       }
-      if (url.pathname === "/api/v1/swaps") { const mint = url.searchParams.get("mint"), pool = url.searchParams.get("pool"), protocol = url.searchParams.get("protocol"); const rows = store.state.swaps.filter((row) => (!mint || row.inputMint === mint || row.outputMint === mint) && (!pool || row.pool === pool) && (!protocol || row.protocol === protocol)).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature) || a.eventIndex - b.eventIndex); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => row.swapId)); }
+      if (url.pathname === "/api/v1/swaps") { const mint = optionalFilter(url, "mint"), pool = optionalFilter(url, "pool"), protocol = optionalFilter(url, "protocol"); const rows = store.state.swaps.filter((row) => (!mint || row.inputMint === mint || row.outputMint === mint) && (!pool || row.pool === pool) && (!protocol || row.protocol === protocol)).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature) || a.eventIndex - b.eventIndex); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => row.swapId, `swaps:v1:${mint ?? ""}:${pool ?? ""}:${protocol ?? ""}`)); }
       if (url.pathname === "/api/v1/tokens") { const rows = Object.entries(store.state.mints).sort(([left], [right]) => left.localeCompare(right)).map(([address, row]) => tokenCatalogRow(address, row)); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => row.address, "tokens:v1")); }
       if (url.pathname === "/api/v1/pools") { const protocol = optionalFilter(url, "protocol"), mint = optionalFilter(url, "mint"), status = optionalFilter(url, "status"); if (status && !["active", "completed", "migrated", "unknown"].includes(status)) { const error = new Error("status filter is invalid"); error.code = "BAD_REQUEST"; throw error; } const rows = Object.entries(store.state.pools).filter(([, row]) => (!protocol || row.protocol === protocol || row.destinationProtocol === protocol) && (!mint || row.baseMint === mint || row.quoteMint === mint) && (!status || (row.lifecycleState?.status ?? "unknown") === status)).sort(([left], [right]) => left.localeCompare(right)).map(([address, row]) => poolCatalogRow(address, row)); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => row.address, `pools:v1:${protocol ?? ""}:${mint ?? ""}:${status ?? ""}`)); }
       const price = url.pathname.match(/^\/api\/v1\/price\/([^/]+)$/); if (price) { const result = store.referencePrice(decodeURIComponent(price[1]), config.staleAfterMs); return json(response, result.available ? 200 : 503, result); }
