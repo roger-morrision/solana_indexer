@@ -92,6 +92,14 @@ successful parent transaction, canonical pair/direction, positive exact u64
 amounts, decimals, decoder provenance and payload hashes are mandatory; one
 malformed or duplicate swap makes the view explicitly unavailable.
 
+Persisted protocol lifecycle events and their swap-event mirrors are likewise
+revalidated as a complete relationship-bound collection. Lifecycle identities,
+successful parent transactions, canonical blocks, registered program/protocol/type,
+decoder versions, exact amounts, mint pairs, transition endpoints and provenance
+must agree; swap mirrors must correspond one-for-one with canonical swaps. Health,
+bot readiness, lifecycle REST views, candidate projection and Redis hot-state
+publication fail closed on detached, duplicate, malformed or divergent evidence.
+
 The derived wallet ledger (SPL/Token-2022 transfers, native funding transfers,
 and token balance changes) is validated as one relationship-bound collection.
 Facts must bind a successful canonical parent transaction, exact instruction

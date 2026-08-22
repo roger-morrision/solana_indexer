@@ -4,7 +4,7 @@ import { durableAtomicWrite } from "./durable-file.js";
 import { assessUsdDepegReference, MAINNET_USDC_MINT } from "./usd-depeg-reference.js";
 import { normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
-import { PROGRAM_REGISTRY } from "./program-registry.js";
+import { PROGRAM_REGISTRY, PROGRAM_REGISTRY_VERSION } from "./program-registry.js";
 import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { isCanonicalTokenMetadata } from "./token-metadata.js";
 import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
@@ -80,6 +80,26 @@ export function canonicalPersistedSwapLog(swaps, transactions, blocks) {
     identities.add(swap.swapId);
     return swap.swapId === swapId && swap.eventId === eventId && canonicalPersistedTransaction(swap.signature, transaction, blocks) && transaction.success === true && canonicalPersistedBlock(String(swap.slot), block) && swap.blockTime === transaction.blockTime && Number.isInteger(swap.eventIndex) && swap.eventIndex >= 0 && [swap.protocol, swap.programId, swap.pool, swap.baseMint, swap.quoteMint, swap.inputMint, swap.outputMint].every((value) => typeof value === "string" && Boolean(value)) && swap.baseMint !== swap.quoteMint && swap.inputMint !== swap.outputMint && [swap.inputMint, swap.outputMint].every((mint) => mint === swap.baseMint || mint === swap.quoteMint) && u64(swap.inputAmountRaw, true) && u64(swap.outputAmountRaw, true) && (swap.tradeFeeRaw == null || u64(swap.tradeFeeRaw) && BigInt(swap.tradeFeeRaw) <= BigInt(swap.inputAmountRaw)) && [swap.inputDecimals, swap.outputDecimals, swap.baseDecimals, swap.quoteDecimals].every((value) => Number.isInteger(value) && value >= 0 && value <= 255) && Number.isSafeInteger(swap.registryVersion) && swap.registryVersion > 0 && Number.isSafeInteger(swap.decoderVersion) && swap.decoderVersion > 0 && /^[0-9a-f]{64}$/.test(swap.rawPayloadHash ?? "") && ["raw", "source_event"].includes(swap.payloadHashKind) && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt;
   });
+}
+export function canonicalPersistedProgramEventLog(programEvents, swaps, transactions, blocks) {
+  if (!Array.isArray(programEvents) || !Array.isArray(swaps)) return false;
+  const swapById = new Map(swaps.map((row) => [row.swapId, row])), identities = new Set(), lifecycleTypes = new Set(["pool_created", "pool_migrated", "curve_completed", "migration_completed"]), u64 = (value) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= U64_MAX, i64 = (value) => typeof value === "string" && /^-?\d+$/.test(value) && BigInt(value) >= -(1n << 63n) && BigInt(value) < 1n << 63n, text = (value) => typeof value === "string" && Boolean(value);
+  for (const event of programEvents) {
+    if (!text(event?.eventId) || identities.has(event.eventId)) return false;
+    identities.add(event.eventId);
+    if (event.type === "swap") {
+      const swap = swapById.get(event.swapId);
+      if (!swap || event.eventId !== swap.eventId || !["slot", "blockTime", "signature", "programId", "protocol", "registryVersion", "decoderVersion", "rawPayloadHash", "payloadHashKind"].every((field) => event[field] === swap[field]) || event.instructionIndex !== -1 || event.innerIndex !== swap.eventIndex || JSON.stringify(event.provenance) !== JSON.stringify(swap.provenance)) return false;
+      continue;
+    }
+    const transaction = transactions?.[event.signature], block = blocks?.[String(event.slot)], registration = PROGRAM_REGISTRY.get(event.programId), expectedId = `solana:${event.slot}:${event.signature}:-1:${event.innerIndex}:${event.type}`, provenance = event.provenance;
+    if (!lifecycleTypes.has(event.type) || event.eventId !== expectedId || !canonicalPersistedTransaction(event.signature, transaction, blocks) || transaction.success !== true || !canonicalPersistedBlock(String(event.slot), block) || event.blockTime !== transaction.blockTime || event.instructionIndex !== -1 || !Number.isInteger(event.innerIndex) || event.innerIndex < 0 || !registration || registration.protocol !== event.protocol || !registration.eventTypes.includes(event.type) || event.registryVersion !== PROGRAM_REGISTRY_VERSION || event.decoderVersion !== registration.decoderVersion || !/^[0-9a-f]{64}$/.test(event.rawPayloadHash ?? "") || ![event.pool, event.tokenMint0, event.tokenMint1].every(text) || event.tokenMint0 === event.tokenMint1 || provenance?.commitment !== transaction.provenance?.commitment || provenance?.genesisHash !== transaction.provenance?.genesisHash || provenance?.source !== transaction.provenance?.source || provenance?.observedAt !== transaction.provenance?.observedAt) return false;
+    if (event.type === "pool_migrated" && (![event.sourcePool, event.migrator, event.destinationProtocol].every(text) || event.sourcePool === event.pool) || event.type === "curve_completed" && (!text(event.user) || !i64(event.completedAtUnix)) || event.type === "migration_completed" && (![event.sourcePool, event.user, event.destinationProtocol].every(text) || event.sourcePool === event.pool || ![event.migratedBaseAmountRaw, event.migratedQuoteAmountRaw, event.poolMigrationFeeRaw].every(u64) || !i64(event.completedAtUnix))) return false;
+    for (const field of ["initialAmount0Raw", "initialAmount1Raw", "requestedOpenTime", "initialSqrtPriceX64"]) if (event[field] != null && !u64(event[field])) return false;
+    for (const field of ["mintDecimals0", "mintDecimals1"]) if (event[field] != null && (!Number.isInteger(event[field]) || event[field] < 0 || event[field] > 255)) return false;
+    for (const field of ["mayhemMode", "cashbackCoin"]) if (event[field] != null && typeof event[field] !== "boolean") return false;
+  }
+  return programEvents.filter((row) => row.type === "swap").length === swaps.length && [...swapById].every(([id]) => programEvents.some((row) => row.type === "swap" && row.swapId === id));
 }
 export function canonicalPersistedDerivedLedger({ transfers, nativeTransfers, balanceChanges, instructions, transactions, blocks }) {
   if (![transfers, nativeTransfers, balanceChanges, instructions].every(Array.isArray)) return false;
@@ -536,6 +556,10 @@ export class IndexStore {
     const canonical = canonicalPersistedInstructionLog(this.state.instructions, this.state.transactions, this.state.blocks);
     return { canonical, count: this.state.instructions.length, reason: canonical ? null : "indexed_instruction_evidence_invalid" };
   }
+  programEventQuality() {
+    const canonical = canonicalPersistedProgramEventLog(this.state.programEvents, this.state.swaps, this.state.transactions, this.state.blocks);
+    return { canonical, count: Array.isArray(this.state.programEvents) ? this.state.programEvents.length : null, lifecycleEvents: Array.isArray(this.state.programEvents) ? this.state.programEvents.filter((row) => row?.type !== "swap").length : null, reason: canonical ? null : "indexed_program_event_evidence_invalid" };
+  }
   indexedSwaps() {
     if (!canonicalPersistedSwapLog(this.state.swaps, this.state.transactions, this.state.blocks)) return { available: false, reason: "indexed_swap_evidence_invalid", data: [] };
     return { available: true, reason: null, data: [...this.state.swaps].sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature) || a.eventIndex - b.eventIndex) };
@@ -586,6 +610,7 @@ export class IndexStore {
       canonicalBlocks: canonicalBlockTimes && canonicalBlockIdentities,
       canonicalTransactions: this.indexedTransactions().available,
       canonicalInstructions: this.instructionQuality().canonical,
+      canonicalProgramEvents: this.programEventQuality().canonical,
       canonicalSwaps: this.indexedSwaps().available,
       canonicalDerivedLedger: this.derivedLedgerQuality().canonical,
       canonicalAggregates: this.aggregateQuality().canonical,
@@ -621,7 +646,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "canonicalRecoveryState", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalProgramEvents", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "canonicalRecoveryState", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -650,6 +675,7 @@ export class IndexStore {
     const transactions = this.indexedTransactions(); if (!transactions.available) return { status: "invalid_evidence", healthy: false, reason: transactions.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const instructions = this.instructionQuality(); if (!instructions.canonical) return { status: "invalid_evidence", healthy: false, reason: instructions.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const swaps = this.indexedSwaps(); if (!swaps.available) return { status: "invalid_evidence", healthy: false, reason: swaps.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
+    const programEvents = this.programEventQuality(); if (!programEvents.canonical) return { status: "invalid_evidence", healthy: false, reason: programEvents.reason, ageMs: null, staleAfterMs, chain, events, instructions, programEvents, ...stats };
     const derivedLedger = this.derivedLedgerQuality(); if (!derivedLedger.canonical) return { status: "invalid_evidence", healthy: false, reason: derivedLedger.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, ...stats };
     const aggregates = this.aggregateQuality(); if (!aggregates.canonical) return { status: "invalid_evidence", healthy: false, reason: aggregates.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, ...stats };
     const snapshots = this.snapshotQuality(); if (!snapshots.canonical) return { status: "invalid_evidence", healthy: false, reason: snapshots.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, ...stats };
