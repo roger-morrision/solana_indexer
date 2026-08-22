@@ -89,11 +89,12 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# TYPE terminal_dex_reorg_corrections_total counter", `terminal_dex_reorg_corrections_total ${stats.reorgCorrections}`,
     "# TYPE terminal_dex_indexed_swaps gauge", `terminal_dex_indexed_swaps ${stats.swaps}`,
     "# TYPE terminal_dex_api_audit_failures_total counter", `terminal_dex_api_audit_failures_total ${auditFailures}`,
+    "# TYPE terminal_dex_distributed_quota_failures_total counter", `terminal_dex_distributed_quota_failures_total ${metrics.distributedQuotaFailures}`,
   ]; return `${lines.join("\n")}\n`;
 }
 
 export function createServer(config, store) {
-  const quotas = new Map(), metrics = { requests: 0, durationMs: 0, statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
+  const quotas = new Map(), metrics = { requests: 0, durationMs: 0, distributedQuotaFailures: 0, statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
   const server = http.createServer(async (request, response) => {
     const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress), tenant = resolveApiTenant(config.apiTenants, presented); let auditPath = null;
     response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000 }); });
@@ -108,10 +109,10 @@ export function createServer(config, store) {
       const requestLimit = tenant?.rateLimitPerMinute ?? config.rateLimitPerMinute;
       if (protectedRoute && requestLimit) {
         const quotaIdentity = tenant?.id ?? (apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown");
-        const window = Math.floor(Date.now() / 60_000); const prior = quotas.get(quotaIdentity); const quota = prior?.window === window ? prior : { window, count: 0 }; quota.count++; quotas.set(quotaIdentity, quota);
-        const remaining = Math.max(0, requestLimit - quota.count);
+        let quota; if (config.distributedQuotaEnabled) { if (typeof config.quotaAdmitter !== "function") { metrics.distributedQuotaFailures++; return json(response, 503, { error: "distributed_quota_unavailable" }); } try { quota = await config.quotaAdmitter(quotaIdentity, requestLimit); } catch { metrics.distributedQuotaFailures++; return json(response, 503, { error: "distributed_quota_unavailable" }); } if (!quota || !Number.isSafeInteger(quota.count) || quota.count < 1 || !Number.isSafeInteger(quota.remaining) || quota.remaining < 0 || !Number.isInteger(quota.retryAfterSeconds) || quota.retryAfterSeconds < 1) { metrics.distributedQuotaFailures++; return json(response, 503, { error: "distributed_quota_invalid_response" }); } } else { const window = Math.floor(Date.now() / 60_000), prior = quotas.get(quotaIdentity); quota = prior?.window === window ? prior : { window, count: 0 }; quota.count++; quota.remaining = Math.max(0, requestLimit - quota.count); quota.retryAfterSeconds = 60 - (Math.floor(Date.now() / 1000) % 60); quotas.set(quotaIdentity, quota); }
+        const remaining = quota.remaining;
         response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); }
-        if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(60 - (Math.floor(Date.now() / 1000) % 60)) });
+        if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) });
       }
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpc(await readJsonBody(request), config, store));
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });

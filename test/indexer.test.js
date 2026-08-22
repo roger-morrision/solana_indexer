@@ -27,6 +27,7 @@ import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
 import { buildCommercialSyncSql } from "../src/postgres-commercial-sync.js";
 import { assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileWarehouseBatch, compileWarehouseFacts, compileWarehouseMetadataSql, syncWarehouseBatch, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
+import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis-quota.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -424,7 +425,7 @@ test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
 
 test("Prometheus endpoint exposes fail-closed SLO signals", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
-  const response = await fetch(`http://127.0.0.1:${server.address().port}/metrics`), body = await response.text(); assert.equal(response.status, 200); assert.match(response.headers.get("content-type"), /text\/plain/); assert.match(body, /terminal_dex_index_healthy 0/); assert.match(body, /terminal_dex_dead_letters 0/); assert.match(body, /terminal_dex_warehouse_healthy 0/); assert.match(body, /terminal_dex_warehouse_lag_events NaN/); assert.match(body, /terminal_dex_http_requests_total/);
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/metrics`), body = await response.text(); assert.equal(response.status, 200); assert.match(response.headers.get("content-type"), /text\/plain/); assert.match(body, /terminal_dex_index_healthy 0/); assert.match(body, /terminal_dex_dead_letters 0/); assert.match(body, /terminal_dex_warehouse_healthy 0/); assert.match(body, /terminal_dex_warehouse_lag_events NaN/); assert.match(body, /terminal_dex_http_requests_total/); assert.match(body, /terminal_dex_distributed_quota_failures_total 0/);
 });
 
 test("REST v1 paginates stably and rejects invalid cursors", async (t) => {
@@ -749,7 +750,7 @@ test("object archives remain fully self-hosted without S3 or cloud endpoints", a
 
 test("mTLS gateway and production SLO alerts fail closed", async () => {
   const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), nginx = await fs.readFile(path.join(rootDir, "infra/gateway/nginx.conf"), "utf8"), alerts = await fs.readFile(path.join(rootDir, "infra/monitoring/alerts.yaml"), "utf8");
-  assert.match(compose, /NGINX_IMAGE:\?Set NGINX_IMAGE/); assert.match(compose, /client_ca_certificate/); assert.match(nginx, /ssl_verify_client on/); assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/); assert.match(alerts, /terminal_dex_index_healthy == 0/); assert.match(alerts, /terminal_dex_dead_letters > 0/);
+  assert.match(compose, /NGINX_IMAGE:\?Set NGINX_IMAGE/); assert.match(compose, /client_ca_certificate/); assert.match(nginx, /ssl_verify_client on/); assert.match(nginx, /ssl_protocols TLSv1\.2 TLSv1\.3/); assert.match(alerts, /terminal_dex_index_healthy == 0/); assert.match(alerts, /terminal_dex_dead_letters > 0/); assert.match(alerts, /terminal_dex_distributed_quota_failures_total/);
 });
 
 test("backup and restore tooling verifies integrity and gates destructive restore", async () => {
@@ -767,6 +768,13 @@ test("API authentication and quotas fail closed", async (t) => {
   assert.equal((await fetch(endpoint, { headers: { "x-api-key": "secret" } })).status, 200);
   const limited = await fetch(endpoint, { headers: { "x-api-key": "secret" } }); assert.equal(limited.status, 429); assert.ok(limited.headers.get("retry-after"));
   await server.auditSink.flush(); const audit = (await fs.readFile(auditLogFile, "utf8")).trim().split("\n").map(JSON.parse); assert.equal(audit.length, 6); assert.ok(audit.every((row) => row.schemaVersion === 1 && row.path && Number.isFinite(row.durationMs))); assert.equal(audit.some((row) => JSON.stringify(row).includes("secret")), false); assert.equal(audit.at(-1).statusCode, 429); assert.match(audit.at(-1).identityHash, /^[0-9a-f]{64}$/);
+});
+
+test("distributed Redis quotas are atomic, identity-safe, and fail closed", async (t) => {
+  const compiled = compileRedisQuotaRequest("tenant-secret-name", 123, 60_000), wire = compiled.payload.toString(); assert.match(wire, /EVAL/); assert.match(wire, /terminal_dex:quota:123:[0-9a-f]{64}/); assert.equal(wire.includes("tenant-secret-name"), false);
+  let written; const admit = createRedisQuotaAdmitter({}, () => { const listeners = {}; const socket = { once(name, handler) { listeners[name] = handler; return socket; }, on(name, handler) { listeners[name] = handler; return socket; }, write(payload) { written = payload; queueMicrotask(() => listeners.data(Buffer.from("*2\r\n:2\r\n:45000\r\n"))); }, destroy() {} }; queueMicrotask(() => listeners.connect()); return socket; }); const admission = await admit("tenant-a", 3, 7_380_000); assert.deepEqual(admission, { count: 2, remaining: 1, retryAfterSeconds: 45, window: 123 }); assert.equal(written.includes(Buffer.from("tenant-a")), false); assert.throws(() => createRedisQuotaAdmitter({ host: "redis.example.com" }), /loopback-only/);
+  const store = new IndexStore("unused"); await store.load(); let count = 0; const server = createServer({ staleAfterMs: 120_000, apiKeys: ["secret"], rateLimitPerMinute: 2, distributedQuotaEnabled: true, quotaAdmitter: async () => ({ count: ++count, remaining: Math.max(0, 2 - count), retryAfterSeconds: 17 }) }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/stats`, headers = { "x-api-key": "secret" }; assert.equal((await fetch(endpoint, { headers })).status, 200); assert.equal((await fetch(endpoint, { headers })).status, 200); const limited = await fetch(endpoint, { headers }); assert.equal(limited.status, 429); assert.equal(limited.headers.get("retry-after"), "17");
+  const unavailable = createServer({ staleAfterMs: 120_000, apiKeys: ["secret"], rateLimitPerMinute: 2, distributedQuotaEnabled: true }, store); await new Promise((resolve) => unavailable.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => unavailable.close(resolve))); const failed = await fetch(`http://127.0.0.1:${unavailable.address().port}/api/stats`, { headers }); assert.equal(failed.status, 503); assert.equal((await failed.json()).error, "distributed_quota_unavailable");
 });
 
 test("protected API fails closed after its durable audit sink fails", async (t) => {

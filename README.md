@@ -221,6 +221,10 @@ Configuration:
 | `REDIS_PASSWORD_FILE` | unset | Protected Redis password file read into `redis-cli` subprocess environment without command-line exposure |
 | `INDEXER_REDIS_HOT_TTL_SECONDS` | `86400` | Retention for versioned Redis pool/token hot-state hashes |
 | `INDEXER_REDIS_HOT_MAX_BYTES` | `16777216` | Hard byte cap for one staged Redis hot-state/fan-out transaction |
+| `INDEXER_DISTRIBUTED_QUOTA` | `false` | Use atomic Redis fixed-window admission; configured admission failures return 503 instead of falling back locally |
+| `INDEXER_REDIS_HOST` | `127.0.0.1` | Loopback-only Redis quota endpoint |
+| `INDEXER_REDIS_PORT` | `6379` | Redis quota endpoint port |
+| `INDEXER_REDIS_QUOTA_TIMEOUT_MS` | `250` | Bounded Redis quota admission timeout |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |

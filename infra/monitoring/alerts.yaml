@@ -36,3 +36,8 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "Indexer HTTP 5xx rate exceeds the production objective" }
+      - alert: TerminalDexDistributedQuotaFailures
+        expr: increase(terminal_dex_distributed_quota_failures_total[5m]) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Redis distributed quota admission has failed closed" }
