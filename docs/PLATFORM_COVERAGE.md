@@ -18,6 +18,9 @@ official volume-account construction, the same bound mint evidence, strict quote
 expiring external-signer requests, cryptographic signature verification, and
 finalized landed-message identity checks. Indexer-side signing and submission remain
 unavailable; Token-2022, cashback and SOL buyback continue to fail closed.
+Orca legacy-SPL quotes and their read-only execution chain now require one
+complete finalized mint-evidence slot/epoch, propagate it through construction,
+and pin simulation to that later context; incomplete fresh snapshots are repaired.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|

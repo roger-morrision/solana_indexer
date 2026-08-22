@@ -669,13 +669,16 @@ evidence. `npm run snapshot:orca-pools -- <POOL_ADDRESS...>` decodes the officia
 fixed Whirlpool layout, verifies its program owner, and reads both embedded vaults
 at a finalized context no older than the pool state. Each vault is bound to its
 embedded mint, canonical SPL or Token-2022 owner, raw balance, and exact decimals;
-legacy snapshots missing those identities are automatically repaired. It discovers official fixed
+legacy snapshots missing those identities or complete finalized mint evidence are
+automatically repaired. It discovers official fixed
 and dynamic tick arrays, requires one exact tick-array context per pool, validates
 owner/discriminator/pool/start alignment and dynamic bitmap encoding, and retains
 each initialized tick's exact signed liquidity plus fee/reward growth. Mint
 mismatches, mixed order, duplicate targets, malformed layouts, and regressing or
-conflicting snapshots are rejected before canonical state changes. Tick evidence
-supports analysis but executable routing still requires audited swap math and local simulation.
+conflicting snapshots are rejected before canonical state changes. Legacy-SPL
+analysis quotes, unsigned construction, and local simulation bind the same mint
+evidence slot and epoch; simulation cannot execute against an earlier context.
+Token-2022 remains fail-closed.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into

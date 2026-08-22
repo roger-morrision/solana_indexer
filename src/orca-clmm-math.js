@@ -1,5 +1,6 @@
 import { computeStaticFeeExactInputStep } from "./clmm-math.js";
 import { ORCA_WHIRLPOOL_PROGRAM } from "./orca-pool-snapshot.js";
+import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 
 const Q64 = 1n << 64n;
 const Q96 = 1n << 96n;
@@ -52,9 +53,10 @@ export function quoteOrcaSnapshotExactInput({ snapshot, poolAddress, inputMint, 
   const ageMs = now - Date.parse(snapshot.observedAt); if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Orca snapshot evidence is stale");
   const pool = snapshot.pools?.find((row) => row.address === poolAddress); if (!pool || pool.programId !== ORCA_WHIRLPOOL_PROGRAM || pool.tickArrayCoverage !== "finalized_program_account_snapshot" || !Number.isSafeInteger(pool.tickArraySlot) || pool.tickArraySlot < snapshot.stateSlot || pool.tickArraySlot > snapshot.balanceSlot || !Array.isArray(pool.tickArrays)) throw new Error("Orca snapshot lacks complete quote evidence");
   if (pool.tokenProgram0 !== LEGACY_TOKEN_PROGRAM || pool.tokenProgram1 !== LEGACY_TOKEN_PROGRAM) throw new Error("Orca Token-2022 quoting is unsupported");
+  if (!validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("Orca quote requires complete finalized mint evidence");
   if (inputMint !== pool.tokenMint0 && inputMint !== pool.tokenMint1) throw new Error("input mint is not part of the Orca pool");
   const aToB = inputMint === pool.tokenMint0, quote = quoteOrcaStaticFeeExactInput({ sqrtPriceX64: pool.sqrtPriceX64, currentTick: pool.tick, liquidity: pool.liquidityRaw, amountIn, feeRateMillionths: pool.feeRate, aToB, limitTick, tickSpacing: pool.tickSpacing, initializedTicks: pool.tickArrays.flatMap((array) => array.initializedTicks ?? []) });
-  return { ...quote, protocol: "orca-whirlpool", pool: pool.address, inputMint, outputMint: aToB ? pool.tokenMint1 : pool.tokenMint0, aToB, limitTick, sqrtPriceLimitX64: orcaSqrtPriceX64AtTick(limitTick).toString(), commitment: "finalized", stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, tickArraySlot: pool.tickArraySlot, observedAt: snapshot.observedAt, ageMs, feeRateMillionths: String(pool.feeRate), feeMode: "from_input_static", automationSafe: false };
+  return { ...quote, protocol: "orca-whirlpool", pool: pool.address, inputMint, outputMint: aToB ? pool.tokenMint1 : pool.tokenMint0, aToB, limitTick, sqrtPriceLimitX64: orcaSqrtPriceX64AtTick(limitTick).toString(), commitment: "finalized", stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, tickArraySlot: pool.tickArraySlot, mintEvidenceSlot: pool.mintEvidenceSlot, epoch: pool.epoch, observedAt: snapshot.observedAt, ageMs, feeRateMillionths: String(pool.feeRate), feeMode: "from_input_static", automationSafe: false };
 }
 
 export const ORCA_CLMM_MATH_CONSTANTS = Object.freeze({ feeDenominator: FEE_DENOMINATOR.toString(), minTick: MIN_ORCA_TICK, maxTick: MAX_ORCA_TICK, legacyTokenProgram: LEGACY_TOKEN_PROGRAM });
