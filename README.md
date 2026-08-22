@@ -634,6 +634,13 @@ mint/amount, user and creator, fee components, real/virtual reserves, and
 mayhem-mode evidence. Reported curve reserves use `reserveTiming: "reported"`;
 they are never mislabeled as PumpSwap AMM reserves.
 
+The PumpSwap snapshot decoder additionally binds the official Anchor `Pool`
+account discriminator and 261-byte field layout, including pool index, creator,
+ordered mints/vaults, LP supply, coin creator, mayhem/cashback flags, and signed
+virtual quote reserves. Both parsed vault identities and exact balances are read
+at a finalized context no earlier than the pool state. Fee configuration and
+exact quote execution remain unsupported and therefore fail closed.
+
 ## Operational safety
 
 Yellowstone/Geyser activation is fail-closed. `npm run validate:geyser-abi --
