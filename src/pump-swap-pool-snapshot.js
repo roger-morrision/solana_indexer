@@ -8,6 +8,7 @@ import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 export const PUMP_SWAP_PROGRAM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 export const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
@@ -77,7 +78,7 @@ export function validatePumpSwapRoutePolicy(pool, direction) {
 export function quotePumpSwapSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, now = Date.now(), staleAfterMs = 60_000 }) {
   const amount = exact(amountIn, "PumpSwap amountIn", true); if (amount > MAX_U64) throw new Error("PumpSwap amountIn exceeds u64"); const pool = snapshot?.pools?.find((row) => row.address === poolAddress);
   if (snapshot?.type !== "pump_swap_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || !Number.isSafeInteger(snapshot.configSlot) || snapshot.stateSlot > snapshot.balanceSlot || snapshot.balanceSlot > snapshot.configSlot || !pool || pool.feeConfigSlot !== snapshot.configSlot) throw new Error("PumpSwap quote requires a finalized coherent snapshot");
-  const ageMs = now - Date.parse(snapshot.observedAt ?? ""); if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > staleAfterMs) throw new Error("PumpSwap snapshot is stale or future-dated");
+  const observedAt = parseCanonicalUtcTimestamp(snapshot.observedAt), ageMs = observedAt == null ? null : now - observedAt; if (ageMs == null || ageMs < 0 || ageMs > staleAfterMs) throw new Error("PumpSwap snapshot is stale or future-dated");
   if (pool.tokenProgram0 !== SPL_TOKEN_PROGRAM || pool.tokenProgram1 !== SPL_TOKEN_PROGRAM) throw new Error("PumpSwap quote does not support Token-2022 transfer-fee uncertainty");
   if (!validateBoundPoolMintEvidence(pool, snapshot.configSlot)) throw new Error("PumpSwap quote requires complete finalized mint evidence");
   const quoteToBase = inputMint === pool.tokenMint1 ? true : inputMint === pool.tokenMint0 ? false : null; if (quoteToBase == null) throw new Error("PumpSwap input mint does not belong to pool");

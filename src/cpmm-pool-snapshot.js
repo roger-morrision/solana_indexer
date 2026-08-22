@@ -9,6 +9,7 @@ import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-ex
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { calculateTransferFeeIncludedAmount } from "./token-2022-transfer-fee.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 export const RAYDIUM_CPMM_PROGRAM = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
 export const SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -70,7 +71,7 @@ function ceilFee(amount, rate) { return (amount * rate + FEE_DENOMINATOR - 1n) /
 export function quoteCpmmSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, now = Date.now(), staleAfterMs = 60_000 }) {
   const amount = exact(amountIn, "CPMM amountIn", true), pool = snapshot?.pools?.find((row) => row.address === poolAddress);
   if (snapshot?.type !== "raydium_cpmm_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.configSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.stateSlot > snapshot.configSlot || snapshot.configSlot > snapshot.balanceSlot || !pool) throw new Error("CPMM quote requires a finalized coherent snapshot");
-  const ageMs = now - Date.parse(snapshot.observedAt ?? ""); if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > staleAfterMs) throw new Error("CPMM snapshot is stale or future-dated");
+  const observedAt = parseCanonicalUtcTimestamp(snapshot.observedAt), ageMs = observedAt == null ? null : now - observedAt; if (ageMs == null || ageMs < 0 || ageMs > staleAfterMs) throw new Error("CPMM snapshot is stale or future-dated");
   if (!Number.isInteger(pool.status) || pool.status < 0 || pool.status > 255 || (pool.status & 4) !== 0 || BigInt(pool.openTime) * 1_000n > BigInt(now)) throw new Error("CPMM swaps are disabled, malformed, or not open");
   const zeroForOne = inputMint === pool.tokenMint0 ? true : inputMint === pool.tokenMint1 ? false : null; if (zeroForOne == null) throw new Error("CPMM input mint does not belong to pool");
   const token2022 = POOL_MINT_EVIDENCE_CONSTANTS.token2022Program, hasToken2022 = pool.tokenProgram0 === token2022 || pool.tokenProgram1 === token2022;
