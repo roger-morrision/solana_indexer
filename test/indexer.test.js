@@ -424,7 +424,7 @@ test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
 
 test("Prometheus endpoint exposes fail-closed SLO signals", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
-  const response = await fetch(`http://127.0.0.1:${server.address().port}/metrics`), body = await response.text(); assert.equal(response.status, 200); assert.match(response.headers.get("content-type"), /text\/plain/); assert.match(body, /terminal_dex_index_healthy 0/); assert.match(body, /terminal_dex_dead_letters 0/); assert.match(body, /terminal_dex_http_requests_total/);
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/metrics`), body = await response.text(); assert.equal(response.status, 200); assert.match(response.headers.get("content-type"), /text\/plain/); assert.match(body, /terminal_dex_index_healthy 0/); assert.match(body, /terminal_dex_dead_letters 0/); assert.match(body, /terminal_dex_warehouse_healthy 0/); assert.match(body, /terminal_dex_warehouse_lag_events NaN/); assert.match(body, /terminal_dex_http_requests_total/);
 });
 
 test("REST v1 paginates stably and rejects invalid cursors", async (t) => {

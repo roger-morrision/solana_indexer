@@ -26,6 +26,11 @@ groups:
         for: 2m
         labels: { severity: warning }
         annotations: { summary: "Solana exporter is repeatedly failing; inspect redacted durable status evidence" }
+      - alert: TerminalDexWarehouseUnhealthy
+        expr: terminal_dex_warehouse_healthy == 0 or terminal_dex_warehouse_age_seconds > 300 or terminal_dex_warehouse_lag_events > 1000
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Canonical warehouse synchronization is unavailable, stale, lagged, or outside retained replay history" }
       - alert: TerminalDexHttpErrors
         expr: rate(terminal_dex_http_requests_total{status_class="5xx"}[5m]) > 0.05
         for: 10m
