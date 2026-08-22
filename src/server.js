@@ -62,7 +62,7 @@ export function gateBotReadiness(readiness, ingestion, warehouse) { const ingest
 function dispatchRpc(payload, config, store) {
   if (!payload || payload.jsonrpc !== "2.0" || typeof payload.method !== "string" || !("id" in payload)) return rpcError(payload?.id, -32600, "Invalid Request");
   if (payload.method === "getIndexerHealth") return rpcResult(payload.id, store.health(config.staleAfterMs));
-  if (payload.method === "getIndexerStats") return rpcResult(payload.id, { ...store.stats(), chain: store.chainQuality() });
+  if (payload.method === "getIndexerStats") { const structure = store.structureQuality(); return rpcResult(payload.id, { ...store.stats(), structure, chain: structure.canonical ? store.chainQuality() : { canonical: false, conflicts: [], conflictCount: 0, invalidStateStructure: true } }); }
   if (payload.method === "getIndexedBlock") {
     const slot = Array.isArray(payload.params) ? payload.params[0] : payload.params?.slot;
     if (!Number.isSafeInteger(slot) || slot < 0) return rpcError(payload.id, -32602, "Invalid params");
@@ -98,7 +98,7 @@ function keyMatches(presented, configured) {
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
 function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots, warehouseCheckpoint, warehouseStaleAfterMs, maxWarehouseLagEvents, auditFailures = 0, webSocketStats = {}) {
-  const health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, Date.now(), maxExporterLagSlots), warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, store.state.eventSequence, store.state.events[0]?.sequence ?? store.state.eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), stats = store.stats(), lines = [
+  const health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, Date.now(), maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), stats = store.stats(), lines = [
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
@@ -195,15 +195,15 @@ export function createServer(config, store) {
       if (url.pathname === "/internal/execution-policy") return json(response, 200, EXECUTION_HANDOFF_POLICY);
       if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, auditSink.failures, server.webSocketStats); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }
-      if (url.pathname === "/api/stats") return json(response, 200, { ...store.stats(), chain: store.chainQuality() });
+      if (url.pathname === "/api/stats") { const structure = store.structureQuality(), payload = { ...store.stats(), structure, chain: structure.canonical ? store.chainQuality() : { canonical: false, conflicts: [], conflictCount: 0, invalidStateStructure: true } }; return json(response, structure.canonical ? 200 : 503, payload); }
       if (url.pathname === "/api/v1/ingestion") {
         const exporter = await readJsonFile(config.exporterStatusFile);
         const status = assessExporterStatus(exporter, config.staleAfterMs, Date.now(), config.maxExporterLagSlots), payload = { ...status, exporter, index: store.stats().ingestion };
         return json(response, status.healthy ? 200 : 503, payload);
       }
-      if (url.pathname === "/api/v1/warehouse") { const checkpoint = await readJsonFile(config.warehouseCheckpointFile), status = assessWarehouseCheckpoint(checkpoint, store.state.eventSequence, store.state.events[0]?.sequence ?? store.state.eventSequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents); return json(response, status.healthy ? 200 : 503, status); }
+      if (url.pathname === "/api/v1/warehouse") { const checkpoint = await readJsonFile(config.warehouseCheckpointFile), sequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], status = assessWarehouseCheckpoint(checkpoint, sequence, events[0]?.sequence ?? sequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents); return json(response, status.healthy ? 200 : 503, status); }
       if (url.pathname === "/internal/registry") return json(response, 200, registrySnapshot());
-      if (url.pathname === "/internal/feed/health") { const health = store.health(config.staleAfterMs); return json(response, health.healthy ? 200 : 503, { ...health, ingestion: await readJsonFile(config.exporterStatusFile), deadLetters: store.state.deadLetters.length, unresolvedDeadLetters: store.state.deadLetters.filter((row) => !row.resolved).length }); }
+      if (url.pathname === "/internal/feed/health") { const health = store.health(config.staleAfterMs); return json(response, health.healthy ? 200 : 503, { ...health, ingestion: await readJsonFile(config.exporterStatusFile) }); }
       if (url.pathname === "/internal/feed/gaps") { const recovery = store.recoveryQuality(); if (!recovery.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: recovery.reason }); const ingestion = await readJsonFile(config.exporterStatusFile); return json(response, ingestion ? 200 : 503, { available: Boolean(ingestion), durableSkippedSlots: ingestion?.durableSkippedSlots ?? [], reorgCorrections: store.state.reorgCorrections.slice(-100), checkpoint: store.state.checkpoints.inbox ?? null }); }
       if (url.pathname === "/internal/trending") { const window = trendingWindow(url); return json(response, 200, { schemaVersion: 1, window: window.label, scoreVersion: "activity-v1", tokens: store.trending(limit(url), window.seconds) }); }
       if (url.pathname === "/internal/new-pairs") { const rows = Object.entries(store.state.pools).map(([address, row]) => ({ address, ...row })).sort((a, b) => b.lastSlot - a.lastSlot).slice(0, limit(url)); return json(response, 200, { schemaVersion: 1, data: rows }); }

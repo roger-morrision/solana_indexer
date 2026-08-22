@@ -148,6 +148,12 @@ times, bounded errors, and coherent resolution state; reorg corrections bind
 their replacement hash to the currently canonical slot. Repair and reconciliation
 commands remain outside this serving gate so quarantined state can be corrected.
 
+The root compatibility-state collection shape is checked before any health,
+capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or
+warehouse-health traversal. Corrupt map/array types now produce explicit null
+counts and `indexed_state_structure_invalid` availability instead of throwing
+inside observability precisely when operators need diagnostic access.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether
