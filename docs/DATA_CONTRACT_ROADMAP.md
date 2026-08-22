@@ -73,6 +73,11 @@ events mainnet-bound, finalized snapshot sources exact, and off-chain metadata
 explicitly untrusted. Invalid retained evidence receives `resync_required` and
 policy close instead of being broadcast.
 
+The same retained-event predicate is part of index health, the
+`replayableEvents` capability and trading-bot readiness, preventing REST health,
+warehouse synchronization and WebSocket replay from disagreeing about whether
+durable event evidence is safe to consume.
+
 Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
 `solana-mainnet` identity; wrong-network and legacy generic-chain artifacts fail
 closed before restore qualification.

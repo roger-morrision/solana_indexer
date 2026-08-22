@@ -944,6 +944,13 @@ test("health rejects future canonical block timestamps", async () => {
   for (const blockTime of [String(block.blockTime), -1, 8_640_000_000_001, Number.MAX_SAFE_INTEGER]) { store.state.blocks[String(block.slot)].blockTime = blockTime; const invalid = store.health(120_000, block.blockTime * 1_000); assert.deepEqual({ healthy: invalid.healthy, status: invalid.status, reason: invalid.reason }, { healthy: false, status: "invalid_evidence", reason: "indexed_block_time_invalid" }); assert.equal(store.dataCapabilities(120_000, block.blockTime * 1_000).canonicalBlocks, false); } store.state.blocks[String(block.slot)].blockTime = block.blockTime;
 });
 
+test("health and bot capabilities reject corrupt retained event logs", async () => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString();
+  for (const mutate of [(state) => { state.eventSequence = 2; }, (state) => { state.events[0].sequence = 2; }, (state) => { state.events[0].provenance.genesisHash = "wrong"; }, (state) => { state.events[0].type = "unknown"; }]) {
+    const original = structuredClone({ events: store.state.events, eventSequence: store.state.eventSequence }); mutate(store.state); const health = store.health(120_000, block.blockTime * 1_000); assert.deepEqual({ healthy: health.healthy, status: health.status, reason: health.reason }, { healthy: false, status: "invalid_evidence", reason: "indexed_event_log_invalid" }); assert.equal(store.dataCapabilities(120_000, block.blockTime * 1_000).replayableEvents, false); store.state.events = original.events; store.state.eventSequence = original.eventSequence;
+  }
+});
+
 test("health rejects malformed persisted block identities", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString();
   for (const mutate of [(blocks) => { blocks.bad = { ...blocks[100] }; }, (blocks) => { blocks[100].slot = 101; }, (blocks) => { blocks[100].blockhash = ""; }, (blocks) => { blocks[100].parentSlot = 100; }]) { const original = structuredClone(store.state.blocks); mutate(store.state.blocks); const health = store.health(120_000, block.blockTime * 1_000); assert.deepEqual({ healthy: health.healthy, status: health.status, reason: health.reason }, { healthy: false, status: "invalid_evidence", reason: "indexed_block_identity_invalid" }); assert.equal(store.dataCapabilities(120_000, block.blockTime * 1_000).canonicalBlocks, false); store.state.blocks = original; }

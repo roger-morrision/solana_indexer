@@ -437,6 +437,7 @@ export class IndexStore {
     const finalizedBlocks = blocks.filter((block) => block.provenance?.commitment === "finalized").length;
     return {
       canonicalBlocks: canonicalBlockTimes && canonicalBlockIdentities,
+      replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
       splTransfers: this.state.transfers.length > 0,
@@ -465,14 +466,19 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  eventQuality() {
+    const events = this.state.events, eventSequence = this.state.eventSequence;
+    const canonical = Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
+    return { canonical, eventSequence, retainedEvents: Array.isArray(events) ? events.length : null, oldestSequence: Array.isArray(events) ? events[0]?.sequence ?? null : null };
+  }
   replayEvents(cursor = this.state.eventSequence) {
     const oldest = this.state.events[0]?.sequence ?? this.state.eventSequence + 1;
-    const validSequence = Number.isSafeInteger(this.state.eventSequence) && this.state.eventSequence >= 0 && this.state.events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === this.state.events[index - 1].sequence + 1)) && (this.state.events.length === 0 || this.state.events.at(-1).sequence === this.state.eventSequence);
+    const validSequence = this.eventQuality().canonical;
     return { cursor, latestCursor: this.state.eventSequence, oldestCursor: oldest - 1, evidenceInvalid: !validSequence, cursorTooOld: cursor < oldest - 1, cursorAhead: cursor > this.state.eventSequence, events: validSequence ? this.state.events.filter((event) => event.sequence > cursor) : [] };
   }
   health(staleAfterMs = 120_000, now = Date.now()) {
@@ -485,6 +491,7 @@ export class IndexStore {
     const chain = this.chainQuality();
     if (!chain.canonical) return { status: "chain_conflict", healthy: false, reason: "indexed_parent_hash_mismatch", ageMs: null, staleAfterMs, chain, ...stats };
     if (Object.values(this.state.blocks).some((block) => block.provenance?.genesisHash !== MAINNET_GENESIS_HASH)) return { status: "wrong_network", healthy: false, reason: "indexed_block_mainnet_identity_missing_or_invalid", ageMs: null, staleAfterMs, chain, ...stats };
+    const events = this.eventQuality(); if (!events.canonical) return { status: "invalid_evidence", healthy: false, reason: "indexed_event_log_invalid", ageMs: null, staleAfterMs, chain, events, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
