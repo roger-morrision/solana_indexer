@@ -164,6 +164,14 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# TYPE terminal_dex_websocket_capacity_rejections_total counter", `terminal_dex_websocket_capacity_rejections_total ${webSocketStats.capacityRejections ?? 0}`,
     "# TYPE terminal_dex_websocket_slow_consumer_evictions_total counter", `terminal_dex_websocket_slow_consumer_evictions_total ${webSocketStats.slowConsumerEvictions ?? 0}`,
     "# TYPE terminal_dex_websocket_protocol_closes_total counter", `terminal_dex_websocket_protocol_closes_total ${webSocketStats.protocolCloses ?? 0}`,
+    "# TYPE terminal_dex_websocket_acknowledgement_clients gauge", `terminal_dex_websocket_acknowledgement_clients ${webSocketStats.acknowledgementClients ?? 0}`,
+    "# TYPE terminal_dex_websocket_acknowledgement_timeouts_total counter", `terminal_dex_websocket_acknowledgement_timeouts_total ${webSocketStats.acknowledgementTimeouts ?? 0}`,
+    "# HELP terminal_dex_websocket_acknowledgement_latency_seconds Persisted event commit-to-client-acknowledgement latency.",
+    "# TYPE terminal_dex_websocket_acknowledgement_latency_seconds histogram",
+    ...HTTP_DURATION_BUCKETS_SECONDS.map((le) => `terminal_dex_websocket_acknowledgement_latency_seconds_bucket{le="${le}"} ${webSocketStats.acknowledgementLatencyBuckets?.[le] ?? 0}`),
+    `terminal_dex_websocket_acknowledgement_latency_seconds_bucket{le="+Inf"} ${webSocketStats.acknowledgementCount ?? 0}`,
+    `terminal_dex_websocket_acknowledgement_latency_seconds_sum ${(webSocketStats.acknowledgementLatencyMs ?? 0) / 1_000}`,
+    `terminal_dex_websocket_acknowledgement_latency_seconds_count ${webSocketStats.acknowledgementCount ?? 0}`,
   ]; return `${lines.join("\n")}\n`;
 }
 

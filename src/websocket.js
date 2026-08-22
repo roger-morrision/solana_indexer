@@ -16,7 +16,7 @@ function closePayloadError(payload) {
   if (!validCode) return 1002;
   return isUtf8(payload.subarray(2)) ? null : 1007;
 }
-export function createInboundFrameParser(socket, maximumBytes = 4_096, onProtocolClose = () => {}) {
+export function createInboundFrameParser(socket, maximumBytes = 4_096, onProtocolClose = () => {}, onText = () => 1003) {
   let buffered = Buffer.alloc(0), closed = false;
   const protocolError = (code = 1002) => { if (!closed) { closed = true; onProtocolClose(code); close(socket, code); } };
   return (chunk) => {
@@ -27,10 +27,11 @@ export function createInboundFrameParser(socket, maximumBytes = 4_096, onProtoco
       if (first & 0x70 || !masked) return protocolError();
       if (length === 126) { if (buffered.length < 4) return; length = buffered.readUInt16BE(2); offset = 4; }
       else if (length === 127) { if (buffered.length < 10) return; const wide = buffered.readBigUInt64BE(2); if (wide > BigInt(Number.MAX_SAFE_INTEGER)) return protocolError(1009); length = Number(wide); offset = 10; }
-      const control = opcode >= 0x8; if (length > maximumBytes) return protocolError(1009); if (control && (!fin || length > 125) || ![0x8, 0x9, 0xa].includes(opcode)) return protocolError(control ? 1002 : 1003);
+      const control = opcode >= 0x8; if (length > maximumBytes) return protocolError(1009); if (control && (!fin || length > 125) || ![0x1, 0x8, 0x9, 0xa].includes(opcode) || opcode === 0x1 && !fin) return protocolError(control ? 1002 : 1003);
       if (buffered.length < offset + 4 + length) return;
       const mask = buffered.subarray(offset, offset + 4), payload = Buffer.from(buffered.subarray(offset + 4, offset + 4 + length)); for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4]; buffered = buffered.subarray(offset + 4 + length);
-      if (opcode === 0x8) { const errorCode = closePayloadError(payload); if (errorCode) return protocolError(errorCode); closed = true; socket.end(frame(0x8, payload)); }
+      if (opcode === 0x1) { if (!isUtf8(payload)) return protocolError(1007); const errorCode = onText(payload.toString()); if (errorCode) return protocolError(errorCode); }
+      else if (opcode === 0x8) { const errorCode = closePayloadError(payload); if (errorCode) return protocolError(errorCode); closed = true; socket.end(frame(0x8, payload)); }
       else if (opcode === 0x9) socket.write(frame(0x0a, payload));
     }
   };
@@ -43,8 +44,9 @@ function send(socket, value, maximumBufferedBytes, onEviction = () => {}) {
 }
 function subscription(url) {
   const topic = url.searchParams.get("topic") ?? "blocks";
-  if (!new Set(["blocks", "swaps", "lifecycle", "snapshots"]).has(topic)) return null;
-  return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol"), eventType: url.searchParams.get("eventType") };
+  const acknowledgements = url.searchParams.get("ack") ?? "0";
+  if (!new Set(["blocks", "swaps", "lifecycle", "snapshots"]).has(topic) || !["0", "1"].includes(acknowledgements)) return null;
+  return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol"), eventType: url.searchParams.get("eventType"), acknowledgements: acknowledgements === "1" };
 }
 export function validWebSocketHandshake(request) {
   const key = request.headers?.["sec-websocket-key"], connection = String(request.headers?.connection ?? "").split(",").map((value) => value.trim().toLowerCase());
@@ -74,9 +76,11 @@ export function projectWebSocketEvent(event, filter) {
 }
 
 export function attachWebSocket(server, store, config, authorize = () => true) {
-  const clients = new Map(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576; const maximumClients = config.webSocketMaxClients ?? 1_000;
-  const stats = { capacityRejections: 0, slowConsumerEvictions: 0, protocolCloses: 0 }; Object.defineProperty(stats, "activeClients", { enumerable: true, get: () => clients.size }); server.webSocketStats = stats; const evicted = () => stats.slowConsumerEvictions++;
-  const unsubscribe = store.subscribe((event) => { for (const [socket, filter] of clients) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes, evicted)) clients.delete(socket); } });
+  const clients = new Map(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576; const maximumClients = config.webSocketMaxClients ?? 1_000; const maximumOutstandingAcks = config.webSocketMaxOutstandingAcks ?? 1_024; const acknowledgementTimeoutMs = config.webSocketAcknowledgementTimeoutMs ?? 10_000; const latencyBuckets = [0.05, 0.1, 0.25, 0.5, 1, 2, 5];
+  const stats = { capacityRejections: 0, slowConsumerEvictions: 0, protocolCloses: 0, acknowledgementTimeouts: 0, acknowledgementCount: 0, acknowledgementLatencyMs: 0, acknowledgementLatencyBuckets: Object.fromEntries(latencyBuckets.map((le) => [le, 0])) }; Object.defineProperty(stats, "activeClients", { enumerable: true, get: () => clients.size }); Object.defineProperty(stats, "acknowledgementClients", { enumerable: true, get: () => [...clients.values()].filter((client) => client.acknowledgements).length }); server.webSocketStats = stats; const evicted = () => stats.slowConsumerEvictions++;
+  const deliver = (socket, client, value) => { if (client.acknowledgements && Number.isSafeInteger(value.sequence) && client.outstanding.size >= maximumOutstandingAcks) { evicted(); socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); clients.delete(socket); return false; } if (!send(socket, value, maximumBufferedBytes, evicted)) { clients.delete(socket); return false; } if (client.acknowledgements && Number.isSafeInteger(value.sequence)) client.outstanding.set(value.sequence, Date.now()); return true; };
+  const acknowledge = (client, text) => { let value; try { value = JSON.parse(text); } catch { return 1008; } if (!client.acknowledgements || value?.schemaVersion !== 1 || value.type !== "ack" || !Number.isSafeInteger(value.sequence) || value.sequence <= client.lastAcknowledged || !client.outstanding.has(value.sequence) || Object.keys(value).sort().join(",") !== "schemaVersion,sequence,type") return 1008; const now = Date.now(); for (const [sequence, sentAt] of client.outstanding) { if (sequence > value.sequence) break; const seconds = Math.max(0, now - sentAt) / 1_000; stats.acknowledgementCount++; stats.acknowledgementLatencyMs += seconds * 1_000; for (const le of latencyBuckets) if (seconds <= le) stats.acknowledgementLatencyBuckets[le]++; client.outstanding.delete(sequence); } client.lastAcknowledged = value.sequence; return null; };
+  const unsubscribe = store.subscribe((event) => { for (const [socket, client] of clients) { const value = projectWebSocketEvent(event, client.filter); if (value) deliver(socket, client, value); } });
   server.on("upgrade", (request, socket) => {
     const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
     if (url.pathname !== "/ws") return reject(socket, "404 Not Found", "not_found");
@@ -91,15 +95,16 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     const accept = crypto.createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
     const protocols = String(request.headers["sec-websocket-protocol"] ?? "").split(",").map((value) => value.trim());
     const selectedProtocol = protocols.includes("indexer.v1") ? "Sec-WebSocket-Protocol: indexer.v1\r\n" : "";
-    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}\r\n`); clients.set(socket, filter);
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}\r\n`); const client = { filter, acknowledgements: filter.acknowledgements, outstanding: new Map(), lastAcknowledged: cursor }; clients.set(socket, client);
     const replay = store.replayEvents(cursor);
     if (replay.evidenceInvalid || replay.cursorTooOld || replay.cursorAhead) { const delivered = send(socket, { type: "resync_required", reason: replay.evidenceInvalid ? "retained_event_evidence_invalid" : replay.cursorTooOld ? "cursor_before_retained_history" : "cursor_ahead_of_server", requestedCursor: cursor, oldestCursor: replay.oldestCursor, latestCursor: replay.latestCursor }, maximumBufferedBytes, evicted); clients.delete(socket); if (delivered) socket.end(frame(0x8, Buffer.from([0x03, 0xf0]))); }
-    else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes, evicted)) clients.delete(socket);
-    else for (const event of replay.events) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes, evicted)) { clients.delete(socket); break; } }
-    socket.on("data", createInboundFrameParser(socket, config.webSocketMaxInboundBytes ?? 4_096, () => stats.protocolCloses++));
+    else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter, acknowledgement: filter.acknowledgements ? { schemaVersion: 1, type: "ack", cumulative: true, timeoutMs: acknowledgementTimeoutMs, maximumOutstanding: maximumOutstandingAcks } : null }, maximumBufferedBytes, evicted)) clients.delete(socket);
+    else for (const event of replay.events) { const value = projectWebSocketEvent(event, filter); if (value && !deliver(socket, client, value)) break; }
+    socket.on("data", createInboundFrameParser(socket, config.webSocketMaxInboundBytes ?? 4_096, () => stats.protocolCloses++, (text) => acknowledge(client, text)));
     socket.on("close", () => clients.delete(socket)); socket.on("error", () => clients.delete(socket));
   });
   const timer = setInterval(() => { for (const socket of clients.keys()) { if (socket.destroyed || socket.writableLength > maximumBufferedBytes) { if (!socket.destroyed) stats.slowConsumerEvictions++; socket.destroy(); clients.delete(socket); } else socket.write(frame(0x9)); } }, heartbeatMs); timer.unref();
-  let stopped = false; const closeClients = () => { if (stopped) return; stopped = true; clearInterval(timer); unsubscribe(); const payload = Buffer.alloc(2); payload.writeUInt16BE(1001); for (const socket of clients.keys()) { if (!socket.destroyed) { socket.end(frame(0x8, payload)); socket.destroySoon?.(); } } clients.clear(); }; server.closeWebSocketClients = closeClients; server.on("close", closeClients);
+  const acknowledgementTimer = setInterval(() => { const now = Date.now(); for (const [socket, client] of clients) { const oldest = client.outstanding.values().next().value; if (oldest != null && now - oldest > acknowledgementTimeoutMs) { stats.acknowledgementTimeouts++; evicted(); socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); clients.delete(socket); } } }, Math.min(1_000, acknowledgementTimeoutMs)); acknowledgementTimer.unref();
+  let stopped = false; const closeClients = () => { if (stopped) return; stopped = true; clearInterval(timer); clearInterval(acknowledgementTimer); unsubscribe(); const payload = Buffer.alloc(2); payload.writeUInt16BE(1001); for (const socket of clients.keys()) { if (!socket.destroyed) { socket.end(frame(0x8, payload)); socket.destroySoon?.(); } } clients.clear(); }; server.closeWebSocketClients = closeClients; server.on("close", closeClients);
   return server;
 }

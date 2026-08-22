@@ -91,3 +91,13 @@ groups:
         for: 5m
         labels: { severity: warning }
         annotations: { summary: "WebSocket protocol-error closes exceed the abuse or incompatibility threshold" }
+      - alert: TerminalDexWebSocketDeliveryLatency
+        expr: histogram_quantile(0.99, sum by (le) (rate(terminal_dex_websocket_acknowledgement_latency_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Persisted WebSocket event commit-to-client-acknowledgement p99 exceeds two seconds" }
+      - alert: TerminalDexWebSocketAcknowledgementTimeouts
+        expr: increase(terminal_dex_websocket_acknowledgement_timeouts_total[5m]) > 0
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "Acknowledgement-enabled WebSocket clients are timing out before delivery confirmation" }

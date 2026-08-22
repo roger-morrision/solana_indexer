@@ -1750,7 +1750,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25); assert.equal(config.maxExporterLagSlots, 512);
   assert.equal(config.auditLogFile, path.resolve(process.cwd(), "data/audit.jsonl"));
   assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
-  assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25" }, process.cwd()).webSocketMaxClients, 25);
+  assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25", INDEXER_WS_MAX_OUTSTANDING_ACKS: "50", INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketMaxClients, 25); assert.deepEqual({ outstanding: loadConfig({ INDEXER_WS_MAX_OUTSTANDING_ACKS: "50" }, process.cwd()).webSocketMaxOutstandingAcks, timeout: loadConfig({ INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketAcknowledgementTimeoutMs }, { outstanding: 50, timeout: 5_000 });
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
 });
@@ -2065,6 +2065,25 @@ test("WebSocket replays only persisted ordered events and resumes by cursor", as
   store.apply({ ...block, slot: 101, blockhash: "block-101", previousBlockhash: "block-100", parentSlot: 100, transactions: [], transfers: [] });
   await new Promise((resolve) => setTimeout(resolve, 10)); assert.equal(messages.length, 2);
   await store.save(); while (messages.length < 3) await new Promise((resolve) => setTimeout(resolve, 5)); assert.equal(messages[2].sequence, 2); socket.close();
+});
+
+test("WebSocket acknowledgements measure persisted delivery and reject invalid sequence", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-websocket-ack-")); const store = new IndexStore(path.join(root, "index.json")); await store.load();
+  store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")))); await store.save();
+  const server = createServer({ staleAfterMs: 120_000, webSocketHeartbeatMs: 60_000, webSocketAcknowledgementTimeoutMs: 2_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`, socket = new WebSocket(`${base.replace("http", "ws")}/ws?cursor=0&ack=1`), messages = [];
+  socket.onmessage = ({ data }) => messages.push(JSON.parse(data)); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); while (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.deepEqual(messages[0].acknowledgement, { schemaVersion: 1, type: "ack", cumulative: true, timeoutMs: 2_000, maximumOutstanding: 1_024 }); socket.send(JSON.stringify({ schemaVersion: 1, type: "ack", sequence: 1 }));
+  let metrics; for (let attempt = 0; attempt < 20; attempt++) { metrics = await (await fetch(`${base}/metrics`)).text(); if (/terminal_dex_websocket_acknowledgement_latency_seconds_count 1/.test(metrics)) break; await new Promise((resolve) => setTimeout(resolve, 5)); }
+  assert.match(metrics, /terminal_dex_websocket_acknowledgement_clients 1/); assert.match(metrics, /terminal_dex_websocket_acknowledgement_latency_seconds_count 1/); assert.match(metrics, /terminal_dex_websocket_acknowledgement_latency_seconds_bucket\{le="2"\} 1/);
+  const closed = new Promise((resolve) => { socket.onclose = resolve; }); socket.send(JSON.stringify({ schemaVersion: 1, type: "ack", sequence: 1 })); assert.equal((await closed).code, 1008);
+});
+
+test("WebSocket evicts acknowledgement clients that do not confirm delivery", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))));
+  const server = createServer({ webSocketHeartbeatMs: 60_000, webSocketAcknowledgementTimeoutMs: 20 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`, socket = new WebSocket(`${base.replace("http", "ws")}/ws?cursor=0&ack=1`); const closed = new Promise((resolve, reject) => { socket.onclose = resolve; socket.onerror = reject; });
+  assert.equal((await closed).code, 1013); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_websocket_acknowledgement_timeouts_total 1/);
 });
 
 test("WebSocket terminates expired and future resume cursors with explicit resync", async (t) => {

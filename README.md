@@ -264,6 +264,8 @@ Configuration:
 | `INDEXER_BACKUP_STATUS_FILE` | `data/backup-status.json` | Content-bound evidence installed only after a complete self-hosted backup upload |
 | `INDEXER_BACKUP_MAXIMUM_AGE_SECONDS` | `86400` | Maximum completed-backup age before the RPO health contract fails |
 | `INDEXER_RECOVERY_REPORT_FILE` | `data/recovery-report.json` | Latest exclusively created isolated recovery qualification selected for monitoring |
+| `INDEXER_WS_MAX_OUTSTANDING_ACKS` | `1024` | Maximum unacknowledged persisted events for an `ack=1` WebSocket client |
+| `INDEXER_WS_ACK_TIMEOUT_MS` | `10000` | Maximum time an `ack=1` client may leave the oldest persisted event unacknowledged |
 | `INDEXER_RECOVERY_MAXIMUM_AGE_SECONDS` | `7776000` | Maximum qualification age (90 days) before the quarterly rehearsal contract fails |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
@@ -600,10 +602,20 @@ across TCP boundaries, must be masked and protocol-valid, and are bounded by
 malformed or oversized frames close with standard 1003, 1002, or 1009 codes.
 Close frames require an allowed status code and a valid UTF-8 reason; invalid
 codes or text terminate with 1002 or 1007 instead of being echoed.
+Clients that need measured delivery guarantees opt in with `ack=1`. The `ready`
+frame then advertises the versioned cumulative acknowledgement contract. After
+durably processing an event, the client sends exactly
+`{"schemaVersion":1,"type":"ack","sequence":<event sequence>}`. A cumulative
+acknowledgement confirms every outstanding event through that sequence; unknown,
+duplicate, reordered, or malformed acknowledgements close with code 1008. The
+server bounds outstanding events and evicts a client with 1013 when the configured
+count or acknowledgement timeout is exceeded. Existing clients default to
+`ack=0` and do not participate in delivery-latency measurement.
 `INDEXER_WS_MAX_CLIENTS` bounds admitted sockets globally (default 1000);
 additional authenticated upgrades receive `503 websocket_capacity_exceeded`
 until an existing socket closes. `/metrics` reports active clients, capacity
-rejections, slow-consumer evictions, and protocol closes without client keys.
+rejections, slow-consumer evictions, protocol closes, acknowledgement timeouts,
+and a route-free commit-to-acknowledgement latency histogram without client keys.
 Baseline alerts page on durable audit failure, report sustained capacity or
 backpressure rejection, and flag protocol-error floods without client labels.
 HTTP duration for `GET /api/` and `GET /internal/` uses fixed route-free

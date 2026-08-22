@@ -13,7 +13,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
 | Private block stream connection | connected during normal operation | readiness fails immediately on a durable disconnect transition; rotate nodes and repair gaps over verified RPC |
 | REST read latency | p99 <=500 ms monthly | route-free fixed-bucket histogram alerts after a sustained five-minute-window breach; shed expensive requests |
-| WebSocket persisted-event delivery | p99 <=2 seconds after index commit | reconnect and resume from cursor |
+| WebSocket persisted-event delivery | acknowledgement-enabled client p99 <=2 seconds after durable index commit | alert on the fixed-bucket commit-to-ack histogram; reconnect and resume from cursor |
 | WebSocket admission/backpressure | no capacity rejection or slow-consumer eviction during normal operation | alert on any sustained five-minute increase; scale or isolate slow consumers |
 | WebSocket protocol errors | <=100 closes per five minutes | alert on sustained abuse or client incompatibility while preserving bounded parser limits |
 | Durable API audit | zero write failures | protected routes fail closed immediately and page operators |
@@ -56,6 +56,11 @@ Audit-sink failure, WebSocket capacity rejection and slow-consumer counters aler
 on any sustained five-minute increase. Protocol-error closes use a bounded
 five-minute threshold so malformed-client floods are visible without embedding
 client identity or frame contents in monitoring.
+WebSocket delivery latency is measured only for clients that opt into the
+versioned cumulative `ack=1` contract. It starts after durable event persistence
+and ends when the server receives the corresponding application acknowledgement;
+enqueue time is never substituted for delivery. Outstanding acknowledgements are
+bounded by count and time, with timeouts separately alerted and no client labels.
 GET latency for `/api/` and `/internal/` reads is exported as a fixed route-free
 Prometheus histogram, allowing the 500 ms p99 objective to be evaluated without
 mixing metrics/static traffic or write preparation into the read SLO and without
@@ -70,8 +75,9 @@ Backup health is derived only from the completion status installed after every
 artifact and its content-bound receipt reach self-hosted storage. Missing,
 malformed, future-dated, or older-than-24-hour evidence sets the RPO gauge to
 unhealthy and triggers the launch-blocking alert.
-It includes active WebSocket clients plus cumulative capacity rejections,
-slow-consumer evictions, and protocol-error closes so saturation and abusive
+It includes active and acknowledgement-enabled WebSocket clients plus cumulative
+capacity rejections, slow-consumer evictions, protocol-error closes,
+acknowledgement timeouts, and the delivery histogram so saturation and abusive
 or incompatible clients are observable without logging credentials.
 Shutdown closes upgraded sockets before waiting for the HTTP server drain, then
 flushes durable audit work; long-lived subscribers therefore cannot defeat the
