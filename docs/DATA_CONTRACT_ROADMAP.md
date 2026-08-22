@@ -158,6 +158,10 @@ attempt count, policy version, and next eligible UTC instant. Read failures use 
 short bounded backoff, decoder failures use a longer bounded backoff, and state or
 snapshot application failures use an intermediate schedule. Changed bytes or a
 new decoder identity bypass the old schedule immediately; restart preserves it.
+Credential-free API and Prometheus projections expose only due/deferred/legacy
+counts, the next delay, and five bounded stage labels. No file identity, hash,
+error, or source payload crosses that telemetry boundary; a ten-minute due-work
+alert detects a stopped or wedged index loop.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or

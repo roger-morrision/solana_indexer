@@ -101,7 +101,7 @@ function keyMatches(presented, configured) {
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
 function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots, warehouseCheckpoint, warehouseStaleAfterMs, maxWarehouseLagEvents, backup, backupMaximumAgeMs, recovery, recoveryMaximumAgeMs, auditFailures = 0, webSocketStats = {}) {
-  const structure = store.structureQuality(), now = Date.now(), health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, now, maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), backupStatus = assessBackupStatus(backup, backupMaximumAgeMs, now), recoveryStatus = assessRecoveryQualification(recovery, recoveryMaximumAgeMs, now), stats = store.stats(), lines = [
+  const structure = store.structureQuality(), now = Date.now(), health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, now, maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), backupStatus = assessBackupStatus(backup, backupMaximumAgeMs, now), recoveryStatus = assessRecoveryQualification(recovery, recoveryMaximumAgeMs, now), stats = store.stats(now), retry = stats.deadLetterRetry, lines = [
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
@@ -140,6 +140,15 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# TYPE terminal_dex_recovery_qualification_age_seconds gauge", `terminal_dex_recovery_qualification_age_seconds ${recoveryStatus.ageMs == null ? "NaN" : recoveryStatus.ageMs / 1000}`,
     "# TYPE terminal_dex_index_tip_slot gauge", `terminal_dex_index_tip_slot ${stats.tip ?? "NaN"}`,
     "# TYPE terminal_dex_dead_letters gauge", `terminal_dex_dead_letters ${stats.unresolvedDeadLetters}`,
+    "# HELP terminal_dex_dead_letter_retries Number of unresolved dead letters by retry eligibility.",
+    "# TYPE terminal_dex_dead_letter_retries gauge",
+    `terminal_dex_dead_letter_retries{state="due"} ${retry.due ?? "NaN"}`,
+    `terminal_dex_dead_letter_retries{state="deferred"} ${retry.deferred ?? "NaN"}`,
+    `terminal_dex_dead_letter_retries{state="legacy"} ${retry.legacy ?? "NaN"}`,
+    "# HELP terminal_dex_dead_letter_retries_by_stage Scheduled unresolved dead letters by bounded failure stage.",
+    "# TYPE terminal_dex_dead_letter_retries_by_stage gauge",
+    ...Object.entries(retry.stages ?? {}).map(([stage, count]) => `terminal_dex_dead_letter_retries_by_stage{stage="${stage}"} ${count ?? "NaN"}`),
+    "# TYPE terminal_dex_dead_letter_next_retry_seconds gauge", `terminal_dex_dead_letter_next_retry_seconds ${retry.nextRetryInMs == null ? "NaN" : retry.nextRetryInMs / 1000}`,
     "# TYPE terminal_dex_reorg_corrections_total counter", `terminal_dex_reorg_corrections_total ${stats.reorgCorrections}`,
     "# TYPE terminal_dex_indexed_swaps gauge", `terminal_dex_indexed_swaps ${stats.swaps}`,
     "# TYPE terminal_dex_api_audit_failures_total counter", `terminal_dex_api_audit_failures_total ${auditFailures}`,

@@ -21,6 +21,11 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "Indexer has unresolved dead-letter evidence" }
+      - alert: TerminalDexDeadLetterRetriesDue
+        expr: terminal_dex_dead_letter_retries{state="due"} > 0 or terminal_dex_dead_letter_retries{state="legacy"} > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Due or legacy dead-letter work is not being consumed by the index loop" }
       - alert: TerminalDexExporterStale
         expr: terminal_dex_exporter_healthy == 0 or terminal_dex_exporter_age_seconds > 120
         for: 5m

@@ -36,6 +36,9 @@ blocks, and control characters never enter durable state or warehouse facts.
 Exact-fingerprint failures use persisted exponential retry windows by failure
 stage. Parser/registry/state upgrades and changed source bytes retry immediately,
 while process restarts cannot reset or hot-loop an unchanged failure schedule.
+Stats and Prometheus expose only aggregate due, deferred, legacy, next-delay, and
+bounded-stage counts. They never expose filenames, fingerprints, errors, or
+payload contents; due or legacy work remaining for ten minutes alerts operators.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of
