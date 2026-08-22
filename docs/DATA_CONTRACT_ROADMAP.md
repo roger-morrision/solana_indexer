@@ -81,6 +81,9 @@ parent-directory metadata is synchronized on production filesystems.
 Finalized account/pool/oracle/metadata snapshots, backup preflight evidence,
 inbox manifests and archive receipts, verified compressed inbox archives, and
 confirmed audit-retention replacements use that same durability boundary.
+Append-only API audit records preserve submission order and synchronize each
+record, while recovery qualification reports preserve exclusive creation and
+are synchronized before their consumer-enablement evidence is returned.
 Versioned Redis hot-state stats carry the same chain and genesis identity, and
 content reconciliation rejects missing or mismatched cache identity.
 ClickHouse sequence, fact-count, and identity-digest probes are explicitly

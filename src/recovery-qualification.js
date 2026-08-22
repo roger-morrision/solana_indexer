@@ -9,6 +9,7 @@ import { loadConfig } from "./config.js";
 import { exporterHealthCheck } from "./exporter-health.js";
 import { IndexStore } from "./store.js";
 import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
+import { durableExclusiveWrite } from "./durable-file.js";
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const BACKUP_INVARIANTS = ["completeInventory", "checksums", "manifestEvidence", "writersQuiesced", "inboxIdentity", "rpo", "safeTar", "canonicalStatePresent", "mainnetIdentity"];
@@ -27,7 +28,7 @@ export function compileRecoveryQualification({ backup, indexHealth, warehouse, e
 }
 
 async function readJson(filename) { return JSON.parse(await fs.readFile(filename, "utf8")); }
-export async function writeRecoveryReport(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const handle = await fs.open(filename, "wx", 0o600); try { await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`); } finally { await handle.close(); } }
+export async function writeRecoveryReport(filename, value) { await durableExclusiveWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 
 export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig() } = {}) {
   if (!path.isAbsolute(reportFile)) throw new Error("recovery report path must be absolute");

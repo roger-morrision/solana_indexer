@@ -289,6 +289,10 @@ Every snapshot artifact uses the shared crash-durable publication boundary
 before the serialized indexer can observe it. Backup preflight evidence, inbox
 manifests/archive receipts, verified compressed inbox copies, and confirmed
 audit-retention replacements use the same boundary.
+Append-only commercial audit records are serialized and synchronized before
+their write is acknowledged internally, while recovery qualification reports
+retain exclusive-create semantics and synchronize both contents and directory
+metadata before they can authorize consumer activation.
 Imported pool and curve rows preserve every component slot and also expose an
 `evidenceSlot` equal to the newest dependency context. Replacement requires
 component-wise monotonic slots and snapshot WebSocket events use the effective
