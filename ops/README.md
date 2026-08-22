@@ -14,7 +14,10 @@ installed under `data/`; inbox retention requires this receipt and the matching
 parser checkpoint before any old raw file can be deleted.
 
 `fetch-backup.sh <UTC-stamp>` downloads a known archive from that same loopback
-filer and verifies its manifest before it can be passed to `restore.sh`. It does
+filer and verifies its checksum inventory and version-2 manifest before it can
+be passed to `restore.sh`. The manifest binds the backup identity, quiesced-writer
+assertion, exact byte length and SHA-256 of every cross-store artifact, and the
+inbox manifest archive identity. It does
 not enumerate remote paths or accept arbitrary URLs.
 
 `restore.sh` verifies every checksum and refuses to run without

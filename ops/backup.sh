@@ -15,9 +15,8 @@ docker compose -f "$compose" exec -T redis sh -c 'redis-cli -a "$(cat /run/secre
 docker compose -f "$compose" cp redis:/data/dump.rdb "$target/redis.rdb" >/dev/null
 tar --create --file "$target/indexer-state.tar" --ignore-failed-read data/index.json data/exporter-status.json data/account-snapshot.json inbox
 node src/archive-receipt.js manifest inbox "$target/inbox-manifest.json" "$stamp"
-(cd "$target" && sha256sum postgres.dump clickhouse-*.native redis.rdb indexer-state.tar inbox-manifest.json > SHA256SUMS)
-printf '{"schemaVersion":1,"createdAt":"%s","chain":"solana","scope":"postgres-clickhouse-redis-indexer-state"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$target/manifest.json"
-(cd "$target" && sha256sum manifest.json >> SHA256SUMS)
+node src/backup-preflight.js --create "$target" "$stamp"
+(cd "$target" && sha256sum postgres.dump clickhouse-*.native redis.rdb indexer-state.tar inbox-manifest.json manifest.json > SHA256SUMS)
 node src/backup-preflight.js "$target"
 archive_url="${SELF_HOSTED_ARCHIVE_URL:-http://127.0.0.1:8888/terminal-dex-backups}"
 [[ "$archive_url" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/ ]] || { echo "SELF_HOSTED_ARCHIVE_URL must be loopback HTTP" >&2; exit 1; }
