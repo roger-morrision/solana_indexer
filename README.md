@@ -511,6 +511,9 @@ and quarterly age without exposing sink credentials or report contents.
 Malformed operational evidence never takes `/metrics` down or echoes its source
 bytes: exporter, warehouse, backup, recovery, feed-health and gap contracts all
 return redacted unhealthy evidence until an atomic valid replacement appears.
+Dead-letter exception text is likewise normalized and capped before persistence;
+provider URLs, credentials, token-shaped values, and private keys are never part
+of the durable dead-letter or warehouse contract.
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is

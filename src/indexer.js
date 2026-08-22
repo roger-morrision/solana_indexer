@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parseBlock, parseInput } from "./parser.js";
+import { redactDiagnostic } from "./diagnostic-redaction.js";
 
 function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 
@@ -9,9 +10,9 @@ export async function applySnapshotArtifacts(config, store) {
   store.assertWritable();
   const descriptors = [{ type: "account", filename: config.accountSnapshotFile, apply: (value) => store.applyAccountSnapshot(value) }, { type: "cpmm_pool", filename: config.cpmmPoolSnapshotFile, apply: (value) => store.applyCpmmPoolSnapshot(value) }, { type: "pump_swap_pool", filename: config.pumpSwapPoolSnapshotFile, apply: (value) => store.applyPumpSwapPoolSnapshot(value) }, { type: "pump_bonding_curve", filename: config.pumpBondingCurveSnapshotFile, apply: (value) => store.applyPumpBondingCurveSnapshot(value) }, { type: "clmm_pool", filename: config.clmmPoolSnapshotFile, apply: (value) => store.applyPoolSnapshot(value) }, { type: "orca_pool", filename: config.orcaPoolSnapshotFile, apply: (value) => store.applyOrcaPoolSnapshot(value) }, { type: "meteora_dlmm_pool", filename: config.meteoraDlmmPoolSnapshotFile, apply: (value) => store.applyMeteoraDlmmPoolSnapshot(value) }, { type: "offchain_metadata", filename: config.offchainMetadataSnapshotFile, apply: (value) => store.applyOffchainMetadataSnapshot(value) }], result = { applied: 0, skipped: 0, errors: [] }; store.state.checkpoints.snapshotArtifacts ??= {};
   for (const descriptor of descriptors) {
-    if (!descriptor.filename) continue; let content; try { content = await fs.readFile(descriptor.filename); } catch (error) { if (error.code === "ENOENT") { result.skipped++; continue; } result.errors.push({ type: descriptor.type, error: error.message }); continue; } const hash = fingerprint(content); if (store.state.checkpoints.snapshotArtifacts[descriptor.type]?.fingerprint === hash) { result.skipped++; continue; } const before = structuredClone(store.state);
+    if (!descriptor.filename) continue; let content; try { content = await fs.readFile(descriptor.filename); } catch (error) { if (error.code === "ENOENT") { result.skipped++; continue; } result.errors.push({ type: descriptor.type, error: redactDiagnostic(error, "snapshot read failure") }); continue; } const hash = fingerprint(content); if (store.state.checkpoints.snapshotArtifacts[descriptor.type]?.fingerprint === hash) { result.skipped++; continue; } const before = structuredClone(store.state);
     try { const value = JSON.parse(content.toString("utf8")); descriptor.apply(value); store.state.checkpoints.snapshotArtifacts[descriptor.type] = { fingerprint: hash, observedAt: value.observedAt, sourceSlot: value.slot ?? value.balanceSlot ?? value.stateSlot, appliedAt: new Date().toISOString() }; result.applied++; }
-    catch (error) { store.state = before; store.recordDeadLetter(`snapshot:${descriptor.type}`, hash, error.message); result.errors.push({ type: descriptor.type, error: error.message }); }
+    catch (error) { store.state = before; const safeError = store.recordDeadLetter(`snapshot:${descriptor.type}`, hash, error); result.errors.push({ type: descriptor.type, error: safeError }); }
   }
   return result;
 }
@@ -43,7 +44,7 @@ export async function indexInbox(config, store) {
       }
       for (const key of Object.keys(fileResult)) result[key] += fileResult[key];
       result.resolvedDeadLetters += store.markFile(name, hash); result.files++;
-    } catch (error) { store.recordDeadLetter(name, hash, error.message); result.errors.push({ file: name, error: error.message }); }
+    } catch (error) { const safeError = store.recordDeadLetter(name, hash, error); result.errors.push({ file: name, error: safeError }); }
   }
   const snapshots = await applySnapshotArtifacts(config, store); result.snapshots = snapshots.applied; result.errors.push(...snapshots.errors.map((row) => ({ file: `snapshot:${row.type}`, error: row.error })));
   if (result.files || result.blocks || result.snapshots || result.resolvedDeadLetters || result.errors.length) await store.save();
@@ -52,7 +53,7 @@ export async function indexInbox(config, store) {
 
 export function watchInbox(config, store, onCycle = () => {}) {
   let stopped = false, running = false;
-  let timer; const cycle = async () => { if (running || stopped) return; running = true; try { onCycle(await indexInbox(config, store)); } catch (error) { if (error.code === "INDEX_STATE_QUARANTINED") { stopped = true; if (timer) clearInterval(timer); onCycle({ suspended: true, reason: error.reason, errors: [{ code: error.code, error: error.message }] }); } else onCycle({ errors: [{ error: error.message }] }); } finally { running = false; } };
+  let timer; const cycle = async () => { if (running || stopped) return; running = true; try { onCycle(await indexInbox(config, store)); } catch (error) { const safeError = redactDiagnostic(error, "index cycle failure"); if (error.code === "INDEX_STATE_QUARANTINED") { stopped = true; if (timer) clearInterval(timer); onCycle({ suspended: true, reason: error.reason, errors: [{ code: error.code, error: safeError }] }); } else onCycle({ errors: [{ error: safeError }] }); } finally { running = false; } };
   void cycle(); timer = setInterval(cycle, config.pollMs);
   return () => { stopped = true; clearInterval(timer); };
 }

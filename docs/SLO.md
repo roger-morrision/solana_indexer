@@ -30,6 +30,9 @@ Malformed JSON in exporter, warehouse, backup, or recovery evidence is converted
 to a redacted invalid-evidence state. `/metrics` remains available with zero
 health gauges, while every dependent API, gap feed, and bot gate fails closed;
 the malformed bytes are never reflected in a response.
+Ingestion and snapshot dead-letter errors are restricted to 512-byte redacted
+diagnostics. URLs, authentication tokens, secret assignments, JWTs, private-key
+blocks, and control characters never enter durable state or warehouse facts.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of

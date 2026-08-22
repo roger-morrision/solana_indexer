@@ -61,6 +61,7 @@ import { calculateTransferFeeForNetAmount, calculateTransferFeeIncludedAmount, n
 import { durableAppendFile, durableAtomicWrite } from "../src/durable-file.js";
 import { shutdownIndexer } from "../src/graceful-shutdown.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, deriveTransferHookValidationAccount, POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "../src/pool-mint-evidence.js";
+import { redactDiagnostic } from "../src/diagnostic-redaction.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 
@@ -912,6 +913,13 @@ test("successful exact-fingerprint checkpoints resolve stale dead letters and la
   const seed = new IndexStore(dataFile); await seed.load(); seed.state.processedFiles["100.json"] = { fingerprint, parserVersion: 2 }; seed.recordDeadLetter("100.json", fingerprint, "old parser rejected input"); await seed.save();
   const store = new IndexStore(dataFile); const result = await indexInbox({ inbox, dataFile, maxTransactions: 1000 }, store); assert.equal(result.skippedFiles, 1); assert.equal(result.resolvedDeadLetters, 1); assert.equal(store.state.deadLetters[0].resolved, true); assert.equal(store.state.deadLetters[0].resolution, "parser_v2_checkpoint"); assert.ok(store.state.deadLetters[0].resolvedAt);
   store.recordDeadLetter("100.json", fingerprint, "decoder regression"); assert.equal(store.state.deadLetters[0].resolved, false); assert.equal(store.state.deadLetters[0].resolution, undefined); assert.equal(store.state.deadLetters[0].attempts, 2);
+});
+
+test("dead-letter diagnostics redact credentials on ingestion and legacy-state load", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-dead-letter-redaction-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const dataFile = path.join(root, "index.json"), store = new IndexStore(dataFile); await store.load();
+  const jwt = `eyJ${"a".repeat(12)}.${"b".repeat(12)}.${"c".repeat(12)}`, raw = `provider https://user:password@rpc.invalid/path?api-key=private authorization: Bearer bearer-secret token=${jwt}\npassword=hunter2`;
+  const safe = store.recordDeadLetter("100.json", "a".repeat(64), raw); assert.equal(safe, redactDiagnostic(raw)); assert.equal(safe.includes("rpc.invalid"), false); assert.equal(safe.includes("bearer-secret"), false); assert.equal(safe.includes("hunter2"), false); assert.equal(safe.includes(jwt), false); assert.ok(safe.length <= 512); await store.save();
+  const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); persisted.deadLetters[0].error = raw; await fs.writeFile(dataFile, JSON.stringify(persisted)); const reloaded = new IndexStore(dataFile); await reloaded.load(); assert.equal(reloaded.state.deadLetters[0].error, safe); assert.equal(reloaded.recoveryQuality().canonical, true); await reloaded.save(); assert.equal((await fs.readFile(dataFile, "utf8")).includes("hunter2"), false);
 });
 
 test("dead-letter reconciliation command is dry-run-first and ignores nonmatching checkpoints", async () => {

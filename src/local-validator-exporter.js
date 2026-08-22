@@ -5,6 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig, parseBoundedInteger } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
+import { redactDiagnostic } from "./diagnostic-redaction.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
@@ -82,9 +83,7 @@ function priorSkippedSlots(status) {
 }
 
 function safeError(error) {
-  return String(error?.message ?? error?.name ?? "exporter failure")
-    .replace(/https?:\/\/[^\s]+/gi, "[redacted-url]")
-    .slice(0, 512);
+  return redactDiagnostic(error, "exporter failure");
 }
 
 export async function recordExporterFailure(statusFile, error, { source = "unknown", attemptedAt = new Date().toISOString() } = {}) {

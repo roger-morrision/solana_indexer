@@ -147,6 +147,11 @@ dead letters require stable identity, canonical ordered observation/resolution
 times, bounded errors, and coherent resolution state; reorg corrections bind
 their replacement hash to the currently canonical slot. Repair and reconciliation
 commands remain outside this serving gate so quarantined state can be corrected.
+Dead-letter diagnostics cross one shared bounded redaction boundary before they
+enter compatibility state, cycle results, backups, or warehouse facts. Provider
+URLs, bearer/JWT credentials, secret assignments, private-key blocks, control
+characters, and oversized exception text are removed; legacy canonical rows are
+redacted in memory on load and durably replaced on the next successful save.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or

@@ -4,10 +4,11 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
+import { redactDiagnostic } from "./diagnostic-redaction.js";
 
 const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 function literal(value) { return `'${String(value).replaceAll("'", "''")}'`; }
-function redact(value) { return String(value).replace(/https?:\/\/\S+/gi, "[redacted-url]").replace(/((?:api[_-]?key|authorization|password|token))\s*[=:]\s*\S+/gi, "$1=[redacted]").slice(0, 512); }
+const redact = (value) => redactDiagnostic(value, "operational job failure");
 
 export function claimOperationalJobSql(workerId, leaseSeconds, maxAttempts) {
   if (!/^[0-9a-f-]{36}$/.test(workerId) || !Number.isInteger(leaseSeconds) || leaseSeconds < 30 || leaseSeconds > 3_600 || !Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) throw new Error("invalid operational job claim configuration");
