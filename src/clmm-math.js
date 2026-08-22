@@ -121,7 +121,7 @@ export function quoteRaydiumSnapshotExactInput({ snapshot, poolAddress, inputMin
   if (snapshot?.schemaVersion !== 1 || snapshot.type !== "raydium_clmm_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < snapshot.stateSlot || !Number.isFinite(Date.parse(snapshot.observedAt ?? "")) || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) throw new Error("finalized Raydium snapshot evidence is invalid");
   const ageMs = now - Date.parse(snapshot.observedAt); if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Raydium snapshot evidence is stale");
   const pool = snapshot.pools?.find((row) => row.address === poolAddress); if (!pool || pool.tickArrayCoverage !== "finalized_program_account_snapshot" || !pool.ammConfigState || !Number.isSafeInteger(pool.tickArraySlot) || !Number.isSafeInteger(pool.ammConfigSlot)) throw new Error("Raydium snapshot lacks complete quote evidence");
-  if ((pool.status & (1 << 4)) !== 0) throw new Error("Raydium pool swaps are disabled");
+  if (!Number.isInteger(pool.status) || pool.status < 0 || pool.status > 255 || (pool.status & (1 << 4)) !== 0) throw new Error("Raydium pool status is malformed or swaps are disabled");
   if (pool.dynamicFeeEnabled) throw new Error("Raydium dynamic-fee quoting is unsupported");
   if (pool.feeOn !== 0) throw new Error("Raydium fee-on-output quoting is unsupported");
   if (inputMint !== pool.tokenMint0 && inputMint !== pool.tokenMint1) throw new Error("input mint is not part of the Raydium pool");

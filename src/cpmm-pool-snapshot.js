@@ -71,7 +71,7 @@ export function quoteCpmmSnapshotExactInput({ snapshot, poolAddress, inputMint, 
   const amount = exact(amountIn, "CPMM amountIn", true), pool = snapshot?.pools?.find((row) => row.address === poolAddress);
   if (snapshot?.type !== "raydium_cpmm_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.configSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.stateSlot > snapshot.configSlot || snapshot.configSlot > snapshot.balanceSlot || !pool) throw new Error("CPMM quote requires a finalized coherent snapshot");
   const ageMs = now - Date.parse(snapshot.observedAt ?? ""); if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > staleAfterMs) throw new Error("CPMM snapshot is stale or future-dated");
-  if ((pool.status & 4) !== 0 || BigInt(pool.openTime) * 1_000n > BigInt(now)) throw new Error("CPMM swaps are disabled or not open");
+  if (!Number.isInteger(pool.status) || pool.status < 0 || pool.status > 255 || (pool.status & 4) !== 0 || BigInt(pool.openTime) * 1_000n > BigInt(now)) throw new Error("CPMM swaps are disabled, malformed, or not open");
   const zeroForOne = inputMint === pool.tokenMint0 ? true : inputMint === pool.tokenMint1 ? false : null; if (zeroForOne == null) throw new Error("CPMM input mint does not belong to pool");
   const token2022 = POOL_MINT_EVIDENCE_CONSTANTS.token2022Program, hasToken2022 = pool.tokenProgram0 === token2022 || pool.tokenProgram1 === token2022;
   if (!validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("CPMM mint evidence is incomplete");
