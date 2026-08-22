@@ -584,9 +584,11 @@ stale. `GET /internal/pools/:address/quote` now provides exact-input,
 analysis-only quotes for fresh finalized pools whose function mode is explicit.
 The quote traverses MM, processed-order, and open-order liquidity in canonical
 bin order; applies Q64 rounding, dynamic/base fees, fee-on-input/output modes,
-protocol/limit-order splits, and finalized Token-2022 transfer fees. Ambiguous
-undetermined function state fails closed. Transaction construction, simulation,
-signing, submission, and bot execution remain unavailable.
+protocol/limit-order splits, and finalized Token-2022 transfer fees. The two
+official reward mints resolve `Undetermined` pools exactly: only pools with both
+reward mints unset receive limit-order behavior. Missing reward evidence fails
+closed. Transaction construction, simulation, signing, submission, and bot
+execution remain unavailable.
 
 The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may
