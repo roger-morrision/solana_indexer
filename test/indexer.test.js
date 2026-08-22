@@ -17,6 +17,7 @@ import { createAccountSnapshot } from "../src/account-snapshot.js";
 import { getMultipleAccountsBatched, MAX_GET_MULTIPLE_ACCOUNTS } from "../src/rpc-account-batch.js";
 import { createClmmPoolSnapshot, decodeClmmBitmapExtensionAccount, decodeClmmBitmapExtensionIndexes, decodeClmmPoolAccount, decodeClmmTickArrayAccount, parseClmmBitmapExtensionMap, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
 import { createOrcaPoolSnapshot, decodeOrcaWhirlpoolAccount, ORCA_WHIRLPOOL_PROGRAM } from "../src/orca-pool-snapshot.js";
+import { runReplayLoadValidation } from "../src/replay-load-validation.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
@@ -65,6 +66,10 @@ test("account snapshots acquire optional Metaplex metadata at the exact finalize
 
 test("pins the canonical Solana mainnet genesis hash", () => {
   assert.equal(MAINNET_GENESIS_HASH, "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d");
+});
+
+test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {
+  const template = JSON.parse(await fs.readFile(fixture, "utf8")), options = { blocks: 500, duplicateEvery: 25, replaceEvery: 40, maxHeapDeltaBytes: 256 * 1024 * 1024 }; const first = await runReplayLoadValidation(template, options), second = await runReplayLoadValidation(template, options); assert.deepEqual({ blocks: first.blocks, duplicates: first.duplicates, replacements: first.replacements, invariants: first.invariants }, { blocks: 500, duplicates: 20, replacements: 12, invariants: { canonicalCounts: true, duplicateIdempotency: true, replacementCorrections: true, boundedHeapDelta: true, throughput: true } }); assert.match(first.stateDigest, /^[0-9a-f]{64}$/); assert.equal(first.stateDigest, second.stateDigest); assert.ok(first.blocksPerSecond > 0); await assert.rejects(runReplayLoadValidation(template, { blocks: 0 }), /blocks must be an integer/);
 });
 
 test("parses a canonical parsed block and SPL transfer", async () => {

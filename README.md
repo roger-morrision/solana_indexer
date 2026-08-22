@@ -487,6 +487,13 @@ they are never mislabeled as PumpSwap AMM reserves.
 
 ## Operational safety
 
+Run `npm run validate:replay-load -- --fixture test/fixtures/block.json --blocks 10000`
+for an explicitly synthetic, non-production replay drill through the real parser and
+canonical store. It injects deterministic duplicates and same-slot replacements,
+checks canonical counts, bounded correction retention and heap growth, and emits a
+stable state digest plus measured throughput. The result is qualification evidence,
+not live market data, and is never ingested by production commands.
+
 - Bind defaults to loopback.
 - No secrets are accepted or required.
 - Validator HTTP and WebSocket clients reject non-loopback endpoints; no

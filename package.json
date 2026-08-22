@@ -22,6 +22,7 @@
     "snapshot:accounts": "node src/account-snapshot.js",
     "snapshot:clmm-pools": "node src/clmm-pool-snapshot.js",
     "snapshot:orca-pools": "node src/orca-pool-snapshot.js",
+    "validate:replay-load": "node src/replay-load-validation.js",
     "watch": "node src/cli.js watch",
     "status": "node src/cli.js status",
     "test": "node --test"
