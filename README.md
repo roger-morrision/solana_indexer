@@ -320,8 +320,9 @@ contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
 `/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote`;
 `/internal/feed/health`;
-and `/internal/feed/gaps`. Evidence responses include stable schema versions,
-provenance, freshness, confidence, and explicit missing fields. The program
+and `/internal/feed/gaps`. Evidence bundle v2 includes exact USD-reference and
+USD-volume completeness plus per-pool risk outputs alongside stable schema
+versions, provenance, freshness, confidence, and explicit missing fields. The program
 registry is available at `/internal/registry`.
 
 `GET /internal/tokens/:mint/executable-depth?amountRaw=<raw-token-units>`
