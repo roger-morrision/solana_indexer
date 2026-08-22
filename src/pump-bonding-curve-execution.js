@@ -7,11 +7,17 @@ const SYSTEM_PROGRAM = "11111111111111111111111111111111", SPL_TOKEN_PROGRAM = "
 function integer(value, label) { let parsed; try { parsed = BigInt(value); } catch { throw new Error(`${label} is invalid`); } if (parsed < 0n || parsed > U64_MAX) throw new Error(`${label} is invalid`); return parsed; }
 function u64(value) { const data = Buffer.alloc(8); data.writeBigUInt64LE(value); return data; }
 function meta(address, signer, writable) { if (typeof address !== "string" || !address) throw new Error("Pump Sell V2 account is missing"); return { address, signer, writable }; }
+function validateFeePolicy(curve) {
+  const buyback = curve?.global?.buybackBasisPoints;
+  if (typeof curve?.cashbackCoin !== "boolean" || typeof buyback !== "string" || !/^\d+$/.test(buyback) || BigInt(buyback) > 10_000n) throw new Error("Pump Sell V2 fee policy evidence is malformed");
+  if (curve.cashbackCoin || BigInt(buyback) !== 0n) throw new Error("Pump Sell V2 cashback and buyback fee modes are unsupported");
+}
 
 export function buildPumpSellV2Instruction({ quote, curve, user, userBaseTokenAccount, userQuoteTokenAccount, protocolFeeRecipient, buybackFeeRecipient, minimumOutputRaw }) {
   const slots = quote?.evidence, programs = new Set([SPL_TOKEN_PROGRAM, TOKEN_2022_PROGRAM]);
   const mintAdapter = { ...curve, tokenMint0: curve?.mint, tokenMint1: curve?.executionQuoteMint, tokenProgram0: curve?.baseTokenProgram, tokenProgram1: curve?.quoteTokenProgram, mintDecimals0: curve?.baseDecimals, mintDecimals1: curve?.quoteDecimals };
   if (quote?.available !== true || quote.formula !== "pump_constant_product_sell_v2" || quote.mint !== curve?.mint || quote.quoteMint !== curve.executionQuoteMint || curve.address !== derivePumpBondingCurve(curve.mint).address || curve.global?.address !== derivePumpGlobal().address || curve.feeConfig?.address !== derivePumpFeeConfig(PUMP_PROGRAM).address || slots?.stateSlot !== curve.stateSlot || slots?.mintSlot !== curve.mintSlot || slots?.configSlot !== curve.configSlot || slots?.mintEvidenceSlot !== curve.mintEvidenceSlot || slots?.epoch !== curve.epoch || slots?.feeConfigHash !== curve.feeConfig.rawPayloadHash || curve.commitment !== "finalized" || curve.complete || curve.cashbackCoin || !programs.has(curve.baseTokenProgram) || !programs.has(curve.quoteTokenProgram) || !validateBoundPoolMintEvidence(mintAdapter, curve.configSlot)) throw new Error("Pump Sell V2 execution evidence is invalid");
+  validateFeePolicy(curve);
   if (curve.baseTokenProgram === TOKEN_2022_PROGRAM || curve.quoteTokenProgram === TOKEN_2022_PROGRAM) throw new Error("Pump Sell V2 Token-2022 fee path is unsupported");
   const amount = integer(quote.amountRaw, "Pump Sell V2 input amount"), quotedOutput = integer(quote.netQuoteAmountRaw, "Pump Sell V2 quoted output"), minimumOutput = integer(minimumOutputRaw, "Pump Sell V2 minimum output");
   if (!amount || !quotedOutput || !minimumOutput || minimumOutput > quotedOutput) throw new Error("Pump Sell V2 bounds are invalid");
