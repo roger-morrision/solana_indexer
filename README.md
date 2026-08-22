@@ -284,7 +284,7 @@ Configuration:
 | `LOCAL_VALIDATOR_RPC` | `http://127.0.0.1:8899` | Loopback-only gap-repair RPC endpoint |
 | `LOCAL_VALIDATOR_RPCS` | unset | Comma-separated 2-4 unique loopback Agave RPC endpoints. Overrides `LOCAL_VALIDATOR_RPC`; every node must pass the configured genesis check before failover is enabled. |
 | `LOCAL_RPC_FAILURE_THRESHOLD` | `3` | Consecutive private-node failures before its circuit opens |
-| `LOCAL_RPC_COOLDOWN_MS` | `30000` | Private-node circuit cooldown; bounded `Retry-After` takes precedence for HTTP 429 and 503 |
+| `LOCAL_RPC_COOLDOWN_MS` | `30000` | Private-node circuit cooldown; HTTP 429/503 `Retry-After` hints are clamped to 1 second through 1 hour so zero, stale, or excessive hints cannot hot-loop or stall ingestion |
 | `INDEXER_STREAM_RECONNECT_MIN_MS` | `500` | Initial reconnect backoff |
 | `INDEXER_STREAM_RECONNECT_MAX_MS` | `30000` | Maximum reconnect backoff |
 

@@ -33,6 +33,7 @@ import { assessBackupStatus, createBackupStatus } from "../src/backup-status.js"
 import { assessRecoveryQualification, compileRecoveryQualification, writeRecoveryReport } from "../src/recovery-qualification.js";
 import { validateGeyserCompatibility } from "../src/geyser-abi-preflight.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
+import { MAX_RETRY_AFTER_MS, MIN_RETRY_AFTER_MS, parseRetryAfterMs } from "../src/provider-retry.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
@@ -1008,6 +1009,16 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.throws(() => validateLocalRpcUrl("https://api.mainnet-beta.solana.com"), /must use http/);
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
   assert.throws(() => new LocalValidatorClient(undefined, { timeoutMs: 0 }), /timeout must be a positive integer/);
+});
+
+test("provider Retry-After hints are bounded and never reopen immediately", () => {
+  const now = Date.parse("2026-08-22T00:00:00Z");
+  assert.equal(parseRetryAfterMs("0", now), MIN_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfterMs("Sat, 21 Aug 2026 23:59:00 GMT", now), MIN_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfterMs("999999999999999999999", now), MAX_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfterMs("3601", now), MAX_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfterMs("2", now), 2_000);
+  assert.equal(parseRetryAfterMs("invalid", now), null);
 });
 
 test("local validator client correlates concurrent JSON-RPC responses", async () => {
