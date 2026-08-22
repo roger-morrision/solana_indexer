@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { raydiumSqrtPriceX64AtTick } from "./clmm-math.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
-import { buildUnsignedLegacyTransaction } from "./transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction } from "./transaction-simulation.js";
 
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
@@ -32,7 +32,16 @@ export function prepareRaydiumClmmSwapV2Simulation({ quote, pool, payer, inputTo
   const instruction = buildRaydiumClmmSwapV2Instruction({ quote, pool, payer, inputTokenAccount, outputTokenAccount, minimumOutputRaw }), transaction = buildUnsignedLegacyTransaction({ feePayer: payer, recentBlockhash, instructions: [instruction] });
   const inputPre = integer(inputPreAmountRaw, "Raydium input balance", U64_MAX), outputPre = integer(outputPreAmountRaw, "Raydium output balance", U64_MAX), amount = integer(quote.amountSpecifiedRaw, "Raydium amount", U64_MAX), minimumOutput = integer(minimumOutputRaw, "Raydium minimum output", U64_MAX), quotedOutput = integer(quote.amountOutRaw, "Raydium quoted output", U64_MAX);
   if (inputPre < amount || outputPre + quotedOutput > U64_MAX) throw new Error("Raydium simulation balance bounds are invalid");
-  return { schemaVersion: 1, type: "raydium_clmm_swap_v2_simulation", protocol: "raydium-clmm", commitment: "finalized", minContextSlot: Math.max(quote.stateSlot, quote.balanceSlot, quote.tickArraySlot, quote.ammConfigSlot), transaction, instructionEvidence: instruction.evidence, simulationPolicy: { allowedProgramIds: [RAYDIUM_CLMM_PROGRAM], requiredProgramIds: [RAYDIUM_CLMM_PROGRAM], instructionPolicies: transaction.instructionPolicies, accountExpectations: [{ address: inputTokenAccount, mint: quote.inputMint, preAmountRaw: inputPre.toString(), minDeltaRaw: (-amount).toString(), maxDeltaRaw: (-amount).toString() }, { address: outputTokenAccount, mint: quote.outputMint, preAmountRaw: outputPre.toString(), minDeltaRaw: minimumOutput.toString(), maxDeltaRaw: quotedOutput.toString() }] } };
+  const prepared = { schemaVersion: 1, type: "raydium_clmm_swap_v2_simulation", protocol: "raydium-clmm", commitment: "finalized", minContextSlot: Math.max(quote.stateSlot, quote.balanceSlot, quote.tickArraySlot, quote.ammConfigSlot), transaction, instructionEvidence: instruction.evidence, simulationPolicy: { allowedProgramIds: [RAYDIUM_CLMM_PROGRAM], requiredProgramIds: [RAYDIUM_CLMM_PROGRAM], instructionPolicies: transaction.instructionPolicies, accountExpectations: [{ address: inputTokenAccount, mint: quote.inputMint, preAmountRaw: inputPre.toString(), minDeltaRaw: (-amount).toString(), maxDeltaRaw: (-amount).toString() }, { address: outputTokenAccount, mint: quote.outputMint, preAmountRaw: outputPre.toString(), minDeltaRaw: minimumOutput.toString(), maxDeltaRaw: quotedOutput.toString() }] } };
+  prepared.preparationHash = crypto.createHash("sha256").update(JSON.stringify(prepared)).digest("hex"); return prepared;
+}
+
+export async function simulatePreparedRaydiumClmmSwapV2(client, { preparation, expectedGenesisHash, genesisHash }) {
+  const { preparationHash, ...unsignedPreparation } = preparation ?? {}, expectedHash = crypto.createHash("sha256").update(JSON.stringify(unsignedPreparation)).digest("hex");
+  if (preparation?.schemaVersion !== 1 || preparation.type !== "raydium_clmm_swap_v2_simulation" || preparation.protocol !== "raydium-clmm" || preparation.commitment !== "finalized" || preparation.transaction?.signed !== false || preparation.transaction.submitted !== false || !Number.isSafeInteger(preparation.minContextSlot) || preparation.minContextSlot < 0 || !preparation.simulationPolicy || preparationHash !== expectedHash) throw new Error("Raydium simulation preparation is invalid");
+  const policy = preparation.simulationPolicy, receipt = await simulateUnsignedTransaction(client, { transactionBase64: preparation.transaction.transactionBase64, minContextSlot: preparation.minContextSlot, expectedGenesisHash, genesisHash, allowedProgramIds: policy.allowedProgramIds, requiredProgramIds: policy.requiredProgramIds, instructionPolicies: policy.instructionPolicies, accountExpectations: policy.accountExpectations });
+  if (receipt.transactionHash !== preparation.transaction.transactionHash || receipt.messageHash !== preparation.transaction.messageHash || receipt.simulationSlot < preparation.minContextSlot || receipt.messageVersion !== "legacy" || !Array.isArray(receipt.programIds) || receipt.programIds.length !== 1 || receipt.programIds[0] !== RAYDIUM_CLMM_PROGRAM) throw new Error("Raydium simulation receipt does not match preparation");
+  return { ...receipt, type: "raydium_clmm_swap_v2_simulation_receipt", protocol: "raydium-clmm", preparationHash, preparationMessageHash: preparation.transaction.messageHash, instructionEvidence: preparation.instructionEvidence };
 }
 
 export const RAYDIUM_CLMM_EXECUTION_CONSTANTS = Object.freeze({ tokenProgram: TOKEN_PROGRAM, token2022Program: TOKEN_2022_PROGRAM, memoProgram: MEMO_PROGRAM, swapV2DiscriminatorHex: SWAP_V2_DISCRIMINATOR.toString("hex") });
