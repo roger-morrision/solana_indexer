@@ -491,6 +491,9 @@ its exact program, account addresses, signer/writable roles, and payload bytes.
 The deterministic legacy-message constructor merges duplicate account privileges,
 orders static keys by Solana header class, enforces the packet limit, emits only
 zero signature placeholders, and verifies its own output against that policy.
+Raydium CLMM `swap_v2` manifests use the official account order and Anchor
+discriminator, exact-input bounds, direction-specific vaults/mints, and only the
+finalized snapshot tick arrays covering the quoted price-limit path.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Signature bytes are intentionally

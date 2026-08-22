@@ -1,0 +1,30 @@
+import crypto from "node:crypto";
+import { raydiumSqrtPriceX64AtTick } from "./clmm-math.js";
+import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
+
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+const MEMO_PROGRAM = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+const SWAP_V2_DISCRIMINATOR = crypto.createHash("sha256").update("global:swap_v2").digest().subarray(0, 8);
+const U64_MAX = (1n << 64n) - 1n, U128_MAX = (1n << 128n) - 1n;
+
+function integer(value, label, maximum) { let parsed; try { parsed = BigInt(value); } catch { throw new Error(`${label} is invalid`); } if (parsed < 0n || parsed > maximum) throw new Error(`${label} is invalid`); return parsed; }
+function u64(value) { const buffer = Buffer.alloc(8); buffer.writeBigUInt64LE(value); return buffer; }
+function u128(value) { const buffer = Buffer.alloc(16); buffer.writeBigUInt64LE(value & U64_MAX, 0); buffer.writeBigUInt64LE(value >> 64n, 8); return buffer; }
+function meta(address, signer, writable) { if (typeof address !== "string" || !address) throw new Error("Raydium execution account is missing"); return { address, signer, writable }; }
+function floorDiv(value, divisor) { return Math.floor(value / divisor); }
+
+export function buildRaydiumClmmSwapV2Instruction({ quote, pool, payer, inputTokenAccount, outputTokenAccount, minimumOutputRaw }) {
+  if (quote?.protocol !== "raydium-clmm" || quote.status !== "quoted" || quote.fullyConsumed !== true || quote.commitment !== "finalized" || quote.pool !== pool?.address || quote.inputMint !== (quote.zeroForOne ? pool.tokenMint0 : pool.tokenMint1) || quote.outputMint !== (quote.zeroForOne ? pool.tokenMint1 : pool.tokenMint0) || !Number.isInteger(quote.limitTick) || !Array.isArray(quote.crossedTickIndexes) || quote.crossedTickIndexes.length !== quote.crossedTicks || !Number.isInteger(pool.tick) || !Number.isInteger(pool.tickSpacing) || pool.tickSpacing <= 0 || pool.tickArrayCoverage !== "finalized_program_account_snapshot" || !Array.isArray(pool.tickArrays) || !pool.ammConfig || !pool.observationKey) throw new Error("Raydium execution quote evidence is invalid");
+  const amount = integer(quote.amountSpecifiedRaw, "Raydium amount", U64_MAX), quotedOutput = integer(quote.amountOutRaw, "Raydium quoted output", U64_MAX), minimumOutput = integer(minimumOutputRaw, "Raydium minimum output", U64_MAX), sqrtPriceLimit = integer(quote.sqrtPriceLimitX64, "Raydium price limit", U128_MAX);
+  if (amount === 0n || quotedOutput === 0n || minimumOutput === 0n || minimumOutput > quotedOutput || sqrtPriceLimit !== raydiumSqrtPriceX64AtTick(quote.limitTick)) throw new Error("Raydium execution bounds are invalid");
+  const width = pool.tickSpacing * 60, currentStart = floorDiv(pool.tick, width) * width, requiredStarts = new Set([currentStart, ...quote.crossedTickIndexes.map((tick) => { if (!Number.isInteger(tick) || tick % pool.tickSpacing !== 0) throw new Error("Raydium crossed-tick evidence is invalid"); return floorDiv(tick, width) * width; })]), selected = pool.tickArrays.filter((array) => requiredStarts.has(array?.startTickIndex) && typeof array.address === "string").sort((left, right) => quote.zeroForOne ? right.startTickIndex - left.startTickIndex : left.startTickIndex - right.startTickIndex);
+  if (selected.length !== requiredStarts.size || selected[0]?.startTickIndex !== currentStart || new Set(selected.map((array) => array.address)).size !== selected.length) throw new Error("Raydium execution tick-array path is incomplete");
+  const inputVault = quote.zeroForOne ? pool.tokenVault0 : pool.tokenVault1, outputVault = quote.zeroForOne ? pool.tokenVault1 : pool.tokenVault0, inputMint = quote.zeroForOne ? pool.tokenMint0 : pool.tokenMint1, outputMint = quote.zeroForOne ? pool.tokenMint1 : pool.tokenMint0;
+  const accounts = [meta(payer, true, true), meta(pool.ammConfig, false, false), meta(pool.address, false, true), meta(inputTokenAccount, false, true), meta(outputTokenAccount, false, true), meta(inputVault, false, true), meta(outputVault, false, true), meta(pool.observationKey, false, true), meta(TOKEN_PROGRAM, false, false), meta(TOKEN_2022_PROGRAM, false, false), meta(MEMO_PROGRAM, false, false), meta(inputMint, false, false), meta(outputMint, false, false)];
+  if (pool.bitmapExtension) accounts.push(meta(pool.bitmapExtension.address, false, false)); for (const array of selected) accounts.push(meta(array.address, false, true));
+  const data = Buffer.concat([SWAP_V2_DISCRIMINATOR, u64(amount), u64(minimumOutput), u128(sqrtPriceLimit), Buffer.from([1])]);
+  return { programId: RAYDIUM_CLMM_PROGRAM, accounts, dataHex: data.toString("hex"), evidence: { pool: pool.address, stateSlot: quote.stateSlot, tickArraySlot: quote.tickArraySlot, ammConfigSlot: quote.ammConfigSlot, amountInRaw: amount.toString(), quotedOutputRaw: quotedOutput.toString(), minimumOutputRaw: minimumOutput.toString(), limitTick: quote.limitTick, sqrtPriceLimitX64: sqrtPriceLimit.toString(), zeroForOne: quote.zeroForOne, tickArrays: selected.map((array) => array.address) } };
+}
+
+export const RAYDIUM_CLMM_EXECUTION_CONSTANTS = Object.freeze({ tokenProgram: TOKEN_PROGRAM, token2022Program: TOKEN_2022_PROGRAM, memoProgram: MEMO_PROGRAM, swapV2DiscriminatorHex: SWAP_V2_DISCRIMINATOR.toString("hex") });
