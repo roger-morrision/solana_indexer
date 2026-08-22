@@ -372,15 +372,16 @@ references, funding-graph, and sybil evidence.
 counterparties from successful explicit System Program `Transfer`,
 `TransferWithSeed`, `CreateAccount`, `CreateAccountWithSeed`,
 `CreateAccountAllowPrefund` (positive funding only), and `WithdrawNonceAccount`
-instructions in retained canonical blocks. Account-creation facts preserve
+instructions, plus Stake Program `Withdraw` instructions, in retained canonical
+blocks. Account-creation facts preserve
 exact allocated space, owner program, and optional base/seed. The view is
 deliberately partial and non-automation-safe: it does not infer funding from
 balance deltas and does not claim coverage of zero-lamport allocation-only
-prefund creation, stake withdrawals, token transfers, or history before
+prefund creation, token transfers, or history before
 retention. `CreateAccountAllowPrefund` evidence can appear only after its
 cluster feature is active and a transaction succeeds.
 `/internal/wallets/:address/funding-cluster` deterministically lists other
-retained-history recipients funded by the wallet's direct System-transfer
+retained-history recipients funded by the wallet's direct native-transfer
 funders. It exposes evidence—not a sybil label—and keeps `classification: null`,
 `complete: false`, and `safeForAutomation: false` until complete native/token
 history and reviewed entity labels exist.
