@@ -637,7 +637,9 @@ as clock-skew failures rather than being clamped to zero age.
 Orca Whirlpools use the same fail-closed separation between event and account
 evidence. `npm run snapshot:orca-pools -- <POOL_ADDRESS...>` decodes the official
 fixed Whirlpool layout, verifies its program owner, and reads both embedded vaults
-at a finalized context no older than the pool state. It discovers official fixed
+at a finalized context no older than the pool state. Each vault is bound to its
+embedded mint, canonical SPL or Token-2022 owner, raw balance, and exact decimals;
+legacy snapshots missing those identities are automatically repaired. It discovers official fixed
 and dynamic tick arrays, requires one exact tick-array context per pool, validates
 owner/discriminator/pool/start alignment and dynamic bitmap encoding, and retains
 each initialized tick's exact signed liquidity plus fee/reward growth. Mint

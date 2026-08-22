@@ -10,6 +10,7 @@ import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-ex
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 
 export const ORCA_WHIRLPOOL_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
+const TOKEN_PROGRAMS = new Set(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"]);
 const DISCRIMINATOR = crypto.createHash("sha256").update("account:Whirlpool").digest().subarray(0, 8);
 const FIXED_TICK_ARRAY_DISCRIMINATOR = Buffer.from("4561bdbe6e0742bb", "hex"), DYNAMIC_TICK_ARRAY_DISCRIMINATOR = crypto.createHash("sha256").update("account:DynamicTickArray").digest().subarray(0, 8), TICK_ARRAY_SIZE = 88, TICK_LEN = 113, FIXED_TICK_ARRAY_LEN = 9_988, MAX_TICK_INDEX = 443_636, MIN_TICK_INDEX = -443_636;
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
@@ -44,9 +45,9 @@ export async function createOrcaPoolSnapshot({ client, pools, genesisHash, obser
   const balanceResponse = await getMultipleAccountsBatched(client, vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: minimumBalanceSlot }, { label: "Orca vault" }), balanceSlot = balanceResponse?.context?.slot;
   if (!Number.isSafeInteger(balanceSlot) || balanceSlot < minimumBalanceSlot || balanceResponse.value?.length !== vaults.length) throw new Error("invalid Orca vault account response");
   for (let index = 0; index < decoded.length; index++) {
-    const first = balanceResponse.value[index * 2]?.data?.parsed?.info, second = balanceResponse.value[index * 2 + 1]?.data?.parsed?.info;
-    if (first?.mint !== decoded[index].tokenMint0 || second?.mint !== decoded[index].tokenMint1 || !/^\d+$/.test(first?.tokenAmount?.amount ?? "") || !/^\d+$/.test(second?.tokenAmount?.amount ?? "")) throw new Error(`Orca Whirlpool ${decoded[index].address} vault identity mismatch`);
-    decoded[index].vault0AmountRaw = String(first.tokenAmount.amount); decoded[index].vault1AmountRaw = String(second.tokenAmount.amount);
+    const firstAccount = balanceResponse.value[index * 2], secondAccount = balanceResponse.value[index * 2 + 1], first = firstAccount?.data?.parsed?.info, second = secondAccount?.data?.parsed?.info, decimals0 = first?.tokenAmount?.decimals, decimals1 = second?.tokenAmount?.decimals;
+    if (first?.mint !== decoded[index].tokenMint0 || second?.mint !== decoded[index].tokenMint1 || !TOKEN_PROGRAMS.has(firstAccount?.owner) || !TOKEN_PROGRAMS.has(secondAccount?.owner) || !/^\d+$/.test(first?.tokenAmount?.amount ?? "") || !/^\d+$/.test(second?.tokenAmount?.amount ?? "") || !Number.isInteger(decimals0) || decimals0 < 0 || decimals0 > 255 || !Number.isInteger(decimals1) || decimals1 < 0 || decimals1 > 255) throw new Error(`Orca Whirlpool ${decoded[index].address} vault identity mismatch`);
+    decoded[index].vault0AmountRaw = String(first.tokenAmount.amount); decoded[index].vault1AmountRaw = String(second.tokenAmount.amount); decoded[index].tokenProgram0 = firstAccount.owner; decoded[index].tokenProgram1 = secondAccount.owner; decoded[index].mintDecimals0 = decimals0; decoded[index].mintDecimals1 = decimals1;
   }
   return { schemaVersion: 1, type: "orca_whirlpool_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
 }
