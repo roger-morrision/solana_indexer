@@ -15,11 +15,12 @@ function send(socket, value, maximumBufferedBytes) {
 }
 function subscription(url) {
   const topic = url.searchParams.get("topic") ?? "blocks";
-  if (!new Set(["blocks", "swaps", "lifecycle"]).has(topic)) return null;
+  if (!new Set(["blocks", "swaps", "lifecycle", "snapshots"]).has(topic)) return null;
   return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol"), eventType: url.searchParams.get("eventType") };
 }
 function project(event, filter) {
-  if (filter.topic === "blocks") return event;
+  if (filter.topic === "blocks") return event.type.startsWith("block_") ? event : null;
+  if (filter.topic === "snapshots") { if (event.type === "account_snapshot_applied") { const mints = (event.mints ?? []).filter((row) => !filter.mint || row.mint === filter.mint); return mints.length ? { ...event, mints } : null; } if (event.type === "clmm_pool_snapshot_applied") { const pools = (event.pools ?? []).filter((row) => !filter.pool || row.pool === filter.pool); return pools.length ? { ...event, pools } : null; } return null; }
   if (filter.topic === "lifecycle") {
     const lifecycleEvents = (event.lifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
     const revertedLifecycleEvents = (event.revertedLifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
