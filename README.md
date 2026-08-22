@@ -483,7 +483,9 @@ readiness additionally requires a complete finalized pool snapshot whose two
 mint accounts share a dependency-bound slot and epoch, whose protocol-specific
 tick/config/global dependencies are complete, and whose token extensions match
 an implemented execution path; absent, mismatched, or unsupported execution
-evidence is reported as `execution_snapshot_incomplete`. The
+evidence is reported as `execution_snapshot_incomplete`. Malformed persisted
+execution fields fail closed with the same blocker instead of failing the risk
+or bot-readiness request. The
 repository does not synthesize or silently substitute this oracle evidence.
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
