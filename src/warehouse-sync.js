@@ -130,9 +130,10 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
   const sinks = checkpoint.sinks;
   if (!sinks || ![sinks.clickhouse, sinks.postgres, sinks.redis].every((value) => Number.isSafeInteger(value) && value >= 0)) return { ...unavailable("sink_evidence_unavailable"), sequence };
   if ([sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) return { ...unavailable("sink_sequence_mismatch"), sequence, sinks };
+  const reconciliation = checkpoint.reconciliation; if (!reconciliation || reconciliation.schemaVersion !== 1 || reconciliation.verified !== true || reconciliation.sequence !== sequence || ["events", "instructions", "swaps", "balanceChanges", "deadLetters", "tokens", "pools"].some((key) => !Number.isSafeInteger(reconciliation[key]) || reconciliation[key] < 0)) return { ...unavailable("content_reconciliation_unavailable"), sequence, sinks };
   if (sequence > eventSequence) return { ...unavailable("checkpoint_ahead_of_index"), sequence };
   const lagEvents = eventSequence - sequence, ageMs = now - updated, replayHistoryLost = sequence < oldestSequence - 1, reason = ageMs < 0 ? "checkpoint_clock_skew" : replayHistoryLost ? "checkpoint_behind_replay_history" : lagEvents > maxLagEvents ? "warehouse_lag_exceeded" : ageMs > staleAfterMs ? "warehouse_checkpoint_stale" : null;
-  return { available: true, healthy: reason == null, reason, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost, sinks };
+  return { available: true, healthy: reason == null, reason, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost, sinks, reconciliation };
 }
 
 function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
@@ -148,6 +149,27 @@ export function validateWarehouseSinkSequences(expectedSequence, values) {
   const sinks = {};
   for (const name of ["clickhouse", "postgres", "redis"]) { const text = String(values?.[name] ?? "").trim(); if (!/^\d+$/.test(text)) throw new Error(`${name} warehouse sequence unavailable`); const sequence = Number(text); if (!Number.isSafeInteger(sequence) || sequence !== expectedSequence) throw new Error(`${name} warehouse sequence mismatch`); sinks[name] = sequence; }
   return sinks;
+}
+
+export function expectedWarehouseReconciliation(state, sequence) {
+  if (!Number.isSafeInteger(sequence) || sequence < 0 || !state || !Array.isArray(state.instructions) || !Array.isArray(state.swaps) || !Array.isArray(state.balanceChanges) || !Array.isArray(state.deadLetters) || !state.mints || typeof state.mints !== "object" || Array.isArray(state.mints) || !state.pools || typeof state.pools !== "object" || Array.isArray(state.pools)) throw new Error("invalid warehouse reconciliation state");
+  return { sequence, events: sequence, instructions: state.instructions.length, swaps: state.swaps.length, balanceChanges: state.balanceChanges.length, deadLetters: state.deadLetters.length, tokens: Object.keys(state.mints).length, pools: Object.keys(state.pools).length };
+}
+
+function numericLines(value, count, label) { const lines = String(value ?? "").trim().split(/\r?\n/), numbers = lines.map(Number); if (lines.length !== count || lines.some((line) => !/^\d+$/.test(line)) || numbers.some((number) => !Number.isSafeInteger(number))) throw new Error(`${label} reconciliation evidence unavailable`); return numbers; }
+export function validateWarehouseReconciliation(expected, values) {
+  const keys = ["sequence", "events", "instructions", "swaps", "balanceChanges", "deadLetters", "tokens", "pools"]; if (!expected || keys.some((key) => !Number.isSafeInteger(expected[key]) || expected[key] < 0)) throw new Error("invalid expected warehouse reconciliation");
+  const clickhouse = numericLines(values?.clickhouse, 5, "clickhouse"), postgres = numericLines(values?.postgres, 2, "postgres"), redis = numericLines(values?.redis, 3, "redis"), actual = { sequence: postgres[0], events: clickhouse[0], instructions: clickhouse[1], swaps: clickhouse[2], balanceChanges: clickhouse[3], deadLetters: clickhouse[4], tokens: postgres[1], pools: redis[1] };
+  if (redis[0] !== expected.sequence || redis[2] !== expected.tokens || keys.some((key) => actual[key] !== expected[key])) throw new Error("warehouse content reconciliation mismatch"); return { schemaVersion: 1, verified: true, ...expected };
+}
+
+export async function probeWarehouseReconciliation(expected, spawnProcess = spawn, env = process.env) {
+  const [clickhouse, postgres, redis] = await Promise.all([
+    captureProcess("clickhouse-client", ["--query", "SELECT uniqExact(sequence) FROM terminal_dex.canonical_events UNION ALL SELECT uniqExact(event_id) FROM terminal_dex.canonical_instructions UNION ALL SELECT uniqExact(swap_id) FROM terminal_dex.canonical_swaps UNION ALL SELECT uniqExact(tuple(signature, account_index)) FROM terminal_dex.canonical_balance_changes UNION ALL SELECT uniqExact(identity) FROM terminal_dex.canonical_dead_letters FORMAT TabSeparatedRaw"], spawnProcess, env),
+    captureProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--tuples-only", "--no-align", "--quiet", "--command", "SELECT COALESCE(cursor, '0') FROM ingestion_checkpoints WHERE consumer='warehouse-canonical-events'; SELECT count(*) FROM tokens WHERE chain='solana-mainnet';"], spawnProcess, env),
+    captureProcess("redis-cli", ["--raw", "EVAL", "return {redis.call('GET','terminal_dex:hot:current') or '0',redis.call('HLEN','terminal_dex:hot:'..ARGV[1]..':pools'),redis.call('HLEN','terminal_dex:hot:'..ARGV[1]..':tokens')}", "0", String(expected.sequence)], spawnProcess, env),
+  ]);
+  return validateWarehouseReconciliation(expected, { clickhouse, postgres, redis });
 }
 
 export async function probeWarehouseSinks(expectedSequence, spawnProcess = spawn, env = process.env) {
@@ -177,15 +199,15 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
   return { synced: batch.events.length, sequence: batch.toSequence };
 }
 
-export async function writeWarehouseCheckpoint(filename, sequence, sinks) {
-  validateWarehouseSinkSequences(sequence, sinks); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, sinks, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
+export async function writeWarehouseCheckpoint(filename, sequence, sinks, reconciliation) {
+  validateWarehouseSinkSequences(sequence, sinks); if (!reconciliation?.verified || reconciliation.sequence !== sequence) throw new Error("verified warehouse reconciliation is required"); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
 }
 
 async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
   try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; } if (config.redisPasswordFile) { const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); clientEnv.REDISCLI_AUTH = password; }
-  const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); await store.load(); const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks); console.log(JSON.stringify({ ...result, sinks, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length, deadLetters: facts.deadLetters.length, tokens: Object.keys(state.mints).length, pools: Object.keys(state.pools).length, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));
+  const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); await store.load(); const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv), reconciliation = await probeWarehouseReconciliation(expectedWarehouseReconciliation(state, result.sequence), spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks, reconciliation); console.log(JSON.stringify({ ...result, sinks, reconciliation, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
