@@ -89,6 +89,8 @@ export async function recordExporterFailure(statusFile, error, { source = "unkno
 }
 
 export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null }) {
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 256) throw new Error("exporter batch size must be an integer from 1 through 256");
+  if (expectedGenesisHash != null && (typeof expectedGenesisHash !== "string" || !expectedGenesisHash)) throw new Error("expected genesis hash must be a non-empty string");
   let genesisHash = null;
   if (expectedGenesisHash) {
     genesisHash = await client.assertGenesis(expectedGenesisHash); const prior = statusFile ? await readStatus(statusFile) : {};

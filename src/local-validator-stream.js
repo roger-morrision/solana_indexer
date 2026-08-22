@@ -19,6 +19,8 @@ async function readJson(filename) { try { return JSON.parse(await fs.readFile(fi
 export class LocalValidatorStream {
   constructor({ endpoint = "ws://127.0.0.1:8900", endpoints = null, rpcClient, inbox, statusFile, WebSocketClass = globalThis.WebSocket, reconnectMinMs = 500, reconnectMaxMs = 30_000, expectedGenesisHash = MAINNET_GENESIS_HASH, scheduleReconnect = setTimeout }) {
     const configured = (endpoints ?? [endpoint]).map(validateLocalWsUrl); if (configured.length < 1 || configured.length > 4 || new Set(configured).size !== configured.length) throw new Error("Local validator stream requires 1 through 4 unique endpoints");
+    if (![reconnectMinMs, reconnectMaxMs].every((value) => Number.isSafeInteger(value) && value >= 1) || reconnectMinMs > reconnectMaxMs) throw new Error("validator stream reconnect bounds must be positive ordered integers");
+    if (typeof expectedGenesisHash !== "string" || !expectedGenesisHash) throw new Error("validator stream expected genesis hash is required");
     this.endpoints = configured; this.endpointIndex = 0; this.rpcClient = rpcClient; this.inbox = inbox; this.statusFile = statusFile; this.WebSocketClass = WebSocketClass; this.reconnectMinMs = reconnectMinMs; this.reconnectMaxMs = reconnectMaxMs; this.scheduleReconnect = scheduleReconnect;
     this.expectedGenesisHash = expectedGenesisHash; this.genesisHash = null; this.socket = null; this.stopped = false; this.reconnectMs = reconnectMinMs; this.subscriptions = new Map(); this.lastSlots = { confirmed: null, finalized: null }; this.messageQueue = Promise.resolve(); this.lastError = null; this.metrics = { connections: 0, reconnects: 0, notifications: 0, gapRepairs: 0, decodeErrors: 0, skippedSlots: [] };
   }
@@ -66,6 +68,7 @@ export class LocalValidatorStream {
     await this.persistBlock(commitment, slot, block, slot, source); this.lastSlots[commitment] = Math.max(previous ?? slot, slot); this.metrics.notifications++; await this.writeStatus(source);
   }
   async repairGap(commitment, first, last) {
+    if (!["confirmed", "finalized"].includes(commitment) || !Number.isSafeInteger(first) || !Number.isSafeInteger(last) || first < 0 || last < first) throw new Error("stream gap repair range is invalid");
     if (last - first > 511) throw new Error(`stream gap ${first}-${last} exceeds bounded repair window`);
     const producedSlots = await this.rpcClient.call("getBlocks", [first, last, { commitment }]);
     if (!Array.isArray(producedSlots) || producedSlots.some((slot, index) => !Number.isSafeInteger(slot) || slot < first || slot > last || (index > 0 && producedSlots[index - 1] >= slot))) throw new Error("stream getBlocks response must be a strictly increasing in-range slot list");

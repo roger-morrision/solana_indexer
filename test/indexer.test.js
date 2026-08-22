@@ -1020,6 +1020,7 @@ test("mainnet verification rejects a private validator genesis", async () => {
 test("validator stream accepts only loopback WebSocket endpoints", () => {
   assert.equal(validateLocalWsUrl("ws://127.0.0.1:8900"), "ws://127.0.0.1:8900/");
   assert.throws(() => validateLocalWsUrl("wss://example.com"), /must use ws/); assert.throws(() => validateLocalWsUrl("ws://192.168.1.2:8900"), /non-loopback/);
+  assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", reconnectMinMs: 1_000, reconnectMaxMs: 500 }), /positive ordered integers/); assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", expectedGenesisHash: "" }), /genesis hash is required/);
 });
 
 test("validator stream rejects crossed subscriptions and ignores superseded sockets", async () => {
@@ -1070,6 +1071,7 @@ test("validator stream atomically persists commitments and repairs bounded gaps"
 test("validator stream never records an unavailable produced block as skipped", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-gap-integrity-")); const stream = new LocalValidatorStream({ rpcClient: { call: async (method) => method === "getBlocks" ? [11] : null }, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
   await assert.rejects(() => stream.repairGap("confirmed", 11, 11), /block 11 was listed by getBlocks but is unavailable/); assert.deepEqual(stream.metrics.skippedSlots, []); await assert.rejects(fs.access(path.join(root, "inbox", "11.confirmed.json")));
+  await assert.rejects(() => stream.repairGap("processed", 11, 11), /range is invalid/); await assert.rejects(() => stream.repairGap("confirmed", 12, 11), /range is invalid/); await assert.rejects(() => stream.repairGap("confirmed", 1, 513), /exceeds bounded repair window/);
 });
 
 test("exporter records finalized provenance, lag, and skipped slots", async () => {
@@ -1117,6 +1119,12 @@ test("exporter rejects corrupt and future cursors without false progress", async
   await fs.writeFile(cursorFile, "not-a-slot\n"); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /non-negative integer/);
   await fs.writeFile(cursorFile, "13\n"); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /ahead of finalized tip 12/);
   assert.equal(await fs.readFile(cursorFile, "utf8"), "13\n"); await assert.rejects(() => fs.access(inbox), /ENOENT/);
+});
+
+test("exporter rejects invalid batch and network bounds before RPC", async () => {
+  const client = { call: async () => { throw new Error("must not call RPC"); } };
+  for (const batchSize of [0, 257, 1.5]) await assert.rejects(() => exportFinalizedBlocks({ client, inbox: "unused", cursorFile: "unused", batchSize }), /batch size/);
+  await assert.rejects(() => exportFinalizedBlocks({ client, inbox: "unused", cursorFile: "unused", expectedGenesisHash: "" }), /genesis hash/);
 });
 
 test("exporter failure evidence is durable, redacted, and preserves the last success", async () => {
