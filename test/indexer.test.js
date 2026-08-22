@@ -37,9 +37,18 @@ import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLea
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT } from "../src/usd-depeg-reference.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
 import { computeStaticFeeExactInputStep, quoteRaydiumSnapshotExactInput, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
+import { simulateUnsignedTransaction, validateUnsignedTransactionBase64 } from "../src/transaction-simulation.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("local simulation accepts only unsigned hash-bound transactions", async () => {
+  const bytes = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1, 2, 3, 4])]), transactionBase64 = bytes.toString("base64"), validated = validateUnsignedTransactionBase64(transactionBase64); assert.equal(validated.signatureCount, 1); assert.match(validated.transactionHash, /^[0-9a-f]{64}$/);
+  let request; const receipt = await simulateUnsignedTransaction({ endpoint: "http://127.0.0.1:8899", call: async (method, params) => { request = { method, params }; return { context: { slot: 501 }, value: { err: null, logs: ["Program test invoke [1]", "Program test success"], unitsConsumed: 1_234, loadedAccountsDataSize: 99, returnData: null } }; } }, { transactionBase64, minContextSlot: 500, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH });
+  assert.deepEqual({ status: receipt.status, submitted: receipt.submitted, signed: receipt.signed, slot: receipt.simulationSlot, units: receipt.unitsConsumed, signatures: receipt.signatureCount }, { status: "simulated", submitted: false, signed: false, slot: 501, units: 1_234, signatures: 1 }); assert.equal(request.method, "simulateTransaction"); assert.deepEqual(request.params[1], { encoding: "base64", commitment: "finalized", sigVerify: false, replaceRecentBlockhash: true, innerInstructions: true, minContextSlot: 500 });
+  const signed = Buffer.from(bytes); signed[1] = 1; assert.throws(() => validateUnsignedTransactionBase64(signed.toString("base64")), /signed transactions are forbidden/); assert.throws(() => validateUnsignedTransactionBase64(Buffer.alloc(1_233).toString("base64")), /size/);
+  await assert.rejects(simulateUnsignedTransaction({ endpoint: "http://127.0.0.1:8899", call: async () => ({ context: { slot: 499 }, value: { err: null, logs: [], unitsConsumed: 1 } }) }, { transactionBase64, minContextSlot: 500, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /response is invalid/); await assert.rejects(simulateUnsignedTransaction({ endpoint: "http://127.0.0.1:8899", call: async () => ({ context: { slot: 500 }, value: { err: { InstructionError: [0, "Custom"] }, logs: [], unitsConsumed: 1 } }) }, { transactionBase64, minContextSlot: 500, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /simulation failed/); await assert.rejects(simulateUnsignedTransaction({ endpoint: "https://api.mainnet-beta.solana.com", call: async () => null }, { transactionBase64, minContextSlot: 500, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /must use http|loopback/);
+});
 
 test("Raydium CLMM tick math preserves protocol Q64.64 integer vectors", () => {
   assert.deepEqual([0, 1, -1, 2, -2].map((tick) => raydiumSqrtPriceX64AtTick(tick).toString()), ["18446744073709551616", "18447666387855957090", "18445821805675395072", "18448588748116922877", "18444899583751176192"]);

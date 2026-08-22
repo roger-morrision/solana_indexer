@@ -474,8 +474,12 @@ program-account reads, rejects mixed contexts, foreign/duplicate arrays, and any
 bitmap-to-account coverage gap, then advances the vault read barrier beyond that
 evidence. State and balance context slots are retained separately and stale
 snapshots cannot replace newer evidence. Snapshots remain unsafe for route
-execution until fee configuration, Token-2022 fees, and local simulation are
-available.
+execution until dynamic/fee-on-output calculation, Token-2022 fees, transaction
+construction, effect verification, and landed confirmation are available.
+The transaction-simulation boundary is deliberately separate: it accepts only
+unsigned packet-sized base64 transactions, only through a loopback validator,
+uses `simulateTransaction` with a finalized minimum context and replacement
+blockhash, and emits a hash-bound receipt. It never signs or submits a transaction.
 Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
 Future-dated block, exporter, market, and pool-snapshot timestamps are treated
