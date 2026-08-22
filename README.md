@@ -479,7 +479,9 @@ construction, effect verification, and landed confirmation are available.
 The transaction-simulation boundary is deliberately separate: it accepts only
 unsigned packet-sized base64 transactions, only through a loopback validator,
 uses `simulateTransaction` with a finalized minimum context and replacement
-blockhash, and emits a hash-bound receipt. It never signs or submits a transaction.
+blockhash, and emits a hash-bound receipt. Requested token-account effects are
+mint-bound and must fall inside explicit signed raw-balance delta ranges. It never
+signs or submits a transaction.
 Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
 Future-dated block, exporter, market, and pool-snapshot timestamps are treated
