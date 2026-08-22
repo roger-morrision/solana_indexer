@@ -244,7 +244,7 @@ Configuration:
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `ORCA_POOL_SNAPSHOT_FILE` | `data/orca-pool-snapshot.json` | Atomic finalized Orca Whirlpool state/vault evidence |
-| `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized headers only and does not enable routing |
+| `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized state and advances the vault read barrier, but does not enable routing |
 | `CLMM_BITMAP_EXTENSIONS_JSON` | unset | Optional JSON map of Raydium CLMM pool addresses to unique overflow bitmap-extension addresses; captures pool-bound finalized raw segments without claiming executable coverage |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
 | `INDEXER_PORT` | `8787` | API port |
