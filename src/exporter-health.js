@@ -13,7 +13,8 @@ export function assessExporterStatus(status, staleAfterMs, now = Date.now(), max
   const durableSkippedSlotsValid = Array.isArray(status.durableSkippedSlots) && status.durableSkippedSlots.length <= 10_000 && status.durableSkippedSlots.every((slot, index, rows) => Number.isSafeInteger(slot) && slot >= 0 && (index === 0 || rows[index - 1] < slot) && (skippedSlotCeiling == null || slot <= skippedSlotCeiling));
   const streamDisconnected = streamSource && status.connected !== true;
   const reason = !sourceValid ? "invalid_source" : streamDisconnected ? "stream_disconnected" : failures == null ? "invalid_failure_count" : failures > 0 ? "exporter_failure" : status.commitment !== "finalized" ? "not_finalized" : cursor == null ? "invalid_cursor" : lagSlots == null ? "invalid_lag" : !durableSkippedSlotsValid ? "invalid_skipped_slots" : tip != null && cursor > tip ? "cursor_ahead_of_tip" : tip != null && tip - cursor !== lagSlots ? "inconsistent_progress" : lagSlots > maxLagSlots ? "exporter_lagging" : ageMs == null ? "invalid_observed_at" : ageMs < 0 ? "observed_at_in_future" : ageMs > staleAfterMs ? "exporter_stale" : status.version !== 2 ? "invalid_status_version" : status.genesisHash !== MAINNET_GENESIS_HASH ? "wrong_network" : null;
-  return { available: true, healthy: reason == null, reason, source: source || "unknown", cursor, localValidatorTip: tip, lagSlots, maxLagSlots, ageMs, staleAfterMs, consecutiveFailures: failures };
+  const healthy = reason == null, automationEligible = healthy && source !== "external-rpc-solana-public";
+  return { available: true, healthy, automationEligible, reason, source: source || "unknown", cursor, localValidatorTip: tip, lagSlots, maxLagSlots, ageMs, staleAfterMs, consecutiveFailures: failures };
 }
 
 export async function exporterHealthCheck(filename, staleAfterMs, now = Date.now(), maxLagSlots = 512) {
