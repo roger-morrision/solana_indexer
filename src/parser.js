@@ -311,12 +311,14 @@ export function decodeSystemTransfers(rows) {
   const transfers = [];
   for (const row of rows ?? []) {
     if (![SYSTEM_PROGRAM, "system"].includes(row?.programId)) continue;
-    let source, destination, lamportsRaw;
-    if (row.parsedType === "transfer" && row.parsed?.info) { source = row.parsed.info.source; destination = row.parsed.info.destination; const value = row.parsed.info.lamports; if (!(typeof value === "string" && /^\d+$/.test(value)) && !(Number.isSafeInteger(value) && value >= 0)) continue; try { lamportsRaw = u64(String(value), "system transfer lamports"); } catch { continue; } }
-    else if (row.parsed == null && typeof row.data === "string" && row.accounts?.length === 2) { let data; try { data = decodeBase58(row.data); } catch { continue; } if (data.length !== 12 || data.readUInt32LE(0) !== 2) continue; [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); }
+    let source, destination, lamportsRaw, transferKind, allocatedSpaceRaw = null, ownerProgram = null;
+    const parsedU64 = (value, field) => { if (!(typeof value === "string" && /^\d+$/.test(value)) && !(Number.isSafeInteger(value) && value >= 0)) return null; try { return u64(String(value), field); } catch { return null; } };
+    if (row.parsedType === "transfer" && row.parsed?.info) { source = row.parsed.info.source; destination = row.parsed.info.destination; lamportsRaw = parsedU64(row.parsed.info.lamports, "system transfer lamports"); transferKind = "transfer"; }
+    else if (row.parsedType === "createAccount" && row.parsed?.info) { source = row.parsed.info.source; destination = row.parsed.info.newAccount; lamportsRaw = parsedU64(row.parsed.info.lamports, "system create-account lamports"); allocatedSpaceRaw = parsedU64(row.parsed.info.space, "system create-account space"); ownerProgram = row.parsed.info.owner; transferKind = "account_creation"; }
+    else if (row.parsed == null && typeof row.data === "string" && row.accounts?.length === 2) { let data; try { data = decodeBase58(row.data); } catch { continue; } const discriminator = data.length >= 4 ? data.readUInt32LE(0) : -1; if (discriminator === 2 && data.length === 12) { [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); transferKind = "transfer"; } else if (discriminator === 0 && data.length === 52) { [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); allocatedSpaceRaw = readU64(data, 12); ownerProgram = base58(data.subarray(20, 52)); transferKind = "account_creation"; } else continue; }
     else continue;
-    if (typeof source !== "string" || !source || typeof destination !== "string" || !destination) continue;
-    transfers.push({ transferId: row.eventId.replace(/:instruction$/, ":native_transfer"), chain: "solana", slot: row.slot, blockTime: row.blockTime, signature: row.signature, instructionIndex: row.instructionIndex, innerIndex: row.innerIndex, programId: SYSTEM_PROGRAM, source, destination, lamportsRaw, decoderVersion: 1, rawPayloadHash: row.rawPayloadHash });
+    if (typeof source !== "string" || !source || typeof destination !== "string" || !destination || lamportsRaw == null || (transferKind === "account_creation" && (allocatedSpaceRaw == null || typeof ownerProgram !== "string" || !ownerProgram))) continue;
+    transfers.push({ transferId: row.eventId.replace(/:instruction$/, ":native_transfer"), chain: "solana", slot: row.slot, blockTime: row.blockTime, signature: row.signature, instructionIndex: row.instructionIndex, innerIndex: row.innerIndex, programId: SYSTEM_PROGRAM, transferKind, source, destination, lamportsRaw, allocatedSpaceRaw, ownerProgram, decoderVersion: 2, rawPayloadHash: row.rawPayloadHash });
   }
   return transfers;
 }
