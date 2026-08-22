@@ -10,6 +10,7 @@ const RAYDIUM_CLMM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 const ORCA_WHIRLPOOL = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 const PUMP_AMM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
 function u128(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 340_282_366_920_938_463_463_374_607_431_768_211_455n) throw new Error(`${field} must be a decimal u128 string`); return value; }
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte !== 0) break; output = `1${output}`; } return output || "1"; }
@@ -306,6 +307,20 @@ function normalizedInstructions(entry, keys, signature, slot, blockTime) {
   return rows;
 }
 
+export function decodeSystemTransfers(rows) {
+  const transfers = [];
+  for (const row of rows ?? []) {
+    if (![SYSTEM_PROGRAM, "system"].includes(row?.programId)) continue;
+    let source, destination, lamportsRaw;
+    if (row.parsedType === "transfer" && row.parsed?.info) { source = row.parsed.info.source; destination = row.parsed.info.destination; const value = row.parsed.info.lamports; if (!(typeof value === "string" && /^\d+$/.test(value)) && !(Number.isSafeInteger(value) && value >= 0)) continue; try { lamportsRaw = u64(String(value), "system transfer lamports"); } catch { continue; } }
+    else if (row.parsed == null && typeof row.data === "string" && row.accounts?.length === 2) { let data; try { data = decodeBase58(row.data); } catch { continue; } if (data.length !== 12 || data.readUInt32LE(0) !== 2) continue; [source, destination] = row.accounts; lamportsRaw = readU64(data, 4); }
+    else continue;
+    if (typeof source !== "string" || !source || typeof destination !== "string" || !destination) continue;
+    transfers.push({ transferId: row.eventId.replace(/:instruction$/, ":native_transfer"), chain: "solana", slot: row.slot, blockTime: row.blockTime, signature: row.signature, instructionIndex: row.instructionIndex, innerIndex: row.innerIndex, programId: SYSTEM_PROGRAM, source, destination, lamportsRaw, decoderVersion: 1, rawPayloadHash: row.rawPayloadHash });
+  }
+  return transfers;
+}
+
 function parsedTransfer(instruction) {
   const programId = instruction.programId || instruction.program;
   const parsed = instruction.parsed;
@@ -334,6 +349,7 @@ export function parseBlock(block) {
   const blockTime = Number.isInteger(block.blockTime) ? block.blockTime : null;
   const transactions = [];
   const transfers = [];
+  const nativeTransfers = [];
   const balanceChanges = [];
   const instructions = [];
   const decodedDexEvents = [];
@@ -350,8 +366,9 @@ export function parseBlock(block) {
       logCount: entry.meta?.logMessages?.length ?? 0,
     };
     transactions.push(record);
-    instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
+    const normalized = normalizedInstructions(entry, keys, signature, block.slot, blockTime); instructions.push(...normalized);
     if (failed) continue;
+    nativeTransfers.push(...decodeSystemTransfers(normalized));
     poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
@@ -368,7 +385,7 @@ export function parseBlock(block) {
     exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
   };
   const swaps = dexSwaps(block, transactions, decodedDexEvents);
-  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, instructions, transfers, balanceChanges, swaps, poolLifecycleEvents };
+  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, instructions, transfers, nativeTransfers, balanceChanges, swaps, poolLifecycleEvents };
 }
 
 export function parseInput(text, filename = "input") {

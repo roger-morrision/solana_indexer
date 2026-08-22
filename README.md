@@ -318,7 +318,7 @@ Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
-`/internal/candidates`; `/internal/wallets/:address`; `/internal/pools/:address/quote`;
+`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, and `funding` views; `/internal/pools/:address/quote`;
 `/internal/feed/health`;
 and `/internal/feed/gaps`. Evidence responses include stable schema versions,
 provenance, freshness, confidence, and explicit missing fields. The program
@@ -368,6 +368,12 @@ basis/PnL only for decoded swaps carrying an explicit user address. The
 `/internal/wallets/:address/profile` contract exposes evidence-backed activity
 signals but never labels a wallet “smart money” without complete history, USD
 references, funding-graph, and sybil evidence.
+`/internal/wallets/:address/funding` reports exact lamport totals and
+counterparties from successful explicit System Program `Transfer`
+instructions in retained canonical blocks. It is deliberately partial and
+non-automation-safe: it does not infer funding from balance deltas and does not
+claim coverage of account creation, stake/nonce withdrawals, token transfers,
+or history before retention.
 
 Production objectives and alert rules are documented in `docs/SLO.md`.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
