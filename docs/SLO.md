@@ -19,13 +19,15 @@ maintenance is reported separately and is not silently removed from raw data.
 | Restore time objective | <=4 hours | rehearse quarterly on an isolated host |
 
 Quarterly recovery evidence is accepted only from `npm run validate:recovery`.
-The report binds the backup manifest hash to a healthy canonical index, exact
+The version-3 report embeds and digest-binds the backup manifest hash to a healthy canonical index, exact
 zero-lag warehouse convergence, a healthy finalized exporter, and elapsed restore time. It is created exclusively
 so a prior successful rehearsal cannot be silently overwritten.
 The latest retained report is continuously revalidated through
 `/api/v1/recovery` and Prometheus. All required invariants, exact elapsed RTO,
 canonical timestamps and the 90-day rehearsal window must remain valid; missing,
 malformed, future-dated or expired evidence triggers a critical alert.
+Monitoring validates the bounded embedded fields and recomputes the evidence
+digest; invariant booleans or a syntactically valid hash alone cannot qualify.
 Malformed JSON in exporter, warehouse, backup, or recovery evidence is converted
 to a redacted invalid-evidence state. `/metrics` remains available with zero
 health gauges, while every dependent API, gap feed, and bot gate fails closed;

@@ -506,7 +506,9 @@ an isolated restore, `npm run validate:recovery` exclusively writes a report onl
 when the same backup manifest hash, canonical index health, zero-lag exact
 warehouse convergence, healthy finalized exporter evidence, and the four-hour RTO all validate.
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
-and Prometheus validate its full qualification shape, exact duration, invariants,
+and Prometheus validate its version-3 qualification shape, exact duration,
+canonical embedded backup/index/warehouse/exporter summary, recomputed evidence
+digest, invariants,
 and quarterly age without exposing sink credentials or report contents.
 Malformed operational evidence never takes `/metrics` down or echoes its source
 bytes: exporter, warehouse, backup, recovery, feed-health and gap contracts all

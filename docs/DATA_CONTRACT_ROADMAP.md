@@ -225,10 +225,13 @@ and installs a canonical status only after the full upload completes. It binds t
 digests of the version-3 manifest and uploaded inbox receipt; a versioned health
 endpoint, RPO gauges, and critical alert reject missing, malformed, future, or
 older-than-24-hour evidence without disclosing storage locations.
-The latest isolated recovery report has a separate canonical assessment and
+The latest isolated recovery report has a separate version-3 canonical assessment and
 90-day expiry contract. API/Prometheus expose only its backup identity, age and
 duration; missing, malformed, future-dated, invariant-incomplete or expired
 reports trigger a critical alert while exclusive report creation remains intact.
+The report embeds a bounded backup/index/warehouse/exporter evidence summary;
+assessment validates its canonical fields and recomputes its digest, preventing
+self-asserted invariant flags or an opaque hash from qualifying a rehearsal.
 Diagnostic evidence readers isolate syntax-invalid exporter, warehouse, backup,
 and recovery JSON as redacted invalid evidence instead of throwing through the
 monitoring path. Metrics remain scrapeable with unhealthy gauges, and feed/gap
