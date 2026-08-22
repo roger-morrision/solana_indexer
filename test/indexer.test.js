@@ -359,7 +359,7 @@ test("Yellowstone activation requires exact installed ABI and sustained qualific
 
 test("Yellowstone version probe is output-bounded, deadline-bound, and redacted", async () => {
   const listeners = {}, scheduled = [], killed = [], child = { stdout: { on(name, handler) { if (name === "data") handler(Buffer.from("agave-validator 4.1.0")); } }, stderr: { on(name, handler) { if (name === "data") handler(Buffer.from("token=secret https://validator.invalid/private")); } }, on(name, handler) { listeners[name] = handler; }, kill(signal) { killed.push(signal); } };
-  const pending = runAgaveVersionProbe("C:\\validator\\agave-validator.exe", () => child, { timeoutMs: 1_000, schedule: (callback, delay) => { scheduled.push([callback, delay]); return "timer"; }, cancel() {} }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0](); await assert.rejects(pending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|validator\.invalid/.test(error.message)); assert.deepEqual(killed, ["SIGTERM"]); listeners.close?.(0);
+  const pending = runAgaveVersionProbe("C:\\validator\\agave-validator.exe", () => child, { timeoutMs: 1_000, killGraceMs: 100, schedule: (callback, delay) => { scheduled.push([callback, delay]); return `timer-${scheduled.length}`; }, cancel() {} }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0](); assert.equal(scheduled[1][1], 100); scheduled[1][0](); await assert.rejects(pending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|validator\.invalid/.test(error.message)); assert.deepEqual(killed, ["SIGTERM", "SIGKILL"]); listeners.close?.(0);
 });
 
 test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {
@@ -2054,18 +2054,19 @@ test("commercial sync deterministically upserts hash-only tenants and hourly usa
 
 test("bounded subprocesses terminate stalled sink commands", async () => {
   const listeners = {}, scheduled = [], cancelled = [], killed = []; const child = { stderr: { on() {} }, stdin: { end() {} }, on(name, handler) { listeners[name] = handler; }, kill(signal) { killed.push(signal); } };
-  const pending = runBoundedProcess({ command: "sink-cli", input: "payload", timeoutMs: 1_000, spawnProcess: () => child, schedule: (callback, delay) => { scheduled.push([callback, delay]); return "timer"; }, cancel: (timer) => cancelled.push(timer) }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0]();
-  await assert.rejects(pending, /sink-cli timed out after 1000ms/); assert.deepEqual(killed, ["SIGTERM"]); assert.deepEqual(cancelled, ["timer"]); listeners.close?.(0);
-  assert.throws(() => runBoundedProcess({ command: "sink-cli", timeoutMs: 999 }), /configuration is invalid/);
+  const pending = runBoundedProcess({ command: "sink-cli", input: "payload", timeoutMs: 1_000, killGraceMs: 100, spawnProcess: () => child, schedule: (callback, delay) => { scheduled.push([callback, delay]); return `timer-${scheduled.length}`; }, cancel: (timer) => cancelled.push(timer) }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0](); assert.equal(scheduled[1][1], 100); scheduled[1][0]();
+  await assert.rejects(pending, /sink-cli timed out after 1000ms/); assert.deepEqual(killed, ["SIGTERM", "SIGKILL"]); assert.deepEqual(cancelled, ["timer-1", "timer-2"]); listeners.close?.(0);
+  assert.throws(() => runBoundedProcess({ command: "sink-cli", timeoutMs: 999 }), /configuration is invalid/); assert.throws(() => runBoundedProcess({ command: "sink-cli", killGraceMs: 99 }), /configuration is invalid/);
+  const gracefulListeners = {}, gracefulScheduled = [], gracefulCancelled = [], gracefulKilled = [], gracefulChild = { stderr: { on() {} }, on(name, handler) { gracefulListeners[name] = handler; }, kill(signal) { gracefulKilled.push(signal); if (signal === "SIGTERM") gracefulListeners.close(null, signal); } }; const gracefulPending = runBoundedProcess({ command: "graceful-cli", timeoutMs: 1_000, killGraceMs: 100, spawnProcess: () => gracefulChild, schedule: (callback, delay) => { gracefulScheduled.push([callback, delay]); return `graceful-${gracefulScheduled.length}`; }, cancel: (timer) => gracefulCancelled.push(timer) }); gracefulScheduled[0][0](); await assert.rejects(gracefulPending, /graceful-cli timed out after 1000ms/); assert.deepEqual(gracefulKilled, ["SIGTERM"]); assert.deepEqual(gracefulCancelled, ["graceful-1", "graceful-2"]);
 });
 
 test("commercial and operational commands inherit bounded redacted execution", async () => {
   const stalled = () => {
     const scheduled = [], killed = [], child = { stderr: { on(name, handler) { if (name === "data") handler(Buffer.from("token=secret https://provider.invalid/private")); } }, stdin: { end() {} }, on() {}, kill(signal) { killed.push(signal); } };
-    return { child, killed, options: { timeoutMs: 1_000, schedule: (callback) => { scheduled.push(callback); return "timer"; }, cancel() {} }, expire() { scheduled[0](); } };
+    return { child, killed, options: { timeoutMs: 1_000, killGraceMs: 100, schedule: (callback) => { scheduled.push(callback); return "timer"; }, cancel() {} }, expire() { scheduled[0](); scheduled[1](); } };
   };
-  const commercial = stalled(), commercialPending = runCommercialSync("BEGIN;", () => commercial.child, commercial.options); commercial.expire(); await assert.rejects(commercialPending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|provider\.invalid/.test(error.message)); assert.deepEqual(commercial.killed, ["SIGTERM"]);
-  const operational = stalled(), operationalPending = runOperationalCommand("snapshot-cli", [], null, () => operational.child, false, operational.options); operational.expire(); await assert.rejects(operationalPending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|provider\.invalid/.test(error.message)); assert.deepEqual(operational.killed, ["SIGTERM"]);
+  const commercial = stalled(), commercialPending = runCommercialSync("BEGIN;", () => commercial.child, commercial.options); commercial.expire(); await assert.rejects(commercialPending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|provider\.invalid/.test(error.message)); assert.deepEqual(commercial.killed, ["SIGTERM", "SIGKILL"]);
+  const operational = stalled(), operationalPending = runOperationalCommand("snapshot-cli", [], null, () => operational.child, false, operational.options); operational.expire(); await assert.rejects(operationalPending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|provider\.invalid/.test(error.message)); assert.deepEqual(operational.killed, ["SIGTERM", "SIGKILL"]);
 });
 
 test("warehouse sync is ordered, retry-safe, and checkpoints only after both sinks", async () => {
