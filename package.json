@@ -29,6 +29,7 @@
     "snapshot:offchain-metadata": "node src/offchain-metadata-snapshot.js",
     "validate:replay-load": "node src/replay-load-validation.js --fixture test/fixtures/block.json --blocks 1000",
     "validate:backup": "node src/backup-preflight.js",
+    "validate:recovery": "node src/recovery-qualification.js",
     "validate:geyser-abi": "node src/geyser-abi-preflight.js",
     "watch": "node src/cli.js watch",
     "status": "node src/cli.js status",

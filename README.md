@@ -454,7 +454,10 @@ quiesced-writer assertion and exact byte length/SHA-256 of every artifact, an
 inbox manifest bound to the same backup identity, a backup inside the 24-hour RPO,
 safe tar headers, and both canonical index and exporter status members; it never
 authorizes or performs a restore. `ops/restore.sh` repeats it before mutation and requires the explicit
-`--confirm-empty-target` flag because it replaces database and local state.
+`--confirm-empty-target` flag because it replaces database and local state. After
+an isolated restore, `npm run validate:recovery` exclusively writes a report only
+when the same backup manifest hash, canonical index health, zero-lag exact
+warehouse convergence, healthy finalized exporter evidence, and the four-hour RTO all validate.
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is

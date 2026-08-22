@@ -3,6 +3,7 @@ set -euo pipefail
 umask 077
 [[ "${1:-}" == "--confirm-empty-target" && -n "${2:-}" ]] || { echo "Usage: restore.sh --confirm-empty-target /absolute/backup-directory" >&2; exit 2; }
 source_dir="$2"; repo="${INDEXER_REPO:-/home/sol/solana-indexer}"; compose="$repo/infra/compose.yaml"
+restore_started_at="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 [[ "$source_dir" == /* && "$source_dir" != "/" && -f "$source_dir/SHA256SUMS" ]] || { echo "Invalid absolute backup directory" >&2; exit 1; }
 (cd "$source_dir" && sha256sum --check SHA256SUMS)
 node "$repo/src/backup-preflight.js" "$source_dir"
@@ -14,4 +15,5 @@ docker compose -f "$compose" cp "$source_dir/redis.rdb" redis:/data/dump.rdb
 docker compose -f "$compose" run --rm --no-deps --user root redis sh -c 'chown redis:redis /data/dump.rdb && chmod 600 /data/dump.rdb'
 docker compose -f "$compose" start redis
 tar --extract --file "$source_dir/indexer-state.tar" --directory "$repo"
-echo "Restore completed. Run npm test, npm run status, health checks, and reconciliation before enabling consumers."
+echo "Restore completed. Keep consumers disabled; run npm test, npm run sync:warehouse, health checks, then:"
+echo "npm run validate:recovery -- '$source_dir' '$restore_started_at' '/absolute/recovery-report.json'"

@@ -23,9 +23,14 @@ not enumerate remote paths or accept arbitrary URLs.
 `restore.sh` verifies every checksum and refuses to run without
 `--confirm-empty-target`. It destructively replaces database tables and local
 state, so run it only on an isolated recovery environment with consumers and
-indexer services stopped. After restore, reconcile finalized slots against the
-local Agave node and exercise API/feed checks before promoting the environment.
-Perform and record a quarterly recovery rehearsal against the documented RTO.
+indexer services stopped. It records the UTC restore start and prints the exact
+`npm run validate:recovery` command. After restore, keep consumers disabled,
+reconcile the warehouse, resume finalized export, and exercise API/feed checks.
+The recovery validator rechecks the bound backup, requires a healthy canonical
+index and zero-lag exact ClickHouse/PostgreSQL/Redis content reconciliation, requires a healthy finalized
+exporter, enforces the four-hour RTO, and exclusively creates a hash-bound report;
+an existing report is never overwritten. Perform and retain this report for each
+quarterly isolated recovery rehearsal before promoting the environment.
 
 For commercial metering, configure PostgreSQL through a protected `PGPASSFILE`
 or equivalent `PG*` environment and run `npm run sync:commercial` on a supervised
