@@ -278,6 +278,10 @@ Snapshot CLIs accept `--artifact-only`. In this mode they atomically replace
 their configured snapshot artifact without rewriting `index.json`; the
 serialized inbox cycle validates and imports each artifact fingerprint exactly
 once. Scheduled workers must use this mode to avoid cross-process lost updates.
+Imported pool and curve rows preserve every component slot and also expose an
+`evidenceSlot` equal to the newest dependency context. Replacement ordering and
+snapshot WebSocket events use that effective slot, so a newer mint-extension or
+tick/config refresh cannot be hidden behind an unchanged vault/state slot.
 
 `npm run work:operational` atomically claims at most one PostgreSQL snapshot job
 with `FOR UPDATE SKIP LOCKED`, recovers expired leases, validates the job type
