@@ -68,6 +68,12 @@ test("unsigned message inspection enforces the Solana program allowlist", async 
   const receipt = await simulateUnsignedTransaction({ endpoint: "http://127.0.0.1:8899", call: async () => ({ context: { slot: 800 }, value: { err: null, logs: [], unitsConsumed: 10 } }) }, { transactionBase64: transaction, minContextSlot: 800, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, allowedProgramIds: [programId], requiredProgramIds: [programId] }); assert.deepEqual(receipt.programIds, [programId]); assert.equal(receipt.messageVersion, "legacy");
 });
 
+test("unsigned message inspection binds exact instruction accounts, roles, and data", () => {
+  const bytes58 = (fill) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; const bytes = Buffer.alloc(32, fill); for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } return output; }, payer = bytes58(2), readonly = bytes58(3), programId = bytes58(4), message = Buffer.concat([Buffer.from([1, 0, 2, 3]), Buffer.alloc(32, 2), Buffer.alloc(32, 3), Buffer.alloc(32, 4), Buffer.alloc(32), Buffer.from([1, 2, 2, 0, 1, 2, 0xab, 0xcd])]), transaction = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), message]).toString("base64"), policy = [{ programId, accounts: [{ address: payer, signer: true, writable: true }, { address: readonly, signer: false, writable: false }], dataHex: "abcd" }];
+  const inspected = inspectUnsignedTransactionPrograms(transaction, { allowedProgramIds: [programId], instructionPolicies: policy }); assert.deepEqual(inspected.instructions, policy);
+  assert.throws(() => inspectUnsignedTransactionPrograms(transaction, { allowedProgramIds: [programId], instructionPolicies: [{ ...policy[0], dataHex: "abce" }] }), /approved policy/); assert.throws(() => inspectUnsignedTransactionPrograms(transaction, { allowedProgramIds: [programId], instructionPolicies: [{ ...policy[0], accounts: [{ ...policy[0].accounts[0], writable: false }, policy[0].accounts[1]] }] }), /approved policy/);
+});
+
 test("Raydium CLMM tick math preserves protocol Q64.64 integer vectors", () => {
   assert.deepEqual([0, 1, -1, 2, -2].map((tick) => raydiumSqrtPriceX64AtTick(tick).toString()), ["18446744073709551616", "18447666387855957090", "18445821805675395072", "18448588748116922877", "18444899583751176192"]);
   assert.ok(raydiumSqrtPriceX64AtTick(-443_636) < raydiumSqrtPriceX64AtTick(0));
