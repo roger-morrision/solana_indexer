@@ -203,6 +203,8 @@ Configuration:
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
 | `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic checkpoint advanced only after ClickHouse and PostgreSQL acknowledge canonical events |
+| `INDEXER_WAREHOUSE_STALE_AFTER_MS` | `300000` | Maximum successful warehouse checkpoint age before health fails closed |
+| `INDEXER_MAX_WAREHOUSE_LAG_EVENTS` | `1000` | Maximum canonical-event lag before warehouse health fails closed |
 | `CLICKHOUSE_PASSWORD_FILE` | unset | Protected ClickHouse password file read into the client subprocess environment without command-line exposure |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
@@ -252,6 +254,7 @@ Configuration:
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence; malformed cursor/lag/tip progress fails closed)
+- `GET /api/v1/warehouse` (durable sink checkpoint age, event lag and retained-replay coverage; unavailable/corrupt/ahead checkpoints fail closed)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
 - `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume)
 

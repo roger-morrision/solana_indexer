@@ -30,6 +30,16 @@ export function checkpointSql(sequence) {
   return `INSERT INTO ingestion_checkpoints (consumer, chain, genesis_hash, slot, cursor, schema_version) VALUES ('warehouse-canonical-events', 'solana', ${sqlLiteral(GENESIS_HASH)}, ${sequence}, ${sqlLiteral(String(sequence))}, 1) ON CONFLICT (consumer) DO UPDATE SET chain = EXCLUDED.chain, genesis_hash = EXCLUDED.genesis_hash, slot = EXCLUDED.slot, cursor = EXCLUDED.cursor, schema_version = EXCLUDED.schema_version, updated_at = now();\n`;
 }
 
+export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, staleAfterMs = 300_000, maxLagEvents = 1_000, now = Date.now()) {
+  const unavailable = (reason) => ({ available: false, healthy: false, reason, sequence: null, eventSequence, lagEvents: null, ageMs: null, staleAfterMs, maxLagEvents });
+  if (!checkpoint) return unavailable("checkpoint_unavailable");
+  const updated = Date.parse(checkpoint.updatedAt ?? ""), sequence = Number(checkpoint.lastSequence);
+  if (checkpoint.schemaVersion !== 1 || checkpoint.consumer !== "warehouse-canonical-events" || !Number.isSafeInteger(sequence) || sequence < 0 || !Number.isSafeInteger(eventSequence) || eventSequence < 0 || !Number.isSafeInteger(oldestSequence) || oldestSequence < 1 || !Number.isFinite(updated)) return unavailable("checkpoint_invalid");
+  if (sequence > eventSequence) return { ...unavailable("checkpoint_ahead_of_index"), sequence };
+  const lagEvents = eventSequence - sequence, ageMs = now - updated, replayHistoryLost = sequence < oldestSequence - 1, reason = ageMs < 0 ? "checkpoint_clock_skew" : replayHistoryLost ? "checkpoint_behind_replay_history" : lagEvents > maxLagEvents ? "warehouse_lag_exceeded" : ageMs > staleAfterMs ? "warehouse_checkpoint_stale" : null;
+  return { available: true, healthy: reason == null, reason, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost };
+}
+
 function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
   return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
 }

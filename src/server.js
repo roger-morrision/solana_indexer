@@ -8,6 +8,7 @@ import { registrySnapshot } from "./program-registry.js";
 import { assessExporterStatus } from "./exporter-health.js";
 import { ApiAuditSink, auditIdentity } from "./api-audit.js";
 import { resolveApiTenant } from "./api-tenants.js";
+import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
@@ -119,6 +120,7 @@ export function createServer(config, store) {
         const status = assessExporterStatus(exporter, config.staleAfterMs, Date.now(), config.maxExporterLagSlots), payload = { ...status, exporter, index: store.stats().ingestion };
         return json(response, status.healthy ? 200 : 503, payload);
       }
+      if (url.pathname === "/api/v1/warehouse") { const checkpoint = await readJsonFile(config.warehouseCheckpointFile), status = assessWarehouseCheckpoint(checkpoint, store.state.eventSequence, store.state.events[0]?.sequence ?? store.state.eventSequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents); return json(response, status.healthy ? 200 : 503, status); }
       if (url.pathname === "/internal/registry") return json(response, 200, registrySnapshot());
       if (url.pathname === "/internal/feed/health") { const health = store.health(config.staleAfterMs); return json(response, health.healthy ? 200 : 503, { ...health, ingestion: await readJsonFile(config.exporterStatusFile), deadLetters: store.state.deadLetters.length, unresolvedDeadLetters: store.state.deadLetters.filter((row) => !row.resolved).length }); }
       if (url.pathname === "/internal/feed/gaps") { const ingestion = await readJsonFile(config.exporterStatusFile); return json(response, ingestion ? 200 : 503, { available: Boolean(ingestion), durableSkippedSlots: ingestion?.durableSkippedSlots ?? [], reorgCorrections: store.state.reorgCorrections.slice(-100), checkpoint: store.state.checkpoints.inbox ?? null }); }

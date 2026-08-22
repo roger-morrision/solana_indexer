@@ -26,7 +26,7 @@ import { compileHolderExclusions } from "../src/holder-exclusions.js";
 import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
 import { buildCommercialSyncSql } from "../src/postgres-commercial-sync.js";
-import { checkpointSql, compileWarehouseBatch, syncWarehouseBatch, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
+import { assessWarehouseCheckpoint, checkpointSql, compileWarehouseBatch, syncWarehouseBatch, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -791,6 +791,11 @@ test("warehouse sync is ordered, retry-safe, and checkpoints only after both sin
   assert.throws(() => compileWarehouseBatch({ eventSequence: 1, events: [{ ...state.events[0], provenance: { commitment: "unknown" } }] }), /invalid warehouse event/);
   const calls = [], spawnProcess = (command, args) => { const listeners = {}, stderr = { on() {} }, stdin = { end(input) { calls.push({ command, args, input }); queueMicrotask(() => listeners.close(0)); } }; return { stderr, stdin, on(name, handler) { listeners[name] = handler; } }; }; const result = await syncWarehouseBatch(batch, spawnProcess); assert.deepEqual(result, { synced: 2, sequence: 3 }); assert.deepEqual(calls.map((row) => row.command), ["clickhouse-client", "psql"]); assert.match(calls[0].input, /"sequence":2/); assert.equal(calls.some((row) => row.input.includes("password")), false);
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "warehouse-checkpoint-")), filename = path.join(root, "nested", "checkpoint.json"); await writeWarehouseCheckpoint(filename, 3); const persisted = JSON.parse(await fs.readFile(filename, "utf8")); assert.deepEqual({ schemaVersion: persisted.schemaVersion, consumer: persisted.consumer, lastSequence: persisted.lastSequence }, { schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: 3 });
+});
+
+test("warehouse health fails closed for stale, corrupt, lagged, and lost checkpoints", async (t) => {
+  const now = Date.parse("2026-08-22T00:00:00Z"), checkpoint = { schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: 9, updatedAt: new Date(now - 1_000).toISOString() }; assert.equal(assessWarehouseCheckpoint(checkpoint, 10, 1, 5_000, 2, now).healthy, true); assert.equal(assessWarehouseCheckpoint(null, 10, 1, 5_000, 2, now).reason, "checkpoint_unavailable"); assert.equal(assessWarehouseCheckpoint({ ...checkpoint, lastSequence: 11 }, 10, 1, 5_000, 2, now).reason, "checkpoint_ahead_of_index"); assert.equal(assessWarehouseCheckpoint({ ...checkpoint, lastSequence: 7 }, 10, 1, 5_000, 2, now).reason, "warehouse_lag_exceeded"); assert.equal(assessWarehouseCheckpoint({ ...checkpoint, updatedAt: new Date(now - 6_000).toISOString() }, 10, 1, 5_000, 2, now).reason, "warehouse_checkpoint_stale"); assert.equal(assessWarehouseCheckpoint({ ...checkpoint, lastSequence: 3 }, 10, 5, 5_000, 100, now).reason, "checkpoint_behind_replay_history");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "warehouse-health-")), filename = path.join(root, "checkpoint.json"); await fs.writeFile(filename, JSON.stringify({ ...checkpoint, lastSequence: 0, updatedAt: new Date().toISOString() })); const store = new IndexStore("unused"); await store.load(); store.state.eventSequence = 0; store.state.events = []; const server = createServer({ warehouseCheckpointFile: filename, warehouseStaleAfterMs: 300_000, maxWarehouseLagEvents: 10 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/warehouse`); assert.equal(response.status, 200); assert.equal((await response.json()).lagEvents, 0);
 });
 
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {
