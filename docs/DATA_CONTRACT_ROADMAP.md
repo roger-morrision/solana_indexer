@@ -64,6 +64,10 @@ no simulation, signing, or submission.
 
 Phase 9 zero-event synchronization cycles still reconcile canonical dead letters, PostgreSQL projections/jobs/checkpoints and versioned Redis hot state, so TTL expiry or partial sink loss self-heals without waiting for unrelated chain activity. Redis rebuilds atomically cover deletion, complete hash population, stats/TTL updates, event publication and the current-version pointer, including same-sequence repair. PostgreSQL token projections and warehouse checkpoints now use the same canonical `solana-mainnet` chain identity as reconciliation.
 
+Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
+`solana-mainnet` identity; wrong-network and legacy generic-chain artifacts fail
+closed before restore qualification.
+
 ## Known limits
 
 The current index is an offline local prototype. It is not yet a SolanaTracker-equivalent service, an RPC replacement, a price oracle, or a safe trading signal. Generic parsed transfer activity cannot faithfully supply pool liquidity, USD price/volume, holders, trader PnL, swaps, or risk scores.

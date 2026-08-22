@@ -472,7 +472,8 @@ and inbox archives and uploads them to the loopback SeaweedFS filer.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
 storage. `ops/restore.sh` verifies checksums and requires the explicit
 `npm run validate:backup -- /absolute/backup-directory` preflight. The preflight
-requires the complete fixed sink inventory, a version-2 manifest binding the
+requires the complete fixed sink inventory, a version-3 `solana-mainnet`
+manifest binding the
 quiesced-writer assertion and exact byte length/SHA-256 of every artifact, an
 inbox manifest bound to the same backup identity, a backup inside the 24-hour RPO,
 safe tar headers, and both canonical index and exporter status members; it never
