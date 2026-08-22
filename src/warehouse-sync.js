@@ -253,9 +253,13 @@ function captureProcess(command, args, spawnProcess = spawn, env = process.env) 
 
 export function validateWarehouseSinkSequences(expectedSequence, values) {
   if (!Number.isSafeInteger(expectedSequence) || expectedSequence < 0) throw new Error("invalid expected warehouse sequence");
-  const sinks = {};
-  for (const name of ["clickhouse", "postgres", "redis"]) { const text = String(values?.[name] ?? "").trim(); if (!/^\d+$/.test(text)) throw new Error(`${name} warehouse sequence unavailable`); const sequence = Number(text); if (!Number.isSafeInteger(sequence) || sequence !== expectedSequence) throw new Error(`${name} warehouse sequence mismatch`); sinks[name] = sequence; }
-  return sinks;
+  const postgres = String(values?.postgres ?? "").trim().split(/\r?\n/);
+  if (postgres.length !== 3 || !/^\d+$/.test(postgres[0])) throw new Error("postgres warehouse sequence unavailable");
+  if (postgres[1] !== CHAIN || postgres[2] !== GENESIS_HASH) throw new Error("postgres warehouse network identity mismatch");
+  const sinks = { postgres: Number(postgres[0]) };
+  for (const name of ["clickhouse", "redis"]) { const text = String(values?.[name] ?? "").trim(); if (!/^\d+$/.test(text)) throw new Error(`${name} warehouse sequence unavailable`); const sequence = Number(text); if (!Number.isSafeInteger(sequence) || sequence !== expectedSequence) throw new Error(`${name} warehouse sequence mismatch`); sinks[name] = sequence; }
+  if (!Number.isSafeInteger(sinks.postgres) || sinks.postgres !== expectedSequence) throw new Error("postgres warehouse sequence mismatch");
+  return { clickhouse: sinks.clickhouse, postgres: sinks.postgres, redis: sinks.redis };
 }
 
 function digestIdentities(algorithm, identities) { return crypto.createHash(algorithm).update([...identities].sort().join("\n")).digest("hex"); }
@@ -288,7 +292,7 @@ export async function probeWarehouseReconciliation(expected, spawnProcess = spaw
 export async function probeWarehouseSinks(expectedSequence, spawnProcess = spawn, env = process.env) {
   const [clickhouse, postgres, redis] = await Promise.all([
     captureProcess("clickhouse-client", ["--query", "SELECT toString(ifNull(max(sequence), 0)) FROM terminal_dex.canonical_events FORMAT TabSeparatedRaw"], spawnProcess, env),
-    captureProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--tuples-only", "--no-align", "--quiet", "--command", "SELECT COALESCE(cursor, '') FROM ingestion_checkpoints WHERE consumer='warehouse-canonical-events'"], spawnProcess, env),
+    captureProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--tuples-only", "--no-align", "--quiet", "--command", "SELECT COALESCE(cursor, '') FROM ingestion_checkpoints WHERE consumer='warehouse-canonical-events'; SELECT chain FROM ingestion_checkpoints WHERE consumer='warehouse-canonical-events'; SELECT genesis_hash FROM ingestion_checkpoints WHERE consumer='warehouse-canonical-events'"], spawnProcess, env),
     captureProcess("redis-cli", ["--raw", "GET", "terminal_dex:hot:current"], spawnProcess, env),
   ]);
   return validateWarehouseSinkSequences(expectedSequence, { clickhouse, postgres, redis });
@@ -312,7 +316,7 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
 }
 
 export async function writeWarehouseCheckpoint(filename, sequence, sinks, reconciliation) {
-  validateWarehouseSinkSequences(sequence, sinks); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
+  if (!Number.isSafeInteger(sequence) || sequence < 0 || !sinks || [sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) throw new Error("warehouse checkpoint sink sequence mismatch"); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
 }
 
 async function main() {

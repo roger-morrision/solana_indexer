@@ -65,6 +65,8 @@ current-version pointer transition is atomic even when repairing the already
 advertised sequence.
 PostgreSQL token projections and warehouse checkpoints share the canonical
 `solana-mainnet` identity used by reconciliation.
+Live sink convergence rejects a PostgreSQL checkpoint unless its chain and
+genesis hash match canonical mainnet in addition to its event sequence.
 
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and

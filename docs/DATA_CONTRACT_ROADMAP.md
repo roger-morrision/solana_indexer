@@ -67,6 +67,8 @@ Phase 9 zero-event synchronization cycles still reconcile canonical dead letters
 Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
 `solana-mainnet` identity; wrong-network and legacy generic-chain artifacts fail
 closed before restore qualification.
+Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
+canonical chain and mainnet genesis hash, not sequence agreement alone.
 
 ## Known limits
 
