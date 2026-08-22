@@ -305,7 +305,8 @@ export class IndexStore {
   }
   tokenSecurity(mint, staleAfterMs = null, now = Date.now()) {
     const token = this.state.mints[mint], info = token?.mintInfo ?? null, snapshot = this.state.holderSnapshots[mint] ?? null;
-    if (!info || !snapshot) return { schemaVersion: 1, mint, assessable: false, safeForAutomation: false, ruleVersion: "token-security-v1", missing: ["finalized_mint_account_snapshot"], findings: [], evidence: null };
+    const canonical = snapshot?.complete === true && Number.isSafeInteger(snapshot.slot) && snapshot.slot >= 0 && /^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") && Number.isSafeInteger(snapshot.accountCount) && snapshot.accountCount === snapshot.accounts?.length && /^\d+$/.test(info?.supply ?? "") && Number.isInteger(info?.decimals) && info.decimals >= 0 && info.decimals <= 255;
+    if (!canonical) return { schemaVersion: 1, mint, assessable: false, safeForAutomation: false, ruleVersion: "token-security-v1", missing: [!snapshot ? "finalized_mint_account_snapshot" : "complete_finalized_mint_account_evidence"], findings: [], evidence: null };
     const observed = Date.parse(snapshot.observedAt ?? ""), ageMs = Number.isFinite(observed) ? now - observed : null, observedInFuture = ageMs != null && ageMs < 0, freshnessRequired = Number.isFinite(staleAfterMs), fresh = ageMs != null && ageMs >= 0 && (!freshnessRequired || ageMs <= staleAfterMs), holderEvidence = this.holders(mint, 1, staleAfterMs, now), exclusionsComplete = holderEvidence.exclusionsApplied;
     const findings = [];
     if (info.mintAuthority) findings.push({ code: "mint_authority_present", severity: "high", blocksAutomation: true, value: info.mintAuthority });
