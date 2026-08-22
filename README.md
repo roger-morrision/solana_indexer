@@ -394,7 +394,9 @@ Static and versioned loaded account-key arrays preserve their original index
 positions. A malformed key array rejects the transaction boundary, and an
 instruction with an invalid program or account index is omitted in full, so a
 missing key can never shift a later address into a transfer, balance, or
-protocol account role.
+protocol account role. Inner-instruction groups must reference one unique valid
+outer instruction and contain an instruction array; ambiguous trees reject the
+block instead of producing consumer-specific interpretations.
 Parsed transfer facts require an exact canonical token-program ID, decimal-u64
 amount, non-empty mint identity, u8 decimals, and consistency with any
 transaction token-balance mint/decimal evidence; conflicts are discarded.

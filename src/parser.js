@@ -308,6 +308,16 @@ function instructionRows(transaction) {
   return [...outer, ...inner];
 }
 
+function validateInstructionLayout(entry) {
+  const outer = entry?.transaction?.message?.instructions ?? [], groups = entry?.meta?.innerInstructions ?? [];
+  if (!Array.isArray(outer) || !Array.isArray(groups)) throw new Error("transaction instructions must be arrays");
+  const seen = new Set();
+  for (const group of groups) {
+    if (!Number.isSafeInteger(group?.index) || group.index < 0 || group.index >= outer.length || seen.has(group.index) || !Array.isArray(group.instructions)) throw new Error("invalid inner instruction group");
+    seen.add(group.index);
+  }
+}
+
 function normalizedInstructions(entry, keys, signature, slot, blockTime) {
   const outer = entry.transaction?.message?.instructions ?? []; const innerGroups = new Map((entry.meta?.innerInstructions ?? []).map((group) => [group.index, group.instructions ?? []])); const rows = [];
   const append = (instruction, instructionIndex, innerIndex) => {
@@ -420,6 +430,7 @@ export function parseBlock(block) {
     const signature = entry?.transaction?.signatures?.[0];
     if (!signature) continue;
     const keys = accountKeys(entry.transaction.message, entry.meta);
+    validateInstructionLayout(entry);
     const feePayer = keys[0] ?? "";
     const failed = entry.meta?.err != null;
     const record = {
