@@ -5,10 +5,20 @@ import { parseBlock, parseInput } from "./parser.js";
 
 function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 
+export async function applySnapshotArtifacts(config, store) {
+  const descriptors = [{ type: "account", filename: config.accountSnapshotFile, apply: (value) => store.applyAccountSnapshot(value) }, { type: "clmm_pool", filename: config.clmmPoolSnapshotFile, apply: (value) => store.applyPoolSnapshot(value) }], result = { applied: 0, skipped: 0, errors: [] }; store.state.checkpoints.snapshotArtifacts ??= {};
+  for (const descriptor of descriptors) {
+    if (!descriptor.filename) continue; let content; try { content = await fs.readFile(descriptor.filename); } catch (error) { if (error.code === "ENOENT") { result.skipped++; continue; } result.errors.push({ type: descriptor.type, error: error.message }); continue; } const hash = fingerprint(content); if (store.state.checkpoints.snapshotArtifacts[descriptor.type]?.fingerprint === hash) { result.skipped++; continue; } const before = structuredClone(store.state);
+    try { const value = JSON.parse(content.toString("utf8")); descriptor.apply(value); store.state.checkpoints.snapshotArtifacts[descriptor.type] = { fingerprint: hash, observedAt: value.observedAt, sourceSlot: value.slot ?? value.balanceSlot, appliedAt: new Date().toISOString() }; result.applied++; }
+    catch (error) { store.state = before; store.recordDeadLetter(`snapshot:${descriptor.type}`, hash, error.message); result.errors.push({ type: descriptor.type, error: error.message }); }
+  }
+  return result;
+}
+
 export async function indexInbox(config, store) {
   await store.load(); await fs.mkdir(config.inbox, { recursive: true });
   const names = (await fs.readdir(config.inbox)).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort((a, b) => { const left = Number(a.match(/^(\d+)/)?.[1]), right = Number(b.match(/^(\d+)/)?.[1]); return Number.isSafeInteger(left) && Number.isSafeInteger(right) && left !== right ? left - right : a.localeCompare(b); });
-  const result = { files: 0, blocks: 0, transactions: 0, transfers: 0, balanceChanges: 0, swaps: 0, skippedFiles: 0, resolvedDeadLetters: 0, errors: [] };
+  const result = { files: 0, blocks: 0, transactions: 0, transfers: 0, balanceChanges: 0, swaps: 0, snapshots: 0, skippedFiles: 0, resolvedDeadLetters: 0, errors: [] };
   for (const name of names) {
     const filename = path.join(config.inbox, name); let hash = null;
     try {
@@ -34,7 +44,8 @@ export async function indexInbox(config, store) {
       result.resolvedDeadLetters += store.markFile(name, hash); result.files++;
     } catch (error) { store.recordDeadLetter(name, hash, error.message); result.errors.push({ file: name, error: error.message }); }
   }
-  if (result.files || result.blocks || result.resolvedDeadLetters || result.errors.length) await store.save();
+  const snapshots = await applySnapshotArtifacts(config, store); result.snapshots = snapshots.applied; result.errors.push(...snapshots.errors.map((row) => ({ file: `snapshot:${row.type}`, error: row.error })));
+  if (result.files || result.blocks || result.snapshots || result.resolvedDeadLetters || result.errors.length) await store.save();
   return result;
 }
 

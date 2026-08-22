@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { indexInbox } from "../src/indexer.js";
+import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
 import { decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer } from "../src/server.js";
@@ -153,6 +153,12 @@ test("snapshot batches validate atomically before mutating canonical state", asy
   const falseBitmap = { bitCount: 1024, minStartTickIndex: -30_720, maxStartTickIndexExclusive: 30_720, initializedTickArrayStartIndexes: [0], rawHex: "00".repeat(128) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, defaultTickArrayBitmap: falseBitmap }] }), /invalid CLMM pool snapshot row/);
   const falseExtension = { address: "extension-a", pool: "wrong-pool", segmentBits: 512, positiveBitmapSegments: Array(14).fill("00".repeat(64)), negativeBitmapSegments: Array(14).fill("00".repeat(64)), rawPayloadHash: "a".repeat(64) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, bitmapExtension: falseExtension, bitmapExtensionSlot: 800 }] }), /invalid CLMM pool snapshot row/);
   assert.equal(store.state.poolSnapshots["pool-a"], undefined); assert.equal(store.state.pools["pool-a"], undefined);
+});
+
+test("serialized index cycles ingest snapshot artifacts exactly once", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "snapshot-artifacts-")), accountSnapshotFile = path.join(root, "account.json"), store = new IndexStore(path.join(root, "index.json")); await store.load(); const snapshot = { schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 900, observedAt: "2026-08-22T00:00:00.000Z", mints: [{ mint: "mint-artifact", mintInfo: { decimals: 6, supply: "10" }, accounts: [{ tokenAccount: "account-artifact", owner: "wallet", programId: "token", decimals: 6, amountRaw: "10" }] }] }; await fs.writeFile(accountSnapshotFile, JSON.stringify(snapshot)); const config = { accountSnapshotFile, clmmPoolSnapshotFile: path.join(root, "missing-clmm.json") };
+  const first = await applySnapshotArtifacts(config, store); assert.deepEqual({ applied: first.applied, errors: first.errors.length }, { applied: 1, errors: 0 }); assert.equal(store.state.tokenAccounts["account-artifact"].amountRaw, "10"); assert.match(store.state.checkpoints.snapshotArtifacts.account.fingerprint, /^[0-9a-f]{64}$/); const second = await applySnapshotArtifacts(config, store); assert.deepEqual({ applied: second.applied, skipped: second.skipped }, { applied: 0, skipped: 2 });
+  await fs.writeFile(accountSnapshotFile, JSON.stringify({ ...snapshot, genesisHash: "wrong" })); const before = structuredClone(store.state.tokenAccounts), invalid = await applySnapshotArtifacts(config, store); assert.equal(invalid.applied, 0); assert.equal(invalid.errors.length, 1); assert.deepEqual(store.state.tokenAccounts, before); assert.equal(store.state.deadLetters.at(-1).filename, "snapshot:account");
 });
 
 test("indexes idempotently and persists queryable state", async () => {

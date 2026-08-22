@@ -256,6 +256,11 @@ Configuration:
 | `INDEXER_STREAM_RECONNECT_MIN_MS` | `500` | Initial reconnect backoff |
 | `INDEXER_STREAM_RECONNECT_MAX_MS` | `30000` | Maximum reconnect backoff |
 
+Snapshot CLIs accept `--artifact-only`. In this mode they atomically replace
+their configured snapshot artifact without rewriting `index.json`; the
+serialized inbox cycle validates and imports each artifact fingerprint exactly
+once. Scheduled workers must use this mode to avoid cross-process lost updates.
+
 ## API
 
 - `GET /api/health`
