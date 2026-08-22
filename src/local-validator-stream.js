@@ -27,14 +27,19 @@ export class LocalValidatorStream {
     if (this.stopped) return;
     const socket = new this.WebSocketClass(this.endpoint); this.socket = socket;
     socket.onopen = () => { this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] })); };
-    socket.onmessage = ({ data }) => { this.messageQueue = this.messageQueue.then(() => this.handleMessage(data)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: error.message }; await this.writeStatus(); }); };
+    socket.onmessage = ({ data }) => { if (socket !== this.socket) return; this.messageQueue = this.messageQueue.then(() => this.handleMessage(data)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: error.message }; await this.writeStatus(); }); };
     socket.onerror = () => {};
-    socket.onclose = () => { if (this.stopped) return; this.metrics.reconnects++; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); setTimeout(() => this.connect(), delay); };
+    socket.onclose = () => { if (this.stopped || socket !== this.socket) return; this.metrics.reconnects++; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); setTimeout(() => this.connect(), delay); };
   }
   async handleMessage(data) {
     const payload = JSON.parse(String(data));
-    if (payload.id === 1 || payload.id === 2) { if (Number.isInteger(payload.result)) this.subscriptions.set(payload.result, payload.id === 1 ? "confirmed" : "finalized"); return; }
+    if (payload.id === 1 || payload.id === 2) {
+      const commitment = payload.id === 1 ? "confirmed" : "finalized", hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
+      if (payload.jsonrpc !== "2.0" || hasResult === hasError || !Number.isSafeInteger(payload.result) || payload.result < 0 || this.subscriptions.has(payload.result) || [...this.subscriptions.values()].includes(commitment)) throw new Error(`invalid ${commitment} blockSubscribe acknowledgement`);
+      this.subscriptions.set(payload.result, commitment); return;
+    }
     if (payload.method !== "blockNotification") return;
+    if (payload.jsonrpc !== "2.0") throw new Error("invalid blockNotification JSON-RPC version");
     const commitment = this.subscriptions.get(payload.params?.subscription); const value = payload.params?.result?.value;
     if (!commitment || value?.err || !Number.isSafeInteger(value?.slot) || !value.block) return;
     await this.ingestBlock(commitment, value.slot, value.block);
@@ -46,10 +51,14 @@ export class LocalValidatorStream {
   }
   async repairGap(commitment, first, last) {
     if (last - first > 511) throw new Error(`stream gap ${first}-${last} exceeds bounded repair window`);
+    const producedSlots = await this.rpcClient.call("getBlocks", [first, last, { commitment }]);
+    if (!Array.isArray(producedSlots) || producedSlots.some((slot, index) => !Number.isSafeInteger(slot) || slot < first || slot > last || (index > 0 && producedSlots[index - 1] >= slot))) throw new Error("stream getBlocks response must be a strictly increasing in-range slot list");
+    const produced = new Set(producedSlots);
     for (let slot = first; slot <= last; slot++) {
+      if (!produced.has(slot)) { this.metrics.skippedSlots.push(slot); continue; }
       const block = await this.rpcClient.call("getBlock", [slot, { commitment, encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
-      if (block) { await this.persistBlock(commitment, slot, block, last); this.metrics.gapRepairs++; }
-      else this.metrics.skippedSlots.push(slot);
+      if (!block) throw new Error(`stream block ${slot} was listed by getBlocks but is unavailable`);
+      await this.persistBlock(commitment, slot, block, last); this.metrics.gapRepairs++;
     }
     this.metrics.skippedSlots = [...new Set(this.metrics.skippedSlots)].sort((a, b) => a - b).slice(-10_000);
   }

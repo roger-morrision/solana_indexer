@@ -280,6 +280,14 @@ test("validator stream accepts only loopback WebSocket endpoints", () => {
   assert.throws(() => validateLocalWsUrl("wss://example.com"), /must use ws/); assert.throws(() => validateLocalWsUrl("ws://192.168.1.2:8900"), /non-loopback/);
 });
 
+test("validator stream rejects crossed subscriptions and ignores superseded sockets", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-subscriptions-")); class FakeSocket { static instances = []; constructor() { this.readyState = 1; FakeSocket.instances.push(this); } send() {} close() {} }
+  const stream = new LocalValidatorStream({ rpcClient: {}, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: FakeSocket });
+  await stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 1, result: 41 })); assert.equal(stream.subscriptions.get(41), "confirmed");
+  await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 2, result: 41 })), /invalid finalized/); await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "1.0", id: 2, result: 42 })), /invalid finalized/);
+  stream.connect(); const oldSocket = FakeSocket.instances.at(-1); stream.connect(); oldSocket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 42 }) }); await stream.messageQueue; assert.equal(stream.subscriptions.has(42), false);
+});
+
 test("verified stream refuses an existing inbox with unknown genesis", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-network-boundary-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "1.json"), "{}\n");
   const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox, statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
@@ -288,12 +296,17 @@ test("verified stream refuses an existing inbox with unknown genesis", async () 
 
 test("validator stream atomically persists commitments and repairs bounded gaps", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-")); const calls = [];
-  const rpcClient = { call: async (method, params) => { calls.push([method, params[0]]); return { blockhash: `block-${params[0]}`, previousBlockhash: `block-${params[0] - 1}`, parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] }; } };
+  const rpcClient = { call: async (method, params) => { calls.push([method, params[0]]); return method === "getBlocks" ? [11] : { blockhash: `block-${params[0]}`, previousBlockhash: `block-${params[0] - 1}`, parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] }; } };
   const stream = new LocalValidatorStream({ rpcClient, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: class {}, endpoint: "ws://127.0.0.1:8900" });
   const block = (slot) => ({ blockhash: `block-${slot}`, previousBlockhash: `block-${slot - 1}`, parentSlot: slot - 1, blockTime: 1_700_000_000, transactions: [] });
   await stream.ingestBlock("confirmed", 10, block(10)); await stream.ingestBlock("confirmed", 12, block(12)); await stream.ingestBlock("finalized", 10, block(10));
-  assert.deepEqual(calls, [["getBlock", 11]]); assert.ok(await fs.readFile(path.join(root, "inbox", "11.confirmed.json"), "utf8"));
+  assert.deepEqual(calls, [["getBlocks", 11], ["getBlock", 11]]); assert.ok(await fs.readFile(path.join(root, "inbox", "11.confirmed.json"), "utf8"));
   const status = JSON.parse(await fs.readFile(path.join(root, "status.json"), "utf8")); assert.deepEqual({ confirmed: status.lastConfirmedSlot, finalized: status.lastFinalizedSlot, lag: status.finalizationLagSlots, repairs: status.gapRepairs }, { confirmed: 12, finalized: 10, lag: 2, repairs: 1 });
+});
+
+test("validator stream never records an unavailable produced block as skipped", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-gap-integrity-")); const stream = new LocalValidatorStream({ rpcClient: { call: async (method) => method === "getBlocks" ? [11] : null }, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
+  await assert.rejects(() => stream.repairGap("confirmed", 11, 11), /block 11 was listed by getBlocks but is unavailable/); assert.deepEqual(stream.metrics.skippedSlots, []); await assert.rejects(fs.access(path.join(root, "inbox", "11.confirmed.json")));
 });
 
 test("exporter records finalized provenance, lag, and skipped slots", async () => {
