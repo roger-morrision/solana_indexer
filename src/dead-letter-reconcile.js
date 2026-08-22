@@ -6,7 +6,7 @@ import { loadConfig } from "./config.js";
 import { IndexStore } from "./store.js";
 
 export async function reconcileDeadLetters({ dataFile, confirm = false }) {
-  const store = new IndexStore(dataFile); await store.load();
+  const store = new IndexStore(dataFile); await store.load(); store.assertWritable();
   const eligible = store.state.deadLetters.filter((row) => {
     const checkpoint = store.state.processedFiles[row.filename];
     return !row.resolved && Boolean(row.fingerprint) && checkpoint?.parserVersion === 2 && checkpoint.fingerprint === row.fingerprint;

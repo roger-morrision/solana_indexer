@@ -167,6 +167,11 @@ Inbox and snapshot-artifact writers check quarantine before filesystem or
 checkpoint mutation. The watch loop reports one typed suspended cycle and
 cancels further polling instead of misclassifying corruption as a payload dead
 letter or repeatedly attempting an impossible save.
+Warehouse publication validates quarantine before reading sink credentials or
+compiling any deletion/upsert transaction, preventing an empty diagnostic shell
+from replacing valid ClickHouse, PostgreSQL, or Redis projections. Dead-letter
+reconciliation shares the same guard, and CLI status includes structure and
+health evidence for offline recovery workflows.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
