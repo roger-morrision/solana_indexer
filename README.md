@@ -594,6 +594,10 @@ or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
 returned or logged. Public binding is refused unless at least one key is configured.
 Audit rows carry bounded `quotaUnits`; legacy rows default to one unit, while RPC
 batches are enforced and aggregated by logical call count without duplicating HTTP duration.
+Dynamic token, pool, wallet, account, and transaction identities are replaced by
+stable route templates before audit persistence and again while synchronizing
+legacy rows. Unknown API/internal paths share bounded unmatched buckets, and
+hourly request totals use integer-safe accumulation with exact millisecond sums.
 WebSocket clients receive `ready`, then ordered `block_indexed` or
 `block_replaced` events after atomic index persistence. Confirmed blocks are
 preserved as provisional evidence and promoted with `block_finalized` when the

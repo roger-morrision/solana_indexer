@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { attachWebSocket } from "./websocket.js";
 import { registrySnapshot } from "./program-registry.js";
 import { assessExporterStatus } from "./exporter-health.js";
-import { ApiAuditSink, auditIdentity } from "./api-audit.js";
+import { ApiAuditSink, auditIdentity, normalizeAuditRoute } from "./api-audit.js";
 import { resolveApiTenant } from "./api-tenants.js";
 import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
 import { assessBackupStatus } from "./backup-status.js";
@@ -182,7 +182,7 @@ export function createServer(config, store) {
     response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; if (request.method === "GET" && (auditPath?.startsWith("/api/") || auditPath?.startsWith("/internal/"))) { metrics.durationCount++; metrics.durationMs += durationMs; for (const le of HTTP_DURATION_BUCKETS_SECONDS) if (durationMs <= le * 1_000) metrics.durationBuckets[le]++; } const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000, quotaUnits: auditUnits }); });
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
-      auditPath = url.pathname;
+      auditPath = normalizeAuditRoute(url.pathname);
       const protectedRoute = url.pathname === "/rpc" || url.pathname === "/metrics" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/internal/");
       const apiKeys = config.apiKeys ?? [];
       if (protectedRoute && config.auditLogFile && auditSink.failures > 0) return json(response, 503, { error: "audit_sink_unavailable" });
