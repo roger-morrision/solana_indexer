@@ -375,9 +375,12 @@ counterparties from successful explicit System Program `Transfer`,
 instructions, plus Stake Program `Withdraw` instructions, in retained canonical
 blocks. Account-creation facts preserve
 exact allocated space, owner program, and optional base/seed. The view is
-deliberately partial and non-automation-safe: it does not infer funding from
+augmented with exact per-mint SPL/Token-2022 funding totals only when parsed
+transfers can be bound to source and destination wallet owners through matching
+transaction token-balance evidence. The view is deliberately partial and
+non-automation-safe: it does not infer funding from
 balance deltas and does not claim coverage of zero-lamport allocation-only
-prefund creation, token transfers, or history before
+prefund creation, unparsed token instructions, or history before
 retention. `CreateAccountAllowPrefund` evidence can appear only after its
 cluster feature is active and a transaction succeeds.
 `/internal/wallets/:address/funding-cluster` deterministically lists other

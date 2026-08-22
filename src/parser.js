@@ -331,20 +331,26 @@ export function decodeSystemTransfers(rows) {
   return transfers;
 }
 
-function parsedTransfer(instruction) {
+function parsedTransfer(instruction, tokenAccounts = new Map()) {
   const programId = instruction.programId || instruction.program;
   const parsed = instruction.parsed;
   if ((!TOKEN_PROGRAMS.has(programId) && instruction.program !== "spl-token") || !parsed?.info) return null;
   if (!["transfer", "transferChecked"].includes(parsed.type)) return null;
   const tokenAmount = parsed.info.tokenAmount;
   const amountRaw = tokenAmount?.amount ?? parsed.info.amount ?? null;
-  const decimals = Number.isInteger(tokenAmount?.decimals) ? tokenAmount.decimals : null;
+  const sourceEvidence = tokenAccounts.get(parsed.info.source), destinationEvidence = tokenAccounts.get(parsed.info.destination);
+  const inferredMint = sourceEvidence?.mint && sourceEvidence.mint === destinationEvidence?.mint ? sourceEvidence.mint : null;
+  const mint = parsed.info.mint ?? inferredMint;
+  const inferredDecimals = Number.isInteger(sourceEvidence?.decimals) && sourceEvidence.decimals === destinationEvidence?.decimals ? sourceEvidence.decimals : null;
+  const decimals = Number.isInteger(tokenAmount?.decimals) ? tokenAmount.decimals : inferredDecimals;
   const amountUiString = tokenAmount?.uiAmountString ?? null;
   return {
     source: parsed.info.source ?? "",
     destination: parsed.info.destination ?? "",
+    sourceOwner: sourceEvidence?.owner ?? null,
+    destinationOwner: destinationEvidence?.owner ?? null,
     authority: parsed.info.authority ?? parsed.info.multisigAuthority ?? "",
-    mint: parsed.info.mint ?? null,
+    mint,
     // Keep integer base units as a string. JavaScript numbers cannot safely
     // represent the full u64 range used by SPL token amounts.
     amountRaw: amountRaw == null ? null : String(amountRaw),
@@ -382,9 +388,10 @@ export function parseBlock(block) {
     poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
-    for (const instruction of instructionRows(entry)) {
-      const transfer = parsedTransfer(instruction);
-      if (transfer) transfers.push({ ...transfer, signature, slot: block.slot, blockTime });
+    const tokenAccounts = new Map(); for (const balance of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) { const tokenAccount = keys[balance.accountIndex]; if (tokenAccount && balance.mint) tokenAccounts.set(tokenAccount, { mint: balance.mint, owner: balance.owner ?? null, decimals: balance.uiTokenAmount?.decimals ?? null }); }
+    for (const instruction of normalized) {
+      const transfer = parsedTransfer(instruction, tokenAccounts);
+      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 2, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
     }
   }
   const provenance = {
