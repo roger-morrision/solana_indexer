@@ -65,5 +65,7 @@ evidence, and an empty transfer-hook slice vector. Capped expiring external
 approval, Ed25519 verification, and finalized landed-message identity complete
 the read-only execution chain. Pool-bound finalized bitmap-extension evidence
 also admits initialized arrays outside the default range. Transfer hooks and
-other extensions fail closed; the indexer never signs or submits and automation
-remains disabled.
+other extensions fail closed; transfer-hook mints retain finalized hook-program,
+executable-account, canonical validation-PDA presence and content-hash evidence,
+but execution remains disabled until TLV extra-account resolution is complete.
+The indexer never signs or submits and automation remains disabled.

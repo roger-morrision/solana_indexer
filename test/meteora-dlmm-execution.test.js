@@ -42,7 +42,7 @@ test("Meteora swap2 construction encodes empty hook slices for fee-only Token-20
   const instruction = buildMeteoraDlmmSwapInstruction({ ...args, minimumOutputRaw: "850" });
   assert.equal(instruction.dataHex, `${METEORA_DLMM_EXECUTION_CONSTANTS.swap2DiscriminatorHex}e803000000000000520300000000000000000000`); assert.equal(instruction.accounts[11].address, METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program); assert.equal(instruction.accounts[13].address, METEORA_DLMM_EXECUTION_CONSTANTS.memoProgram); assert.equal(instruction.evidence.instructionVersion, "swap2"); assert.deepEqual(instruction.evidence.remainingAccountSlices, []);
   const preparation = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850" }); assert.equal(preparation.instructionEvidence.instructionVersion, "swap2"); assert.deepEqual(inspectUnsignedTransactionPrograms(preparation.transaction.transactionBase64, { allowedProgramIds: [METEORA_DLMM_PROGRAM], instructionPolicies: preparation.transaction.instructionPolicies }).instructions, preparation.transaction.instructionPolicies);
-  const hooked = structuredClone(args.pool); hooked.mint0Evidence.extensionTypes = ["transferFeeConfig", "transferHook"]; assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...args, pool: hooked, minimumOutputRaw: "850" }), /transfer hooks or extensions/);
+  const hooked = structuredClone(args.pool); hooked.mint0Evidence.extensionTypes = ["transferFeeConfig", "transferHook"]; assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...args, pool: hooked, minimumOutputRaw: "850" }), /evidence|transfer hooks or extensions/);
 });
 
 test("Meteora external approval and finalized verification bind one immutable execution chain", async () => {
