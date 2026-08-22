@@ -25,6 +25,20 @@ export function compileWarehouseBatch(state, checkpoint = { lastSequence: 0 }) {
   return { fromSequence: lastSequence + 1, toSequence: events.at(-1)?.sequence ?? lastSequence, events: rows };
 }
 
+function factBase(row) {
+  if (!Number.isSafeInteger(row?.slot) || row.slot < 0 || (row.blockTime != null && (!Number.isSafeInteger(row.blockTime) || row.blockTime < 0)) || typeof row.signature !== "string" || !row.signature || !["confirmed", "finalized"].includes(row.provenance?.commitment)) throw new Error("invalid canonical warehouse fact");
+  return { chain: CHAIN, slot: row.slot, block_time: row.blockTime == null ? null : new Date(row.blockTime * 1_000).toISOString(), signature: row.signature, commitment: row.provenance.commitment };
+}
+
+export function compileWarehouseFacts(state, batch) {
+  const slots = [...new Set(batch.events.map((event) => event.slot))].sort((a, b) => a - b), selected = (rows) => (rows ?? []).filter((row) => slots.includes(row.slot));
+  const identities = new Set(), unique = (identity) => { if (identities.has(identity)) throw new Error(`duplicate canonical warehouse fact ${identity}`); identities.add(identity); };
+  const instructions = selected(state.instructions).map((row) => { const base = factBase(row); if (!Number.isInteger(row.instructionIndex) || row.instructionIndex < 0 || (row.innerIndex != null && (!Number.isInteger(row.innerIndex) || row.innerIndex < 0)) || typeof row.eventId !== "string" || !row.eventId || typeof row.programId !== "string" || !row.programId || !Array.isArray(row.accounts) || !/^([0-9a-f]{64})$/.test(row.rawPayloadHash ?? "")) throw new Error("invalid canonical instruction fact"); unique(`instruction:${row.eventId}`); return { ...base, event_id: row.eventId, instruction_index: row.instructionIndex, inner_index: row.innerIndex, program_id: row.programId, protocol: row.protocol ?? null, registry_version: row.registryVersion, decoder_version: row.decoderVersion ?? null, parsed_type: row.parsedType ?? null, accounts: row.accounts, data: row.data ?? null, raw_payload_hash: row.rawPayloadHash, payload: JSON.stringify(row) }; });
+  const swaps = selected(state.swaps).map((row) => { const base = factBase(row); if (typeof row.swapId !== "string" || !row.swapId || !Number.isInteger(row.eventIndex) || row.eventIndex < 0 || !row.pool || !row.protocol || !row.baseMint || !row.quoteMint || !row.inputMint || !row.outputMint || !/^\d+$/.test(row.inputAmountRaw ?? "") || !/^\d+$/.test(row.outputAmountRaw ?? "") || (row.tradeFeeRaw != null && !/^\d+$/.test(row.tradeFeeRaw)) || !/^([0-9a-f]{64})$/.test(row.rawPayloadHash ?? "")) throw new Error("invalid canonical swap fact"); unique(`swap:${row.swapId}`); return { ...base, swap_id: row.swapId, event_index: row.eventIndex, pool: row.pool, protocol: row.protocol, base_mint: row.baseMint, quote_mint: row.quoteMint, input_mint: row.inputMint, output_mint: row.outputMint, input_amount_raw: row.inputAmountRaw, output_amount_raw: row.outputAmountRaw, trade_fee_raw: row.tradeFeeRaw ?? null, decoder_version: row.decoderVersion ?? null, raw_payload_hash: row.rawPayloadHash, payload: JSON.stringify(row) }; });
+  const balanceChanges = selected(state.balanceChanges).map((row) => { const base = factBase(row); if (!Number.isInteger(row.accountIndex) || row.accountIndex < 0 || !row.tokenAccount || !row.mint || !Number.isInteger(row.decimals) || row.decimals < 0 || row.decimals > 255 || !/^\d+$/.test(row.preAmountRaw ?? "") || !/^\d+$/.test(row.postAmountRaw ?? "") || typeof row.closed !== "boolean") throw new Error("invalid canonical balance fact"); unique(`balance:${row.signature}:${row.accountIndex}`); return { ...base, account_index: row.accountIndex, token_account: row.tokenAccount, owner: row.owner ?? null, program_id: row.programId ?? null, mint: row.mint, decimals: row.decimals, pre_amount_raw: row.preAmountRaw, post_amount_raw: row.postAmountRaw, closed: row.closed ? 1 : 0, payload: JSON.stringify(row) }; });
+  return { slots, instructions, swaps, balanceChanges };
+}
+
 export function checkpointSql(sequence) {
   if (!Number.isSafeInteger(sequence) || sequence < 0) throw new Error("invalid warehouse sequence");
   return `INSERT INTO ingestion_checkpoints (consumer, chain, genesis_hash, slot, cursor, schema_version) VALUES ('warehouse-canonical-events', 'solana', ${sqlLiteral(GENESIS_HASH)}, ${sequence}, ${sqlLiteral(String(sequence))}, 1) ON CONFLICT (consumer) DO UPDATE SET chain = EXCLUDED.chain, genesis_hash = EXCLUDED.genesis_hash, slot = EXCLUDED.slot, cursor = EXCLUDED.cursor, schema_version = EXCLUDED.schema_version, updated_at = now();\n`;
@@ -44,10 +58,15 @@ function runProcess(command, args, input, spawnProcess = spawn, env = process.en
   return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
 }
 
-export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env) {
+export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null) {
   if (!batch.events.length) return { synced: 0, sequence: batch.toSequence };
+  if (facts && (!Array.isArray(facts.slots) || facts.slots.some((slot) => !Number.isSafeInteger(slot) || slot < 0) || !Array.isArray(facts.instructions) || !Array.isArray(facts.swaps) || !Array.isArray(facts.balanceChanges))) throw new Error("invalid warehouse facts");
   const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`;
   await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env);
+  if (facts) {
+    const suffixes = [["canonical_instructions", facts.instructions], ["canonical_swaps", facts.swaps], ["canonical_balance_changes", facts.balanceChanges]];
+    if (facts.slots.length) for (const [table, rows] of suffixes) { const slotList = facts.slots.join(","); await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.${table} DELETE WHERE slot IN (${slotList}) SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (rows.length) await runProcess("clickhouse-client", ["--query", `INSERT INTO terminal_dex.${table} FORMAT JSONEachRow`], `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env); }
+  }
   await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], checkpointSql(batch.toSequence), spawnProcess, env);
   return { synced: batch.events.length, sequence: batch.toSequence };
 }
@@ -60,7 +79,7 @@ async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
   try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; }
-  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), result = await syncWarehouseBatch(batch, spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify(result));
+  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify({ ...result, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length }));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

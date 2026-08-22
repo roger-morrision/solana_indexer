@@ -26,7 +26,7 @@ import { compileHolderExclusions } from "../src/holder-exclusions.js";
 import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
 import { buildCommercialSyncSql } from "../src/postgres-commercial-sync.js";
-import { assessWarehouseCheckpoint, checkpointSql, compileWarehouseBatch, syncWarehouseBatch, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
+import { assessWarehouseCheckpoint, checkpointSql, compileWarehouseBatch, compileWarehouseFacts, syncWarehouseBatch, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -791,6 +791,13 @@ test("warehouse sync is ordered, retry-safe, and checkpoints only after both sin
   assert.throws(() => compileWarehouseBatch({ eventSequence: 1, events: [{ ...state.events[0], provenance: { commitment: "unknown" } }] }), /invalid warehouse event/);
   const calls = [], spawnProcess = (command, args) => { const listeners = {}, stderr = { on() {} }, stdin = { end(input) { calls.push({ command, args, input }); queueMicrotask(() => listeners.close(0)); } }; return { stderr, stdin, on(name, handler) { listeners[name] = handler; } }; }; const result = await syncWarehouseBatch(batch, spawnProcess); assert.deepEqual(result, { synced: 2, sequence: 3 }); assert.deepEqual(calls.map((row) => row.command), ["clickhouse-client", "psql"]); assert.match(calls[0].input, /"sequence":2/); assert.equal(calls.some((row) => row.input.includes("password")), false);
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "warehouse-checkpoint-")), filename = path.join(root, "nested", "checkpoint.json"); await writeWarehouseCheckpoint(filename, 3); const persisted = JSON.parse(await fs.readFile(filename, "utf8")); assert.deepEqual({ schemaVersion: persisted.schemaVersion, consumer: persisted.consumer, lastSequence: persisted.lastSequence }, { schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: 3 });
+});
+
+test("warehouse materializes touched canonical slots after synchronous fork cleanup", async () => {
+  const store = new IndexStore("unused"); await store.load(); store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")))); const batch = compileWarehouseBatch(store.state, { lastSequence: 0 }), facts = compileWarehouseFacts(store.state, batch); assert.deepEqual(facts.slots, [100]); assert.equal(facts.instructions.length, 1); assert.equal(facts.swaps.length, 1); assert.equal(facts.balanceChanges.length, 0); assert.equal(facts.instructions[0].commitment, "finalized"); assert.equal(facts.swaps[0].input_amount_raw, "12500000");
+  const calls = [], spawnProcess = (command, args) => { const listeners = {}; return { stderr: { on() {} }, on(name, handler) { listeners[name] = handler; }, stdin: { end(input) { calls.push({ command, args, input }); queueMicrotask(() => listeners.close(0)); } } }; }; await syncWarehouseBatch(batch, spawnProcess, {}, facts); assert.equal(calls[0].args.at(-1), "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"); const deletes = calls.filter((row) => row.args.includes("--multiquery")); assert.equal(deletes.length, 3); assert.ok(deletes.every((row) => row.args.at(-1).includes("slot IN (100)") && row.args.at(-1).includes("mutations_sync = 2"))); assert.ok(calls.find((row) => row.args.at(-1) === "INSERT INTO terminal_dex.canonical_instructions FORMAT JSONEachRow")); assert.ok(calls.find((row) => row.args.at(-1) === "INSERT INTO terminal_dex.canonical_swaps FORMAT JSONEachRow")); assert.equal(calls.at(-1).command, "psql");
+  const rejectedCalls = []; await assert.rejects(syncWarehouseBatch(batch, (...args) => { rejectedCalls.push(args); }, {}, { slots: [100] }), /invalid warehouse facts/); assert.equal(rejectedCalls.length, 0);
+  assert.throws(() => compileWarehouseFacts({ ...store.state, swaps: [...store.state.swaps, store.state.swaps[0]] }, batch), /duplicate canonical warehouse fact/);
 });
 
 test("warehouse health fails closed for stale, corrupt, lagged, and lost checkpoints", async (t) => {

@@ -191,6 +191,10 @@ ahead of the index, or encounters a sequence gap. Database passwords remain in
 the clients' normal environment/password-file configuration and are never
 passed as command arguments. Schedule this worker only after both local data
 services pass their health checks.
+For every touched slot the worker waits for synchronous ClickHouse mutations to
+remove prior instruction, swap, and token-balance facts, then inserts the
+current canonical facts before checkpointing. This makes finality promotion and
+fork replacement retry-safe instead of retaining orphaned materialized rows.
 The installer also installs a hardened one-shot service and one-minute timer,
 but does not enable either. Operators must first verify both database schemas,
 client credential files, and a manual synchronization before enabling
