@@ -7,6 +7,7 @@ const TOKEN_PROGRAMS = new Set([
 ]);
 const RAYDIUM_CPMM = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
 const RAYDIUM_CLMM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
+const ORCA_WHIRLPOOL = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 const PUMP_AMM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
@@ -16,6 +17,7 @@ function decodeBase58(value) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWX
 function readU64(buffer, offset) { return buffer.readBigUInt64LE(offset).toString(); }
 function readU128(buffer, offset) { return (buffer.readBigUInt64LE(offset + 8) << 64n | buffer.readBigUInt64LE(offset)).toString(); }
 const SWAP_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:SwapEvent").digest().subarray(0, 8);
+const ORCA_TRADED_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:Traded").digest().subarray(0, 8);
 const RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR = crypto.createHash("sha256").update("global:initialize").digest().subarray(0, 8);
 const PUMP_AMM_CREATE_POOL_DISCRIMINATOR = Buffer.from([233, 146, 209, 142, 207, 104, 64, 188]);
 const PUMP_CREATE_V2_DISCRIMINATOR = Buffer.from([214, 144, 76, 236, 95, 139, 49, 180]);
@@ -131,6 +133,33 @@ export function decodeRaydiumClmmSwapEvents(entry, signature) {
   }
   return events;
 }
+export function decodeOrcaWhirlpoolSwapEvents(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = new Map();
+  for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) if (Number.isSafeInteger(row.accountIndex) && keys[row.accountIndex] && row.mint) tokenAccounts.set(keys[row.accountIndex], { mint: row.mint, decimals: row.uiTokenAmount?.decimals });
+  const contexts = instructionRows(entry).flatMap((instruction) => {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null);
+    const accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== ORCA_WHIRLPOOL || accounts.length < 7 || accounts.some((account) => typeof account !== "string" || !account)) return [];
+    const tokenAOwner = tokenAccounts.get(accounts[3]), tokenAVault = tokenAccounts.get(accounts[4]), tokenBOwner = tokenAccounts.get(accounts[5]), tokenBVault = tokenAccounts.get(accounts[6]);
+    if (!tokenAOwner || !tokenAVault || !tokenBOwner || !tokenBVault || tokenAOwner.mint !== tokenAVault.mint || tokenBOwner.mint !== tokenBVault.mint || tokenAOwner.decimals !== tokenAVault.decimals || tokenBOwner.decimals !== tokenBVault.decimals) return [];
+    return [{ user: accounts[1], pool: accounts[2], tokenA: tokenAOwner, tokenB: tokenBOwner }];
+  });
+  const events = [], stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== ORCA_WHIRLPOOL || !line.startsWith("Program data: ")) continue;
+    let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
+    if (data.length !== 121 || !data.subarray(0, 8).equals(ORCA_TRADED_EVENT_DISCRIMINATOR) || data[40] > 1) continue;
+    const pool = base58(data.subarray(8, 40)), context = contexts.find((candidate) => candidate.pool === pool); if (!context) continue;
+    const aToB = data[40] === 1, input = aToB ? context.tokenA : context.tokenB, output = aToB ? context.tokenB : context.tokenA;
+    const lpFeeRaw = readU64(data, 105), protocolFeeRaw = readU64(data, 113), tradeFeeRaw = (BigInt(lpFeeRaw) + BigInt(protocolFeeRaw)).toString();
+    if (BigInt(tradeFeeRaw) > 18_446_744_073_709_551_615n) continue;
+    events.push({ protocol: "orca-whirlpool", programId: ORCA_WHIRLPOOL, venueType: "clmm", type: "swap", signature, pool, user: context.user, baseMint: context.tokenA.mint, quoteMint: context.tokenB.mint, inputMint: input.mint, outputMint: output.mint, inputAmountRaw: readU64(data, 73), outputAmountRaw: readU64(data, 81), inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable", inputDecimals: input.decimals, outputDecimals: output.decimals, inputTransferFeeRaw: readU64(data, 89), outputTransferFeeRaw: readU64(data, 97), tradeFeeRaw, lpFeeRaw, protocolFeeRaw, zeroForOne: aToB, preSqrtPriceX64: readU128(data, 41), sqrtPriceX64: readU128(data, 57), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
 function pumpPoolContext(entry) {
   for (const instruction of instructionRows(entry)) {
     if ((instruction.programId ?? instruction.program) !== PUMP_AMM || !Array.isArray(instruction.accounts) || instruction.accounts.length < 5) continue;
@@ -203,20 +232,22 @@ function dexSwaps(block, transactions, decodedEvents) {
   const events = [...sidecar, ...completeDecoded.filter((event) => !covered.has(`${event.signature}:${event.protocol}`))]; const indices = new Map();
   return events.map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
-    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM);
+    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "orca-whirlpool" && event.programId === ORCA_WHIRLPOOL) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM);
     if (!supported || event.type !== "swap") throw new Error(`dexEvents[${index}] is not a supported DEX swap`);
     const signature = field("signature"); if (!successful.has(signature)) throw new Error(`dexEvents[${index}].signature must reference a successful transaction`);
     const inputDecimals = event.inputDecimals; const outputDecimals = event.outputDecimals;
     if (!Number.isInteger(inputDecimals) || inputDecimals < 0 || inputDecimals > 255 || !Number.isInteger(outputDecimals) || outputDecimals < 0 || outputDecimals > 255) throw new Error(`dexEvents[${index}] decimals must be integers from 0 to 255`);
     const eventIndex = indices.get(signature) ?? 0; indices.set(signature, eventIndex + 1);
     const inputMint = field("inputMint"), outputMint = field("outputMint"); const authoritativeBase = event.baseMint ?? (event.protocol === "pump-bonding-curve" ? event.mint : null); const baseMint = authoritativeBase ?? [inputMint, outputMint].sort()[0]; const quoteMint = event.quoteMint ?? (baseMint === inputMint ? outputMint : inputMint);
-    const nullableReserves = event.protocol === "raydium-clmm"; let clmmEvidence = null;
+    const nullableReserves = event.protocol === "raydium-clmm" || event.protocol === "orca-whirlpool"; let clmmEvidence = null;
     if (nullableReserves) {
       if (typeof event.user !== "string" || !event.user) throw new Error(`dexEvents[${index}].user is required`);
       if (typeof event.zeroForOne !== "boolean") throw new Error(`dexEvents[${index}].zeroForOne must be boolean`);
-      if (!Number.isInteger(event.tick) || event.tick < -2_147_483_648 || event.tick > 2_147_483_647) throw new Error(`dexEvents[${index}].tick must be an i32`);
+      if (event.protocol === "raydium-clmm" && (!Number.isInteger(event.tick) || event.tick < -2_147_483_648 || event.tick > 2_147_483_647)) throw new Error(`dexEvents[${index}].tick must be an i32`);
       if (event.reserveTiming !== "unavailable" || event.inputVaultBeforeRaw != null || event.outputVaultBeforeRaw != null) throw new Error(`dexEvents[${index}] CLMM SwapEvent reserves must be explicitly unavailable`);
-      clmmEvidence = { user: event.user, zeroForOne: event.zeroForOne, sqrtPriceX64: u128(event.sqrtPriceX64, "sqrtPriceX64"), liquidityRaw: u128(event.liquidityRaw, "liquidityRaw"), tick: event.tick, inputTransferFeeRaw: u64(event.inputTransferFeeRaw, "inputTransferFeeRaw"), outputTransferFeeRaw: u64(event.outputTransferFeeRaw, "outputTransferFeeRaw") };
+      clmmEvidence = { user: event.user, zeroForOne: event.zeroForOne, sqrtPriceX64: u128(event.sqrtPriceX64, "sqrtPriceX64"), inputTransferFeeRaw: u64(event.inputTransferFeeRaw, "inputTransferFeeRaw"), outputTransferFeeRaw: u64(event.outputTransferFeeRaw, "outputTransferFeeRaw") };
+      if (event.protocol === "raydium-clmm") Object.assign(clmmEvidence, { liquidityRaw: u128(event.liquidityRaw, "liquidityRaw"), tick: event.tick });
+      else Object.assign(clmmEvidence, { preSqrtPriceX64: u128(event.preSqrtPriceX64, "preSqrtPriceX64"), lpFeeRaw: u64(event.lpFeeRaw, "lpFeeRaw"), protocolFeeRaw: u64(event.protocolFeeRaw, "protocolFeeRaw") });
     }
     const normalized = { swapId: `${signature}:${eventIndex}`, eventIndex, protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), baseMint, quoteMint, pairIdentitySource: authoritativeBase && event.quoteMint ? "protocol_event" : "canonical_lexical", inputMint, outputMint, inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: nullableReserves && event.inputVaultBeforeRaw == null ? null : u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: nullableReserves && event.outputVaultBeforeRaw == null ? null : u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, baseDecimals: baseMint === inputMint ? inputDecimals : outputDecimals, quoteDecimals: quoteMint === inputMint ? inputDecimals : outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
     if (clmmEvidence) Object.assign(normalized, clmmEvidence);
@@ -307,7 +338,7 @@ export function parseBlock(block) {
     instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
     poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
-    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
+    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {
       const transfer = parsedTransfer(instruction);

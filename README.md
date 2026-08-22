@@ -434,7 +434,7 @@ before holder concentration can unlock trading-bot decisions.
 Pool candles support 60, 300, 900, 3600, 14400, and 86400-second intervals.
 Prices remain exact `quote_raw/base_raw` fractions and volumes remain separate
 base/quote raw integer strings. Protocol events provide pair orientation for
-Raydium CPMM/CLMM, PumpSwap, and Pump bonding curves; sidecars without authoritative
+Raydium CPMM/CLMM, Orca Whirlpools, PumpSwap, and Pump bonding curves; sidecars without authoritative
 pair fields use a visibly labeled deterministic lexical fallback. No USD value
 is inferred.
 
