@@ -53,7 +53,7 @@ import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT, w
 import { createUsdDepegReference, decodePythPriceUpdateV2 } from "../src/usdc-oracle-snapshot.js";
 import { assertSnapshotAcquisitionAllowed } from "../src/snapshot-cli-policy.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
-import { fetchOffchainTokenMetadata, normalizeOffchainTokenMetadata } from "../src/offchain-token-metadata.js";
+import { fetchOffchainTokenMetadata, normalizeOffchainTokenMetadata, pinnedHttpsFetch } from "../src/offchain-token-metadata.js";
 import { createOffchainMetadataSnapshot } from "../src/offchain-metadata-snapshot.js";
 import { computeStaticFeeExactInputStep, quoteRaydiumSnapshotExactInput, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
 import { orcaSqrtPriceX64AtTick, quoteOrcaSnapshotExactInput, quoteOrcaStaticFeeExactInput } from "../src/orca-clmm-math.js";
@@ -328,6 +328,13 @@ test("off-chain token metadata is bounded, content-addressed, and never authorit
   let options; const fetched = await fetchOffchainTokenMetadata({ uri: "https://metadata.example/token.json", observedAt, resolve: async () => [{ address: "93.184.216.34", family: 4 }], fetchImpl: async (_url, value) => { options = value; return { ok: true, headers: { get: (name) => name === "content-type" ? "application/json" : String(bytes.length) }, arrayBuffer: async () => bytes }; } }); assert.equal(fetched.rawPayloadHash, normalized.rawPayloadHash); assert.equal(options.redirect, "error");
   await assert.rejects(fetchOffchainTokenMetadata({ uri: "https://localhost/token.json", resolve: async () => [{ address: "127.0.0.1" }] }), /not allowed/); await assert.rejects(fetchOffchainTokenMetadata({ uri: "https://metadata.example/token.json", resolve: async () => [{ address: "10.0.0.1", family: 4 }] }), /host is not public/); assert.throws(() => normalizeOffchainTokenMetadata({ sourceUri: "https://metadata.example/token.json", bytes: Buffer.from("{}"), contentType: "text/html", observedAt }), /response is invalid/);
   for (const timestamp of ["2026-08-22", "2026-08-22T00:00:00Z", "2026-08-22T07:00:00.000+07:00", "2026-02-30T00:00:00.000Z"]) assert.throws(() => normalizeOffchainTokenMetadata({ sourceUri: "https://metadata.example/token.json", bytes, contentType: "application/json", observedAt: timestamp }), /response is invalid/);
+});
+
+test("pinned metadata transport rejects declared overflow and interrupted bodies", async () => {
+  const url = new URL("https://metadata.example/token.json"), addresses = [{ address: "93.184.216.34", family: 4 }];
+  const transport = ({ headers, event }) => { const responseHandlers = {}, destroyed = { request: 0, response: 0 }, response = { statusCode: 200, headers, on(name, handler) { responseHandlers[name] = handler; }, destroy() { destroyed.response++; } }; let callback; const request = { setTimeout() {}, on() {}, end() { callback(response); if (event) queueMicrotask(() => responseHandlers[event]?.()); }, destroy() { destroyed.request++; } }; return { requestImpl(_url, _options, handler) { callback = handler; return request; }, destroyed }; };
+  const oversized = transport({ headers: { "content-length": "1025", "content-type": "application/json" } }); await assert.rejects(pinnedHttpsFetch(url, addresses, 1_000, 1_024, oversized.requestImpl), /response exceeds limit/); assert.deepEqual(oversized.destroyed, { request: 1, response: 1 });
+  const aborted = transport({ headers: { "content-type": "application/json" }, event: "aborted" }); await assert.rejects(pinnedHttpsFetch(url, addresses, 1_000, 1_024, aborted.requestImpl), /response was interrupted/); assert.deepEqual(aborted.destroyed, { request: 1, response: 1 });
 });
 
 test("off-chain metadata snapshot production preserves canonical evidence", async () => {
