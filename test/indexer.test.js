@@ -53,7 +53,7 @@ import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT, w
 import { createUsdDepegReference, decodePythPriceUpdateV2 } from "../src/usdc-oracle-snapshot.js";
 import { assertSnapshotAcquisitionAllowed } from "../src/snapshot-cli-policy.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
-import { fetchOffchainTokenMetadata, normalizeOffchainTokenMetadata, pinnedHttpsFetch } from "../src/offchain-token-metadata.js";
+import { fetchOffchainTokenMetadata, normalizeOffchainTokenMetadata, pinnedHttpsFetch, resolveOffchainHost } from "../src/offchain-token-metadata.js";
 import { createOffchainMetadataSnapshot } from "../src/offchain-metadata-snapshot.js";
 import { computeStaticFeeExactInputStep, quoteRaydiumSnapshotExactInput, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
 import { orcaSqrtPriceX64AtTick, quoteOrcaSnapshotExactInput, quoteOrcaStaticFeeExactInput } from "../src/orca-clmm-math.js";
@@ -335,6 +335,11 @@ test("pinned metadata transport rejects declared overflow and interrupted bodies
   const transport = ({ headers, event }) => { const responseHandlers = {}, destroyed = { request: 0, response: 0 }, response = { statusCode: 200, headers, on(name, handler) { responseHandlers[name] = handler; }, destroy() { destroyed.response++; } }; let callback; const request = { setTimeout() {}, on() {}, end() { callback(response); if (event) queueMicrotask(() => responseHandlers[event]?.()); }, destroy() { destroyed.request++; } }; return { requestImpl(_url, _options, handler) { callback = handler; return request; }, destroyed }; };
   const oversized = transport({ headers: { "content-length": "1025", "content-type": "application/json" } }); await assert.rejects(pinnedHttpsFetch(url, addresses, 1_000, 1_024, oversized.requestImpl), /response exceeds limit/); assert.deepEqual(oversized.destroyed, { request: 1, response: 1 });
   const aborted = transport({ headers: { "content-type": "application/json" }, event: "aborted" }); await assert.rejects(pinnedHttpsFetch(url, addresses, 1_000, 1_024, aborted.requestImpl), /response was interrupted/); assert.deepEqual(aborted.destroyed, { request: 1, response: 1 });
+});
+
+test("off-chain metadata DNS resolution has an owned deadline", async () => {
+  let expire; const cancelled = [], pending = resolveOffchainHost("metadata.example", () => new Promise(() => {}), 250, (callback, delay) => { assert.equal(delay, 250); expire = callback; return "dns-timer"; }, (timer) => cancelled.push(timer)); expire(); await assert.rejects(pending, /DNS resolution timed out/); assert.deepEqual(cancelled, ["dns-timer"]);
+  const successfulCancelled = []; assert.deepEqual(await resolveOffchainHost("metadata.example", async () => [{ address: "93.184.216.34", family: 4 }], 250, () => "success-timer", (timer) => successfulCancelled.push(timer)), [{ address: "93.184.216.34", family: 4 }]); assert.deepEqual(successfulCancelled, ["success-timer"]);
 });
 
 test("off-chain metadata snapshot production preserves canonical evidence", async () => {

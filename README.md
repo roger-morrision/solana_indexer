@@ -412,9 +412,10 @@ queries the official Metaplex Token Metadata program by its embedded mint field;
 when present, the index validates owner and mint identity and decodes only the
 stable on-chain name, symbol, URI, seller fee, and update-authority prefix. It
 does not fetch or trust the URI's off-chain JSON during canonical snapshots. An
-optional enrichment boundary separately enforces HTTPS, DNS-pinned public IPs,
-no redirects, strict size/type/schema limits, and content hashes; its normalized
-transport rejects declared oversize and interrupted or aborted response streams
+optional enrichment boundary separately enforces HTTPS, deadline-bounded DNS
+resolution pinned to validated public IPs,
+no redirects, strict size/type/schema limits, and content hashes. The transport
+rejects declared oversize and interrupted or aborted response streams
 before normalization. Display fields remain explicitly untrusted and unsafe for
 automation. Imported enrichment artifacts must bind the exact current Metaplex payload hash and are
 projected separately into PostgreSQL metadata. The warehouse scheduler creates
