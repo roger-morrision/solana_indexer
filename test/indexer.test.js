@@ -774,6 +774,8 @@ test("JSON-RPC exposes only read-only indexed methods", async (t) => {
   const call = async (body) => (await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
   const found = await call({ jsonrpc: "2.0", id: 1, method: "getIndexedTransaction", params: ["signature-1"] });
   assert.equal(found.result.signature, "signature-1");
+  const indexedBlock = await call({ jsonrpc: "2.0", id: 4, method: "getIndexedBlock", params: { slot: 100 } }); assert.equal(indexedBlock.result.blockhash, "block-100"); assert.equal((await call({ jsonrpc: "2.0", id: 5, method: "getIndexedBlock", params: { slot: -1 } })).error.code, -32602);
+  const firstPage = await call({ jsonrpc: "2.0", id: 6, method: "getIndexedBlocks", params: { limit: 1 } }); assert.deepEqual(firstPage.result.data.map((row) => row.slot), [100]); assert.equal(firstPage.result.nextCursor, null); assert.equal((await call({ jsonrpc: "2.0", id: 7, method: "getIndexedBlocks", params: { limit: 501 } })).error.code, -32602); assert.equal((await call({ jsonrpc: "2.0", id: 8, method: "getIndexedBlocks", params: { cursor: "bad" } })).error.code, -32602);
   assert.equal((await call({ jsonrpc: "2.0", id: 2, method: "sendTransaction", params: [] })).error.code, -32601);
   assert.equal((await call({ jsonrpc: "2.0", id: 3, method: "getIndexedTransaction", params: [] })).error.code, -32602);
 });

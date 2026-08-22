@@ -42,6 +42,17 @@ function dispatchRpc(payload, config, store) {
   if (!payload || payload.jsonrpc !== "2.0" || typeof payload.method !== "string" || !("id" in payload)) return rpcError(payload?.id, -32600, "Invalid Request");
   if (payload.method === "getIndexerHealth") return rpcResult(payload.id, store.health(config.staleAfterMs));
   if (payload.method === "getIndexerStats") return rpcResult(payload.id, { ...store.stats(), chain: store.chainQuality() });
+  if (payload.method === "getIndexedBlock") {
+    const slot = Array.isArray(payload.params) ? payload.params[0] : payload.params?.slot;
+    if (!Number.isSafeInteger(slot) || slot < 0) return rpcError(payload.id, -32602, "Invalid params");
+    const block = store.state.blocks[String(slot)]; return rpcResult(payload.id, block ? { slot, ...block } : null);
+  }
+  if (payload.method === "getIndexedBlocks") {
+    const params = payload.params == null ? {} : Array.isArray(payload.params) ? { limit: payload.params[0], cursor: payload.params[1] } : payload.params;
+    if (!params || typeof params !== "object" || Array.isArray(params)) return rpcError(payload.id, -32602, "Invalid params");
+    const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || (cursor !== null && typeof cursor !== "string")) return rpcError(payload.id, -32602, "Invalid params");
+    const rows = Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot); try { return rpcResult(payload.id, page(rows, size, cursor, (row) => String(row.slot))); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+  }
   if (payload.method === "getIndexedTransaction") {
     const signature = Array.isArray(payload.params) ? payload.params[0] : payload.params?.signature;
     if (typeof signature !== "string" || !signature) return rpcError(payload.id, -32602, "Invalid params");
