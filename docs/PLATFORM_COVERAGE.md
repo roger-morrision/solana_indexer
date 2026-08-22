@@ -63,6 +63,7 @@ local simulation with exact instruction policy and token-effect bounds.
 Fee-only Token-2022 routes bind their two token programs, Memo, finalized fee
 evidence, and an empty transfer-hook slice vector. Capped expiring external
 approval, Ed25519 verification, and finalized landed-message identity complete
-the read-only execution chain. Transfer hooks, other extensions, and
-extension-bitmap paths fail closed; the indexer never signs or submits and
-automation remains disabled.
+the read-only execution chain. Pool-bound finalized bitmap-extension evidence
+also admits initialized arrays outside the default range. Transfer hooks and
+other extensions fail closed; the indexer never signs or submits and automation
+remains disabled.

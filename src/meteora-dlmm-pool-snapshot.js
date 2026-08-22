@@ -9,12 +9,14 @@ import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence } from "./pool-mint-evidence.js";
+import { decodeBase58Address, findProgramAddress } from "./solana-pda.js";
 
 export const METEORA_DLMM_PROGRAM = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const TOKEN_PROGRAMS = new Set([TOKEN_PROGRAM, TOKEN_2022_PROGRAM]);
 const LB_PAIR_DISCRIMINATOR = Buffer.from([33, 11, 49, 98, 181, 101, 177, 13]), BIN_ARRAY_DISCRIMINATOR = Buffer.from([92, 142, 92, 220, 5, 148, 70, 181]);
-const LB_PAIR_LENGTH = 920, BIN_ARRAY_LENGTH = 10_136, BIN_COUNT = 70, BIN_LENGTH = 144;
+const BITMAP_EXTENSION_DISCRIMINATOR = Buffer.from([80, 111, 124, 113, 55, 237, 18, 5]);
+const LB_PAIR_LENGTH = 920, BIN_ARRAY_LENGTH = 10_136, BITMAP_EXTENSION_LENGTH = 1_576, BIN_COUNT = 70, BIN_LENGTH = 144;
 
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
 function u128(buffer, offset) { return ((buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset)).toString(); }
@@ -45,6 +47,15 @@ export function decodeMeteoraBinArrayAccount(address, account, expectedPool) {
   return { address, pool, index, version, initializedBinCount: bins.length, occupiedBinCount, bins, rawPayloadHash: hash(data) };
 }
 
+export function deriveMeteoraBinArrayBitmapExtension(pool) { return findProgramAddress(METEORA_DLMM_PROGRAM, [Buffer.from("bitmap"), decodeBase58Address(pool)]); }
+
+export function decodeMeteoraBinArrayBitmapExtensionAccount(address, account, expectedPool) {
+  if (address !== deriveMeteoraBinArrayBitmapExtension(expectedPool).address || account?.owner !== METEORA_DLMM_PROGRAM) throw new Error(`Meteora DLMM bitmap extension ${address} has unexpected identity`);
+  const data = accountBytes(account, "Meteora DLMM bitmap extension"); if (data.length !== BITMAP_EXTENSION_LENGTH || !data.subarray(0, 8).equals(BITMAP_EXTENSION_DISCRIMINATOR) || base58(data.subarray(8, 40)) !== expectedPool) throw new Error(`Meteora DLMM bitmap extension ${address} has invalid data`);
+  const initializedBinArrayIndexes = []; for (let side = 0; side < 2; side++) for (let group = 0; group < 12; group++) for (let word = 0; word < 8; word++) { const bits = data.readBigUInt64LE(40 + side * 768 + group * 64 + word * 8); for (let bit = 0; bit < 64; bit++) if (bits & (1n << BigInt(bit))) { const distance = group * 512 + word * 64 + bit; initializedBinArrayIndexes.push(side === 0 ? 512 + distance : -513 - distance); } }
+  return { address, pool: expectedPool, positiveMinBinArrayIndex: 512, positiveMaxBinArrayIndexExclusive: 6_656, negativeMinBinArrayIndex: -6_656, negativeMaxBinArrayIndexExclusive: -512, initializedBinArrayIndexes: initializedBinArrayIndexes.sort((a, b) => a - b), rawHex: data.subarray(40).toString("hex"), rawPayloadHash: hash(data) };
+}
+
 async function fetchBinArrays(client, pool, minContextSlot) {
   const response = await client.call("getProgramAccounts", [METEORA_DLMM_PROGRAM, { commitment: "finalized", encoding: "base64", withContext: true, minContextSlot, filters: [{ dataSize: BIN_ARRAY_LENGTH }, { memcmp: { offset: 0, bytes: base58(BIN_ARRAY_DISCRIMINATOR) } }, { memcmp: { offset: 24, bytes: pool } }] }]), slot = response?.context?.slot, values = response?.value;
   if (!Number.isSafeInteger(slot) || slot < minContextSlot || !Array.isArray(values) || values.length > 13_312) throw new Error(`invalid Meteora DLMM bin-array response for ${pool}`);
@@ -56,7 +67,7 @@ export async function createMeteoraDlmmPoolSnapshot({ client, pools, automaticMi
   if (!Array.isArray(pools) || !pools.length || new Set(pools).size !== pools.length || pools.some((pool) => typeof pool !== "string" || !pool)) throw new Error("Meteora DLMM pools must be unique non-empty addresses");
   const stateResponse = await getMultipleAccountsBatched(client, pools, { commitment: "finalized", encoding: "base64" }, { label: "Meteora DLMM pool" }), stateSlot = stateResponse?.context?.slot; if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid Meteora DLMM pool response");
   const decoded = pools.map((address, index) => decodeMeteoraLbPairAccount(address, stateResponse.value[index])); let minimumBalanceSlot = stateSlot;
-  for (const row of decoded) { const arrays = await fetchBinArrays(client, row.address, stateSlot); row.binArraySlot = arrays.slot; row.binArrayCoverage = "finalized_program_account_snapshot"; row.binArrays = arrays.rows; minimumBalanceSlot = Math.max(minimumBalanceSlot, arrays.slot); }
+  for (const row of decoded) { const arrays = await fetchBinArrays(client, row.address, stateSlot); row.binArraySlot = arrays.slot; row.binArrayCoverage = "finalized_program_account_snapshot"; row.binArrays = arrays.rows; const requiresExtension = arrays.rows.some((array) => array.index < -512 || array.index >= 512); if (requiresExtension) { const extensionAddress = deriveMeteoraBinArrayBitmapExtension(row.address).address, response = await getMultipleAccountsBatched(client, [extensionAddress], { commitment: "finalized", encoding: "base64", minContextSlot: arrays.slot }, { label: "Meteora DLMM bitmap extension" }), slot = response?.context?.slot; if (!Number.isSafeInteger(slot) || slot < arrays.slot || !response.value?.[0]) throw new Error(`missing Meteora DLMM bitmap extension for ${row.address}`); row.binArrayBitmapExtensionSlot = slot; row.binArrayBitmapExtension = decodeMeteoraBinArrayBitmapExtensionAccount(extensionAddress, response.value[0], row.address); } else { row.binArrayBitmapExtensionSlot = null; row.binArrayBitmapExtension = null; } minimumBalanceSlot = Math.max(minimumBalanceSlot, arrays.slot, row.binArrayBitmapExtensionSlot ?? 0); }
   const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]), balanceResponse = await getMultipleAccountsBatched(client, vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: minimumBalanceSlot }, { label: "Meteora DLMM vault" }), balanceSlot = balanceResponse?.context?.slot; if (!Number.isSafeInteger(balanceSlot) || balanceSlot < minimumBalanceSlot || balanceResponse.value?.length !== vaults.length) throw new Error("invalid Meteora DLMM vault response");
   for (let index = 0; index < decoded.length; index++) { const row = decoded[index], firstAccount = balanceResponse.value[index * 2], secondAccount = balanceResponse.value[index * 2 + 1], first = firstAccount?.data?.parsed?.info, second = secondAccount?.data?.parsed?.info, decimals0 = first?.tokenAmount?.decimals, decimals1 = second?.tokenAmount?.decimals; if (first?.mint !== row.tokenMint0 || second?.mint !== row.tokenMint1 || firstAccount?.owner !== row.tokenProgram0 || secondAccount?.owner !== row.tokenProgram1 || !TOKEN_PROGRAMS.has(firstAccount?.owner) || !TOKEN_PROGRAMS.has(secondAccount?.owner) || !/^\d+$/.test(first?.tokenAmount?.amount ?? "") || !/^\d+$/.test(second?.tokenAmount?.amount ?? "") || !Number.isInteger(decimals0) || decimals0 < 0 || decimals0 > 255 || !Number.isInteger(decimals1) || decimals1 < 0 || decimals1 > 255) throw new Error(`Meteora DLMM pool ${row.address} vault identity mismatch`); row.vault0AmountRaw = String(first.tokenAmount.amount); row.vault1AmountRaw = String(second.tokenAmount.amount); row.mintDecimals0 = decimals0; row.mintDecimals1 = decimals1; }
   if (automaticMintEvidence) { const evidence = await acquirePoolMintEvidence(client, decoded, balanceSlot); for (const row of decoded) bindPoolMintEvidence(row, evidence); }
