@@ -37,7 +37,7 @@ export class LocalValidatorPool {
     const normalized = endpoints.map(validateLocalRpcUrl);
     if (new Set(normalized).size !== normalized.length) throw new Error("Local validator pool requires 2 through 4 unique endpoints");
     if (!Number.isSafeInteger(failureThreshold) || failureThreshold < 1 || !Number.isSafeInteger(cooldownMs) || cooldownMs < 1) throw new Error("Local validator pool circuit settings must be positive integers");
-    this.nodes = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, { ...clientOptions, now }), name = `local-agave-rpc-${index + 1}`; client.provenanceSource = name; return { name, client, failures: 0, openUntil: 0, calls: 0, errors: 0 }; }); this.failureThreshold = failureThreshold; this.cooldownMs = cooldownMs; this.now = now; this.provenanceSource = this.nodes[0].name;
+    this.nodes = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, { ...clientOptions, now }), name = `local-agave-rpc-${index + 1}`; client.provenanceSource = name; return { name, client, failures: 0, openUntil: 0, probeInFlight: false, calls: 0, errors: 0 }; }); this.failureThreshold = failureThreshold; this.cooldownMs = cooldownMs; this.now = now; this.provenanceSource = this.nodes[0].name;
   }
   async assertGenesis(expected = MAINNET_GENESIS_HASH) {
     const hashes = [];
@@ -54,13 +54,14 @@ export class LocalValidatorPool {
     if (this.nodes.some(({ client }) => client.verifiedGenesisHash == null) || new Set(this.nodes.map(({ client }) => client.verifiedGenesisHash)).size !== 1) throw new Error("Local validator pool requires complete consistent genesis verification before data calls");
     const errors = [];
     for (const node of this.nodes) {
-      if (node.openUntil > this.now()) continue;
+      if (node.openUntil > this.now() || node.probeInFlight) continue;
+      const probe = node.failures > 0; if (probe) node.probeInFlight = true;
       node.calls++;
-      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { node.errors++; node.failures++; const retryAfter = Number.isSafeInteger(error.retryAfterMs) ? error.retryAfterMs : null; if (retryAfter != null || error.retryable === true || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs); errors.push(`${node.name}: ${safeError(error)}`); }
+      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { node.errors++; node.failures++; const retryAfter = Number.isSafeInteger(error.retryAfterMs) ? error.retryAfterMs : null; if (retryAfter != null || error.retryable === true || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs); errors.push(`${node.name}: ${safeError(error)}`); } finally { if (probe) node.probeInFlight = false; }
     }
     throw new Error(`local validator pool ${method} failed: ${errors.join("; ") || "circuits_open"}`);
   }
-  telemetry() { return this.nodes.map(({ client, ...node }) => ({ ...node, circuitOpen: node.openUntil > this.now() })); }
+  telemetry() { const now = this.now(); return this.nodes.map(({ client, ...node }) => ({ ...node, circuitOpen: node.openUntil > now, circuitState: node.openUntil > now ? "open" : node.failures > 0 ? "half_open" : "closed", retryInMs: Math.max(0, node.openUntil - now) })); }
 }
 
 async function readCursor(filename) {

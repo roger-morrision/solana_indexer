@@ -1047,6 +1047,26 @@ test("local validator pool honors Retry-After during HTTP 503 maintenance", asyn
   await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryCalls, 1); assert.equal(pool.telemetry()[0].openUntil, 61_000); now = 61_001; assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryCalls, 2);
 });
 
+test("local validator pool admits only one half-open probe after cooldown", async () => {
+  let now = 1_000, primaryCalls = 0, releaseProbe;
+  const probe = new Promise((resolve) => { releaseProbe = resolve; });
+  const fetchImpl = async (endpoint, options) => {
+    const request = JSON.parse(options.body);
+    if (request.method === "getHealth" && endpoint.includes("8899")) {
+      primaryCalls++;
+      if (primaryCalls === 1) return { ok: false, status: 429, headers: { get: () => "1" } };
+      await probe;
+    }
+    return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : endpoint.includes("8899") ? "primary" : "secondary" }) };
+  };
+  const pool = new LocalValidatorPool(["http://127.0.0.1:8899", "http://127.0.0.1:8900"], { fetchImpl, now: () => now });
+  await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "secondary"); now = 2_001;
+  const first = pool.call("getHealth"); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pool.telemetry()[0].circuitState, "half_open"); assert.equal(pool.telemetry()[0].probeInFlight, true);
+  assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryCalls, 2);
+  releaseProbe(); assert.equal(await first, "primary"); assert.equal(pool.telemetry()[0].circuitState, "closed");
+});
+
 test("external RPC pool enforces providers, fails over, and never exposes credential URLs", async () => {
   assert.throws(() => providerPoolFromEnv({}), /HELIUS_RPC_URL and ALCHEMY_RPC_URL/); assert.throws(() => validateProviderUrl("helius", "https://example.com/key"), /invalid helius/);
   const helius = { name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }; assert.throws(() => new ExternalRpcPool([helius], { timeoutMs: 0 }), /positive integers/); assert.throws(() => new ExternalRpcPool([helius, helius]), /unique names and endpoints/);
@@ -1070,6 +1090,26 @@ test("external RPC pool honors bounded Retry-After without retrying a limited pr
 test("external RPC pool honors Retry-After during HTTP 503 maintenance", async () => {
   let now = 1_000, heliusCalls = 0; const fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getHealth" && endpoint.includes("helius")) { heliusCalls++; return { ok: false, status: 503, headers: { get: () => "60" } }; } return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : "ok" }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl, now: () => now });
   await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusCalls, 1); assert.equal(pool.telemetry()[0].openUntil, 61_000); now = 61_001; assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusCalls, 2);
+});
+
+test("external RPC pool admits only one half-open probe after cooldown", async () => {
+  let now = 1_000, primaryCalls = 0, releaseProbe;
+  const probe = new Promise((resolve) => { releaseProbe = resolve; });
+  const fetchImpl = async (endpoint, options) => {
+    const request = JSON.parse(options.body);
+    if (request.method === "getHealth" && endpoint.includes("helius")) {
+      primaryCalls++;
+      if (primaryCalls === 1) return { ok: false, status: 429, headers: { get: () => "1" } };
+      await probe;
+    }
+    return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : endpoint.includes("helius") ? "primary" : "secondary" }) };
+  };
+  const pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl, now: () => now });
+  await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "secondary"); now = 2_001;
+  const first = pool.call("getHealth"); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pool.telemetry()[0].circuitState, "half_open"); assert.equal(pool.telemetry()[0].probeInFlight, true);
+  assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryCalls, 2);
+  releaseProbe(); assert.equal(await first, "primary"); assert.equal(pool.telemetry()[0].circuitState, "closed");
 });
 
 test("external RPC pool rejects mismatched and malformed response envelopes", async () => {
