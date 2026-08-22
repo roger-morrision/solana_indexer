@@ -1,0 +1,19 @@
+[Unit]
+Description=Terminal DEX bounded operational snapshot worker
+After=network-online.target agave-validator.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sol
+WorkingDirectory=/home/sol/solana-indexer
+EnvironmentFile=/etc/solana-indexer.env
+ExecStart=/usr/bin/env npm run work:operational
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/sol/solana-indexer/data
+

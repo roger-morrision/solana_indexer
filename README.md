@@ -231,6 +231,9 @@ Configuration:
 | `INDEXER_REDIS_HOST` | `127.0.0.1` | Loopback-only Redis quota endpoint |
 | `INDEXER_REDIS_PORT` | `6379` | Redis quota endpoint port |
 | `INDEXER_REDIS_QUOTA_TIMEOUT_MS` | `250` | Bounded Redis quota admission timeout |
+| `INDEXER_OPERATIONAL_JOB_LEASE_SECONDS` | `300` | PostgreSQL snapshot-job lease duration |
+| `INDEXER_OPERATIONAL_JOB_MAX_ATTEMPTS` | `5` | Terminal failure threshold for snapshot jobs |
+| `INDEXER_OPERATIONAL_JOB_BACKOFF_SECONDS` | `30` | Initial exponential snapshot-job retry delay |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
@@ -260,6 +263,12 @@ Snapshot CLIs accept `--artifact-only`. In this mode they atomically replace
 their configured snapshot artifact without rewriting `index.json`; the
 serialized inbox cycle validates and imports each artifact fingerprint exactly
 once. Scheduled workers must use this mode to avoid cross-process lost updates.
+
+`npm run work:operational` atomically claims at most one PostgreSQL snapshot job
+with `FOR UPDATE SKIP LOCKED`, recovers expired leases, validates the job type
+and canonical address, and dispatches the matching CLI in artifact-only mode.
+Failures are redacted, exponentially delayed and capped by the configured
+attempt limit. Its hardened timer is installed but never enabled automatically.
 
 ## API
 

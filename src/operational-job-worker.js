@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+import crypto from "node:crypto";
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { loadConfig } from "./config.js";
+
+const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+function literal(value) { return `'${String(value).replaceAll("'", "''")}'`; }
+function redact(value) { return String(value).replace(/https?:\/\/\S+/gi, "[redacted-url]").replace(/((?:api[_-]?key|authorization|password|token))\s*[=:]\s*\S+/gi, "$1=[redacted]").slice(0, 512); }
+
+export function claimOperationalJobSql(workerId, leaseSeconds, maxAttempts) {
+  if (!/^[0-9a-f-]{36}$/.test(workerId) || !Number.isInteger(leaseSeconds) || leaseSeconds < 30 || leaseSeconds > 3_600 || !Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) throw new Error("invalid operational job claim configuration");
+  return `WITH recovered AS (UPDATE operational_jobs SET status='pending', locked_by=NULL, lease_expires_at=NULL, available_at=now(), updated_at=now() WHERE status='running' AND lease_expires_at < now()), candidate AS (SELECT id FROM operational_jobs WHERE status='pending' AND available_at <= now() AND attempts < ${maxAttempts} ORDER BY available_at, id FOR UPDATE SKIP LOCKED LIMIT 1), claimed AS (UPDATE operational_jobs jobs SET status='running', attempts=jobs.attempts+1, locked_by=${literal(workerId)}, lease_expires_at=now()+interval '${leaseSeconds} seconds', updated_at=now() FROM candidate WHERE jobs.id=candidate.id RETURNING jobs.id, jobs.job_key, jobs.job_type, jobs.payload, jobs.attempts) SELECT COALESCE(row_to_json(claimed)::text, '') FROM claimed;`;
+}
+
+export function validateOperationalJob(row) {
+  if (!Number.isSafeInteger(row?.id) || row.id < 1 || !["account_snapshot", "clmm_pool_snapshot"].includes(row.job_type) || row.payload?.schemaVersion !== 1 || row.payload?.chain !== "solana-mainnet") throw new Error("invalid claimed operational job"); const target = row.job_type === "account_snapshot" ? row.payload.mint : row.payload.pool; if (!ADDRESS.test(target ?? "")) throw new Error("invalid operational job target"); return { id: row.id, attempts: row.attempts, type: row.job_type, target };
+}
+
+export function finishOperationalJobSql(job, workerId, error = null, maxAttempts = 5, baseBackoffSeconds = 30) {
+  if (!Number.isSafeInteger(job?.id) || job.id < 1 || !/^[0-9a-f-]{36}$/.test(workerId) || !Number.isInteger(job.attempts) || job.attempts < 1 || !Number.isInteger(maxAttempts) || maxAttempts < 1 || !Number.isInteger(baseBackoffSeconds) || baseBackoffSeconds < 1) throw new Error("invalid operational job completion");
+  if (!error) return `UPDATE operational_jobs SET status='succeeded', locked_by=NULL, lease_expires_at=NULL, last_error=NULL, updated_at=now() WHERE id=${job.id} AND status='running' AND locked_by=${literal(workerId)} RETURNING id;`;
+  const terminal = job.attempts >= maxAttempts, delay = Math.min(3_600, baseBackoffSeconds * (2 ** Math.min(10, job.attempts - 1))); return `UPDATE operational_jobs SET status='${terminal ? "failed" : "pending"}', locked_by=NULL, lease_expires_at=NULL, last_error=${literal(redact(error))}, available_at=now()+interval '${delay} seconds', updated_at=now() WHERE id=${job.id} AND status='running' AND locked_by=${literal(workerId)} RETURNING id;`;
+}
+
+function run(command, args, input = null, spawnProcess = spawn, capture = false) { return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: [input == null ? "ignore" : "pipe", capture ? "pipe" : "ignore", "pipe"] }); let stdout = "", stderr = ""; child.stdout?.on("data", (chunk) => { if (stdout.length < 65_536) stdout += chunk; }); child.stderr.on("data", (chunk) => { if (stderr.length < 8_192) stderr += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(stdout.trim()) : reject(new Error(`${command} failed (${code}): ${redact(stderr)}`))); if (input != null) child.stdin.end(input); }); }
+export async function runOperationalJobCycle({ workerId = crypto.randomUUID(), leaseSeconds = 300, maxAttempts = 5, baseBackoffSeconds = 30, query = (sql) => run("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--tuples-only", "--no-align", "--quiet", "--command", sql], null, spawn, true), execute = (job) => run(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), job.type === "account_snapshot" ? "account-snapshot.js" : "clmm-pool-snapshot.js"), "--artifact-only", job.target]) } = {}) {
+  const claimedText = await query(claimOperationalJobSql(workerId, leaseSeconds, maxAttempts)); if (!claimedText) return { claimed: false }; let raw; try { raw = JSON.parse(claimedText); } catch { throw new Error("invalid PostgreSQL operational job response"); } let job; try { job = validateOperationalJob(raw); } catch (error) { const fallback = { id: raw?.id, attempts: raw?.attempts }; if (Number.isSafeInteger(fallback.id) && Number.isInteger(fallback.attempts)) await query(finishOperationalJobSql(fallback, workerId, error.message, maxAttempts, baseBackoffSeconds)); throw error; }
+  const finalize = async (sql) => { const updated = await query(sql); if (String(updated).trim() !== String(job.id)) throw new Error("operational job lease was lost before completion"); };
+  try { await execute(job); } catch (error) { await finalize(finishOperationalJobSql(job, workerId, error.message, maxAttempts, baseBackoffSeconds)); return { claimed: true, succeeded: false, id: job.id, type: job.type, error: redact(error.message) }; }
+  await finalize(finishOperationalJobSql(job, workerId)); return { claimed: true, succeeded: true, id: job.id, type: job.type };
+}
+
+async function main() { const config = loadConfig(), result = await runOperationalJobCycle({ leaseSeconds: config.operationalJobLeaseSeconds, maxAttempts: config.operationalJobMaxAttempts, baseBackoffSeconds: config.operationalJobBackoffSeconds }); console.log(JSON.stringify(result)); if (result.succeeded === false) process.exitCode = 1; }
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(redact(error.message)); process.exitCode = 1; });

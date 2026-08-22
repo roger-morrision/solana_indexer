@@ -7,9 +7,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS security_snapshots_canonical_unique ON securit
 CREATE TABLE IF NOT EXISTS wallet_profiles (chain text NOT NULL, address text NOT NULL, profile_version text NOT NULL, evidence jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (chain, address, profile_version));
 CREATE TABLE IF NOT EXISTS operational_jobs (id bigserial PRIMARY KEY, job_type text NOT NULL, payload jsonb NOT NULL, status text NOT NULL, attempts integer NOT NULL DEFAULT 0, available_at timestamptz NOT NULL DEFAULT now(), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE operational_jobs ADD COLUMN IF NOT EXISTS job_key text;
+ALTER TABLE operational_jobs ADD COLUMN IF NOT EXISTS locked_by text;
+ALTER TABLE operational_jobs ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
+ALTER TABLE operational_jobs ADD COLUMN IF NOT EXISTS last_error text;
 CREATE UNIQUE INDEX IF NOT EXISTS operational_jobs_key_unique ON operational_jobs(job_key) WHERE job_key IS NOT NULL;
 CREATE TABLE IF NOT EXISTS audit_records (id bigserial PRIMARY KEY, actor text NOT NULL, action text NOT NULL, target text, evidence jsonb NOT NULL DEFAULT '{}', occurred_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS api_tenants (tenant_id text PRIMARY KEY, plan text NOT NULL, status text NOT NULL CHECK (status IN ('active', 'suspended')), rate_limit_per_minute integer NOT NULL CHECK (rate_limit_per_minute > 0), retention_days integer NOT NULL CHECK (retention_days > 0), updated_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS api_key_hashes (key_hash text PRIMARY KEY CHECK (key_hash ~ '^[0-9a-f]{64}$'), tenant_id text NOT NULL REFERENCES api_tenants(tenant_id), activates_at timestamptz, expires_at timestamptz, CHECK (expires_at IS NULL OR activates_at IS NULL OR expires_at > activates_at));
 CREATE TABLE IF NOT EXISTS api_usage_hourly (tenant_id text NOT NULL REFERENCES api_tenants(tenant_id), bucket_start timestamptz NOT NULL, route text NOT NULL, status_class smallint NOT NULL CHECK (status_class BETWEEN 1 AND 5), requests bigint NOT NULL CHECK (requests >= 0), duration_ms numeric NOT NULL CHECK (duration_ms >= 0), PRIMARY KEY (tenant_id, bucket_start, route, status_class));
-INSERT INTO schema_migrations(version) VALUES (1), (2), (3), (4) ON CONFLICT DO NOTHING;
+INSERT INTO schema_migrations(version) VALUES (1), (2), (3), (4), (5) ON CONFLICT DO NOTHING;
