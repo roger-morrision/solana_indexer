@@ -11,7 +11,7 @@ const DYNAMIC_ROUTES = [
   [/^\/internal\/wallets\/[^/]+\/(performance|profile|funding|funding-cluster)$/, "/internal/wallets/:id/$1"],
   [/^\/internal\/pools\/[^/]+\/(quote|prepare-swap)$/, "/internal/pools/:id/$1"]
 ];
-const STATIC_ROUTES = new Set(["/", "/index.html", "/rpc", "/metrics", "/api/health", "/api/stats", "/api/trending", "/api/blocks", "/api/transactions", "/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/tokens", "/api/v1/pools", "/api/v1/bot/readiness", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/internal/registry", "/internal/feed/health", "/internal/feed/gaps", "/internal/trending", "/internal/candidates", "/internal/new-pairs", "/internal/execution-policy"]);
+const STATIC_ROUTES = new Set(["/", "/index.html", "/rpc", "/ws", "/metrics", "/api/health", "/api/stats", "/api/trending", "/api/blocks", "/api/transactions", "/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/tokens", "/api/v1/pools", "/api/v1/bot/readiness", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/internal/registry", "/internal/feed/health", "/internal/feed/gaps", "/internal/trending", "/internal/candidates", "/internal/new-pairs", "/internal/execution-policy"]);
 
 export function normalizeAuditRoute(value) {
   if (typeof value !== "string" || !value.startsWith("/") || Buffer.byteLength(value) > 2_048 || /[?\u0000-\u001f\u007f]/.test(value)) throw new Error("audit route is invalid");
