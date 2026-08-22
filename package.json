@@ -24,6 +24,7 @@
     "snapshot:orca-pools": "node src/orca-pool-snapshot.js",
     "validate:replay-load": "node src/replay-load-validation.js",
     "validate:backup": "node src/backup-preflight.js",
+    "validate:geyser-abi": "node src/geyser-abi-preflight.js",
     "watch": "node src/cli.js watch",
     "status": "node src/cli.js status",
     "test": "node --test"

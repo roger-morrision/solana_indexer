@@ -493,6 +493,14 @@ they are never mislabeled as PumpSwap AMM reserves.
 
 ## Operational safety
 
+Yellowstone/Geyser activation is fail-closed. `npm run validate:geyser-abi --
+--manifest /absolute/reviewed.json --agave /absolute/agave-validator --plugin
+/absolute/libyellowstone_grpc_geyser.so` hashes the installed binaries, checks
+the exact Agave version output, and requires a reviewed qualification recorded
+within 30 days with at least 24 hours, 100,000 finalized blocks, a replay digest,
+and bounded RSS slope. The checked-in example remains `blocked`; it is not an
+approval to load the currently incompatible plugin.
+
 Run `npm run validate:replay-load -- --fixture test/fixtures/block.json --blocks 10000`
 for an explicitly synthetic, non-production replay drill through the real parser and
 canonical store. It injects deterministic duplicates and same-slot replacements,

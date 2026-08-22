@@ -19,6 +19,7 @@ import { createClmmPoolSnapshot, decodeClmmBitmapExtensionAccount, decodeClmmBit
 import { createOrcaPoolSnapshot, decodeOrcaWhirlpoolAccount, ORCA_WHIRLPOOL_PROGRAM } from "../src/orca-pool-snapshot.js";
 import { runReplayLoadValidation } from "../src/replay-load-validation.js";
 import { preflightBackup } from "../src/backup-preflight.js";
+import { validateGeyserCompatibility } from "../src/geyser-abi-preflight.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
@@ -67,6 +68,10 @@ test("account snapshots acquire optional Metaplex metadata at the exact finalize
 
 test("pins the canonical Solana mainnet genesis hash", () => {
   assert.equal(MAINNET_GENESIS_HASH, "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d");
+});
+
+test("Yellowstone activation requires exact installed ABI and sustained qualification evidence", () => {
+  const hash = "a".repeat(64), observed = { agaveVersionOutput: "agave-validator 4.1.0", agaveBinarySha256: hash, pluginBinarySha256: "b".repeat(64) }, manifest = { schemaVersion: 1, chain: "solana-mainnet", status: "qualified", agave: { versionOutput: observed.agaveVersionOutput, sourceCommit: "c".repeat(64), binarySha256: observed.agaveBinarySha256 }, plugin: { name: "yellowstone-grpc-geyser", version: "14.2.2", sourceCommit: "d".repeat(64), binarySha256: observed.pluginBinarySha256 }, qualification: { testedAt: "2026-08-22T00:00:00.000Z", sustainedSeconds: 86_400, finalizedBlocks: 100_000, maxRssBytes: 1_000_000_000, rssSlopeBytesPerHour: 1_000_000, replayDigest: "e".repeat(64) }, reviewedBy: "platform-review" }, now = Date.parse("2026-08-23T00:00:00.000Z"); assert.equal(validateGeyserCompatibility(manifest, observed, now).activationAllowed, true); assert.equal(validateGeyserCompatibility({ ...manifest, status: "blocked" }, observed, now).reason, "compatibility_not_qualified"); assert.equal(validateGeyserCompatibility(manifest, { ...observed, pluginBinarySha256: hash }, now).reason, "installed_binary_mismatch"); assert.equal(validateGeyserCompatibility({ ...manifest, qualification: { ...manifest.qualification, sustainedSeconds: 3_600 } }, observed, now).reason, "sustained_qualification_insufficient");
 });
 
 test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {
