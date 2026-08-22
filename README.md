@@ -508,7 +508,8 @@ unchanged and every required Ed25519 signature verifies against its message key;
 the resulting signed artifact remains content-addressed and unsubmitted.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
-match the unsigned simulation receipt exactly. Signature bytes are intentionally
+match the unsigned simulation receipt exactly. Its first serialized signature
+must also equal the RPC signature being confirmed. Signature bytes are intentionally
 excluded from that comparison; transaction submission remains out of scope.
 Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
