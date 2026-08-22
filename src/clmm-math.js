@@ -1,6 +1,7 @@
 const Q64 = 1n << 64n;
 const FEE_DENOMINATOR = 1_000_000n;
 const MAX_U64 = (1n << 64n) - 1n;
+const MAX_U128 = (1n << 128n) - 1n;
 const MIN_RAYDIUM_TICK = -443_636;
 const MAX_RAYDIUM_TICK = 443_636;
 const RAYDIUM_TICK_FACTORS = [
@@ -68,6 +69,47 @@ export function computeStaticFeeExactInputStep({ sqrtPriceX64, targetSqrtPriceX6
   const feeAmount = reachedTarget ? ceilDiv(amountIn * fee, FEE_DENOMINATOR - fee) : remaining - amountIn;
   if (amountIn + feeAmount > remaining) throw new Error("swap step rounding exceeds remaining input");
   return { nextSqrtPriceX64: next.toString(), amountIn: amountIn.toString(), amountOut: amountOut.toString(), feeAmount: feeAmount.toString(), reachedTarget };
+}
+
+function normalizedTicks(initializedTicks, tickSpacing) {
+  if (!Array.isArray(initializedTicks) || !Number.isInteger(tickSpacing) || tickSpacing <= 0) throw new Error("initialized tick coverage is invalid");
+  const seen = new Set(), rows = initializedTicks.map((row) => {
+    if (!Number.isInteger(row?.tick) || row.tick % tickSpacing !== 0 || !/^-?\d+$/.test(row?.liquidityNetRaw ?? "") || !/^\d+$/.test(row?.liquidityGrossRaw ?? "") || BigInt(row.liquidityGrossRaw) === 0n || seen.has(row.tick)) throw new Error("initialized tick is invalid");
+    seen.add(row.tick); return { tick: row.tick, liquidityNet: BigInt(row.liquidityNetRaw) };
+  });
+  return rows.sort((left, right) => left.tick - right.tick);
+}
+
+export function quoteRaydiumStaticFeeExactInput({ sqrtPriceX64, currentTick, liquidity, amountIn, feeRateMillionths, zeroForOne, limitTick, tickSpacing, initializedTicks, coverageMinTick, coverageMaxTickExclusive, transferFeeAmount = 0 }) {
+  if (!Number.isInteger(currentTick) || !Number.isInteger(limitTick) || !Number.isInteger(coverageMinTick) || !Number.isInteger(coverageMaxTickExclusive) || coverageMinTick >= coverageMaxTickExclusive) throw new Error("tick coverage bounds are invalid");
+  if (typeof zeroForOne !== "boolean" || (zeroForOne ? limitTick >= currentTick : limitTick <= currentTick)) throw new Error("limit tick is inconsistent with swap direction");
+  if (currentTick < coverageMinTick || currentTick >= coverageMaxTickExclusive || limitTick < coverageMinTick || limitTick >= coverageMaxTickExclusive) throw new Error("quote range is not covered by the finalized tick snapshot");
+  if (integer(transferFeeAmount, "transferFeeAmount") !== 0n) throw new Error("Token-2022 transfer-fee quoting is unsupported");
+  const ticks = normalizedTicks(initializedTicks, tickSpacing), limitPrice = raydiumSqrtPriceX64AtTick(limitTick);
+  let price = integer(sqrtPriceX64, "sqrtPriceX64", { positive: true }), activeLiquidity = integer(liquidity, "liquidity", { positive: true, maximum: MAX_U128 });
+  let remaining = integer(amountIn, "amountIn", { maximum: MAX_U64 }), totalIn = 0n, totalOut = 0n, totalFee = 0n, crossedTicks = 0;
+  if ((zeroForOne && price <= limitPrice) || (!zeroForOne && price >= limitPrice)) throw new Error("limit price is inconsistent with current price");
+  const candidates = ticks.filter((row) => zeroForOne ? row.tick <= currentTick && row.tick > limitTick : row.tick > currentTick && row.tick < limitTick);
+  if (zeroForOne) candidates.reverse();
+  let candidateIndex = 0;
+  while (remaining > 0n && price !== limitPrice) {
+    const nextTick = candidates[candidateIndex] ?? null, target = nextTick ? raydiumSqrtPriceX64AtTick(nextTick.tick) : limitPrice;
+    if (nextTick && target === price) {
+      activeLiquidity = zeroForOne ? activeLiquidity - nextTick.liquidityNet : activeLiquidity + nextTick.liquidityNet;
+      if (activeLiquidity <= 0n || activeLiquidity > MAX_U128) throw new Error("initialized tick crossing produces invalid liquidity");
+      crossedTicks++; candidateIndex++; continue;
+    }
+    const step = computeStaticFeeExactInputStep({ sqrtPriceX64: price, targetSqrtPriceX64: target, liquidity: activeLiquidity, amountRemaining: remaining, feeRateMillionths, zeroForOne });
+    const consumed = BigInt(step.amountIn) + BigInt(step.feeAmount);
+    if (consumed === 0n) throw new Error("CLMM quote made no progress");
+    price = BigInt(step.nextSqrtPriceX64); remaining -= consumed; totalIn += BigInt(step.amountIn); totalOut += BigInt(step.amountOut); totalFee += BigInt(step.feeAmount);
+    if (nextTick && step.reachedTarget) {
+      activeLiquidity = zeroForOne ? activeLiquidity - nextTick.liquidityNet : activeLiquidity + nextTick.liquidityNet;
+      if (activeLiquidity <= 0n || activeLiquidity > MAX_U128) throw new Error("initialized tick crossing produces invalid liquidity");
+      crossedTicks++; candidateIndex++;
+    } else break;
+  }
+  return { status: remaining === 0n ? "quoted" : "price_limit_reached", amountSpecifiedRaw: BigInt(amountIn).toString(), amountInRaw: totalIn.toString(), amountOutRaw: totalOut.toString(), feeAmountRaw: totalFee.toString(), amountUnconsumedRaw: remaining.toString(), endSqrtPriceX64: price.toString(), endLiquidityRaw: activeLiquidity.toString(), crossedTicks, fullyConsumed: remaining === 0n };
 }
 
 export const CLMM_MATH_CONSTANTS = Object.freeze({ Q64: Q64.toString(), feeDenominator: FEE_DENOMINATOR.toString(), minRaydiumTick: MIN_RAYDIUM_TICK, maxRaydiumTick: MAX_RAYDIUM_TICK });

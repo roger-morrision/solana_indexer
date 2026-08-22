@@ -36,7 +36,7 @@ import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT } from "../src/usd-depeg-reference.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
-import { computeStaticFeeExactInputStep, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
+import { computeStaticFeeExactInputStep, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -58,6 +58,16 @@ test("CLMM exact-input swap steps round fees and deltas fail closed", () => {
   assert.throws(() => computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: downTarget, liquidity: 0, amountRemaining: 1, feeRateMillionths: 0, zeroForOne: true }), /liquidity/);
   assert.throws(() => computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: downTarget, liquidity: 1, amountRemaining: 1, feeRateMillionths: 1_000_000, zeroForOne: true }), /feeRate/);
   assert.throws(() => computeStaticFeeExactInputStep({ sqrtPriceX64: q64, targetSqrtPriceX64: upTarget, liquidity: 1, amountRemaining: 1, feeRateMillionths: 0, zeroForOne: true }), /direction/);
+});
+
+test("Raydium static-fee quotes cross initialized ticks with exact liquidity net", () => {
+  const quote = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: "1000000", amountIn: "10000", feeRateMillionths: "3000", zeroForOne: false, limitTick: 200, tickSpacing: 10, coverageMinTick: -100, coverageMaxTickExclusive: 300, initializedTicks: [{ tick: 100, liquidityNetRaw: "250000", liquidityGrossRaw: "250000" }] });
+  assert.deepEqual({ status: quote.status, crossedTicks: quote.crossedTicks, endLiquidityRaw: quote.endLiquidityRaw, fullyConsumed: quote.fullyConsumed }, { status: "quoted", crossedTicks: 1, endLiquidityRaw: "1250000", fullyConsumed: true });
+  assert.equal(BigInt(quote.amountInRaw) + BigInt(quote.feeAmountRaw), 10_000n); assert.ok(BigInt(quote.amountOutRaw) > 0n); assert.equal(BigInt(quote.endSqrtPriceX64) > raydiumSqrtPriceX64AtTick(100), true);
+  const boundary = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: "1000000", amountIn: "100", feeRateMillionths: 0, zeroForOne: true, limitTick: -20, tickSpacing: 10, coverageMinTick: -20, coverageMaxTickExclusive: 20, initializedTicks: [{ tick: 0, liquidityNetRaw: "100000", liquidityGrossRaw: "100000" }] }); assert.equal(boundary.crossedTicks, 1); assert.equal(boundary.endLiquidityRaw, "900000"); assert.equal(boundary.fullyConsumed, true);
+  const limited = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: "1000000", amountIn: "1000000", feeRateMillionths: 0, zeroForOne: true, limitTick: -100, tickSpacing: 10, coverageMinTick: -100, coverageMaxTickExclusive: 100, initializedTicks: [] }); assert.equal(limited.status, "price_limit_reached"); assert.equal(limited.fullyConsumed, false); assert.ok(BigInt(limited.amountUnconsumedRaw) > 0n);
+  assert.throws(() => quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: 1, amountIn: 1, feeRateMillionths: 0, zeroForOne: true, limitTick: -20, tickSpacing: 10, coverageMinTick: -10, coverageMaxTickExclusive: 10, initializedTicks: [] }), /not covered/);
+  assert.throws(() => quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: raydiumSqrtPriceX64AtTick(0), currentTick: 0, liquidity: 1, amountIn: 1, feeRateMillionths: 0, zeroForOne: false, limitTick: 20, tickSpacing: 10, coverageMinTick: -10, coverageMaxTickExclusive: 30, initializedTicks: [], transferFeeAmount: 1 }), /unsupported/);
 });
 
 test("getMultipleAccounts batching honors the RPC cap and one snapshot context", async () => {
