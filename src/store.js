@@ -86,6 +86,27 @@ export function canonicalPersistedDerivedLedger({ transfers, nativeTransfers, ba
   }
   return true;
 }
+export function canonicalAggregateProjections(state) {
+  if (!state?.accounts || Array.isArray(state.accounts) || !state.tokenAccounts || Array.isArray(state.tokenAccounts) || !state.mints || Array.isArray(state.mints) || !state.pools || Array.isArray(state.pools)) return false;
+  const accounts = {};
+  for (const transaction of Object.values(state.transactions ?? {})) for (const account of transaction.accounts ?? []) { const row = accounts[account] ?? { transactionCount: 0, successfulTransactionCount: 0, lastSlot: 0 }; row.transactionCount++; row.successfulTransactionCount += transaction.success ? 1 : 0; row.lastSlot = Math.max(row.lastSlot, transaction.slot); accounts[account] = row; }
+  if (Object.keys(accounts).length !== Object.keys(state.accounts).length || Object.entries(accounts).some(([address, expected]) => { const actual = state.accounts[address]; return !actual || actual.transactionCount !== expected.transactionCount || actual.successfulTransactionCount !== expected.successfulTransactionCount || actual.lastSlot !== expected.lastSlot; })) return false;
+  const tokenAccounts = {};
+  for (const change of [...(state.balanceChanges ?? [])].sort((a, b) => a.slot - b.slot)) tokenAccounts[change.tokenAccount] = { mint: change.mint, owner: change.owner, programId: change.programId, decimals: change.decimals, amountRaw: change.postAmountRaw, lastSlot: change.slot, lastSignature: change.signature, closed: change.closed, provenance: change.provenance ?? null };
+  for (const [mint, snapshot] of Object.entries(state.holderSnapshots ?? {})) if (isCanonicalAccountSnapshotEvidence(snapshot, state.mints[mint]?.mintInfo)) for (const account of snapshot.accounts) { const prior = tokenAccounts[account.tokenAccount]; if (!prior || snapshot.slot >= prior.lastSlot) tokenAccounts[account.tokenAccount] = { mint, owner: account.owner, programId: account.programId, decimals: account.decimals, amountRaw: account.amountRaw, lastSlot: snapshot.slot, lastSignature: null, closed: BigInt(account.amountRaw) === 0n }; }
+  const tokenFields = ["mint", "owner", "programId", "decimals", "amountRaw", "lastSlot", "lastSignature", "closed"];
+  if (Object.keys(tokenAccounts).length !== Object.keys(state.tokenAccounts).length || Object.entries(tokenAccounts).some(([address, expected]) => { const actual = state.tokenAccounts[address]; return !actual || tokenFields.some((field) => actual[field] !== expected[field]) || (expected.provenance ? ["commitment", "genesisHash", "source", "observedAt"].some((field) => actual.provenance?.[field] !== expected.provenance[field]) : actual.provenance != null); })) return false;
+  const mints = {};
+  for (const transfer of state.transfers ?? []) { const row = mints[transfer.mint] ?? { transferCount: 0, swapCount: 0, lastSlot: 0, lastBlockTime: null }; row.transferCount++; row.lastSlot = Math.max(row.lastSlot, transfer.slot); row.lastBlockTime = Math.max(row.lastBlockTime ?? 0, transfer.blockTime ?? 0) || null; mints[transfer.mint] = row; }
+  for (const swap of state.swaps ?? []) for (const mint of [swap.inputMint, swap.outputMint]) { const row = mints[mint] ?? { transferCount: 0, swapCount: 0, lastSlot: 0, lastBlockTime: null }; row.swapCount++; row.lastSlot = Math.max(row.lastSlot, swap.slot); row.lastBlockTime = Math.max(row.lastBlockTime ?? 0, swap.blockTime ?? 0) || null; mints[mint] = row; }
+  for (const [mint, expected] of Object.entries(mints)) { const actual = state.mints[mint]; if (!actual || (actual.transferCount ?? 0) !== expected.transferCount || (actual.swapCount ?? 0) !== expected.swapCount || actual.lastSlot !== expected.lastSlot || actual.lastBlockTime !== expected.lastBlockTime) return false; }
+  for (const actual of Object.values(state.mints)) if (!Number.isSafeInteger(actual?.transferCount ?? 0) || (actual.transferCount ?? 0) < 0 || !Number.isSafeInteger(actual?.swapCount ?? 0) || (actual.swapCount ?? 0) < 0 || !Number.isSafeInteger(actual?.lastSlot ?? 0) || (actual.lastSlot ?? 0) < 0 || !(actual.lastBlockTime == null || canonicalBlockTimeMs(actual.lastBlockTime) != null)) return false;
+  const pools = {};
+  for (const swap of state.swaps ?? []) pools[swap.pool] = mergePoolSwap(pools[swap.pool] ?? { protocol: swap.protocol, swapCount: 0 }, swap);
+  const poolFields = ["protocol", "swapCount", "venueType", "baseMint", "quoteMint", "pairIdentitySource", "lastSlot", "lastEventIndex", "lastBlockTime", "inputMint", "outputMint", "inputVaultBeforeRaw", "outputVaultBeforeRaw", "reserveTiming", "sqrtPriceX64", "liquidityRaw", "tick", "realTokenReservesRaw", "realQuoteReservesRaw", "virtualTokenReservesRaw", "virtualQuoteReservesRaw", "feeBasisPoints", "creatorFeeBasisPoints", "cashbackFeeBasisPoints", "buybackFeeBasisPoints", "ixName", "mayhemMode"];
+  for (const [address, expected] of Object.entries(pools)) { const actual = state.pools[address]; if (!actual || poolFields.some((field) => actual[field] !== expected[field]) || actual.executionPrice?.numeratorRaw !== expected.executionPrice.numeratorRaw || actual.executionPrice?.denominatorRaw !== expected.executionPrice.denominatorRaw || actual.executionPrice?.inputDecimals !== expected.executionPrice.inputDecimals || actual.executionPrice?.outputDecimals !== expected.executionPrice.outputDecimals) return false; }
+  return Object.values(state.pools).every((row) => Number.isSafeInteger(row?.swapCount ?? 0) && (row.swapCount ?? 0) >= 0);
+}
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
   if (snapshot?.complete !== true || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || snapshot.slot < 0 || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || !Array.isArray(snapshot.accounts) || !Number.isSafeInteger(snapshot.accountCount) || snapshot.accountCount !== snapshot.accounts.length || !/^\d+$/.test(snapshot.mintInfo?.supply ?? "") || BigInt(snapshot.mintInfo.supply) > U64_MAX || !Number.isInteger(snapshot.mintInfo?.decimals) || snapshot.mintInfo.decimals < 0 || snapshot.mintInfo.decimals > 255 || mintInfo?.supply !== snapshot.mintInfo.supply || mintInfo?.decimals !== snapshot.mintInfo.decimals) return false;
   const accounts = new Set();
@@ -484,6 +505,10 @@ export class IndexStore {
     const canonical = canonicalPersistedDerivedLedger({ ...this.state, instructions: this.state.instructions });
     return { canonical, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, reason: canonical ? null : "indexed_derived_ledger_evidence_invalid" };
   }
+  aggregateQuality() {
+    const canonical = canonicalAggregateProjections(this.state);
+    return { canonical, accounts: Object.keys(this.state.accounts).length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, mints: Object.keys(this.state.mints).length, pools: Object.keys(this.state.pools).length, reason: canonical ? null : "indexed_aggregate_projection_invalid" };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -512,6 +537,7 @@ export class IndexStore {
       canonicalInstructions: this.instructionQuality().canonical,
       canonicalSwaps: this.indexedSwaps().available,
       canonicalDerivedLedger: this.derivedLedgerQuality().canonical,
+      canonicalAggregates: this.aggregateQuality().canonical,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -541,7 +567,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -571,6 +597,7 @@ export class IndexStore {
     const instructions = this.instructionQuality(); if (!instructions.canonical) return { status: "invalid_evidence", healthy: false, reason: instructions.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const swaps = this.indexedSwaps(); if (!swaps.available) return { status: "invalid_evidence", healthy: false, reason: swaps.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const derivedLedger = this.derivedLedgerQuality(); if (!derivedLedger.canonical) return { status: "invalid_evidence", healthy: false, reason: derivedLedger.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, ...stats };
+    const aggregates = this.aggregateQuality(); if (!aggregates.canonical) return { status: "invalid_evidence", healthy: false, reason: aggregates.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };

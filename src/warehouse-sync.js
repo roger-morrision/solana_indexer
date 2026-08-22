@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
-import { canonicalPersistedDerivedLedger, canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedSwapLog, IndexStore, isCanonicalAccountSnapshotEvidence, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension } from "./store.js";
+import { canonicalAggregateProjections, canonicalPersistedDerivedLedger, canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedSwapLog, IndexStore, isCanonicalAccountSnapshotEvidence, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension } from "./store.js";
 import { loadHolderExclusions } from "./holder-exclusions.js";
 import { POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { ORCA_WHIRLPOOL_PROGRAM } from "./orca-pool-snapshot.js";
@@ -186,6 +186,7 @@ function respCommand(parts) { const chunks = [Buffer.from(`*${parts.length}\r\n`
 function redisJson(value, label) { let encoded; try { encoded = JSON.stringify(value); } catch { throw new Error(`invalid Redis ${label} payload`); } if (typeof encoded !== "string") throw new Error(`invalid Redis ${label} payload`); return encoded; }
 
 export function compileRedisHotSync(state, batch, ttlSeconds = 86_400, maxBytes = 16_777_216) {
+  if (!canonicalAggregateProjections(state)) throw new Error("invalid persisted aggregate projections");
   if (!Number.isInteger(ttlSeconds) || ttlSeconds < 300 || !Number.isInteger(maxBytes) || maxBytes < 65_536 || !Number.isSafeInteger(batch?.toSequence) || batch.toSequence < 0 || !Array.isArray(batch?.events) || !state?.pools || typeof state.pools !== "object" || Array.isArray(state.pools) || !state?.mints || typeof state.mints !== "object" || Array.isArray(state.mints) || (state.updatedAt != null && parseCanonicalUtcTimestamp(state.updatedAt) == null)) throw new Error("invalid Redis hot-state configuration");
   const version = batch.toSequence, prefix = `terminal_dex:hot:${version}`, poolKey = `${prefix}:pools`, tokenKey = `${prefix}:tokens`, commands = [respCommand(["MULTI"]), respCommand(["DEL", poolKey, tokenKey])];
   for (const [address, row] of Object.entries(state.pools).sort(([left], [right]) => left.localeCompare(right))) { if (!address || /[\u0000-\u001f]/.test(address)) throw new Error("invalid Redis pool identity"); commands.push(respCommand(["HSET", poolKey, address, redisJson(row, "pool")])); }
@@ -217,6 +218,7 @@ export function compileWarehouseProjections(store, staleAfterMs = 120_000, limit
 }
 
 export function compileWarehouseMetadataSql(state, sequence, projections = { candidates: [], security: [], jobs: [] }) {
+  if (!canonicalAggregateProjections(state)) throw new Error("invalid persisted aggregate projections");
   if (!state?.mints || typeof state.mints !== "object" || Array.isArray(state.mints)) throw new Error("invalid warehouse mint state"); checkpointSql(sequence);
   const rows = Object.entries(state.mints).sort(([left], [right]) => left.localeCompare(right)).map(([mint, row]) => { const info = row?.mintInfo ?? null, decimals = info?.decimals ?? null, sourceSlot = row?.authoritySourceSlot ?? row?.lastSlot ?? null, transferCount = row?.transferCount ?? 0, swapCount = row?.swapCount ?? 0, lastSlot = row?.lastSlot ?? null, lastBlockTime = row?.lastBlockTime ?? null; if (!mint || /[\u0000-\u001f]/.test(mint) || (decimals != null && (!Number.isInteger(decimals) || decimals < 0 || decimals > 255)) || (sourceSlot != null && (!Number.isSafeInteger(sourceSlot) || sourceSlot < 0)) || !Number.isSafeInteger(transferCount) || transferCount < 0 || !Number.isSafeInteger(swapCount) || swapCount < 0 || (lastSlot != null && (!Number.isSafeInteger(lastSlot) || lastSlot < 0)) || (lastBlockTime != null && (!Number.isSafeInteger(lastBlockTime) || lastBlockTime < 0))) throw new Error(`invalid warehouse mint metadata ${mint}`); const metadata = { transferCount, swapCount, lastSlot, lastBlockTime, tokenMetadata: row?.metadata ?? null, offchainTokenMetadata: row?.offchainMetadata ?? null }, authorities = { mintAuthority: info?.mintAuthority ?? null, freezeAuthority: info?.freezeAuthority ?? null }, extensions = Array.isArray(info?.extensions) ? info.extensions : []; return `(${sqlLiteral(CHAIN)}, ${sqlLiteral(mint)}, ${decimals ?? "NULL"}, ${jsonbLiteral(metadata)}, ${jsonbLiteral(authorities)}, ${jsonbLiteral(extensions)}, ${sourceSlot ?? "NULL"})`; });
   const activeTokenMints = `ARRAY[${Object.keys(state.mints).sort().map(sqlLiteral).join(", ")}]::text[]`;

@@ -99,6 +99,13 @@ location where applicable, u64-safe raw amounts, fee/net conservation, stable
 identity, decoder payload hash and exact provenance. Health, bot readiness and
 warehouse export fail closed on any detached, duplicate or inconsistent fact.
 
+Persisted account, token-account, mint-activity and pool-activity projections
+are recomputed from canonical facts and snapshots before readiness or warehouse
+projection. Exact counters, latest locations/times, balances, provenance and
+execution-price fields must agree, while independently validated snapshot and
+lifecycle enrichment remains intact. Divergence fails closed instead of serving
+stale or fork-contaminated aggregates.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether
