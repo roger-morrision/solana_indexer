@@ -106,7 +106,7 @@ export function decodePumpCompletionEvents(entry, signature) {
 }
 export function decodeRaydiumSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const decimals = new Map([...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])].map((row) => [row.mint, row.uiTokenAmount?.decimals]));
+  const decimals = mintDecimalEvidence(entry);
   const events = []; const stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -122,8 +122,7 @@ export function decodeRaydiumSwapEvents(entry, signature) {
 }
 export function decodeRaydiumClmmSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = new Map();
-  for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) if (Number.isSafeInteger(row.accountIndex) && keys[row.accountIndex] && row.mint) tokenAccounts.set(keys[row.accountIndex], { mint: row.mint, decimals: row.uiTokenAmount?.decimals });
+  const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = dexTokenAccountEvidence(entry, keys);
   const events = [], stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -139,8 +138,7 @@ export function decodeRaydiumClmmSwapEvents(entry, signature) {
 }
 export function decodeOrcaWhirlpoolSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = new Map();
-  for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) if (Number.isSafeInteger(row.accountIndex) && keys[row.accountIndex] && row.mint) tokenAccounts.set(keys[row.accountIndex], { mint: row.mint, decimals: row.uiTokenAmount?.decimals });
+  const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = dexTokenAccountEvidence(entry, keys);
   const contexts = instructionRows(entry).flatMap((instruction) => {
     const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null);
     const accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
@@ -188,7 +186,7 @@ function pumpPoolContext(entry) {
 export function decodePumpSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
   const context = pumpPoolContext(entry); if (!context) return [];
-  const decimals = new Map([...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])].map((row) => [row.mint, row.uiTokenAmount?.decimals]));
+  const decimals = mintDecimalEvidence(entry);
   const buyDiscriminator = crypto.createHash("sha256").update("event:BuyEvent").digest().subarray(0, 8); const sellDiscriminator = crypto.createHash("sha256").update("event:SellEvent").digest().subarray(0, 8);
   const events = []; const stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
@@ -215,7 +213,7 @@ function pumpTradeContext(entry, mint) {
 }
 export function decodePumpTradeEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const decimals = new Map([...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])].map((row) => [row.mint, row.uiTokenAmount?.decimals]));
+  const decimals = mintDecimalEvidence(entry);
   const events = []; const stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -288,6 +286,29 @@ function accountKeys(message, meta = null) {
   const keys = [...staticKeys, ...loadedWritable.map(normalize), ...loadedReadonly.map(normalize)];
   if (keys.some((key) => typeof key !== "string" || !key)) throw new Error("transaction account keys must be non-empty strings");
   return keys;
+}
+
+function mintDecimalEvidence(entry) {
+  const decimals = new Map(), conflicts = new Set();
+  for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) {
+    const mint = row?.mint, value = row?.uiTokenAmount?.decimals;
+    if (typeof mint !== "string" || !mint) continue;
+    if (!Number.isInteger(value) || value < 0 || value > 255 || conflicts.has(mint) || (decimals.has(mint) && decimals.get(mint) !== value)) { decimals.delete(mint); conflicts.add(mint); continue; }
+    decimals.set(mint, value);
+  }
+  return decimals;
+}
+
+function dexTokenAccountEvidence(entry, keys) {
+  const accounts = new Map(), conflicts = new Set();
+  for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) {
+    const address = Number.isSafeInteger(row?.accountIndex) && row.accountIndex >= 0 ? keys[row.accountIndex] : null, mint = row?.mint, decimals = row?.uiTokenAmount?.decimals;
+    if (!address) continue;
+    const prior = accounts.get(address), valid = typeof mint === "string" && Boolean(mint) && Number.isInteger(decimals) && decimals >= 0 && decimals <= 255;
+    if (!valid || conflicts.has(address) || (prior && (prior.mint !== mint || prior.decimals !== decimals))) { accounts.delete(address); conflicts.add(address); continue; }
+    accounts.set(address, { mint, decimals });
+  }
+  return accounts;
 }
 
 function tokenBalanceChanges(entry, keys, signature, slot, blockTime) {
