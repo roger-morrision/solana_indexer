@@ -476,10 +476,13 @@ as clock-skew failures rather than being clamped to zero age.
 Orca Whirlpools use the same fail-closed separation between event and account
 evidence. `npm run snapshot:orca-pools -- <POOL_ADDRESS...>` decodes the official
 fixed Whirlpool layout, verifies its program owner, and reads both embedded vaults
-at a finalized context no older than the pool state. Mint mismatches, mixed order,
-duplicate targets, malformed layouts, and regressing or conflicting snapshots are
-rejected before canonical state changes. Missing tick-array evidence still blocks
-claims of executable routing depth.
+at a finalized context no older than the pool state. It discovers official fixed
+and dynamic tick arrays, requires one exact tick-array context per pool, validates
+owner/discriminator/pool/start alignment and dynamic bitmap encoding, and retains
+each initialized tick's exact signed liquidity plus fee/reward growth. Mint
+mismatches, mixed order, duplicate targets, malformed layouts, and regressing or
+conflicting snapshots are rejected before canonical state changes. Tick evidence
+supports analysis but executable routing still requires audited swap math and local simulation.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into
