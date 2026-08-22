@@ -62,6 +62,8 @@ account identities, bounds, pre-balances, blockhash, and optional transfer-hook
 source evidence pass through the same construction gates; the endpoint performs
 no simulation, signing, or submission.
 
+Trading-bot readiness requires exact zero-event-lag warehouse convergence. The operator-facing warehouse health contract retains its configurable bounded-lag tolerance for monitoring and display consumers, but a checkpoint that is merely within that tolerance is explicitly marked `exactlyConverged: false` and cannot unlock automation.
+
 Phase 9 zero-event synchronization cycles still reconcile canonical dead letters, PostgreSQL projections/jobs/checkpoints and versioned Redis hot state, so TTL expiry or partial sink loss self-heals without waiting for unrelated chain activity. Redis rebuilds atomically cover deletion, complete hash population, stats/TTL updates, event publication and the current-version pointer, including same-sequence repair. PostgreSQL token projections and warehouse checkpoints now use the same canonical `solana-mainnet` chain identity as reconciliation.
 
 Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
