@@ -635,6 +635,17 @@ mint/amount, user and creator, fee components, real/virtual reserves, and
 mayhem-mode evidence. Reported curve reserves use `reserveTiming: "reported"`;
 they are never mislabeled as PumpSwap AMM reserves.
 
+The bonding-curve snapshot boundary independently derives each current
+`["bonding-curve", mint]` PDA and the singleton `["global"]` PDA, rejects wrong
+owners, discriminators, lengths, flags and fee bounds, and advances a finalized
+read barrier from curve state to Global configuration. It persists the current
+115-byte `BondingCurve` serialized prefix (including the current 150-byte
+zero-padded allocation) for reserves/completion/creator/mode/quote-mint and
+the current 1,045-byte `Global` authority, fee-recipient, migration, mode and
+quote-mint policy contract without relying on trade logs. Run
+`npm run snapshot:pump-bonding-curves -- <MINT_ADDRESS...>` against the loopback
+mainnet validator. Canonical store import and route binding remain fail-closed.
+
 The PumpSwap snapshot decoder additionally binds the official Anchor `Pool`
 account discriminator and 261-byte field layout, including pool index, creator,
 ordered mints/vaults, LP supply, coin creator, mayhem/cashback flags, and signed

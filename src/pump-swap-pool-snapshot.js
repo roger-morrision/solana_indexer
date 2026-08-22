@@ -31,6 +31,8 @@ function modPow(base, exponent) { let result = 1n, factor = mod(base), power = e
 function onEd25519Curve(encoded) { let y = 0n; for (let index = 31; index >= 0; index--) y = (y << 8n) | BigInt(encoded[index]); const sign = y >> 255n; y &= (1n << 255n) - 1n; if (y >= ED25519_P) return false; const y2 = mod(y * y), d = mod(-121665n * modPow(121666n, ED25519_P - 2n)), x2 = mod((y2 - 1n) * modPow(d * y2 + 1n, ED25519_P - 2n)); return x2 === 0n ? sign === 0n : modPow(x2, (ED25519_P - 1n) / 2n) === 1n; }
 function findProgramAddress(seeds, programId) { const program = base58Bytes(programId); for (let bump = 255; bump >= 0; bump--) { const digest = crypto.createHash("sha256").update(Buffer.concat([...seeds, Buffer.from([bump]), program, Buffer.from("ProgramDerivedAddress")])).digest(); if (!onEd25519Curve(digest)) return { address: base58(digest), bump }; } throw new Error("unable to derive Solana program address"); }
 export function derivePumpPoolAuthority(baseMint) { return findProgramAddress([Buffer.from("pool-authority"), base58Bytes(baseMint)], PUMP_PROGRAM); }
+export function derivePumpBondingCurve(baseMint) { return findProgramAddress([Buffer.from("bonding-curve"), base58Bytes(baseMint)], PUMP_PROGRAM); }
+export function derivePumpGlobal() { return findProgramAddress([Buffer.from("global")], PUMP_PROGRAM); }
 export function derivePumpSwapFeeConfig() { return findProgramAddress([Buffer.from("fee_config"), base58Bytes(PUMP_SWAP_PROGRAM)], PUMP_FEE_PROGRAM); }
 export function derivePumpSwapGlobalConfig() { return findProgramAddress([Buffer.from("global_config")], PUMP_SWAP_PROGRAM); }
 export function derivePumpSwapEventAuthority() { return findProgramAddress([Buffer.from("__event_authority")], PUMP_SWAP_PROGRAM); }
