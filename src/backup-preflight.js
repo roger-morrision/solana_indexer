@@ -20,15 +20,18 @@ async function readBoundedRegularFile(filename, maximumBytes, label) { const sta
 async function writeAtomic(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 function parseSums(text) { const rows = new Map(); for (const [index, line] of text.trim().split(/\r?\n/).entries()) { const match = /^([0-9a-f]{64})  ([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(line); if (!match || rows.has(match[2])) throw new Error(`invalid SHA256SUMS line ${index + 1}`); rows.set(match[2], match[1]); } return rows; }
 async function tarInventory(filename) {
-  const handle = await fs.open(filename, "r"), names = [], seen = new Set(); let offset = 0;
+  const handle = await fs.open(filename, "r"), names = [], seen = new Set(); let offset = 0, terminated = false, fileSize;
   try { while (true) {
+    if (fileSize == null) { const stat = await handle.stat(); if (!stat.isFile() || !Number.isSafeInteger(stat.size) || stat.size < 1_024 || stat.size % 512 !== 0) throw new Error("invalid indexer-state tar file"); fileSize = stat.size; }
     const header = Buffer.alloc(512), { bytesRead } = await handle.read(header, 0, 512, offset); if (bytesRead === 0) break; if (bytesRead !== 512) throw new Error("truncated indexer-state tar header"); if (header.every((byte) => byte === 0)) break;
     const read = (start, length) => header.subarray(start, start + length).toString("utf8").replace(/\0.*$/s, ""), name = [read(345, 155), read(0, 100)].filter(Boolean).join("/"), sizeText = read(124, 12).trim(), type = read(156, 1) || "0";
-    if (!name || path.posix.isAbsolute(name) || name.split("/").includes("..") || seen.has(name)) throw new Error("unsafe or duplicate indexer-state tar member");
-    if (!/^[0-7]+$/.test(sizeText)) throw new Error(`invalid tar size for ${name}`); const size = Number.parseInt(sizeText, 8); if (!Number.isSafeInteger(size) || size < 0 || !["0", "5"].includes(type)) throw new Error(`unsupported tar member ${name}`);
+    const logicalName = type === "5" && name.endsWith("/") ? name.slice(0, -1) : name, segments = logicalName.split("/");
+    if (!logicalName || Buffer.byteLength(name) > 255 || /[\\\u0000-\u001f\u007f]/.test(name) || path.posix.isAbsolute(name) || segments.some((segment) => !segment || segment === "." || segment === "..") || type === "0" && name.endsWith("/") || type === "5" && !name.endsWith("/") || seen.has(logicalName) || names.length >= 100_000) throw new Error("unsafe, duplicate, or excessive indexer-state tar member");
+    if (!/^[0-7]+$/.test(sizeText)) throw new Error(`invalid tar size for ${name}`); const size = Number.parseInt(sizeText, 8); if (!Number.isSafeInteger(size) || size < 0 || !["0", "5"].includes(type) || type === "5" && size !== 0) throw new Error(`unsupported tar member ${name}`);
     const stored = Number.parseInt(read(148, 8).trim(), 8), checksumHeader = Buffer.from(header); checksumHeader.fill(0x20, 148, 156); const computed = checksumHeader.reduce((sum, byte) => sum + byte, 0); if (stored !== computed) throw new Error(`invalid tar header checksum for ${name}`);
-    offset += 512 + Math.ceil(size / 512) * 512; if (offset > (await handle.stat()).size) throw new Error(`truncated tar member ${name}`); seen.add(name); names.push(name);
-  } } finally { await handle.close(); }
+    offset += 512 + Math.ceil(size / 512) * 512; if (offset > fileSize) throw new Error(`truncated tar member ${name}`); seen.add(logicalName); names.push(logicalName);
+  } if (offset >= fileSize) throw new Error("indexer-state tar lacks a zero terminator"); for (let cursor = offset; cursor < fileSize; cursor += 65_536) { const length = Math.min(65_536, fileSize - cursor), tail = Buffer.alloc(length), { bytesRead } = await handle.read(tail, 0, length, cursor); if (bytesRead !== length || !tail.every((byte) => byte === 0)) throw new Error("indexer-state tar has nonzero trailing data"); } terminated = true; } finally { await handle.close(); }
+  if (!terminated) throw new Error("indexer-state tar is not terminated");
   if (!names.includes("data/index.json") || !names.includes("data/exporter-status.json")) throw new Error("indexer-state tar lacks required canonical state"); return names.sort();
 }
 

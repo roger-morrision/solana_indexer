@@ -223,7 +223,9 @@ closed before restore qualification. Manifest creation refuses to assert
 `writersQuiesced` unless the library caller explicitly supplies true evidence;
 the CLI derives that evidence only from `BACKUP_WRITERS_QUIESCED=yes`. Checksum
 and JSON control files are regular-file and size bounded, then content-checked
-again after hashing so raced evidence cannot qualify.
+again after hashing so raced evidence cannot qualify. Tar members use canonical
+bounded paths and types, a bounded count, and an all-zero terminator tail so a
+concatenated archive cannot hide extraction payloads after qualified state.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the

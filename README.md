@@ -511,7 +511,9 @@ backup manifest and archive receipt. `/api/v1/backup` and Prometheus expose its
 freshness without exposing the archive endpoint.
 Preflight reads checksum and JSON control evidence only from bounded regular
 files and rechecks their exact bytes after artifact hashing to reject concurrent
-replacement or mutation.
+replacement or mutation. Tar inventory rejects control/backslash paths,
+empty/dot/traversal segments, type/name mismatches, duplicate logical paths,
+excessive member counts, missing terminators, and nonzero trailing archives.
 Status creation revalidates the complete version-3 artifact inventory and proves
 the uploaded receipt's manifest hash equals the exact `inbox-manifest.json`
 artifact hash. Missing or divergent upload-completion timestamps fail closed.
