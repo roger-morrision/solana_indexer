@@ -190,6 +190,7 @@ Configuration:
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
+| `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized headers only and does not enable routing |
 | `CLMM_BITMAP_EXTENSIONS_JSON` | unset | Optional JSON map of Raydium CLMM pool addresses to unique overflow bitmap-extension addresses; captures pool-bound finalized raw segments without claiming executable coverage |
@@ -249,6 +250,13 @@ all SPL/Token-2022 accounts for selected mints. With no arguments it uses mints
 already discovered by the index. This is intentionally bounded because
 `getProgramAccounts` is expensive. Holder concentration remains unsafe for
 automation until pool, burn, locker, and exchange exclusions are authoritative.
+Set `HOLDER_EXCLUSIONS_FILE` to a reviewed JSON registry with
+`schemaVersion: 1`, `chain: "solana"`, the pinned mainnet `genesisHash`, an
+ISO `observedAt`, a non-empty `source`, unique `completeMints`, and `entries`.
+Each entry identifies one `mint`, exactly one `owner` or `tokenAccount`, a
+`category` (`burn`, `exchange`, `locker`, `pool`, `protocol`, or `vault`), and
+an `evidenceSource`. Invalid, incomplete, stale, or future-dated registries do
+not unlock concentration or bot safety.
 `/internal/tokens/:mint/security` reports snapshot-backed authority/extension
 findings. `/internal/wallets/:address/performance` reports exact rational cost
 basis/PnL only for decoded swaps carrying an explicit user address. The
