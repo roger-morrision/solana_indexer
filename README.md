@@ -356,6 +356,10 @@ Production objectives and alert rules are documented in `docs/SLO.md`.
 and inbox archives and uploads them to the loopback SeaweedFS filer.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
 storage. `ops/restore.sh` verifies checksums and requires the explicit
+`npm run validate:backup -- /absolute/backup-directory` preflight. The preflight
+requires the complete fixed sink inventory, a backup inside the 24-hour RPO,
+safe tar headers, and both canonical index and exporter status members; it never
+authorizes or performs a restore. `ops/restore.sh` repeats it before mutation and requires the explicit
 `--confirm-empty-target` flag because it replaces database and local state.
 
 Nominal USD references are computed locally from fresh finalized swaps directly

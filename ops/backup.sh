@@ -18,6 +18,7 @@ node src/archive-receipt.js manifest inbox "$target/inbox-manifest.json" "$stamp
 (cd "$target" && sha256sum postgres.dump clickhouse-*.native redis.rdb indexer-state.tar inbox-manifest.json > SHA256SUMS)
 printf '{"schemaVersion":1,"createdAt":"%s","chain":"solana","scope":"postgres-clickhouse-redis-indexer-state"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$target/manifest.json"
 (cd "$target" && sha256sum manifest.json >> SHA256SUMS)
+node src/backup-preflight.js "$target"
 archive_url="${SELF_HOSTED_ARCHIVE_URL:-http://127.0.0.1:8888/terminal-dex-backups}"
 [[ "$archive_url" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/ ]] || { echo "SELF_HOSTED_ARCHIVE_URL must be loopback HTTP" >&2; exit 1; }
 for file in "$target"/postgres.dump "$target"/clickhouse-*.native "$target"/redis.rdb "$target"/indexer-state.tar "$target"/inbox-manifest.json "$target"/manifest.json "$target"/SHA256SUMS; do curl --fail --silent --show-error --retry 3 --retry-all-errors --connect-timeout 5 --max-time 300 --create-dirs --upload-file "$file" "${archive_url%/}/$stamp/$(basename "$file")"; done

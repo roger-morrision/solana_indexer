@@ -5,6 +5,7 @@ umask 077
 source_dir="$2"; repo="${INDEXER_REPO:-/home/sol/solana-indexer}"; compose="$repo/infra/compose.yaml"
 [[ "$source_dir" == /* && "$source_dir" != "/" && -f "$source_dir/SHA256SUMS" ]] || { echo "Invalid absolute backup directory" >&2; exit 1; }
 (cd "$source_dir" && sha256sum --check SHA256SUMS)
+node "$repo/src/backup-preflight.js" "$source_dir"
 cd "$repo"
 docker compose -f "$compose" exec -T postgres pg_restore --clean --if-exists --no-owner -U terminal_dex -d terminal_dex < "$source_dir/postgres.dump"
 for table in instructions swaps balance_changes dead_letters; do docker compose -f "$compose" exec -T clickhouse clickhouse-client --database terminal_dex --query "TRUNCATE TABLE $table"; docker compose -f "$compose" exec -T clickhouse clickhouse-client --database terminal_dex --query "INSERT INTO $table FORMAT Native" < "$source_dir/clickhouse-$table.native"; done
