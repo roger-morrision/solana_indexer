@@ -318,7 +318,7 @@ Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
-`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, and `funding` views; `/internal/pools/:address/quote`;
+`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote`;
 `/internal/feed/health`;
 and `/internal/feed/gaps`. Evidence responses include stable schema versions,
 provenance, freshness, confidence, and explicit missing fields. The program
@@ -374,6 +374,11 @@ instructions in retained canonical blocks. It is deliberately partial and
 non-automation-safe: it does not infer funding from balance deltas and does not
 claim coverage of account creation, stake/nonce withdrawals, token transfers,
 or history before retention.
+`/internal/wallets/:address/funding-cluster` deterministically lists other
+retained-history recipients funded by the wallet's direct System-transfer
+funders. It exposes evidence—not a sybil label—and keeps `classification: null`,
+`complete: false`, and `safeForAutomation: false` until complete native/token
+history and reviewed entity labels exist.
 
 Production objectives and alert rules are documented in `docs/SLO.md`.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
