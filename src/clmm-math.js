@@ -127,7 +127,7 @@ export function quoteRaydiumSnapshotExactInput({ snapshot, poolAddress, inputMin
   if (inputMint !== pool.tokenMint0 && inputMint !== pool.tokenMint1) throw new Error("input mint is not part of the Raydium pool");
   const zeroForOne = inputMint === pool.tokenMint0, bitmap = pool.defaultTickArrayBitmap;
   const token2022 = POOL_MINT_EVIDENCE_CONSTANTS.token2022Program, hasToken2022 = pool.tokenProgram0 === token2022 || pool.tokenProgram1 === token2022;
-  if (hasToken2022 && !validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("Raydium Token-2022 mint evidence is incomplete");
+  if (!validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("Raydium CLMM mint evidence is incomplete");
   const inputEvidence = zeroForOne ? pool.mint0Evidence : pool.mint1Evidence, outputEvidence = zeroForOne ? pool.mint1Evidence : pool.mint0Evidence;
   for (const evidence of [inputEvidence, outputEvidence]) if (evidence?.programId === token2022 && evidence.extensionTypes.some((type) => type !== "transferFeeConfig")) throw new Error("Raydium Token-2022 transfer extensions are unsupported");
   const inputTransferFee = inputEvidence?.token2022Evidence?.activeTransferFee ?? null, outputTransferFee = outputEvidence?.token2022Evidence?.activeTransferFee ?? null;

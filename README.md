@@ -580,6 +580,10 @@ input fee before traversal and the active output fee afterward, then carry the
 mint-evidence slot and epoch into unsigned simulation. Transfer hooks and every
 other unimplemented extension fail closed. Quotes share the
 analysis-only internal pool endpoint and are never labeled as executable routes.
+Legacy-SPL Raydium CLMM quotes now require and propagate that same complete
+finalized mint slot/epoch binding; execution construction rejects a quote whose
+mint evidence differs from the selected pool snapshot, and warehouse repair
+keeps incomplete snapshots out of the trusted quote surface.
 
 The shared quote endpoint dispatches only snapshots whose canonical program ID
 matches an implemented quote engine. Raydium CPMM/CLMM, PumpSwap, and legacy-SPL
