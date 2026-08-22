@@ -23,7 +23,12 @@ not enumerate remote paths or accept arbitrary URLs.
 `restore.sh` verifies every checksum and refuses to run without
 `--confirm-empty-target`. It destructively replaces database tables and local
 state, so run it only on an isolated recovery environment with consumers and
-indexer services stopped. It records the UTC restore start and prints the exact
+indexer services stopped. It additionally requires `RECOVERY_ENVIRONMENT=yes`,
+an absolute `RECOVERY_TARGET_MARKER` outside the backup containing exactly
+`terminal-dex-isolated-recovery-v1`, and a unique
+`RECOVERY_COMPOSE_PROJECT=terminal-dex-recovery-*`. Every destructive Compose
+command uses that explicit recovery-only project, preventing the drill from
+falling back to the repository's normal deployment project. It records the UTC restore start and prints the exact
 `npm run validate:recovery` command. After restore, keep consumers disabled,
 reconcile the warehouse, resume finalized export, and exercise API/feed checks.
 The recovery validator rechecks the bound backup, requires a healthy canonical
