@@ -4,11 +4,12 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 
 export function assessExporterStatus(status, staleAfterMs, now = Date.now(), maxLagSlots = 512) {
   if (status == null) return { available: false, healthy: false, reason: "status_unavailable", source: "unknown", cursor: null, localValidatorTip: null, lagSlots: null, maxLagSlots, ageMs: null, staleAfterMs, consecutiveFailures: 0 };
-  const observed = Date.parse(status.observedAt ?? ""), ageMs = Number.isFinite(observed) ? now - observed : null, failures = Number.isSafeInteger(status.consecutiveFailures) && status.consecutiveFailures >= 0 ? status.consecutiveFailures : null, cursor = Number.isSafeInteger(status.cursor) && status.cursor >= 0 ? status.cursor : null, lagSlots = Number.isSafeInteger(status.lagSlots) && status.lagSlots >= 0 ? status.lagSlots : null, tip = Number.isSafeInteger(status.localValidatorTip) && status.localValidatorTip >= 0 ? status.localValidatorTip : null;
+  const observed = parseCanonicalUtcTimestamp(status.observedAt), ageMs = observed == null ? null : now - observed, failures = Number.isSafeInteger(status.consecutiveFailures) && status.consecutiveFailures >= 0 ? status.consecutiveFailures : null, cursor = Number.isSafeInteger(status.cursor) && status.cursor >= 0 ? status.cursor : null, lagSlots = Number.isSafeInteger(status.lagSlots) && status.lagSlots >= 0 ? status.lagSlots : null, tip = Number.isSafeInteger(status.localValidatorTip) && status.localValidatorTip >= 0 ? status.localValidatorTip : null;
   const source = typeof status.source === "string" ? status.source : "", sourceValid = /^(?:local-agave-(?:rpc|pubsub)(?:-[1-4])?|external-rpc-(?:helius|alchemy|solana-public))$/.test(source), streamSource = source.startsWith("local-agave-pubsub"), skippedSlotCeiling = streamSource ? tip : cursor;
   const durableSkippedSlotsValid = Array.isArray(status.durableSkippedSlots) && status.durableSkippedSlots.length <= 10_000 && status.durableSkippedSlots.every((slot, index, rows) => Number.isSafeInteger(slot) && slot >= 0 && (index === 0 || rows[index - 1] < slot) && (skippedSlotCeiling == null || slot <= skippedSlotCeiling));
   const streamDisconnected = streamSource && status.connected !== true;

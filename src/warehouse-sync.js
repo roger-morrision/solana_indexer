@@ -13,6 +13,7 @@ import { RAYDIUM_CPMM_PROGRAM } from "./cpmm-pool-snapshot.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
 import { derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, derivePumpSwapFeeConfig, derivePumpSwapGlobalConfig, PUMP_PROGRAM, PUMP_SWAP_PROGRAM } from "./pump-swap-pool-snapshot.js";
 import { durableAtomicWrite } from "./durable-file.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const CHAIN = "solana-mainnet";
 const GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -233,8 +234,8 @@ function validWarehouseReconciliationEnvelope(reconciliation, sequence) {
 export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, staleAfterMs = 300_000, maxLagEvents = 1_000, now = Date.now()) {
   const unavailable = (reason) => ({ available: false, healthy: false, reason, sequence: null, eventSequence, lagEvents: null, ageMs: null, staleAfterMs, maxLagEvents });
   if (!checkpoint) return unavailable("checkpoint_unavailable");
-  const updated = Date.parse(checkpoint.updatedAt ?? ""), sequence = Number(checkpoint.lastSequence);
-  if (checkpoint.schemaVersion !== 2 || checkpoint.consumer !== "warehouse-canonical-events" || !Number.isSafeInteger(sequence) || sequence < 0 || !Number.isSafeInteger(eventSequence) || eventSequence < 0 || !Number.isSafeInteger(oldestSequence) || oldestSequence < 1 || !Number.isFinite(updated)) return unavailable("checkpoint_invalid");
+  const updated = parseCanonicalUtcTimestamp(checkpoint.updatedAt), sequence = Number(checkpoint.lastSequence);
+  if (checkpoint.schemaVersion !== 2 || checkpoint.consumer !== "warehouse-canonical-events" || !Number.isSafeInteger(sequence) || sequence < 0 || !Number.isSafeInteger(eventSequence) || eventSequence < 0 || !Number.isSafeInteger(oldestSequence) || oldestSequence < 1 || updated == null) return unavailable("checkpoint_invalid");
   if (checkpoint.chain !== CHAIN || checkpoint.genesisHash !== GENESIS_HASH) return { ...unavailable("checkpoint_network_mismatch"), sequence };
   const sinks = checkpoint.sinks;
   if (!sinks || ![sinks.clickhouse, sinks.postgres, sinks.redis].every((value) => Number.isSafeInteger(value) && value >= 0)) return { ...unavailable("sink_evidence_unavailable"), sequence };
