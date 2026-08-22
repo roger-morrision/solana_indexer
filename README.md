@@ -616,10 +616,12 @@ or after all pool, tick,
 configuration, and vault reads. Fee-only Raydium CLMM and CPMM Token-2022 quotes deduct the active
 input fee before traversal and the active output fee afterward, then carry the
 mint-evidence slot and epoch into unsigned simulation. Meteora DLMM `swap2`
-also resolves finalized transfer-hook static and supported PDA metadata against
-the direction-specific source, vault, authority, and gross transfer amount,
-then encodes X/Y slices ahead of bin arrays. Account-data and pubkey-data seed
-forms, and every other unimplemented extension, fail closed. Quotes share the
+also resolves finalized transfer-hook static, PDA, account-data, and pubkey-data
+metadata against the direction-specific source, vault, authority, gross transfer
+amount, and hash-bound source-account bytes, then encodes X/Y slices ahead of
+bin arrays. Missing, stale, oversized, or hash-mismatched source bytes and every
+other unimplemented extension fail closed; simulation advances its minimum
+context to the newest bound source-account slot. Quotes share the
 analysis-only internal pool endpoint and are never labeled as executable routes.
 Legacy-SPL Raydium CLMM and CPMM quotes require and propagate that same complete
 finalized mint slot/epoch binding; execution construction rejects a quote whose

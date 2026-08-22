@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
-import { findProgramAddress } from "./solana-pda.js";
+import { decodeBase58Address, findProgramAddress } from "./solana-pda.js";
 import { resolveTransferHookAccountMetas } from "./transfer-hook-evidence.js";
 
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -18,12 +18,26 @@ function meta(address, signer, writable) { if (typeof address !== "string" || !a
 function deriveEventAuthority() { return findProgramAddress(METEORA_DLMM_PROGRAM, [Buffer.from("__event_authority")]).address; }
 function encodeRemainingAccountSlices(slices) { const count = Buffer.alloc(4); count.writeUInt32LE(slices.length); return Buffer.concat([count, ...slices.map(({ type, length }) => Buffer.from([type, length]))]); }
 
-function transferHookAccounts(evidence, { source, mint, destination, authority, amountRaw, type }) {
+function finalizedHookAccountData(values, minimumSlot) {
+  if (values == null) return { raw: null, summary: [], slot: null };
+  if (typeof values !== "object" || Array.isArray(values)) throw new Error("Meteora transfer-hook source-account evidence is invalid");
+  const raw = {}, summary = [];
+  for (const [address, value] of Object.entries(values)) {
+    try { decodeBase58Address(address); decodeBase58Address(value?.owner); } catch { throw new Error("Meteora transfer-hook source-account evidence is invalid"); }
+    const bytes = typeof value?.rawHex === "string" && /^(?:[0-9a-f]{2})*$/.test(value.rawHex) ? Buffer.from(value.rawHex, "hex") : null;
+    if (value?.schemaVersion !== 1 || value.address !== address || value.commitment !== "finalized" || !Number.isSafeInteger(value.slot) || value.slot < minimumSlot || typeof value.owner !== "string" || !value.owner || !bytes || bytes.length > 65_536 || value.dataLength !== bytes.length || crypto.createHash("sha256").update(bytes).digest("hex") !== value.rawPayloadHash) throw new Error("Meteora transfer-hook source-account evidence is invalid");
+    raw[address] = value; summary.push({ address, owner: value.owner, slot: value.slot, dataLength: value.dataLength, rawPayloadHash: value.rawPayloadHash });
+  }
+  summary.sort((a, b) => a.address.localeCompare(b.address));
+  return { raw, summary, slot: summary.length ? Math.max(...summary.map((value) => value.slot)) : null };
+}
+
+function transferHookAccounts(evidence, { source, mint, destination, authority, amountRaw, type }, accountData) {
   const hook = evidence?.transferHookEvidence;
   if (!evidence?.extensionTypes?.includes("transferHook")) return null;
   if (!hook?.programExecutable || typeof hook.programId !== "string" || !hook.programId) throw new Error("Meteora transfer-hook evidence is incomplete");
   if (hook.validation == null) return { slice: { type, length: 1 }, accounts: [meta(hook.programId, false, false)] };
-  const resolved = resolveTransferHookAccountMetas({ metaList: hook.validation.extraAccountMetaList, hookProgramId: hook.programId, validationAccount: hook.validationAccount, source, mint, destination, authority, amountRaw });
+  const resolved = resolveTransferHookAccountMetas({ metaList: hook.validation.extraAccountMetaList, hookProgramId: hook.programId, validationAccount: hook.validationAccount, source, mint, destination, authority, amountRaw, accountData });
   const accounts = [...resolved.accounts.map((account) => meta(account.address, account.signer, account.writable)), meta(hook.validationAccount, false, false), meta(hook.programId, false, false)];
   if (accounts.length > 255) throw new Error("Meteora transfer-hook account slice is too large");
   return { slice: { type, length: accounts.length }, accounts };
@@ -37,7 +51,7 @@ function selectBinArrays(quote, pool) {
   return selected;
 }
 
-export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null }) {
+export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null, transferHookAccountData = null }) {
   const direction = quote?.inputMint === pool?.tokenMint0 && quote?.outputMint === pool?.tokenMint1 ? true : quote?.inputMint === pool?.tokenMint1 && quote?.outputMint === pool?.tokenMint0 ? false : null;
   const tokenPrograms = new Set([TOKEN_PROGRAM, TOKEN_2022_PROGRAM]), hasToken2022 = pool?.tokenProgram0 === TOKEN_2022_PROGRAM || pool?.tokenProgram1 === TOKEN_2022_PROGRAM;
   if (quote?.schemaVersion !== 1 || quote.protocol !== "meteora-dlmm" || quote.status !== "quoted" || quote.amountLeftRaw !== "0" || direction == null || quote.swapForY !== direction || quote.pool !== pool?.address || pool.programId !== METEORA_DLMM_PROGRAM || !tokenPrograms.has(pool.tokenProgram0) || !tokenPrograms.has(pool.tokenProgram1) || ![quote.stateSlot, quote.binArraySlot, quote.balanceSlot, quote.mintEvidenceSlot, quote.epoch].every((slot) => Number.isSafeInteger(slot) && slot >= 0) || quote.binArraySlot < quote.stateSlot || quote.binArraySlot > quote.balanceSlot || quote.mintEvidenceSlot < quote.balanceSlot || pool.binArraySlot !== quote.binArraySlot || pool.mintEvidenceSlot !== quote.mintEvidenceSlot || pool.epoch !== quote.epoch || !validateBoundPoolMintEvidence(pool, quote.balanceSlot) || typeof pool.oracle !== "string" || !pool.oracle) throw new Error("Meteora execution quote evidence is invalid");
@@ -46,21 +60,21 @@ export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenA
   if (outsideIndexes.length && (!extensionAddress || extension.pool !== pool.address || outsideIndexes.some((index) => !extension.initializedBinArrayIndexes?.includes(index)) || !Number.isSafeInteger(pool.binArrayBitmapExtensionSlot) || pool.binArrayBitmapExtensionSlot < quote.binArraySlot || pool.binArrayBitmapExtensionSlot > quote.balanceSlot || bitmapExtension != null && bitmapExtension !== extensionAddress) || !outsideIndexes.length && bitmapExtension != null) throw new Error("Meteora execution bitmap-extension evidence is invalid");
   const amount = integer(quote.amountInRaw, "Meteora amount"), consumed = integer(quote.consumedInRaw, "Meteora consumed amount"), quotedOutput = integer(quote.amountOutRaw, "Meteora quoted output"), minimumOutput = integer(minimumOutputRaw, "Meteora minimum output");
   if (amount === 0n || amount !== consumed || quotedOutput === 0n || minimumOutput === 0n || minimumOutput > quotedOutput || !/^\d+$/.test(quote.inputTransferFeeRaw ?? "") || !/^\d+$/.test(quote.outputTransferFeeRaw ?? "") || !hasToken2022 && (quote.inputTransferFeeRaw !== "0" || quote.outputTransferFeeRaw !== "0")) throw new Error("Meteora execution bounds are invalid");
-  const hasTransferHook = pool.mint0Evidence.extensionTypes.includes("transferHook") || pool.mint1Evidence.extensionTypes.includes("transferHook");
+  const hasTransferHook = pool.mint0Evidence.extensionTypes.includes("transferHook") || pool.mint1Evidence.extensionTypes.includes("transferHook"), hookData = finalizedHookAccountData(transferHookAccountData, quote.mintEvidenceSlot);
   const arrays = selectBinArrays(quote, pool), eventAuthority = deriveEventAuthority(), grossOutput = integer(hasTransferHook ? quote.grossOutputRaw : quote.grossOutputRaw ?? quote.amountOutRaw, "Meteora gross output");
-  const hookX = transferHookAccounts(pool.mint0Evidence, direction ? { source: inputTokenAccount, mint: pool.tokenMint0, destination: pool.tokenVault0, authority: user, amountRaw: amount, type: 0 } : { source: pool.tokenVault0, mint: pool.tokenMint0, destination: outputTokenAccount, authority: pool.address, amountRaw: grossOutput, type: 0 });
-  const hookY = transferHookAccounts(pool.mint1Evidence, direction ? { source: pool.tokenVault1, mint: pool.tokenMint1, destination: outputTokenAccount, authority: pool.address, amountRaw: grossOutput, type: 1 } : { source: inputTokenAccount, mint: pool.tokenMint1, destination: pool.tokenVault1, authority: user, amountRaw: amount, type: 1 });
+  const hookX = transferHookAccounts(pool.mint0Evidence, direction ? { source: inputTokenAccount, mint: pool.tokenMint0, destination: pool.tokenVault0, authority: user, amountRaw: amount, type: 0 } : { source: pool.tokenVault0, mint: pool.tokenMint0, destination: outputTokenAccount, authority: pool.address, amountRaw: grossOutput, type: 0 }, hookData.raw);
+  const hookY = transferHookAccounts(pool.mint1Evidence, direction ? { source: pool.tokenVault1, mint: pool.tokenMint1, destination: outputTokenAccount, authority: pool.address, amountRaw: grossOutput, type: 1 } : { source: inputTokenAccount, mint: pool.tokenMint1, destination: pool.tokenVault1, authority: user, amountRaw: amount, type: 1 }, hookData.raw);
   const hookGroups = [hookX, hookY].filter(Boolean), remainingAccountSlices = hookGroups.map((group) => ({ accountsType: group.slice.type === 0 ? "transferHookX" : "transferHookY", length: group.slice.length })), hookAccounts = hookGroups.flatMap((group) => group.accounts);
   const fixed = [meta(pool.address, false, true), meta(extensionAddress ?? METEORA_DLMM_PROGRAM, false, extensionAddress != null), meta(pool.tokenVault0, false, true), meta(pool.tokenVault1, false, true), meta(inputTokenAccount, false, true), meta(outputTokenAccount, false, true), meta(pool.tokenMint0, false, false), meta(pool.tokenMint1, false, false), meta(pool.oracle, false, true), meta(hostFeeAccount ?? METEORA_DLMM_PROGRAM, false, hostFeeAccount != null), meta(user, true, false), meta(pool.tokenProgram0, false, false), meta(pool.tokenProgram1, false, false)], accounts = [...fixed, ...(hasToken2022 ? [meta(MEMO_PROGRAM, false, false)] : []), meta(eventAuthority, false, false), meta(METEORA_DLMM_PROGRAM, false, false), ...hookAccounts, ...arrays.map((row) => meta(row.address, false, true))];
   const data = Buffer.concat([hasToken2022 ? SWAP2_DISCRIMINATOR : SWAP_DISCRIMINATOR, u64(amount), u64(minimumOutput), ...(hasToken2022 ? [encodeRemainingAccountSlices(hookGroups.map((group) => group.slice))] : [])]);
-  return { programId: METEORA_DLMM_PROGRAM, accounts, dataHex: data.toString("hex"), evidence: { pool: pool.address, instructionVersion: hasToken2022 ? "swap2" : "swap", stateSlot: quote.stateSlot, binArraySlot: quote.binArraySlot, bitmapExtensionSlot: outsideIndexes.length ? pool.binArrayBitmapExtensionSlot : null, balanceSlot: quote.balanceSlot, mintEvidenceSlot: quote.mintEvidenceSlot, epoch: quote.epoch, inputTransferFeeRaw: quote.inputTransferFeeRaw, outputTransferFeeRaw: quote.outputTransferFeeRaw, amountInRaw: amount.toString(), quotedOutputRaw: quotedOutput.toString(), minimumOutputRaw: minimumOutput.toString(), swapForY: direction, binArrays: arrays.map((row) => row.address), remainingAccountSlices, optionalBitmapExtension: extensionAddress, optionalHostFeeAccount: hostFeeAccount, eventAuthority } };
+  return { programId: METEORA_DLMM_PROGRAM, accounts, dataHex: data.toString("hex"), evidence: { pool: pool.address, instructionVersion: hasToken2022 ? "swap2" : "swap", stateSlot: quote.stateSlot, binArraySlot: quote.binArraySlot, bitmapExtensionSlot: outsideIndexes.length ? pool.binArrayBitmapExtensionSlot : null, balanceSlot: quote.balanceSlot, mintEvidenceSlot: quote.mintEvidenceSlot, transferHookAccountDataSlot: hookData.slot, transferHookAccountData: hookData.summary, epoch: quote.epoch, inputTransferFeeRaw: quote.inputTransferFeeRaw, outputTransferFeeRaw: quote.outputTransferFeeRaw, amountInRaw: amount.toString(), quotedOutputRaw: quotedOutput.toString(), minimumOutputRaw: minimumOutput.toString(), swapForY: direction, binArrays: arrays.map((row) => row.address), remainingAccountSlices, optionalBitmapExtension: extensionAddress, optionalHostFeeAccount: hostFeeAccount, eventAuthority } };
 }
 
 export function prepareMeteoraDlmmSwapSimulation(args) {
   const instruction = buildMeteoraDlmmSwapInstruction(args), transaction = buildUnsignedLegacyTransaction({ feePayer: args.user, recentBlockhash: args.recentBlockhash, instructions: [instruction] });
   const inputPre = integer(args.inputPreAmountRaw, "Meteora input balance"), outputPre = integer(args.outputPreAmountRaw, "Meteora output balance"), amount = integer(args.quote.amountInRaw, "Meteora amount"), minimumOutput = integer(args.minimumOutputRaw, "Meteora minimum output"), quotedOutput = integer(args.quote.amountOutRaw, "Meteora quoted output");
   if (inputPre < amount || outputPre + quotedOutput > U64_MAX) throw new Error("Meteora simulation balance bounds are invalid");
-  const prepared = { schemaVersion: 1, type: "meteora_dlmm_swap_simulation", protocol: "meteora-dlmm", commitment: "finalized", minContextSlot: args.quote.mintEvidenceSlot, transaction, instructionEvidence: instruction.evidence, simulationPolicy: { allowedProgramIds: [METEORA_DLMM_PROGRAM], requiredProgramIds: [METEORA_DLMM_PROGRAM], instructionPolicies: transaction.instructionPolicies, accountExpectations: [{ address: args.inputTokenAccount, mint: args.quote.inputMint, preAmountRaw: inputPre.toString(), minDeltaRaw: (-amount).toString(), maxDeltaRaw: (-amount).toString() }, { address: args.outputTokenAccount, mint: args.quote.outputMint, preAmountRaw: outputPre.toString(), minDeltaRaw: minimumOutput.toString(), maxDeltaRaw: quotedOutput.toString() }] } };
+  const prepared = { schemaVersion: 1, type: "meteora_dlmm_swap_simulation", protocol: "meteora-dlmm", commitment: "finalized", minContextSlot: Math.max(args.quote.mintEvidenceSlot, instruction.evidence.transferHookAccountDataSlot ?? 0), transaction, instructionEvidence: instruction.evidence, simulationPolicy: { allowedProgramIds: [METEORA_DLMM_PROGRAM], requiredProgramIds: [METEORA_DLMM_PROGRAM], instructionPolicies: transaction.instructionPolicies, accountExpectations: [{ address: args.inputTokenAccount, mint: args.quote.inputMint, preAmountRaw: inputPre.toString(), minDeltaRaw: (-amount).toString(), maxDeltaRaw: (-amount).toString() }, { address: args.outputTokenAccount, mint: args.quote.outputMint, preAmountRaw: outputPre.toString(), minDeltaRaw: minimumOutput.toString(), maxDeltaRaw: quotedOutput.toString() }] } };
   prepared.preparationHash = crypto.createHash("sha256").update(JSON.stringify(prepared)).digest("hex"); return prepared;
 }
 

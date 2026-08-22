@@ -62,8 +62,9 @@ bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
 local simulation with exact instruction policy and token-effect bounds.
 Fee-only Token-2022 routes bind their two token programs, Memo, finalized fee
 evidence, and an empty transfer-hook slice vector. Transfer-hook routes with
-fully resolved static or supported PDA metadata bind direction-specific transfer
-accounts and gross amounts, append validation/program accounts, encode ordered
+fully resolved static, PDA, account-data, or pubkey-data metadata bind
+direction-specific transfer accounts, gross amounts, and hash-bound finalized
+source-account bytes, append validation/program accounts, encode ordered
 X/Y slices, and place them before bin arrays. Capped expiring external
 approval, Ed25519 verification, and finalized landed-message identity complete
 the read-only execution chain. Pool-bound finalized bitmap-extension evidence
@@ -71,7 +72,8 @@ also admits initialized arrays outside the default range. Other extensions fail
 closed; transfer-hook mints retain finalized hook-program,
 executable-account and canonical validation-PDA raw/hash evidence, with strict
 Execute TLV meta-count, privilege and static-address decoding. Internal and
-prior-account-selected external PDAs resolve literal, instruction-data and
-account-key seeds in order; account-data and pubkey-data forms remain fail
-closed pending finalized source-account bytes.
+prior-account-selected external PDAs resolve literal, instruction-data,
+account-key, and account-data seeds in order; pubkey-data forms resolve from
+instruction or account bytes. Missing, stale, oversized, or corrupt evidence
+fails closed and simulation uses the newest bound evidence slot.
 The indexer never signs or submits and automation remains disabled.
