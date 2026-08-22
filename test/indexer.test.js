@@ -56,6 +56,7 @@ import { buildUnsignedLegacyTransaction, decodeSimulatedTokenAccount, inspectUns
 import { buildRaydiumClmmSwapV2Instruction, createRaydiumClmmSigningRequest, prepareRaydiumClmmSwapV2Simulation, simulatePreparedRaydiumClmmSwapV2, verifyFinalizedRaydiumClmmSwap, verifyRaydiumClmmSignedRequest, RAYDIUM_CLMM_EXECUTION_CONSTANTS } from "../src/raydium-clmm-execution.js";
 import { calculateTransferFeeForNetAmount, calculateTransferFeeIncludedAmount, normalizeTransferFeeConfig, selectEpochTransferFee } from "../src/token-2022-transfer-fee.js";
 import { durableAppendFile, durableAtomicWrite } from "../src/durable-file.js";
+import { shutdownIndexer } from "../src/graceful-shutdown.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, deriveTransferHookValidationAccount, POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "../src/pool-mint-evidence.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
@@ -71,6 +72,13 @@ test("durable appends preserve same-process submission order", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-durable-append-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const filename = path.join(root, "nested", "audit.jsonl"), lines = Array.from({ length: 32 }, (_, index) => `${index}\n`);
   await Promise.all(lines.map((line) => durableAppendFile(filename, line)));
   assert.equal(await fs.readFile(filename, "utf8"), lines.join("")); await assert.rejects(durableAppendFile(filename, null), /invalid durable append/);
+});
+
+test("graceful shutdown drains HTTP before flushing durable audit work", async () => {
+  const calls = [], server = { close(callback) { calls.push("close"); queueMicrotask(() => { calls.push("drained"); callback(); }); }, closeIdleConnections() { calls.push("close-idle"); }, auditSink: { async flush() { calls.push("audit-flushed"); } } };
+  await shutdownIndexer({ server, oracleWatcher: { stop() { calls.push("oracle-stopped"); } }, stopWatching() { calls.push("watch-stopped"); } });
+  assert.deepEqual(calls, ["oracle-stopped", "watch-stopped", "close", "close-idle", "drained", "audit-flushed"]);
+  await assert.rejects(shutdownIndexer({ server: { close(callback) { callback(new Error("close failed")); } } }), /close failed/);
 });
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const withLegacyMintEvidence = (pool, slot, epoch = 2) => ({ ...pool, mintEvidenceSlot: slot, epoch, mint0Evidence: { schemaVersion: 1, mint: pool.tokenMint0, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals0 ?? 6, extensionTypes: [], token2022Evidence: null }, mint1Evidence: { schemaVersion: 1, mint: pool.tokenMint1, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals1 ?? 6, extensionTypes: [], token2022Evidence: null } });

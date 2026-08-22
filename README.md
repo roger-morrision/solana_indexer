@@ -293,6 +293,9 @@ Append-only commercial audit records are serialized and synchronized before
 their write is acknowledged internally, while recovery qualification reports
 retain exclusive-create semantics and synchronize both contents and directory
 metadata before they can authorize consumer activation.
+SIGINT/SIGTERM shutdown stops index and oracle watchers, closes idle HTTP
+connections, drains active requests, and flushes the durable audit queue before
+the process exits; drain or flush failures produce a nonzero exit.
 Imported pool and curve rows preserve every component slot and also expose an
 `evidenceSlot` equal to the newest dependency context. Replacement requires
 component-wise monotonic slots and snapshot WebSocket events use the effective
