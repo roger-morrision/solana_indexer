@@ -248,6 +248,16 @@ and `/internal/feed/gaps`. Evidence responses include stable schema versions,
 provenance, freshness, confidence, and explicit missing fields. The program
 registry is available at `/internal/registry`.
 
+`GET /internal/tokens/:mint/executable-depth?amountRaw=<raw-token-units>`
+provides an exact Pump bonding-curve sell quote only when the latest decoded
+curve event is finalized and fresh and its observed cashback/buyback fee rates
+are zero. It applies the constant-product sell formula to the event's post-trade
+virtual reserves and rounds protocol and creator fees upward independently.
+The result is deliberately `executable: false` and `safeForAutomation: false`
+until a fresh account decoder, transaction builder, local simulation, and
+landed-transaction confirmation are present. Other venues and fee modes return
+an explicit unavailable response rather than an estimate.
+
 Run `npm run snapshot:accounts -- <mint> [mint...]` against the loopback mainnet
 RPC to capture canonical finalized mint authorities, Token-2022 extensions, and
 all SPL/Token-2022 accounts for selected mints. With no arguments it uses mints
