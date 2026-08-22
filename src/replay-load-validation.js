@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { parseBoundedInteger } from "./config.js";
 import { parseBlock } from "./parser.js";
 import { IndexStore } from "./store.js";
 
@@ -33,5 +34,5 @@ export async function runReplayLoadValidation(template, { blocks = 10_000, dupli
   return { schemaVersion: 1, kind: "synthetic_replay_load_validation", blocks, duplicates, replacements, elapsedMs: Math.round(elapsedMs * 100) / 100, blocksPerSecond: Math.round(blocksPerSecond * 100) / 100, heapDeltaBytes, maxHeapDeltaBytes, minimumBlocksPerSecond, stateDigest, invariants: { canonicalCounts: true, duplicateIdempotency: true, replacementCorrections: true, boundedHeapDelta: true, throughput: true } };
 }
 
-async function main() { const fixtureFlag = process.argv.indexOf("--fixture"), blocksFlag = process.argv.indexOf("--blocks"); if (fixtureFlag < 0 || !process.argv[fixtureFlag + 1]) throw new Error("usage: replay-load-validation.js --fixture <canonical-block.json> [--blocks N]"); const filename = path.resolve(process.argv[fixtureFlag + 1]), blocks = blocksFlag >= 0 ? Number(process.argv[blocksFlag + 1]) : 10_000, template = JSON.parse(await fs.readFile(filename, "utf8")); console.log(JSON.stringify(await runReplayLoadValidation(template, { blocks })) ); }
+async function main() { const fixtureFlag = process.argv.indexOf("--fixture"), blocksFlag = process.argv.indexOf("--blocks"); if (fixtureFlag < 0 || !process.argv[fixtureFlag + 1] || (blocksFlag >= 0 && !process.argv[blocksFlag + 1])) throw new Error("usage: replay-load-validation.js --fixture <canonical-block.json> [--blocks N]"); const filename = path.resolve(process.argv[fixtureFlag + 1]), blocks = parseBoundedInteger(blocksFlag >= 0 ? process.argv[blocksFlag + 1] : undefined, 10_000, 1, 1_000_000), template = JSON.parse(await fs.readFile(filename, "utf8")); console.log(JSON.stringify(await runReplayLoadValidation(template, { blocks })) ); }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
