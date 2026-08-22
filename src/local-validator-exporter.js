@@ -74,6 +74,13 @@ async function readCursor(filename) {
 }
 async function readStatus(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
 
+function priorSkippedSlots(status) {
+  if (!Object.hasOwn(status, "durableSkippedSlots")) return [];
+  const slots = status.durableSkippedSlots;
+  if (!Array.isArray(slots) || slots.length > 10_000 || slots.some((slot, index) => !Number.isSafeInteger(slot) || slot < 0 || (index > 0 && slots[index - 1] >= slot))) throw new Error("prior exporter skipped-slot evidence is invalid");
+  return slots;
+}
+
 function safeError(error) {
   return String(error?.message ?? error?.name ?? "exporter failure")
     .replace(/https?:\/\/[^\s]+/gi, "[redacted-url]")
@@ -91,18 +98,20 @@ export async function recordExporterFailure(statusFile, error, { source = "unkno
 export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null }) {
   if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 256) throw new Error("exporter batch size must be an integer from 1 through 256");
   if (expectedGenesisHash != null && (typeof expectedGenesisHash !== "string" || !expectedGenesisHash)) throw new Error("expected genesis hash must be a non-empty string");
+  const previous = statusFile ? await readStatus(statusFile) : {}, previousSkippedSlots = priorSkippedSlots(previous);
   let genesisHash = null;
   if (expectedGenesisHash) {
-    genesisHash = await client.assertGenesis(expectedGenesisHash); const prior = statusFile ? await readStatus(statusFile) : {};
+    genesisHash = await client.assertGenesis(expectedGenesisHash);
     let names = []; try { names = await fs.readdir(inbox); } catch (error) { if (error.code !== "ENOENT") throw error; }
-    if (!prior.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox");
-    if (prior.genesisHash && prior.genesisHash !== genesisHash) throw new Error(`refusing to reuse exporter state from genesis ${prior.genesisHash}`);
+    if (!previous.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox");
+    if (previous.genesisHash && previous.genesisHash !== genesisHash) throw new Error(`refusing to reuse exporter state from genesis ${previous.genesisHash}`);
   }
   const tip = await client.call("getSlot", [{ commitment: "finalized" }]);
   if (!Number.isSafeInteger(tip) || tip < 0) throw new Error("finalized RPC tip must be a non-negative safe integer");
   let cursor = await readCursor(cursorFile);
   if (cursor == null) cursor = Math.max(0, tip - 1);
   if (cursor > tip) throw new Error(`exporter cursor ${cursor} is ahead of finalized tip ${tip}; inspect provider/network state and cursor ownership`);
+  if (previousSkippedSlots.some((slot) => slot > cursor)) throw new Error("prior exporter skipped-slot evidence is ahead of the durable cursor");
   const end = Math.min(tip, cursor + batchSize); let exported = 0; const skippedSlots = [];
   const producedSlots = end > cursor ? await client.call("getBlocks", [cursor + 1, end, { commitment: "finalized" }]) : [];
   if (!Array.isArray(producedSlots) || producedSlots.some((slot, index) => !Number.isSafeInteger(slot) || slot < cursor + 1 || slot > end || (index > 0 && producedSlots[index - 1] >= slot))) throw new Error("finalized getBlocks response must be a strictly increasing in-range slot list");
@@ -121,8 +130,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   }
   const result = { localValidatorTip: tip, cursor: end, lagSlots: tip - end, exported, skipped: skippedSlots.length, skippedSlots: skippedSlots.slice(0, 256) };
   if (statusFile) {
-    const previous = await readStatus(statusFile);
-    const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
+    const durableSkippedSlots = [...new Set([...previousSkippedSlots, ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
     const observedAt = new Date().toISOString();
     await durableAtomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt, lastAttemptAt: observedAt, lastError: null, consecutiveFailures: 0, ...result, durableSkippedSlots })}\n`);
   }

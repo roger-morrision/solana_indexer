@@ -1100,6 +1100,13 @@ test("exporter rejects malformed produced-slot inventories before advancing", as
   await assert.rejects(() => exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile, batchSize: 2 }), /strictly increasing/); assert.equal((await fs.readFile(cursorFile, "utf8")).trim(), "9");
 });
 
+test("exporter validates prior skipped-slot evidence before advancing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-prior-gaps-")), cursorFile = path.join(root, "cursor"), statusFile = path.join(root, "status.json"), inbox = path.join(root, "inbox"); await fs.writeFile(cursorFile, "9\n");
+  const client = { assertGenesis: async () => { throw new Error("RPC must not be called"); }, call: async () => { throw new Error("RPC must not be called"); } };
+  for (const durableSkippedSlots of [[8, 8], [9, 8], [-1], ["8"], null]) { await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, durableSkippedSlots })); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile, statusFile, expectedGenesisHash: MAINNET_GENESIS_HASH }), /skipped-slot evidence is invalid/); assert.equal((await fs.readFile(cursorFile, "utf8")).trim(), "9"); await assert.rejects(fs.access(inbox)); }
+  await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, durableSkippedSlots: [10] })); const localClient = { assertGenesis: async () => MAINNET_GENESIS_HASH, call: async (method) => method === "getSlot" ? 12 : [] }; await assert.rejects(() => exportFinalizedBlocks({ client: localClient, inbox, cursorFile, statusFile, expectedGenesisHash: MAINNET_GENESIS_HASH }), /ahead of the durable cursor/); assert.equal((await fs.readFile(cursorFile, "utf8")).trim(), "9");
+});
+
 test("caught-up exporter does not request an invalid empty slot range", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-caught-up-")), cursorFile = path.join(root, "cursor"); await fs.writeFile(cursorFile, "11\n"); const methods = [];
   const result = await exportFinalizedBlocks({ client: { call: async (method) => { methods.push(method); if (method === "getSlot") return 11; throw new Error("unexpected range request"); } }, inbox: path.join(root, "inbox"), cursorFile });
