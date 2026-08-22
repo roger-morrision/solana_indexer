@@ -347,6 +347,10 @@ curve reserves and rounds protocol and creator fees upward independently.
 The result is deliberately `executable: false` and `safeForAutomation: false`.
 Fresh finalized curve, mint-owner, Global, and FeeConfig evidence now feeds an
 exact unsigned Sell V2 builder and hash-bound local simulation preparation;
+the quote, instruction, and simulation all bind the same finalized mint-evidence
+slot and epoch. Legacy SPL routes fail closed when this evidence is absent, and
+Pump Token-2022 routes remain unavailable until exact fee-transfer semantics are
+verified rather than relying on the mint program ID alone.
 bounded external signer approval, cryptographic signature verification, and
 identical finalized landed-message confirmation are available and remain required.
 The indexer never signs or submits. Other venues and fee modes return

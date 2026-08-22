@@ -15,6 +15,7 @@ function medianRational(values) { const sorted = [...values].sort(compareRationa
 function publicRational(value, quoteMint) { return { numeratorRaw: value.n.toString(), denominatorRaw: value.d.toString(), quoteMint }; }
 const MAINNET_USDC = MAINNET_USDC_MINT;
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
+const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const TOKEN_PROGRAMS = new Set(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"]);
 const U64_MAX = (1n << 64n) - 1n;
@@ -296,7 +297,7 @@ export class IndexStore {
     if (!/^\d{1,20}$/.test(amountRaw ?? "") || BigInt(amountRaw) === 0n || BigInt(amountRaw) > 18_446_744_073_709_551_615n) return unavailable("invalid_amount", ["positive_u64_raw_token_amount"]);
     const latest = this.state.swaps.filter((row) => row.protocol === "pump-bonding-curve" && row.mint === mint).reduce((selected, row) => !selected || row.slot > selected.slot || (row.slot === selected.slot && (row.eventIndex ?? 0) > (selected.eventIndex ?? 0)) ? row : selected, null);
     if (!latest) return unavailable("unsupported_or_unobserved_venue", ["fresh_finalized_pump_bonding_curve_event"]);
-    const snapshot = this.state.poolSnapshots[latest.pool], observed = Date.parse(snapshot?.observedAt ?? ""), ageMs = Number.isFinite(observed) ? now - observed : null, evidence = { protocol: latest.protocol, pool: latest.pool, quoteMint: latest.quoteMint, eventSlot: latest.slot, stateSlot: snapshot?.stateSlot ?? null, mintSlot: snapshot?.mintSlot ?? null, configSlot: snapshot?.configSlot ?? null, observedAt: snapshot?.observedAt ?? null, ageMs, commitment: snapshot?.commitment ?? null, sourceHash: snapshot?.sourceHash ?? null };
+    const snapshot = this.state.poolSnapshots[latest.pool], observed = Date.parse(snapshot?.observedAt ?? ""), ageMs = Number.isFinite(observed) ? now - observed : null, evidence = { protocol: latest.protocol, pool: latest.pool, quoteMint: latest.quoteMint, eventSlot: latest.slot, stateSlot: snapshot?.stateSlot ?? null, mintSlot: snapshot?.mintSlot ?? null, configSlot: snapshot?.configSlot ?? null, mintEvidenceSlot: snapshot?.mintEvidenceSlot ?? null, epoch: snapshot?.epoch ?? null, observedAt: snapshot?.observedAt ?? null, ageMs, commitment: snapshot?.commitment ?? null, sourceHash: snapshot?.sourceHash ?? null };
     const lifecycle = this.state.pools[latest.pool]?.lifecycle;
     if (lifecycle?.type === "curve_completed" && lifecycle.slot >= latest.slot) return unavailable("bonding_curve_completed", ["active_bonding_curve"], { ...evidence, completionSlot: lifecycle.slot });
     if (!snapshot || snapshot.programId !== "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" || snapshot.mint !== mint || snapshot.address !== latest.pool || snapshot.stateSlot < latest.slot) return unavailable("missing_finalized_curve_snapshot", ["finalized_bonding_curve_and_fee_config_snapshot"], evidence);
@@ -305,6 +306,9 @@ export class IndexStore {
     if (snapshot.commitment !== "finalized") return unavailable("unfinalized_curve_state", ["finalized_curve_state"], evidence);
     if (ageMs == null || ageMs < 0 || ageMs > staleAfterMs) return unavailable(ageMs != null && ageMs < 0 ? "curve_state_clock_skew" : "stale_curve_state", ["fresh_curve_state"], evidence);
     if (snapshot.complete) return unavailable("bonding_curve_completed", ["active_bonding_curve"], evidence);
+    const mintAdapter = { ...snapshot, tokenMint0: snapshot.mint, tokenMint1: snapshotQuoteMint, tokenProgram0: snapshot.baseTokenProgram, tokenProgram1: snapshot.quoteTokenProgram, mintDecimals0: snapshot.baseDecimals, mintDecimals1: snapshot.quoteDecimals };
+    if (!validateBoundPoolMintEvidence(mintAdapter, snapshot.configSlot)) return unavailable("incomplete_curve_mint_evidence", ["complete_finalized_curve_mint_extension_evidence"], evidence);
+    if (snapshot.baseTokenProgram === TOKEN_2022_PROGRAM || snapshot.quoteTokenProgram === TOKEN_2022_PROGRAM) return unavailable("unsupported_token_2022_fee_path", ["verified_pump_sell_v2_transfer_fee_semantics"], evidence);
     const required = ["virtualTokenReservesRaw", "virtualQuoteReservesRaw", "realQuoteReservesRaw", "tokenTotalSupplyRaw"];
     if (required.some((name) => !/^\d+$/.test(snapshot[name] ?? "")) || !snapshot.feeConfig) return unavailable("incomplete_curve_state", [...required.filter((name) => !/^\d+$/.test(snapshot[name] ?? "")), "feeConfig"], evidence);
     if (snapshot.cashbackCoin || BigInt(snapshot.global?.buybackBasisPoints ?? "1") !== 0n) return unavailable("unsupported_fee_mode", ["cashback_and_buyback_quote_math"], evidence);
