@@ -11,7 +11,10 @@ fee rounding and binds finalized global disable/fee-mode evidence. Base-to-quote
 sells can be prepared and verified through deterministic unsigned, policy-bound
 local simulation, then packaged in a capped, expiring external-signer request;
 external signatures and finalized landed message identity are read-only verified.
-Buy construction, indexer-side signing and submission remain unavailable,
+Exact-quote-input buy construction and hash-bound local simulation are available with
+official volume-account semantics and a strict quote-spend budget. External-signer
+handoff and finalized landed verification for buys, indexer-side signing and
+submission remain unavailable,
 and Token-2022, cashback and SOL buyback continue to fail closed.
 
 | Capability | Status | Current implementation | Next dependency |
