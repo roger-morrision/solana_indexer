@@ -394,6 +394,8 @@ log decoder does not emit the same protocol events a second time.
 When API keys are configured, all `/api/*` and `/rpc` calls require `X-API-Key`
 or `Authorization: Bearer`. Keys are compared as SHA-256 digests and are never
 returned or logged. Public binding is refused unless at least one key is configured.
+Audit rows carry bounded `quotaUnits`; legacy rows default to one unit, while RPC
+batches are enforced and aggregated by logical call count without duplicating HTTP duration.
 WebSocket clients receive `ready`, then ordered `block_indexed` or
 `block_replaced` events after atomic index persistence. Confirmed blocks are
 preserved as provisional evidence and promoted with `block_finalized` when the

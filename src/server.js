@@ -109,8 +109,8 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
 export function createServer(config, store) {
   const quotas = new Map(), metrics = { requests: 0, durationMs: 0, distributedQuotaFailures: 0, statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
   const server = http.createServer(async (request, response) => {
-    const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress), tenant = resolveApiTenant(config.apiTenants, presented); let auditPath = null;
-    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000 }); });
+    const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress), tenant = resolveApiTenant(config.apiTenants, presented); let auditPath = null, auditUnits = 1;
+    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000, quotaUnits: auditUnits }); });
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
       auditPath = url.pathname;
@@ -119,7 +119,7 @@ export function createServer(config, store) {
       if (protectedRoute && config.auditLogFile && auditSink.failures > 0) return json(response, 503, { error: "audit_sink_unavailable" });
       if (protectedRoute && config.apiTenants && !tenant) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
       if (protectedRoute && !config.apiTenants && apiKeys.length && !keyMatches(presented, apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
-      let rpcPayload = null; if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request); const requestWeight = Array.isArray(rpcPayload) && rpcPayload.length >= 1 && rpcPayload.length <= 100 ? rpcPayload.length : 1;
+      let rpcPayload = null; if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request); const requestWeight = Array.isArray(rpcPayload) && rpcPayload.length >= 1 && rpcPayload.length <= 100 ? rpcPayload.length : 1; auditUnits = requestWeight;
       const requestLimit = tenant?.rateLimitPerMinute ?? config.rateLimitPerMinute;
       if (protectedRoute && requestLimit) {
         const quotaIdentity = tenant?.id ?? (apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown");
