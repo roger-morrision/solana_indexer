@@ -37,6 +37,7 @@ export function derivePumpGlobal() { return findProgramAddress([Buffer.from("glo
 export function derivePumpCreatorVault(creator) { return findProgramAddress([Buffer.from("creator-vault"), base58Bytes(creator)], PUMP_PROGRAM); }
 export function derivePumpSharingConfig(baseMint) { return findProgramAddress([Buffer.from("sharing-config"), base58Bytes(baseMint)], PUMP_FEE_PROGRAM); }
 export function derivePumpUserVolumeAccumulator(user) { return findProgramAddress([Buffer.from("user_volume_accumulator"), base58Bytes(user)], PUMP_PROGRAM); }
+export function derivePumpGlobalVolumeAccumulator() { return findProgramAddress([Buffer.from("global_volume_accumulator")], PUMP_PROGRAM); }
 export function derivePumpEventAuthority() { return findProgramAddress([Buffer.from("__event_authority")], PUMP_PROGRAM); }
 export function derivePumpFeeConfig(programId) { return findProgramAddress([Buffer.from("fee_config"), base58Bytes(programId)], PUMP_FEE_PROGRAM); }
 export function derivePumpSwapFeeConfig() { return derivePumpFeeConfig(PUMP_SWAP_PROGRAM); }

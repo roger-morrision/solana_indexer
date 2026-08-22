@@ -339,14 +339,16 @@ USD-volume completeness plus per-pool risk outputs alongside stable schema
 versions, provenance, freshness, confidence, and explicit missing fields. The program
 registry is available at `/internal/registry`.
 
-`GET /internal/tokens/:mint/executable-depth?amountRaw=<raw-token-units>`
-provides an exact Pump bonding-curve sell quote only when the latest decoded
+`GET /internal/tokens/:mint/executable-depth?side=<buy|sell>&amountRaw=<raw-units>`
+provides an exact Pump bonding-curve quote only when the latest decoded
 curve event is finalized and fresh and a coherent account snapshot proves zero
 cashback/buyback rates. It applies the constant-product sell formula to finalized
-curve reserves and rounds protocol and creator fees upward independently.
+curve reserves, or Pump's exact-spend buy formula when `side=buy`, and rounds
+protocol and creator fees upward independently. `side` defaults to `sell` for
+backward compatibility; other values return `400`.
 The result is deliberately `executable: false` and `safeForAutomation: false`.
 Fresh finalized curve, mint-owner, Global, and FeeConfig evidence now feeds an
-exact unsigned Sell V2 builder and hash-bound local simulation preparation;
+exact unsigned Sell V2 and Buy Exact Quote In V2 builders with hash-bound local simulation preparation;
 the quote, instruction, and simulation all bind the same finalized mint-evidence
 slot and epoch. Legacy SPL routes fail closed when this evidence is absent, and
 Pump Token-2022 routes remain unavailable until exact fee-transfer semantics are
