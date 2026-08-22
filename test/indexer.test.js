@@ -1147,6 +1147,16 @@ test("validator stream rotates unique loopback endpoints and attributes active-n
   assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8900/"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /unique/); assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "wss://example.com"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /must use ws/);
 });
 
+test("validator stream stop cancels a pending reconnect", async () => {
+  class FakeSocket { static instances = []; constructor() { this.readyState = 0; FakeSocket.instances.push(this); } close() { this.closed = true; } }
+  const token = {}, scheduled = [], cancelled = [];
+  const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, scheduleReconnect: (callback, delay) => { scheduled.push([callback, delay]); return token; }, cancelReconnect: (handle) => cancelled.push(handle) });
+  stream.writeStatus = async () => {};
+  stream.connect(); stream.socket.onclose(); assert.equal(stream.reconnectTimer, token); assert.equal(scheduled.length, 1);
+  await stream.stop(); assert.deepEqual(cancelled, [token]); assert.equal(stream.reconnectTimer, null);
+  scheduled[0][0](); assert.equal(FakeSocket.instances.length, 1);
+});
+
 test("validator stream durably reports open and closed lifecycle without stale-socket mutation", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-lifecycle-")), statusFile = path.join(root, "status.json"), scheduled = []; class FakeSocket { constructor() { this.readyState = 1; this.sent = []; } send(value) { this.sent.push(value); } close() {} }
   const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox: path.join(root, "inbox"), statusFile, WebSocketClass: FakeSocket, scheduleReconnect: (callback) => scheduled.push(callback) }); stream.genesisHash = MAINNET_GENESIS_HASH; stream.lastSlots = { confirmed: 100, finalized: 98 };
