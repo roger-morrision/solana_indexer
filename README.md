@@ -547,6 +547,10 @@ Token-2022 pools fail closed until mint-extension transfer fees are captured;
 quotes share the analysis-only internal pool endpoint and are never labeled as
 executable routes.
 
+The shared quote endpoint dispatches only snapshots whose canonical program ID
+matches an implemented quote engine. Orca, PumpSwap, and unknown snapshots fail
+closed with `unsupported_quote_protocol` until their exact math is implemented.
+
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
 resolution, transfer fees, post-swap sqrt price, liquidity, and tick. The event
