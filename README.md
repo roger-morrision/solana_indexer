@@ -566,7 +566,7 @@ selection, and inverse gross-for-net calculation with u64 overflow checks.
 Raydium CLMM/CPMM, Orca Whirlpool, PumpSwap, and Pump bonding-curve production snapshots now bind the relevant
 token-program owners and both execution mint accounts to one finalized epoch/context at
 or after all pool, tick,
-configuration, and vault reads. Fee-only Token-2022 quotes deduct the active
+configuration, and vault reads. Fee-only Raydium CLMM and CPMM Token-2022 quotes deduct the active
 input fee before traversal and the active output fee afterward, then carry the
 mint-evidence slot and epoch into unsigned simulation. Transfer hooks and every
 other unimplemented extension fail closed. Quotes share the
