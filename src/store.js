@@ -23,6 +23,7 @@ const TOKEN_PROGRAMS = new Set(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "
 const PRICING_PROTOCOLS = new Set([...PROGRAM_REGISTRY.values()].filter((row) => row.eventTypes.includes("swap")).map((row) => row.protocol));
 const U64_MAX = (1n << 64n) - 1n;
 function canonicalBlockTimeMs(value) { if (!Number.isSafeInteger(value) || value < 0) return null; const milliseconds = value * 1_000; return Number.isSafeInteger(milliseconds) ? milliseconds : null; }
+function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
   if (snapshot?.complete !== true || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || snapshot.slot < 0 || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || !Array.isArray(snapshot.accounts) || !Number.isSafeInteger(snapshot.accountCount) || snapshot.accountCount !== snapshot.accounts.length || !/^\d+$/.test(snapshot.mintInfo?.supply ?? "") || BigInt(snapshot.mintInfo.supply) > U64_MAX || !Number.isInteger(snapshot.mintInfo?.decimals) || snapshot.mintInfo.decimals < 0 || snapshot.mintInfo.decimals > 255 || mintInfo?.supply !== snapshot.mintInfo.supply || mintInfo?.decimals !== snapshot.mintInfo.decimals) return false;
   const accounts = new Set();
@@ -402,7 +403,8 @@ export class IndexStore {
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
   }
   chainQuality() {
-    const slots = Object.keys(this.state.blocks).map(Number).sort((a, b) => a - b);
+    const entries = Object.entries(this.state.blocks); if (entries.some(([key, block]) => !canonicalPersistedBlock(key, block))) return { canonical: false, conflicts: [], conflictCount: 0, invalidBlockIdentity: true };
+    const slots = entries.map(([key]) => Number(key)).sort((a, b) => a - b);
     const conflicts = [];
     for (const slot of slots) {
       const block = this.state.blocks[String(slot)];
@@ -414,11 +416,12 @@ export class IndexStore {
     return { canonical: conflicts.length === 0, conflicts: conflicts.slice(0, 100), conflictCount: conflicts.length };
   }
   dataCapabilities(staleAfterMs = 120_000, now = Date.now()) {
-    const blocks = Object.values(this.state.blocks);
+    const entries = Object.entries(this.state.blocks), blocks = entries.map(([, block]) => block);
     const canonicalBlockTimes = blocks.length > 0 && blocks.every((block) => canonicalBlockTimeMs(block?.blockTime) != null);
+    const canonicalBlockIdentities = entries.length > 0 && entries.every(([key, block]) => canonicalPersistedBlock(key, block));
     const finalizedBlocks = blocks.filter((block) => block.provenance?.commitment === "finalized").length;
     return {
-      canonicalBlocks: canonicalBlockTimes,
+      canonicalBlocks: canonicalBlockTimes && canonicalBlockIdentities,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
       splTransfers: this.state.transfers.length > 0,
@@ -459,6 +462,7 @@ export class IndexStore {
   health(staleAfterMs = 120_000, now = Date.now()) {
     const stats = this.stats();
     if (stats.tip == null || !stats.updatedAt) return { status: "empty", healthy: false, reason: "no_indexed_blocks", ageMs: null, staleAfterMs, ...stats };
+    const entries = Object.entries(this.state.blocks); if (entries.some(([key, block]) => !canonicalPersistedBlock(key, block))) return { status: "invalid_evidence", healthy: false, reason: "indexed_block_identity_invalid", ageMs: null, staleAfterMs, ...stats };
     const blockTimes = Object.values(this.state.blocks).map((block) => canonicalBlockTimeMs(block?.blockTime)); if (blockTimes.some((value) => value == null)) return { status: "invalid_evidence", healthy: false, reason: "indexed_block_time_invalid", ageMs: null, staleAfterMs, ...stats };
     const newestBlockTime = blockTimes.reduce((latest, value) => Math.max(latest, value), 0);
     if (!newestBlockTime) return { status: "unknown_time", healthy: false, reason: "latest_block_has_no_timestamp", ageMs: null, staleAfterMs, ...stats };
