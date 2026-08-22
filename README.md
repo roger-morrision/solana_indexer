@@ -333,7 +333,7 @@ Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
-`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the authenticated Raydium CLMM/CPMM, Orca, and Meteora `POST /internal/pools/:address/prepare-swap`;
+`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the authenticated Raydium CLMM/CPMM, Orca, Meteora, and PumpSwap `POST /internal/pools/:address/prepare-swap`;
 `/internal/feed/health`;
 and `/internal/feed/gaps`. Evidence bundle v2 includes exact USD-reference and
 USD-volume completeness plus per-pool risk outputs alongside stable schema
