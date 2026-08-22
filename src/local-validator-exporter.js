@@ -7,6 +7,8 @@ import { loadConfig } from "./config.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
+function retryAfterMs(value, now) { if (!value) return null; if (/^\d+$/.test(value.trim())) return Math.min(Number(value.trim()) * 1_000, 3_600_000); const date = Date.parse(value); return Number.isFinite(date) ? Math.min(Math.max(0, date - now), 3_600_000) : null; }
+
 export function validateLocalRpcUrl(value) {
   const url = new URL(value);
   if (url.protocol !== "http:") throw new Error("Local validator RPC must use http://");
@@ -15,11 +17,11 @@ export function validateLocalRpcUrl(value) {
 }
 
 export class LocalValidatorClient {
-  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000 } = {}) { this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.id = 0; }
+  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, now = () => Date.now() } = {}) { this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.now = now; this.id = 0; }
   async call(method, params = []) {
     const requestId = ++this.id;
     const response = await this.fetchImpl(this.endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params }), signal: AbortSignal.timeout(this.timeoutMs) });
-    if (!response.ok) throw new Error(`local validator ${method}: HTTP ${response.status}`);
+    if (!response.ok) { const error = new Error(`local validator ${method}: HTTP ${response.status}`); error.retryAfterMs = response.status === 429 ? retryAfterMs(response.headers?.get?.("retry-after"), this.now()) : null; throw error; }
     const payload = await response.json(), hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
     if (payload?.jsonrpc !== "2.0" || payload.id !== requestId || hasResult === hasError) throw new Error(`local validator ${method}: invalid JSON-RPC response envelope`);
     if (hasError) throw new Error(`local validator ${method}: ${payload.error?.message ?? `RPC ${payload.error?.code ?? "unknown"}`}`); return payload.result;
@@ -28,25 +30,28 @@ export class LocalValidatorClient {
 }
 
 export class LocalValidatorPool {
-  constructor(endpoints, options = {}) {
+  constructor(endpoints, { failureThreshold = 3, cooldownMs = 30_000, now = () => Date.now(), ...clientOptions } = {}) {
     if (!Array.isArray(endpoints) || endpoints.length < 2 || endpoints.length > 4) throw new Error("Local validator pool requires 2 through 4 unique endpoints");
     const normalized = endpoints.map(validateLocalRpcUrl);
     if (new Set(normalized).size !== normalized.length) throw new Error("Local validator pool requires 2 through 4 unique endpoints");
-    this.clients = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, options); client.provenanceSource = `local-agave-rpc-${index + 1}`; return client; }); this.activeIndex = 0; this.provenanceSource = this.clients[0].provenanceSource;
+    if (!Number.isSafeInteger(failureThreshold) || failureThreshold < 1 || !Number.isSafeInteger(cooldownMs) || cooldownMs < 1) throw new Error("Local validator pool circuit settings must be positive integers");
+    this.nodes = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, { ...clientOptions, now }), name = `local-agave-rpc-${index + 1}`; client.provenanceSource = name; return { name, client, failures: 0, openUntil: 0, calls: 0, errors: 0 }; }); this.failureThreshold = failureThreshold; this.cooldownMs = cooldownMs; this.now = now; this.provenanceSource = this.nodes[0].name;
   }
   async assertGenesis(expected = MAINNET_GENESIS_HASH) {
-    const hashes = await Promise.all(this.clients.map((client) => client.assertGenesis(expected)));
+    const hashes = await Promise.all(this.nodes.map(({ client }) => client.assertGenesis(expected)));
     if (new Set(hashes).size !== 1) throw new Error("local validator pool genesis mismatch");
     return hashes[0];
   }
   async call(method, params = []) {
     const errors = [];
-    for (let offset = 0; offset < this.clients.length; offset++) {
-      const index = (this.activeIndex + offset) % this.clients.length, client = this.clients[index];
-      try { const result = await client.call(method, params); this.activeIndex = index; this.provenanceSource = client.provenanceSource; return result; } catch (error) { errors.push(`${client.provenanceSource}: ${safeError(error)}`); }
+    for (const node of this.nodes) {
+      if (node.openUntil > this.now()) continue;
+      node.calls++;
+      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { node.errors++; node.failures++; const retryAfter = Number.isSafeInteger(error.retryAfterMs) ? error.retryAfterMs : null; if (retryAfter != null || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs); errors.push(`${node.name}: ${safeError(error)}`); }
     }
-    throw new Error(`local validator pool ${method} failed: ${errors.join("; ")}`);
+    throw new Error(`local validator pool ${method} failed: ${errors.join("; ") || "circuits_open"}`);
   }
+  telemetry() { return this.nodes.map(({ client, ...node }) => ({ ...node, circuitOpen: node.openUntil > this.now() })); }
 }
 
 async function readCursor(filename) {
@@ -115,10 +120,10 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
 }
 
 async function main() {
-  const config = loadConfig(), endpoints = (process.env.LOCAL_VALIDATOR_RPCS || process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899").split(",").map((value) => value.trim()).filter(Boolean), client = endpoints.length === 1 ? new LocalValidatorClient(endpoints[0]) : new LocalValidatorPool(endpoints);
+  const config = loadConfig(), endpoints = (process.env.LOCAL_VALIDATOR_RPCS || process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899").split(",").map((value) => value.trim()).filter(Boolean), poolOptions = { failureThreshold: Number(process.env.LOCAL_RPC_FAILURE_THRESHOLD) || 3, cooldownMs: Number(process.env.LOCAL_RPC_COOLDOWN_MS) || 30_000 }, client = endpoints.length === 1 ? new LocalValidatorClient(endpoints[0]) : new LocalValidatorPool(endpoints, poolOptions);
   const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/exporter.cursor"); const batchSize = Math.min(256, Math.max(1, Number(process.env.EXPORTER_BATCH_SIZE) || 32)); const once = process.argv.includes("--once");
   const expectedGenesisHash = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH;
-  do { try { console.log(JSON.stringify(await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }))); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: "local-agave-rpc" }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
+  do { try { const result = await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }); console.log(JSON.stringify({ ...result, ...(client instanceof LocalValidatorPool ? { validators: client.telemetry() } : {}) })); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: client.provenanceSource ?? "local-agave-rpc" }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
 }
 
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
