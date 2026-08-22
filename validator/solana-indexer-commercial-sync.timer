@@ -1,0 +1,13 @@
+[Unit]
+Description=Synchronize Terminal DEX commercial usage every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Persistent=true
+RandomizedDelaySec=5s
+
+[Install]
+WantedBy=timers.target
+

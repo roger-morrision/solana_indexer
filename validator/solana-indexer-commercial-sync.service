@@ -1,0 +1,19 @@
+[Unit]
+Description=Terminal DEX commercial tenant and usage synchronization
+After=network-online.target solana-indexer-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sol
+WorkingDirectory=/home/sol/solana-indexer
+EnvironmentFile=/etc/solana-indexer.env
+ExecStart=/usr/bin/env npm run sync:commercial
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/home/sol/solana-indexer/data
+

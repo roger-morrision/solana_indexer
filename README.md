@@ -208,6 +208,12 @@ pointer, and publishes only persisted canonical events. Redis authentication is
 passed through the child environment, and any sink failure leaves the local
 checkpoint unchanged so the complete batch is replayed idempotently.
 
+`solana-indexer-commercial-sync.timer` similarly runs the idempotent tenant,
+key-rotation and hourly-usage PostgreSQL synchronization every minute. The
+installer never enables it automatically; operators must first validate the
+tenant registry, audit file permissions, PostgreSQL credentials and one manual
+`npm run sync:commercial` execution.
+
 Configuration:
 
 | Variable | Default | Purpose |

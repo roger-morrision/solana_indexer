@@ -12,7 +12,10 @@ install -m 0644 "$repo/validator/solana-indexer-stream.service" /etc/systemd/sys
 install -m 0644 "$repo/validator/solana-indexer-api.service" /etc/systemd/system/solana-indexer-api.service
 install -m 0644 "$repo/validator/solana-indexer-warehouse-sync.service" /etc/systemd/system/solana-indexer-warehouse-sync.service
 install -m 0644 "$repo/validator/solana-indexer-warehouse-sync.timer" /etc/systemd/system/solana-indexer-warehouse-sync.timer
+install -m 0644 "$repo/validator/solana-indexer-commercial-sync.service" /etc/systemd/system/solana-indexer-commercial-sync.service
+install -m 0644 "$repo/validator/solana-indexer-commercial-sync.timer" /etc/systemd/system/solana-indexer-commercial-sync.timer
 systemctl daemon-reload
 echo "Units installed but not started. As user sol, run: cd $repo && npm test && npm run verify:mainnet"
 echo "Then enable: systemctl enable --now agave-validator solana-indexer-stream solana-indexer-api"
 echo "After PostgreSQL and ClickHouse health checks pass, enable: systemctl enable --now solana-indexer-warehouse-sync.timer"
+echo "After PostgreSQL tenant/usage sync succeeds manually, enable: systemctl enable --now solana-indexer-commercial-sync.timer"
