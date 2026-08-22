@@ -57,8 +57,8 @@ function keyMatches(presented, configured) {
   const candidate = crypto.createHash("sha256").update(presented).digest();
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
-function prometheus(metrics, store, staleAfterMs, exporter) {
-  const health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs), stats = store.stats(), lines = [
+function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots) {
+  const health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, Date.now(), maxExporterLagSlots), stats = store.stats(), lines = [
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
@@ -103,12 +103,12 @@ export function createServer(config, store) {
       }
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpc(await readJsonBody(request), config, store));
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
-      if (url.pathname === "/metrics") { const body = prometheus(metrics, store, config.staleAfterMs, await readJsonFile(config.exporterStatusFile)); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
+      if (url.pathname === "/metrics") { const body = prometheus(metrics, store, config.staleAfterMs, await readJsonFile(config.exporterStatusFile), config.maxExporterLagSlots); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }
       if (url.pathname === "/api/stats") return json(response, 200, { ...store.stats(), chain: store.chainQuality() });
       if (url.pathname === "/api/v1/ingestion") {
         const exporter = await readJsonFile(config.exporterStatusFile);
-        const status = assessExporterStatus(exporter, config.staleAfterMs), payload = { ...status, exporter, index: store.stats().ingestion };
+        const status = assessExporterStatus(exporter, config.staleAfterMs, Date.now(), config.maxExporterLagSlots), payload = { ...status, exporter, index: store.stats().ingestion };
         return json(response, status.healthy ? 200 : 503, payload);
       }
       if (url.pathname === "/internal/registry") return json(response, 200, registrySnapshot());

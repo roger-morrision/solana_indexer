@@ -12,6 +12,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     port: boundedInt(env.INDEXER_PORT, 8787, 1, 65535),
     pollMs: boundedInt(env.INDEXER_POLL_MS, 1000, 100, 60_000),
     staleAfterMs: boundedInt(env.INDEXER_STALE_AFTER_MS, 120_000, 1_000, 86_400_000),
+    maxExporterLagSlots: boundedInt(env.INDEXER_MAX_EXPORT_LAG_SLOTS, 512, 0, 1_000_000),
     maxTransactions: boundedInt(env.INDEXER_MAX_TRANSACTIONS, 250_000, 1000, 2_000_000),
     retentionSeconds: boundedInt(env.INDEXER_RETENTION_SECONDS, 604_800, 3_600, 31_536_000),
     apiKeys,

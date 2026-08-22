@@ -197,6 +197,7 @@ Configuration:
 | `INDEXER_PORT` | `8787` | API port |
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
 | `INDEXER_STALE_AFTER_MS` | `120000` | Maximum age before health fails |
+| `INDEXER_MAX_EXPORT_LAG_SLOTS` | `512` | Maximum finalized exporter lag before ingestion fails closed |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |

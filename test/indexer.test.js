@@ -391,6 +391,7 @@ test("exporter health rejects invalid progress evidence", async () => {
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: "42", lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "invalid_cursor");
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 42, lagSlots: -1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "invalid_lag");
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 43, localValidatorTip: 42, lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "cursor_ahead_of_tip");
+  await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 42, localValidatorTip: 642, lagSlots: 600 })); const lagging = await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt), 512); assert.equal(lagging.reason, "exporter_lagging"); assert.equal(lagging.maxLagSlots, 512);
 });
 
 test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
@@ -673,7 +674,8 @@ test("ingestion and metrics fail closed for stale exporter status", async (t) =>
 test("configuration refuses public binding without API keys", () => {
   assert.throws(() => loadConfig({ INDEXER_HOST: "0.0.0.0" }, process.cwd()), /INDEXER_API_KEYS is required/);
   const config = loadConfig({ INDEXER_HOST: "0.0.0.0", INDEXER_API_KEYS: "first, second", INDEXER_RATE_LIMIT_PER_MINUTE: "25" }, process.cwd());
-  assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25);
+  assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25); assert.equal(config.maxExporterLagSlots, 512);
+  assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
 });
 
 test("storage deployment requires reviewed images, loopback ports, secrets, and core schemas", async () => {
