@@ -340,7 +340,7 @@ automatically.
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence; malformed cursor/lag/tip progress fails closed)
 - `GET /api/v1/warehouse` (durable sink checkpoint age, event lag and retained-replay coverage; unavailable/corrupt/ahead checkpoints fail closed)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedBlock`, `getIndexedBlocks`, and `getIndexedTransaction` only; bounded batches of 100 calls, charged per logical call)
-- `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle|snapshots&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume; finalized account/CLMM snapshot updates use the isolated `snapshots` topic)
+- `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle|snapshots&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume; account/off-chain metadata and every supported finalized pool/curve snapshot family use the isolated `snapshots` topic with strict filter-domain isolation)
 
 REST `limit` parameters are strict base-10 integers from 1 through 500;
 malformed, fractional, zero, negative, or oversized values return `400` rather

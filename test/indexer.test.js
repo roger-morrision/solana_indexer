@@ -10,7 +10,7 @@ import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
 import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
-import { createInboundFrameParser, validWebSocketHandshake } from "../src/websocket.js";
+import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake } from "../src/websocket.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
@@ -1770,6 +1770,12 @@ test("WebSocket inbound parser handles TCP fragmentation and rejects invalid cli
 test("WebSocket handshake requires canonical RFC 6455 upgrade evidence", () => {
   const request = { method: "GET", headers: { upgrade: "websocket", connection: "keep-alive, Upgrade", "sec-websocket-version": "13", "sec-websocket-key": Buffer.alloc(16, 7).toString("base64") } }; assert.equal(validWebSocketHandshake(request), true);
   for (const invalid of [{ ...request, method: "POST" }, { ...request, headers: { ...request.headers, upgrade: "h2c" } }, { ...request, headers: { ...request.headers, connection: "keep-alive" } }, { ...request, headers: { ...request.headers, "sec-websocket-version": "12" } }, { ...request, headers: { ...request.headers, "sec-websocket-key": "not-a-key" } }, { ...request, headers: { ...request.headers, "sec-websocket-key": Buffer.alloc(15).toString("base64") } }]) assert.equal(validWebSocketHandshake(invalid), false);
+});
+
+test("WebSocket snapshot projection covers every persisted snapshot family with strict filters", () => {
+  const mintEvent = { type: "offchain_metadata_snapshot_applied", sequence: 1, mints: [{ mint: "mint-a" }, { mint: "mint-b" }] }, poolTypes = new Map([["cpmm_pool_snapshot_applied", "raydium-cpmm"], ["pump_swap_pool_snapshot_applied", "pump-swap"], ["pump_bonding_curve_snapshot_applied", "pump-bonding-curve"], ["clmm_pool_snapshot_applied", "raydium-clmm"], ["orca_pool_snapshot_applied", "orca-whirlpool"], ["meteora_dlmm_pool_snapshot_applied", "meteora-dlmm"]]);
+  assert.deepEqual(projectWebSocketEvent(mintEvent, { topic: "snapshots", mint: "mint-b", pool: null, protocol: null, eventType: null }).mints, [{ mint: "mint-b" }]); assert.equal(projectWebSocketEvent(mintEvent, { topic: "snapshots", mint: null, pool: "pool-a", protocol: null, eventType: null }), null);
+  for (const [type, protocol] of poolTypes) { const event = { type, sequence: 2, pools: [{ pool: "pool-a" }, { pool: "pool-b" }] }, projected = projectWebSocketEvent(event, { topic: "snapshots", mint: null, pool: "pool-b", protocol, eventType: type }); assert.equal(projected.protocol, protocol); assert.deepEqual(projected.pools, [{ pool: "pool-b" }]); assert.equal(projectWebSocketEvent(event, { topic: "snapshots", mint: "mint-a", pool: null, protocol: null, eventType: null }), null); assert.equal(projectWebSocketEvent(event, { topic: "snapshots", mint: null, pool: null, protocol: "wrong", eventType: null }), null); }
 });
 
 test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) => {

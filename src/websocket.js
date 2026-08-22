@@ -51,9 +51,18 @@ export function validWebSocketHandshake(request) {
   if (request.method !== "GET" || String(request.headers?.upgrade ?? "").toLowerCase() !== "websocket" || !connection.includes("upgrade") || request.headers?.["sec-websocket-version"] !== "13" || typeof key !== "string" || !/^[A-Za-z0-9+/]{22}==$/.test(key)) return false;
   try { return Buffer.from(key, "base64").length === 16 && Buffer.from(key, "base64").toString("base64") === key; } catch { return false; }
 }
-function project(event, filter) {
+const SNAPSHOT_PROTOCOLS = new Map([
+  ["cpmm_pool_snapshot_applied", "raydium-cpmm"], ["pump_swap_pool_snapshot_applied", "pump-swap"], ["pump_bonding_curve_snapshot_applied", "pump-bonding-curve"],
+  ["clmm_pool_snapshot_applied", "raydium-clmm"], ["orca_pool_snapshot_applied", "orca-whirlpool"], ["meteora_dlmm_pool_snapshot_applied", "meteora-dlmm"],
+]);
+const MINT_SNAPSHOT_TYPES = new Set(["account_snapshot_applied", "offchain_metadata_snapshot_applied"]);
+export function projectWebSocketEvent(event, filter) {
   if (filter.topic === "blocks") return event.type.startsWith("block_") ? event : null;
-  if (filter.topic === "snapshots") { if (event.type === "account_snapshot_applied") { const mints = (event.mints ?? []).filter((row) => !filter.mint || row.mint === filter.mint); return mints.length ? { ...event, mints } : null; } if (event.type === "clmm_pool_snapshot_applied") { const pools = (event.pools ?? []).filter((row) => !filter.pool || row.pool === filter.pool); return pools.length ? { ...event, pools } : null; } return null; }
+  if (filter.topic === "snapshots") {
+    if (filter.eventType && event.type !== filter.eventType) return null;
+    if (MINT_SNAPSHOT_TYPES.has(event.type)) { if (filter.pool || filter.protocol) return null; const mints = (event.mints ?? []).filter((row) => !filter.mint || row.mint === filter.mint); return mints.length ? { ...event, mints } : null; }
+    const protocol = SNAPSHOT_PROTOCOLS.get(event.type); if (!protocol || filter.mint || filter.protocol && filter.protocol !== protocol) return null; const pools = (event.pools ?? []).filter((row) => !filter.pool || row.pool === filter.pool); return pools.length ? { ...event, protocol, pools } : null;
+  }
   if (filter.topic === "lifecycle") {
     const lifecycleEvents = (event.lifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
     const revertedLifecycleEvents = (event.revertedLifecycleEvents ?? []).filter((item) => (!filter.mint || item.tokenMint0 === filter.mint || item.tokenMint1 === filter.mint) && (!filter.pool || item.pool === filter.pool || item.sourcePool === filter.pool) && (!filter.protocol || item.protocol === filter.protocol || item.destinationProtocol === filter.protocol) && (!filter.eventType || item.type === filter.eventType));
@@ -66,7 +75,7 @@ function project(event, filter) {
 
 export function attachWebSocket(server, store, config, authorize = () => true) {
   const clients = new Map(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576;
-  const unsubscribe = store.subscribe((event) => { for (const [socket, filter] of clients) { const value = project(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) clients.delete(socket); } });
+  const unsubscribe = store.subscribe((event) => { for (const [socket, filter] of clients) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) clients.delete(socket); } });
   server.on("upgrade", (request, socket) => {
     const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
     if (url.pathname !== "/ws") return reject(socket, "404 Not Found", "not_found");
@@ -83,7 +92,7 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     const replay = store.replayEvents(cursor);
     if (replay.cursorTooOld || replay.cursorAhead) { const delivered = send(socket, { type: "resync_required", reason: replay.cursorTooOld ? "cursor_before_retained_history" : "cursor_ahead_of_server", requestedCursor: cursor, oldestCursor: replay.oldestCursor, latestCursor: replay.latestCursor }, maximumBufferedBytes); clients.delete(socket); if (delivered) socket.end(frame(0x8, Buffer.from([0x03, 0xf0]))); }
     else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes)) clients.delete(socket);
-    else for (const event of replay.events) { const value = project(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) { clients.delete(socket); break; } }
+    else for (const event of replay.events) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) { clients.delete(socket); break; } }
     socket.on("data", createInboundFrameParser(socket, config.webSocketMaxInboundBytes ?? 4_096));
     socket.on("close", () => clients.delete(socket)); socket.on("error", () => clients.delete(socket));
   });
