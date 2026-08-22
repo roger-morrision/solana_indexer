@@ -651,6 +651,11 @@ canonical/noncanonical tier selection with strict ascending thresholds and
 basis-point bounds. Quotes still fail closed until the Pump Fees and mint-supply
 accounts are fetched at the same finalized barrier and canonical pool authority
 derivation is verified.
+Canonical identity is now independently derived from the official
+`["pool-authority", baseMint]` Pump-program PDA and verified against Pump's
+published example. Base-mint supply is fetched alongside both vault accounts at
+the same finalized context, and snapshots reject nonpositive effective quote
+reserves after applying the signed virtual-reserve adjustment.
 
 ## Operational safety
 
