@@ -67,6 +67,8 @@ the read-only execution chain. Pool-bound finalized bitmap-extension evidence
 also admits initialized arrays outside the default range. Transfer hooks and
 other extensions fail closed; transfer-hook mints retain finalized hook-program,
 executable-account and canonical validation-PDA raw/hash evidence, with strict
-Execute TLV meta-count, privilege and static-address decoding. Execution remains
-disabled until PDA and pubkey-data seed resolution is complete.
+Execute TLV meta-count, privilege and static-address decoding. Internal and
+prior-account-selected external PDAs resolve literal, instruction-data and
+account-key seeds in order; account-data and pubkey-data forms remain fail
+closed pending finalized source-account bytes.
 The indexer never signs or submits and automation remains disabled.
