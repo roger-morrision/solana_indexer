@@ -122,6 +122,14 @@ health, bot readiness, snapshot-backed REST and Redis publication. PostgreSQL
 omits and marks quarantined metadata while still exporting its governed repair
 job, so invalid display content cannot escape or prevent recovery.
 
+Persisted recovery evidence is revalidated as one collection before health,
+bot readiness, or gap API delivery. Parser-v2 file identities retain exact
+SHA-256 fingerprints; the inbox high-water mark binds one of those identities;
+dead letters require stable identity, canonical ordered observation/resolution
+times, bounded errors, and coherent resolution state; reorg corrections bind
+their replacement hash to the currently canonical slot. Repair and reconciliation
+commands remain outside this serving gate so quarantined state can be corrected.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether

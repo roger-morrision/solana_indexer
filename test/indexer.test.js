@@ -1636,6 +1636,18 @@ test("metadata readiness quarantines detached display enrichment and blocks cons
   const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); for (const pathname of ["/api/v1/tokens", `/api/mint/${mint}`, `/internal/evidence/${mint}`]) { const response = await fetch(`http://127.0.0.1:${server.address().port}${pathname}`); assert.equal(response.status, 503); assert.deepEqual(await response.json(), { schemaVersion: 1, available: false, reason: "indexed_metadata_projection_invalid" }); }
 });
 
+test("recovery readiness rejects detached checkpoints, dead letters, and reorg corrections", async (t) => {
+  const input = JSON.parse(await fs.readFile(fixture, "utf8")), store = new IndexStore("unused"); await store.load(); const block = parseBlock(input), now = block.blockTime * 1_000, fingerprint = "a".repeat(64); store.apply(block); store.apply({ ...block, blockhash: `${block.blockhash}-replacement` }); store.state.updatedAt = new Date(now).toISOString(); store.markFile("100.json", fingerprint); store.recordDeadLetter("bad.json", "b".repeat(64), "invalid record"); assert.equal(store.recoveryQuality().canonical, true); assert.equal(store.dataCapabilities(120_000, now).canonicalRecoveryState, true);
+  const original = structuredClone({ processedFiles: store.state.processedFiles, checkpoints: store.state.checkpoints, deadLetters: store.state.deadLetters, reorgCorrections: store.state.reorgCorrections });
+  const corruptions = [
+    () => { store.state.checkpoints.inbox.fingerprint = "c".repeat(64); },
+    () => { store.state.deadLetters[0].lastObservedAt = "2026-08-22T00:00:00Z"; },
+    () => { store.state.reorgCorrections.push({ slot: block.slot, replacedBlockhash: "old", canonicalBlockhash: "detached", observedAt: new Date(now).toISOString() }); },
+  ];
+  for (const corrupt of corruptions) { Object.assign(store.state, structuredClone(original)); corrupt(); assert.deepEqual({ canonical: store.recoveryQuality().canonical, reason: store.recoveryQuality().reason }, { canonical: false, reason: "indexed_recovery_evidence_invalid" }); assert.equal(store.dataCapabilities(120_000, now).canonicalRecoveryState, false); const health = store.health(120_000, now); assert.deepEqual({ status: health.status, healthy: health.healthy, reason: health.reason }, { status: "invalid_evidence", healthy: false, reason: "indexed_recovery_evidence_invalid" }); }
+  const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/internal/feed/gaps`); assert.equal(response.status, 503); assert.deepEqual(await response.json(), { schemaVersion: 1, available: false, reason: "indexed_recovery_evidence_invalid" });
+});
+
 test("JSON-RPC rejects oversized bodies with a stable 413 contract", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ rpcMaxBodyBytes: 128 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getIndexerHealth", padding: "x".repeat(256) }) }); assert.equal(response.status, 413); assert.deepEqual(await response.json(), { error: "payload_too_large", detail: "request body exceeds 128 bytes" });
 });

@@ -36,6 +36,24 @@ export function canonicalPersistedEvent(event) {
 export function canonicalPersistedEventLog(events, eventSequence) {
   return Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
 }
+export function canonicalPersistedRecoveryState(state) {
+  if (!state?.processedFiles || typeof state.processedFiles !== "object" || Array.isArray(state.processedFiles) || !state.checkpoints || typeof state.checkpoints !== "object" || Array.isArray(state.checkpoints) || !Array.isArray(state.deadLetters) || !Array.isArray(state.reorgCorrections)) return false;
+  const hash = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value), file = (value) => typeof value === "string" && Boolean(value) && value.length <= 1_024;
+  for (const [name, row] of Object.entries(state.processedFiles)) if (!file(name) || !hash(row?.fingerprint) || row.parserVersion !== 2) return false;
+  const inbox = state.checkpoints.inbox;
+  if (inbox != null && (!file(inbox.filename) || !hash(inbox.fingerprint) || inbox.parserVersion !== 2 || parseCanonicalUtcTimestamp(inbox.updatedAt) == null || state.processedFiles[inbox.filename]?.fingerprint !== inbox.fingerprint)) return false;
+  const identities = new Set();
+  for (const row of state.deadLetters) {
+    const fingerprint = row?.fingerprint, first = parseCanonicalUtcTimestamp(row?.firstObservedAt), last = parseCanonicalUtcTimestamp(row?.lastObservedAt), resolved = row?.resolvedAt == null ? null : parseCanonicalUtcTimestamp(row.resolvedAt), identity = `${row?.filename}:${fingerprint ?? "unreadable"}`;
+    if (!file(row?.filename) || fingerprint != null && !hash(fingerprint) || row?.id !== identity || identities.has(row.id) || typeof row.error !== "string" || !row.error || row.error.length > 16_384 || !Number.isSafeInteger(row.attempts) || row.attempts < 1 || first == null || last == null || last < first || typeof row.resolved !== "boolean" || row.resolved !== (resolved != null) || row.resolved && (row.resolution !== "parser_v2_checkpoint" || resolved < last) || !row.resolved && (row.resolution != null || row.resolvedAt != null)) return false;
+    identities.add(row.id);
+  }
+  for (const row of state.reorgCorrections) {
+    const canonical = state.blocks?.[String(row?.slot)];
+    if (!Number.isSafeInteger(row?.slot) || row.slot < 0 || typeof row.replacedBlockhash !== "string" || !row.replacedBlockhash || typeof row.canonicalBlockhash !== "string" || !row.canonicalBlockhash || row.replacedBlockhash === row.canonicalBlockhash || parseCanonicalUtcTimestamp(row.observedAt) == null || canonical?.blockhash !== row.canonicalBlockhash) return false;
+  }
+  return true;
+}
 function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
 function canonicalPersistedTransaction(key, transaction, blocks) {
   const block = blocks?.[String(transaction?.slot)], provenance = transaction?.provenance, blockProvenance = block?.provenance;
@@ -538,6 +556,10 @@ export class IndexStore {
     const canonical = canonicalMetadataProjections(this.state);
     return { canonical, onchainMetadata: Object.values(this.state.mints).filter((row) => row?.metadata).length, offchainMetadata: Object.values(this.state.mints).filter((row) => row?.offchainMetadata).length, reason: canonical ? null : "indexed_metadata_projection_invalid" };
   }
+  recoveryQuality() {
+    const canonical = canonicalPersistedRecoveryState(this.state);
+    return { canonical, processedFiles: Object.keys(this.state.processedFiles ?? {}).length, deadLetters: Array.isArray(this.state.deadLetters) ? this.state.deadLetters.length : null, reorgCorrections: Array.isArray(this.state.reorgCorrections) ? this.state.reorgCorrections.length : null, reason: canonical ? null : "indexed_recovery_evidence_invalid" };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -569,6 +591,7 @@ export class IndexStore {
       canonicalAggregates: this.aggregateQuality().canonical,
       canonicalSnapshots: this.snapshotQuality().canonical,
       canonicalMetadata: this.metadataQuality().canonical,
+      canonicalRecoveryState: this.recoveryQuality().canonical,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -598,7 +621,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "canonicalRecoveryState", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -631,6 +654,7 @@ export class IndexStore {
     const aggregates = this.aggregateQuality(); if (!aggregates.canonical) return { status: "invalid_evidence", healthy: false, reason: aggregates.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, ...stats };
     const snapshots = this.snapshotQuality(); if (!snapshots.canonical) return { status: "invalid_evidence", healthy: false, reason: snapshots.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, ...stats };
     const metadata = this.metadataQuality(); if (!metadata.canonical) return { status: "invalid_evidence", healthy: false, reason: metadata.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, metadata, ...stats };
+    const recovery = this.recoveryQuality(); if (!recovery.canonical) return { status: "invalid_evidence", healthy: false, reason: recovery.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, metadata, recovery, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
