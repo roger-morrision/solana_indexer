@@ -112,9 +112,9 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# HELP terminal_dex_http_request_duration_seconds HTTP request duration in fixed route-free buckets.",
     "# TYPE terminal_dex_http_request_duration_seconds histogram",
     ...HTTP_DURATION_BUCKETS_SECONDS.map((le) => `terminal_dex_http_request_duration_seconds_bucket{le="${le}"} ${metrics.durationBuckets[le]}`),
-    `terminal_dex_http_request_duration_seconds_bucket{le="+Inf"} ${metrics.requests}`,
+    `terminal_dex_http_request_duration_seconds_bucket{le="+Inf"} ${metrics.durationCount}`,
     `terminal_dex_http_request_duration_seconds_sum ${metrics.durationMs / 1000}`,
-    `terminal_dex_http_request_duration_seconds_count ${metrics.requests}`,
+    `terminal_dex_http_request_duration_seconds_count ${metrics.durationCount}`,
     "# HELP terminal_dex_index_healthy Whether the canonical index meets freshness and chain checks.",
     "# TYPE terminal_dex_index_healthy gauge",
     `terminal_dex_index_healthy ${health.healthy ? 1 : 0}`,
@@ -168,10 +168,10 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
 }
 
 export function createServer(config, store) {
-  const quotas = new Map(), metrics = { requests: 0, durationMs: 0, durationBuckets: Object.fromEntries(HTTP_DURATION_BUCKETS_SECONDS.map((le) => [le, 0])), distributedQuotaFailures: 0, internalFailures: Object.fromEntries(INTERNAL_FAILURE_EVENTS.map((event) => [event, 0])), statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
+  const quotas = new Map(), metrics = { requests: 0, durationCount: 0, durationMs: 0, durationBuckets: Object.fromEntries(HTTP_DURATION_BUCKETS_SECONDS.map((le) => [le, 0])), distributedQuotaFailures: 0, internalFailures: Object.fromEntries(INTERNAL_FAILURE_EVENTS.map((event) => [event, 0])), statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
   const server = http.createServer(async (request, response) => {
     const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress), tenant = resolveApiTenant(config.apiTenants, presented); let auditPath = null, auditUnits = 1;
-    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; for (const le of HTTP_DURATION_BUCKETS_SECONDS) if (durationMs <= le * 1_000) metrics.durationBuckets[le]++; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000, quotaUnits: auditUnits }); });
+    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; if (request.method === "GET" && (auditPath?.startsWith("/api/") || auditPath?.startsWith("/internal/"))) { metrics.durationCount++; metrics.durationMs += durationMs; for (const le of HTTP_DURATION_BUCKETS_SECONDS) if (durationMs <= le * 1_000) metrics.durationBuckets[le]++; } const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, retentionDays: tenant?.retentionDays ?? config.auditRetentionDays ?? 30, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000, quotaUnits: auditUnits }); });
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
       auditPath = url.pathname;

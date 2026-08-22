@@ -56,8 +56,10 @@ Audit-sink failure, WebSocket capacity rejection and slow-consumer counters aler
 on any sustained five-minute increase. Protocol-error closes use a bounded
 five-minute threshold so malformed-client floods are visible without embedding
 client identity or frame contents in monitoring.
-HTTP latency is exported as a fixed route-free Prometheus histogram, allowing
-the 500 ms p99 objective to be evaluated without tenant, URL, or query labels.
+GET latency for `/api/` and `/internal/` reads is exported as a fixed route-free
+Prometheus histogram, allowing the 500 ms p99 objective to be evaluated without
+mixing metrics/static traffic or write preparation into the read SLO and without
+tenant, URL, or query labels.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of
