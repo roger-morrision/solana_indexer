@@ -640,9 +640,9 @@ account discriminator and 261-byte field layout, including pool index, creator,
 ordered mints/vaults, LP supply, coin creator, mayhem/cashback flags, and signed
 virtual quote reserves. Both parsed vault identities and exact balances are read
 at a finalized context no earlier than the pool state. The official Pump Fees
-`FeeConfig` PDA is independently derived, owner/discriminator validated,
-decoded without trailing bytes, and read at a third finalized context no
-earlier than the vault and mint evidence.
+`FeeConfig` and PumpSwap `GlobalConfig` PDAs are independently derived,
+owner/discriminator validated, decoded at their exact current layouts, and read
+at a third finalized context no earlier than the vault and mint evidence.
 Validated artifacts import content-addressedly into canonical `pump-swap`
 constant-product pool state, reject conflicting evidence at the same finalized
 slot, and emit the shared replayable warehouse/WebSocket sequence.
@@ -656,7 +656,9 @@ with the exact configuration slot. Exact-input buy and sell quotes mirror the
 official SDK's integer constant-product operations, one-unit buy adjustment,
 and separately ceiling-rounded LP/protocol/creator fees. They require a fresh
 coherent finalized snapshot and canonical SPL Token accounts; Token-2022 and
-transaction execution remain fail-closed.
+transaction execution remain fail-closed. Direction-specific GlobalConfig
+disable flags block quotes, as do active cashback and SOL buyback fee modes
+until their exact on-chain accounting is locally verified.
 Canonical identity is now independently derived from the official
 `["pool-authority", baseMint]` Pump-program PDA and verified against Pump's
 published example. Base-mint supply is fetched alongside both vault accounts at
