@@ -15,6 +15,18 @@ const POOL_ACCOUNT_LENGTH = 261;
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
 function accountBytes(account, label) { if (!Array.isArray(account?.data) || account.data[1] !== "base64" || typeof account.data[0] !== "string") throw new Error(`${label} must use base64 encoding`); return Buffer.from(account.data[0], "base64"); }
 function i128(data, offset) { const value = (data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset); return (value >= (1n << 127n) ? value - (1n << 128n) : value).toString(); }
+function exact(value, label, positive = false) { if (typeof value !== "string" || !/^\d+$/.test(value) || (positive && value === "0")) throw new Error(`${label} must be an exact ${positive ? "positive " : ""}integer string`); return BigInt(value); }
+function fees(value, label) { const rates = ["lpFeeBps", "protocolFeeBps", "creatorFeeBps"].map((field) => exact(value?.[field], `${label} ${field}`)); if (rates.some((rate) => rate > 10_000n) || rates.reduce((sum, rate) => sum + rate, 0n) >= 10_000n) throw new Error(`${label} has invalid basis points`); return { lpFeeBps: rates[0].toString(), protocolFeeBps: rates[1].toString(), creatorFeeBps: rates[2].toString() }; }
+
+export function pumpSwapPoolMarketCap({ baseMintSupplyRaw, baseReserveRaw, quoteReserveRaw }) { const supply = exact(baseMintSupplyRaw, "PumpSwap base mint supply", true), base = exact(baseReserveRaw, "PumpSwap base reserve", true), quote = exact(quoteReserveRaw, "PumpSwap quote reserve"); return (quote * supply / base).toString(); }
+
+export function selectPumpSwapFees({ feeConfig, canonicalPumpPool, baseMintSupplyRaw, baseReserveRaw, quoteReserveRaw }) {
+  if (typeof canonicalPumpPool !== "boolean" || !feeConfig) throw new Error("PumpSwap fee selection requires canonical identity and fee config");
+  if (!canonicalPumpPool) return { source: "flat", marketCapLamportsRaw: null, ...fees(feeConfig.flatFees, "PumpSwap flat fees") };
+  if (!Array.isArray(feeConfig.feeTiers) || !feeConfig.feeTiers.length || feeConfig.feeTiers.length > 256) throw new Error("PumpSwap canonical fee tiers are missing or excessive");
+  const tiers = feeConfig.feeTiers.map((tier, index) => ({ threshold: exact(tier?.marketCapLamportsThresholdRaw, `PumpSwap fee tier ${index} threshold`), value: fees(tier?.fees, `PumpSwap fee tier ${index}`) })); for (let index = 1; index < tiers.length; index++) if (tiers[index].threshold <= tiers[index - 1].threshold) throw new Error("PumpSwap fee tiers must be strictly ascending");
+  const marketCap = BigInt(pumpSwapPoolMarketCap({ baseMintSupplyRaw, baseReserveRaw, quoteReserveRaw })); let selected = tiers[0]; for (const tier of tiers) if (marketCap >= tier.threshold) selected = tier; else break; return { source: "market_cap_tier", marketCapLamportsRaw: marketCap.toString(), thresholdRaw: selected.threshold.toString(), ...selected.value };
+}
 
 export function decodePumpSwapPoolAccount(address, account) {
   if (account?.owner !== PUMP_SWAP_PROGRAM) throw new Error(`PumpSwap pool ${address} has unexpected owner`);

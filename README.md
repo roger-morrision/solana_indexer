@@ -646,6 +646,11 @@ slot, and emit the shared replayable warehouse/WebSocket sequence.
 Run `npm run snapshot:pump-swap-pools -- <POOL_ADDRESS...>` against the loopback
 validator. Missing or stale canonical PumpSwap pools are scheduled through the
 same leased, bounded-retry artifact-only operational worker.
+The fee foundation implements the official exact market-cap formula and
+canonical/noncanonical tier selection with strict ascending thresholds and
+basis-point bounds. Quotes still fail closed until the Pump Fees and mint-supply
+accounts are fetched at the same finalized barrier and canonical pool authority
+derivation is verified.
 
 ## Operational safety
 
