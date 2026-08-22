@@ -67,7 +67,8 @@ function completeOffchainMetadata(metadata, canonicalUri) {
 }
 
 function completePersistedPoolEnvelope(snapshot) {
-  return snapshot?.genesisHash === GENESIS_HASH && /^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "");
+  const dependencySlots = [snapshot?.stateSlot, snapshot?.balanceSlot, snapshot?.configSlot, snapshot?.mintSlot, snapshot?.tickArraySlot, snapshot?.bitmapExtensionSlot, snapshot?.ammConfigSlot, snapshot?.feeConfigSlot, snapshot?.globalConfigSlot, snapshot?.mintEvidenceSlot].filter((slot) => Number.isSafeInteger(slot) && slot >= 0);
+  return snapshot?.genesisHash === GENESIS_HASH && /^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") && dependencySlots.length > 0 && snapshot.evidenceSlot === Math.max(...dependencySlots);
 }
 
 function completeOrcaEconomics(snapshot) {
