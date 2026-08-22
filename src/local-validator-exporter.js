@@ -97,7 +97,7 @@ export async function recordExporterFailure(statusFile, error, { source = "unkno
 export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null }) {
   if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 256) throw new Error("exporter batch size must be an integer from 1 through 256");
   if (expectedGenesisHash != null && (typeof expectedGenesisHash !== "string" || !expectedGenesisHash)) throw new Error("expected genesis hash must be a non-empty string");
-  const previous = statusFile ? await readStatus(statusFile) : {}, previousSkippedSlots = priorSkippedSlots(previous);
+  const previous = statusFile ? await readStatus(statusFile) : {}; let previousSkippedSlots = priorSkippedSlots(previous);
   let genesisHash = null;
   if (expectedGenesisHash) {
     genesisHash = await client.assertGenesis(expectedGenesisHash);
@@ -110,7 +110,14 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   let cursor = await readCursor(cursorFile);
   if (cursor == null) cursor = Math.max(0, tip - 1);
   if (cursor > tip) throw new Error(`exporter cursor ${cursor} is ahead of finalized tip ${tip}; inspect provider/network state and cursor ownership`);
-  if (previousSkippedSlots.some((slot) => slot > cursor)) throw new Error("prior exporter skipped-slot evidence is ahead of the durable cursor");
+  if (Object.hasOwn(previous, "cursor")) {
+    if (!Number.isSafeInteger(previous.cursor) || previous.cursor < 0 || previous.cursor > tip) throw new Error("prior exporter status cursor is invalid");
+    // Status is published before the cursor. If a crash lands between those writes,
+    // replay from the lower checkpoint; inbox writes are idempotent and skipped-slot
+    // evidence above that checkpoint will be rediscovered from getBlocks.
+    cursor = Math.min(cursor, previous.cursor);
+    previousSkippedSlots = previousSkippedSlots.filter((slot) => slot <= cursor);
+  } else if (previousSkippedSlots.some((slot) => slot > cursor)) throw new Error("prior exporter skipped-slot evidence is ahead of the durable cursor");
   const end = Math.min(tip, cursor + batchSize); let exported = 0; const skippedSlots = [];
   const producedSlots = end > cursor ? await client.call("getBlocks", [cursor + 1, end, { commitment: "finalized" }]) : [];
   if (!Array.isArray(producedSlots) || producedSlots.some((slot, index) => !Number.isSafeInteger(slot) || slot < cursor + 1 || slot > end || (index > 0 && producedSlots[index - 1] >= slot))) throw new Error("finalized getBlocks response must be a strictly increasing in-range slot list");
@@ -121,11 +128,10 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
     produced.set(slot, { block, source: client.provenanceSource ?? "local-agave-rpc" });
   }
   for (let slot = cursor + 1; slot <= end; slot++) {
-    if (!produced.has(slot)) { skippedSlots.push(slot); await durableAtomicWrite(cursorFile, `${slot}\n`); continue; }
+    if (!produced.has(slot)) { skippedSlots.push(slot); continue; }
     const { block, source } = produced.get(slot);
     const provenance = { source, genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
     await durableAtomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
-    await durableAtomicWrite(cursorFile, `${slot}\n`);
   }
   const result = { localValidatorTip: tip, cursor: end, lagSlots: tip - end, exported, skipped: skippedSlots.length, skippedSlots: skippedSlots.slice(0, 256) };
   if (statusFile) {
@@ -133,6 +139,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
     const observedAt = new Date().toISOString();
     await durableAtomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt, lastAttemptAt: observedAt, lastError: null, consecutiveFailures: 0, ...result, durableSkippedSlots })}\n`);
   }
+  await durableAtomicWrite(cursorFile, `${end}\n`);
   return result;
 }
 
