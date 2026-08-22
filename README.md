@@ -326,7 +326,11 @@ an explicit unavailable response rather than an estimate.
 
 Run `npm run snapshot:accounts -- <mint> [mint...]` against the loopback mainnet
 RPC to capture canonical finalized mint authorities, Token-2022 extensions, and
-all SPL/Token-2022 accounts for selected mints. With no arguments it uses mints
+all SPL/Token-2022 accounts for selected mints. The same exact finalized context
+queries the official Metaplex Token Metadata program by its embedded mint field;
+when present, the index validates owner and mint identity and decodes only the
+stable on-chain name, symbol, URI, seller fee, and update-authority prefix. It
+does not fetch or trust the URI's off-chain JSON. With no arguments it uses mints
 already discovered by the index. This is intentionally bounded because
 `getProgramAccounts` is expensive. Holder concentration remains unsafe for
 automation until pool, burn, locker, and exchange exclusions are authoritative.

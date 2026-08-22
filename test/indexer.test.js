@@ -31,6 +31,7 @@ import { assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileW
 import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis-quota.js";
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT } from "../src/usd-depeg-reference.js";
+import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -47,6 +48,18 @@ test("independent USDC references are exact, expiring, and depeg bounded", () =>
   const reference = { schemaVersion: 1, chain: "solana-mainnet", genesisHash: MAINNET_GENESIS_HASH, assetMint: MAINNET_USDC_MINT, quote: "USD", commitment: "finalized", sourceType: "independent_onchain_oracle", sourceProgram: "11111111111111111111111111111111", sourceAccount: "SysvarC1ock11111111111111111111111111111111", sourceSlot: 500, price: { numeratorRaw: "1005", denominatorRaw: "1000" }, observedAt: "2026-08-22T00:00:00.000Z", expiresAt: "2026-08-22T00:02:00.000Z", ignoredSecret: "must-not-survive" };
   assert.equal(JSON.stringify(compileUsdDepegReference(reference)).includes("must-not-survive"), false);
   assert.equal(assessUsdDepegReference(compileUsdDepegReference(reference), Date.parse("2026-08-22T00:01:00.000Z"), 200).healthy, true); assert.equal(assessUsdDepegReference({ ...reference, price: { numeratorRaw: "103", denominatorRaw: "100" } }, Date.parse("2026-08-22T00:01:00.000Z"), 200).reason, "usdc_depeg_limit_exceeded"); assert.equal(assessUsdDepegReference(reference, Date.parse("2026-08-22T00:03:00.000Z"), 200).reason, "independent_usdc_reference_stale"); assert.throws(() => compileUsdDepegReference({ ...reference, commitment: "confirmed" }), /invalid independent/);
+});
+
+test("Metaplex metadata decoding binds finalized on-chain identity and exact fields", () => {
+  const text = (value) => { const bytes = Buffer.from(value), size = Buffer.alloc(4); size.writeUInt32LE(bytes.length); return Buffer.concat([size, bytes]); }, fee = Buffer.alloc(2); fee.writeUInt16LE(250);
+  const data = Buffer.concat([Buffer.from([4]), Buffer.alloc(32), Buffer.alloc(32), text("Token\0"), text("TOK"), text("https://example.invalid/meta.json"), fee, Buffer.from([0])]), account = { owner: TOKEN_METADATA_PROGRAM, data: [data.toString("base64"), "base64"] }, metadata = decodeTokenMetadataAccount("metadata-account", account, "11111111111111111111111111111111");
+  assert.deepEqual({ mint: metadata.mint, updateAuthority: metadata.updateAuthority, name: metadata.name, symbol: metadata.symbol, uri: metadata.uri, fee: metadata.sellerFeeBasisPoints }, { mint: "11111111111111111111111111111111", updateAuthority: "11111111111111111111111111111111", name: "Token", symbol: "TOK", uri: "https://example.invalid/meta.json", fee: 250 }); assert.match(metadata.rawPayloadHash, /^[0-9a-f]{64}$/); assert.throws(() => decodeTokenMetadataAccount("metadata-account", account, "different-mint"), /mint identity mismatch/);
+});
+
+test("account snapshots acquire optional Metaplex metadata at the exact finalized context", async () => {
+  const mint = "11111111111111111111111111111111", text = (value) => { const bytes = Buffer.from(value), size = Buffer.alloc(4); size.writeUInt32LE(bytes.length); return Buffer.concat([size, bytes]); }, data = Buffer.concat([Buffer.from([4]), Buffer.alloc(32), Buffer.alloc(32), text("Canonical Token"), text("CAN"), text("ipfs://metadata"), Buffer.alloc(2), Buffer.from([0])]);
+  const client = { call: async (method, params) => { if (method === "getSlot") return 500; if (method === "getMultipleAccounts") return { context: { slot: 500 }, value: [{ owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: { parsed: { info: { decimals: 6, supply: "1" } } } }] }; if (params[0] === TOKEN_METADATA_PROGRAM) return { context: { slot: 500 }, value: [{ pubkey: "metadata-account", account: { owner: TOKEN_METADATA_PROGRAM, data: [data.toString("base64"), "base64"] } }] }; return { context: { slot: 500 }, value: [] }; } };
+  const snapshot = await createAccountSnapshot({ client, mints: [mint], genesisHash: MAINNET_GENESIS_HASH, observedAt: "2026-08-22T00:00:00.000Z" }); assert.equal(snapshot.mints[0].metadata.name, "Canonical Token"); const store = new IndexStore("unused"); await store.load(); store.applyAccountSnapshot(snapshot); store.rebuildAggregates(); assert.equal(store.state.mints[mint].metadata.symbol, "CAN"); assert.match(compileWarehouseMetadataSql(store.state, 1), /Canonical Token/);
 });
 
 test("pins the canonical Solana mainnet genesis hash", () => {

@@ -7,6 +7,7 @@ import { loadConfig } from "./config.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
+import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "./token-metadata.js";
 
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
 const validAmount = (value) => typeof value === "string" && /^\d+$/.test(value);
@@ -30,7 +31,10 @@ export async function createAccountSnapshot({ client, mints, genesisHash, observ
         accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner ?? null, programId, amountRaw: info.tokenAmount.amount, decimals: info.tokenAmount.decimals, state: info.state ?? null });
       }
     }
-    rows.push({ mint, mintInfo, accounts: [...accounts.values()].sort((a, b) => a.tokenAccount.localeCompare(b.tokenAccount)) });
+    const metadataResponse = await client.call("getProgramAccounts", [TOKEN_METADATA_PROGRAM, { commitment: "finalized", encoding: "base64", minContextSlot: slot, withContext: true, filters: [{ memcmp: { offset: 33, bytes: mint } }] }]);
+    if (metadataResponse?.context?.slot !== slot || !Array.isArray(metadataResponse.value) || metadataResponse.value.length > 1) throw new Error(`token metadata for ${mint} did not share the exact finalized snapshot context`);
+    const metadata = metadataResponse.value.length ? decodeTokenMetadataAccount(metadataResponse.value[0].pubkey, metadataResponse.value[0].account, mint) : null;
+    rows.push({ mint, mintInfo, ...(metadata ? { metadata } : {}), accounts: [...accounts.values()].sort((a, b) => a.tokenAccount.localeCompare(b.tokenAccount)) });
   }
   return { schemaVersion: 1, chain: "solana", genesisHash, commitment: "finalized", slot, observedAt, mints: rows };
 }
