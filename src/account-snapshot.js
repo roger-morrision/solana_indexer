@@ -8,24 +8,13 @@ import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "./token-metadata.js";
-import { normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
+import { extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
+export { extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
 
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
-const TOKEN_2022_PROGRAM = TOKEN_PROGRAMS[1];
 const validAmount = (value) => typeof value === "string" && /^\d+$/.test(value);
 const validDecimals = (value) => Number.isInteger(value) && value >= 0 && value <= 255;
 async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
-
-export function extractToken2022MintEvidence(mintAccount, epoch, slot) {
-  if (mintAccount?.owner !== TOKEN_2022_PROGRAM) return null;
-  if (!Number.isSafeInteger(epoch) || epoch < 0 || !Number.isSafeInteger(slot) || slot < 0) throw new Error("Token-2022 epoch evidence is invalid");
-  const extensions = mintAccount?.data?.parsed?.info?.extensions;
-  if (!Array.isArray(extensions)) throw new Error("Token-2022 mint extensions are unavailable");
-  const feeExtensions = extensions.filter((extension) => extension?.extension === "transferFeeConfig");
-  if (feeExtensions.length > 1) throw new Error("Token-2022 transfer fee extension is ambiguous");
-  const transferFeeConfig = feeExtensions.length ? normalizeTransferFeeConfig(feeExtensions[0].state) : null;
-  return { schemaVersion: 1, programId: TOKEN_2022_PROGRAM, commitment: "finalized", slot, epoch, transferFeeConfig, activeTransferFee: transferFeeConfig ? selectEpochTransferFee(transferFeeConfig, epoch) : null };
-}
 
 export async function createAccountSnapshot({ client, mints, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(mints) || !mints.length || new Set(mints).size !== mints.length || mints.some((mint) => typeof mint !== "string" || !mint)) throw new Error("snapshot mints must be unique non-empty addresses");

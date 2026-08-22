@@ -563,8 +563,10 @@ Account snapshots capture Token-2022 mint-extension transfer-fee schedules and
 select the active fee at the exact finalized epoch/slot. The shared exact fee primitive implements
 the program's ceiling-rounded basis-point fee, maximum cap, older/newer epoch
 selection, and inverse gross-for-net calculation with u64 overflow checks; it is
-not connected to routes until pool snapshots bind that authoritative mint evidence
-and any transfer-hook accounts. Quotes share the
+Raydium CLMM production snapshots now bind both vault token-program owners and
+both mint accounts to one finalized epoch/context at or after all pool, tick,
+configuration, and vault reads. Routes still require explicit transfer-hook
+eligibility. Quotes share the
 analysis-only internal pool endpoint and are never labeled as executable routes.
 
 The shared quote endpoint dispatches only snapshots whose canonical program ID

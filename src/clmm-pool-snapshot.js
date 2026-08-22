@@ -8,6 +8,7 @@ import { loadConfig } from "./config.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
+import { acquirePoolMintEvidence, bindPoolMintEvidence } from "./pool-mint-evidence.js";
 
 export const RAYDIUM_CLMM_PROGRAM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 const DISCRIMINATOR = crypto.createHash("sha256").update("account:PoolState").digest().subarray(0, 8);
@@ -118,7 +119,7 @@ export async function fetchClmmTickCoverage(client, pool, tickSpacing, minContex
   return { slot: slots[0], bitmapExtension, tickArrays };
 }
 
-export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, bitmapExtensions = {}, automaticTickCoverage = false, automaticFeeConfig = false, genesisHash, observedAt = new Date().toISOString() }) {
+export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, bitmapExtensions = {}, automaticTickCoverage = false, automaticFeeConfig = false, automaticMintEvidence = false, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(pools) || !pools.length) throw new Error("at least one CLMM pool is required");
   const stateResponse = await getMultipleAccountsBatched(client, pools, { commitment: "finalized", encoding: "base64" }, { label: "CLMM pool" }); const stateSlot = stateResponse?.context?.slot;
   if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid CLMM pool account response");
@@ -146,16 +147,18 @@ export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, b
   const balanceResponse = await getMultipleAccountsBatched(client, vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: dependencySlot }, { label: "CLMM vault" }); const balanceSlot = balanceResponse?.context?.slot;
   if (balanceSlot < dependencySlot) throw new Error("invalid CLMM vault account response");
   for (let index = 0; index < decoded.length; index++) {
-    const first = balanceResponse.value[index * 2]?.data?.parsed?.info, second = balanceResponse.value[index * 2 + 1]?.data?.parsed?.info;
+    const firstAccount = balanceResponse.value[index * 2], secondAccount = balanceResponse.value[index * 2 + 1], first = firstAccount?.data?.parsed?.info, second = secondAccount?.data?.parsed?.info;
     if (first?.mint !== decoded[index].tokenMint0 || second?.mint !== decoded[index].tokenMint1 || !/^\d+$/.test(first?.tokenAmount?.amount ?? "") || !/^\d+$/.test(second?.tokenAmount?.amount ?? "")) throw new Error(`CLMM pool ${decoded[index].address} vault identity mismatch`);
+    decoded[index].tokenProgram0 = firstAccount.owner; decoded[index].tokenProgram1 = secondAccount.owner;
     decoded[index].vault0AmountRaw = String(first.tokenAmount.amount); decoded[index].vault1AmountRaw = String(second.tokenAmount.amount);
   }
+  if (automaticMintEvidence) { const evidence = await acquirePoolMintEvidence(client, decoded, balanceSlot); for (const row of decoded) bindPoolMintEvidence(row, evidence); }
   return { schemaVersion: 1, type: "raydium_clmm_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
 }
 
 async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
 async function main() {
   const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"); const pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-clmm").map(([address]) => address); if (!pools.length) throw new Error("no Raydium CLMM pools supplied or discovered");
-  const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createClmmPoolSnapshot({ client, pools, automaticTickCoverage: true, automaticFeeConfig: true, genesisHash }); if (!artifactOnly) { store.applyPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.clmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, bitmapExtensions: snapshot.pools.filter((row) => row.bitmapExtension).length, tickArrays: snapshot.pools.reduce((sum, row) => sum + row.tickArrays.length, 0), artifactOnly }));
+  const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createClmmPoolSnapshot({ client, pools, automaticTickCoverage: true, automaticFeeConfig: true, automaticMintEvidence: true, genesisHash }); if (!artifactOnly) { store.applyPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.clmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, bitmapExtensions: snapshot.pools.filter((row) => row.bitmapExtension).length, tickArrays: snapshot.pools.reduce((sum, row) => sum + row.tickArrays.length, 0), artifactOnly }));
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

@@ -1,5 +1,6 @@
 const U64_MAX = (1n << 64n) - 1n;
 const BASIS_POINTS_DENOMINATOR = 10_000n;
+const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
 function u64(value, label) {
   let parsed;
@@ -30,6 +31,17 @@ export function normalizeTransferFeeConfig(value) {
 export function selectEpochTransferFee(config, currentEpoch) {
   const normalized = normalizeTransferFeeConfig(config), selectedEpoch = epoch(currentEpoch, "current epoch");
   return selectedEpoch >= normalized.newerTransferFee.epoch ? normalized.newerTransferFee : normalized.olderTransferFee;
+}
+
+export function extractToken2022MintEvidence(mintAccount, currentEpoch, slot) {
+  if (mintAccount?.owner !== TOKEN_2022_PROGRAM) return null;
+  if (!Number.isSafeInteger(currentEpoch) || currentEpoch < 0 || !Number.isSafeInteger(slot) || slot < 0) throw new Error("Token-2022 epoch evidence is invalid");
+  const extensions = mintAccount?.data?.parsed?.info?.extensions;
+  if (!Array.isArray(extensions)) throw new Error("Token-2022 mint extensions are unavailable");
+  const feeExtensions = extensions.filter((extension) => extension?.extension === "transferFeeConfig");
+  if (feeExtensions.length > 1) throw new Error("Token-2022 transfer fee extension is ambiguous");
+  const transferFeeConfig = feeExtensions.length ? normalizeTransferFeeConfig(feeExtensions[0].state) : null;
+  return { schemaVersion: 1, programId: TOKEN_2022_PROGRAM, commitment: "finalized", slot, epoch: currentEpoch, transferFeeConfig, activeTransferFee: transferFeeConfig ? selectEpochTransferFee(transferFeeConfig, currentEpoch) : null };
 }
 
 export function calculateTransferFeeIncludedAmount(amountRaw, fee) {
