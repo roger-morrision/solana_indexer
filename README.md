@@ -482,6 +482,10 @@ uses `simulateTransaction` with a finalized minimum context and replacement
 blockhash, and emits a hash-bound receipt. Requested token-account effects are
 mint-bound and must fall inside explicit signed raw-balance delta ranges. It never
 signs or submits a transaction.
+Before simulation, an optional message policy validates the required-signature
+header, bounded static accounts and instructions, every compiled index, and a
+required program allowlist. Version-0 address-table lookups fail closed until the
+loaded addresses can be resolved independently.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Signature bytes are intentionally
