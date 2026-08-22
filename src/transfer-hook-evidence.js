@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { decodeBase58Address, encodeBase58, findProgramAddress } from "./solana-pda.js";
 
 const EXECUTE_DISCRIMINATOR = Buffer.from([105, 37, 101, 197, 75, 251, 102, 26]);
@@ -25,7 +27,7 @@ function u64(value) { let parsed; try { parsed = BigInt(value); } catch { throw 
 function accountBytes(previous, index) {
   if (index >= previous.length) throw new Error("transfer-hook account-data source is invalid");
   const data = previous[index].data;
-  if (!Buffer.isBuffer(data)) throw new Error("transfer-hook account-data seed requires finalized source-account evidence");
+  if (!Buffer.isBuffer(data)) { const error = new Error("transfer-hook account-data seed requires finalized source-account evidence"); error.sourceAddress = previous[index].address; throw error; }
   return data;
 }
 
@@ -77,6 +79,30 @@ export function resolveTransferHookAccountMetas({ metaList, hookProgramId, valid
     decodeBase58Address(address); const resolved = deescalate({ address, signer: meta.signer, writable: meta.writable }, previous); previous.push({ ...resolved, data: sourceData(accountData, address) });
   }
   return { schemaVersion: 1, amountRaw: BigInt(amountRaw).toString(), validationAccount, hookProgramId, accounts: previous.slice(5).map(({ data: _data, ...account }) => account) };
+}
+
+export async function acquireTransferHookAccountData(client, args, minimumSlot) {
+  if (typeof client?.call !== "function" || !Number.isSafeInteger(minimumSlot) || minimumSlot < 0) throw new Error("transfer-hook source-account request is invalid");
+  const addresses = [], maximumRounds = (args?.metaList?.count ?? 0) + 1; let accountData = {}, slot = minimumSlot;
+  for (let round = 0; round < maximumRounds; round++) {
+    try { return { schemaVersion: 1, commitment: "finalized", slot, accountData, resolved: resolveTransferHookAccountMetas({ ...args, accountData }) }; }
+    catch (error) {
+      const address = error?.sourceAddress;
+      if (typeof address !== "string" || addresses.includes(address)) throw error;
+      decodeBase58Address(address); addresses.push(address);
+      const response = await getMultipleAccountsBatched(client, addresses, { commitment: "finalized", encoding: "base64", minContextSlot: slot }, { label: "transfer-hook source" });
+      if (!Number.isSafeInteger(response.context.slot) || response.context.slot < slot) throw new Error("transfer-hook source-account context is invalid");
+      slot = response.context.slot; accountData = {};
+      for (let index = 0; index < addresses.length; index++) {
+        const account = response.value[index], encoded = account?.data?.[0];
+        if (typeof account?.owner !== "string" || !account.owner || typeof encoded !== "string" || account.data?.[1] !== "base64") throw new Error("transfer-hook source account is unavailable");
+        decodeBase58Address(account.owner); const bytes = Buffer.from(encoded, "base64");
+        if (bytes.length > 65_536 || bytes.toString("base64").replaceAll("=", "") !== encoded.replaceAll("=", "")) throw new Error("transfer-hook source account is invalid");
+        accountData[addresses[index]] = { schemaVersion: 1, address: addresses[index], owner: account.owner, commitment: "finalized", slot, dataLength: bytes.length, rawHex: bytes.toString("hex"), rawPayloadHash: crypto.createHash("sha256").update(bytes).digest("hex") };
+      }
+    }
+  }
+  throw new Error("transfer-hook source-account dependency resolution exceeded its bound");
 }
 
 export const TRANSFER_HOOK_EVIDENCE_CONSTANTS = Object.freeze({ executeDiscriminatorHex: EXECUTE_DISCRIMINATOR.toString("hex"), metaLength: META_LENGTH, maxMetas: MAX_METAS });

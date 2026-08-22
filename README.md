@@ -621,7 +621,9 @@ metadata against the direction-specific source, vault, authority, gross transfer
 amount, and hash-bound source-account bytes, then encodes X/Y slices ahead of
 bin arrays. Missing, stale, oversized, or hash-mismatched source bytes and every
 other unimplemented extension fail closed; simulation advances its minimum
-context to the newest bound source-account slot. Quotes share the
+context to the newest bound source-account slot. The resolver can discover
+data-derived dependencies incrementally and refetch the complete discovered set
+at one monotonic finalized context before construction. Quotes share the
 analysis-only internal pool endpoint and are never labeled as executable routes.
 Legacy-SPL Raydium CLMM and CPMM quotes require and propagate that same complete
 finalized mint slot/epoch binding; execution construction rejects a quote whose

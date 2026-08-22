@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { findProgramAddress } from "../src/solana-pda.js";
-import { decodeTransferHookExtraAccountMetaList, resolveTransferHookAccountMetas } from "../src/transfer-hook-evidence.js";
+import { acquireTransferHookAccountData, decodeTransferHookExtraAccountMetaList, resolveTransferHookAccountMetas } from "../src/transfer-hook-evidence.js";
 
 const address = (fill) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of Buffer.alloc(32, fill)) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } return output; };
 function base58Bytes(value) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", indexes = new Map([...alphabet].map((character, index) => [character, index])); let number = 0n; for (const character of value) number = number * 58n + BigInt(indexes.get(character)); const bytes = []; while (number) { bytes.unshift(Number(number & 255n)); number >>= 8n; } while (bytes.length < 32) bytes.unshift(0); return bytes; }
@@ -25,4 +25,12 @@ test("transfer-hook metadata resolves finalized account bytes and de-escalates p
   assert.deepEqual(resolved.accounts, [{ address: findProgramAddress(hookProgramId, [Buffer.from([9, 8, 7, 6])]).address, signer: false, writable: true }, { address: embedded, signer: false, writable: true }, { address: source, signer: false, writable: true }]);
   const duplicateReadonly = list([{ discriminator: 0, config: Buffer.alloc(32, 2), signer: true, writable: true }]); assert.deepEqual(resolveTransferHookAccountMetas({ metaList: duplicateReadonly, hookProgramId, validationAccount, source, mint, destination, authority, amountRaw: "42" }).accounts, [{ address: mint, signer: false, writable: false }]);
   assert.throws(() => resolveTransferHookAccountMetas({ metaList, hookProgramId, validationAccount, source, mint, destination, authority, amountRaw: "42" }), /source-account evidence/);
+});
+
+test("transfer-hook source acquisition refetches dependencies at one finalized context", async () => {
+  const source = address(1), mint = address(2), destination = address(3), authority = address(4), validationAccount = address(5), hookProgramId = address(6), firstData = Buffer.alloc(40), derivedData = Buffer.alloc(40), firstConfig = Buffer.alloc(32), secondConfig = Buffer.alloc(32); firstData.set([1, 2, 3], 4); derivedData.set([7, 8], 9); firstConfig.set([4, 0, 4, 3]); const derived = findProgramAddress(hookProgramId, [Buffer.from([1, 2, 3])]).address; secondConfig.set([4, 5, 9, 2]); const metaList = list([{ discriminator: 1, config: firstConfig }, { discriminator: 1, config: secondConfig }]), calls = [];
+  const account = (owner, bytes) => ({ owner, data: [bytes.toString("base64"), "base64"] }), client = { call: async (_method, [addresses, config]) => { calls.push({ addresses, config }); return { context: { slot: 101 + calls.length }, value: addresses.map((addressValue) => account(address(9), addressValue === source ? firstData : derivedData)) }; } };
+  const acquired = await acquireTransferHookAccountData(client, { metaList, hookProgramId, validationAccount, source, mint, destination, authority, amountRaw: "42" }, 100);
+  assert.deepEqual(calls.map((call) => call.addresses), [[source], [source, derived]]); assert.deepEqual(calls.map((call) => call.config.minContextSlot), [100, 102]); assert.ok(calls.every((call) => call.config.commitment === "finalized" && call.config.encoding === "base64")); assert.equal(acquired.slot, 103); assert.deepEqual(Object.values(acquired.accountData).map((row) => row.slot), [103, 103]); assert.equal(acquired.resolved.accounts[0].address, derived); assert.equal(acquired.resolved.accounts[1].address, findProgramAddress(hookProgramId, [Buffer.from([7, 8])]).address);
+  await assert.rejects(acquireTransferHookAccountData({ call: async () => ({ context: { slot: 101 }, value: [null] }) }, { metaList, hookProgramId, validationAccount, source, mint, destination, authority, amountRaw: "42" }, 100), /unavailable/);
 });
