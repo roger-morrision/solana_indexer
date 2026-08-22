@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const HASH = /^[0-9a-f]{64}$/;
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-function iso(value) { return value == null ? null : Number.isFinite(Date.parse(value)) ? value : false; }
+function iso(value) { return value == null ? null : parseCanonicalUtcTimestamp(value) == null ? false : value; }
 
 export function compileApiTenants(document) {
   const observedAt = iso(document?.observedAt); if (document?.schemaVersion !== 1 || !Array.isArray(document.tenants) || !document.tenants.length || observedAt === false) throw new Error("invalid API tenant registry");

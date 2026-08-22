@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import { isIP } from "node:net";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const DEFAULT_MAX_BYTES = 256 * 1024;
 function publicAddress(address) {
@@ -14,7 +15,7 @@ function text(value, maximum, label) { if (value == null) return null; if (typeo
 function reference(value, label) { const normalized = text(value, 2_048, label); if (normalized == null) return null; let url; try { url = new URL(normalized); } catch { throw new Error(`off-chain metadata ${label} is invalid`); } if (!(["https:", "ipfs:"].includes(url.protocol)) || url.username || url.password) throw new Error(`off-chain metadata ${label} is invalid`); return normalized; }
 
 export function normalizeOffchainTokenMetadata({ sourceUri, bytes, contentType, observedAt }) {
-  const url = sourceUrl(sourceUri); if (!Buffer.isBuffer(bytes) || bytes.length < 2 || bytes.length > DEFAULT_MAX_BYTES || !/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)/i.test(contentType ?? "") || !Number.isFinite(Date.parse(observedAt ?? ""))) throw new Error("off-chain metadata response is invalid"); let parsed; try { parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw new Error("off-chain metadata JSON is invalid"); } if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("off-chain metadata JSON is invalid");
+  const url = sourceUrl(sourceUri); if (!Buffer.isBuffer(bytes) || bytes.length < 2 || bytes.length > DEFAULT_MAX_BYTES || !/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)/i.test(contentType ?? "") || parseCanonicalUtcTimestamp(observedAt) == null) throw new Error("off-chain metadata response is invalid"); let parsed; try { parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw new Error("off-chain metadata JSON is invalid"); } if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("off-chain metadata JSON is invalid");
   const attributes = parsed.attributes == null ? [] : parsed.attributes; if (!Array.isArray(attributes) || attributes.length > 100) throw new Error("off-chain metadata attributes are invalid"); const normalizedAttributes = attributes.map((row) => { if (!row || typeof row !== "object" || Array.isArray(row) || typeof row.trait_type !== "string" || !["string", "number", "boolean"].includes(typeof row.value)) throw new Error("off-chain metadata attribute is invalid"); return { traitType: text(row.trait_type, 128, "trait type"), value: text(String(row.value), 256, "trait value") }; });
   return { schemaVersion: 1, sourceUri: url.toString(), observedAt, contentType: contentType.split(";", 1)[0].toLowerCase(), contentLength: bytes.length, rawPayloadHash: crypto.createHash("sha256").update(bytes).digest("hex"), trusted: false, automationSafe: false, fields: { name: text(parsed.name, 256, "name"), symbol: text(parsed.symbol, 32, "symbol"), description: text(parsed.description, 4_096, "description"), image: reference(parsed.image, "image"), externalUrl: reference(parsed.external_url, "external URL"), attributes: normalizedAttributes } };
 }
