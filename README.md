@@ -572,9 +572,11 @@ use the program's Q64.64 tick and millionths fee rounding, and expose
 programs fail closed. The execution library can bind a fully consumed legacy-SPL
 quote to the official legacy `swap` discriminator/account order, three contiguous
 finalized tick arrays, the derived oracle PDA, an unsigned legacy transaction,
-and exact input/output token-effect simulation policy. This is an offline,
-read-only boundary: the API still does not return an executable route, and no
-signing, submission, or landed confirmation is performed for Orca.
+and exact input/output token-effect simulation policy. A content-addressed,
+capped, expiring external-signer request then verifies every required Ed25519
+signature and read-only finalized landed-message identity. The API still does
+not return an executable route, and the indexer never signs or submits Orca
+transactions.
 
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
