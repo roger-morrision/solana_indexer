@@ -9,6 +9,7 @@ User=sol
 WorkingDirectory=/home/sol/solana-indexer
 EnvironmentFile=/etc/solana-indexer.env
 ExecStart=/usr/bin/env npm run work:operational
+TimeoutStartSec=1h
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
@@ -16,4 +17,3 @@ PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/home/sol/solana-indexer/data
-
