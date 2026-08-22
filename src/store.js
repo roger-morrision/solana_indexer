@@ -116,6 +116,21 @@ export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot
 function canonicalJson(value) { if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`; if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`; return JSON.stringify(value); }
 function evidenceHash(value) { return crypto.createHash("sha256").update(canonicalJson(value)).digest("hex"); }
 function poolEvidenceSlot(row, fallback = 0) { const slots = [fallback, row?.stateSlot, row?.balanceSlot, row?.configSlot, row?.mintSlot, row?.tickArraySlot, row?.binArraySlot, row?.bitmapExtensionSlot, row?.ammConfigSlot, row?.feeConfigSlot, row?.globalConfigSlot, row?.mintEvidenceSlot].filter((slot) => Number.isSafeInteger(slot) && slot >= 0); return slots.length ? Math.max(...slots) : 0; }
+export function canonicalSnapshotProjections(state) {
+  if (!state?.holderSnapshots || Array.isArray(state.holderSnapshots) || !state.poolSnapshots || Array.isArray(state.poolSnapshots)) return false;
+  for (const [mint, snapshot] of Object.entries(state.holderSnapshots)) {
+    if (!mint || !isCanonicalAccountSnapshotEvidence(snapshot, state.mints?.[mint]?.mintInfo) || state.mints?.[mint]?.authoritySourceSlot !== snapshot.slot) return false;
+    const payload = { mint, mintProgramId: snapshot.mintProgramId, mintInfo: snapshot.mintInfo, ...(snapshot.token2022Evidence ? { token2022Evidence: snapshot.token2022Evidence } : {}), ...(snapshot.metadata ? { metadata: snapshot.metadata } : {}), accounts: snapshot.accounts };
+    if (evidenceHash(payload) !== snapshot.sourceHash || canonicalJson(state.mints[mint].mintInfo) !== canonicalJson(snapshot.mintInfo) || canonicalJson(state.mints[mint].metadata ?? null) !== canonicalJson(snapshot.metadata ?? null)) return false;
+  }
+  const programProtocols = { "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "orca-whirlpool", "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo": "meteora-dlmm", "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C": "raydium-cpmm", "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA": "pump-swap", "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P": "pump-bonding-curve", "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK": "raydium-clmm" };
+  for (const [address, snapshot] of Object.entries(state.poolSnapshots)) {
+    const protocol = programProtocols[snapshot?.programId], summary = state.pools?.[address], injected = new Set(["commitment", "stateSlot", "balanceSlot", "evidenceSlot", "observedAt", "genesisHash", "sourceHash"]); if (["raydium-cpmm", "pump-swap"].includes(protocol)) injected.add("configSlot"); if (protocol === "pump-bonding-curve") { injected.add("mintSlot"); injected.add("configSlot"); }
+    const payload = Object.fromEntries(Object.entries(snapshot ?? {}).filter(([key]) => !injected.has(key)));
+    if (!address || snapshot?.address !== address || !protocol || summary?.protocol !== protocol || snapshot.commitment !== "finalized" || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || snapshot.evidenceSlot !== poolEvidenceSlot(snapshot) || evidenceHash(payload) !== snapshot.sourceHash || canonicalJson(summary.accountSnapshot) !== canonicalJson(snapshot)) return false;
+  }
+  return true;
+}
 function pumpCurveFeePolicy(snapshot) {
   const buyback = snapshot?.global?.buybackBasisPoints;
   if (typeof snapshot?.cashbackCoin !== "boolean" || typeof buyback !== "string" || !/^\d+$/.test(buyback) || BigInt(buyback) > 10_000n) return { valid: false, supported: false };
@@ -509,6 +524,10 @@ export class IndexStore {
     const canonical = canonicalAggregateProjections(this.state);
     return { canonical, accounts: Object.keys(this.state.accounts).length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, mints: Object.keys(this.state.mints).length, pools: Object.keys(this.state.pools).length, reason: canonical ? null : "indexed_aggregate_projection_invalid" };
   }
+  snapshotQuality() {
+    const canonical = canonicalSnapshotProjections(this.state);
+    return { canonical, holderSnapshots: Object.keys(this.state.holderSnapshots).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, reason: canonical ? null : "indexed_snapshot_projection_invalid" };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -538,6 +557,7 @@ export class IndexStore {
       canonicalSwaps: this.indexedSwaps().available,
       canonicalDerivedLedger: this.derivedLedgerQuality().canonical,
       canonicalAggregates: this.aggregateQuality().canonical,
+      canonicalSnapshots: this.snapshotQuality().canonical,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -567,7 +587,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -598,6 +618,7 @@ export class IndexStore {
     const swaps = this.indexedSwaps(); if (!swaps.available) return { status: "invalid_evidence", healthy: false, reason: swaps.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const derivedLedger = this.derivedLedgerQuality(); if (!derivedLedger.canonical) return { status: "invalid_evidence", healthy: false, reason: derivedLedger.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, ...stats };
     const aggregates = this.aggregateQuality(); if (!aggregates.canonical) return { status: "invalid_evidence", healthy: false, reason: aggregates.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, ...stats };
+    const snapshots = this.snapshotQuality(); if (!snapshots.canonical) return { status: "invalid_evidence", healthy: false, reason: snapshots.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };

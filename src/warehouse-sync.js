@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
-import { canonicalAggregateProjections, canonicalPersistedDerivedLedger, canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedSwapLog, IndexStore, isCanonicalAccountSnapshotEvidence, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension } from "./store.js";
+import { canonicalAggregateProjections, canonicalPersistedDerivedLedger, canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedSwapLog, canonicalSnapshotProjections, IndexStore, isCanonicalAccountSnapshotEvidence, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension } from "./store.js";
 import { loadHolderExclusions } from "./holder-exclusions.js";
 import { POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { ORCA_WHIRLPOOL_PROGRAM } from "./orca-pool-snapshot.js";
@@ -187,6 +187,7 @@ function redisJson(value, label) { let encoded; try { encoded = JSON.stringify(v
 
 export function compileRedisHotSync(state, batch, ttlSeconds = 86_400, maxBytes = 16_777_216) {
   if (!canonicalAggregateProjections(state)) throw new Error("invalid persisted aggregate projections");
+  if (!canonicalSnapshotProjections(state)) throw new Error("invalid persisted snapshot projections");
   if (!Number.isInteger(ttlSeconds) || ttlSeconds < 300 || !Number.isInteger(maxBytes) || maxBytes < 65_536 || !Number.isSafeInteger(batch?.toSequence) || batch.toSequence < 0 || !Array.isArray(batch?.events) || !state?.pools || typeof state.pools !== "object" || Array.isArray(state.pools) || !state?.mints || typeof state.mints !== "object" || Array.isArray(state.mints) || (state.updatedAt != null && parseCanonicalUtcTimestamp(state.updatedAt) == null)) throw new Error("invalid Redis hot-state configuration");
   const version = batch.toSequence, prefix = `terminal_dex:hot:${version}`, poolKey = `${prefix}:pools`, tokenKey = `${prefix}:tokens`, commands = [respCommand(["MULTI"]), respCommand(["DEL", poolKey, tokenKey])];
   for (const [address, row] of Object.entries(state.pools).sort(([left], [right]) => left.localeCompare(right))) { if (!address || /[\u0000-\u001f]/.test(address)) throw new Error("invalid Redis pool identity"); commands.push(respCommand(["HSET", poolKey, address, redisJson(row, "pool")])); }

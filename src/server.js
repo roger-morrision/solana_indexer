@@ -160,6 +160,7 @@ export function createServer(config, store) {
       if (preparePoolSwap) {
         const poolAddress = decodeURIComponent(preparePoolSwap[1]), row = store.state.poolSnapshots[poolAddress];
         if (!row) return json(response, 404, { error: "pool_snapshot_not_found" });
+        if (row.sourceHash) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: quality.reason }); }
         const meteora = row.programId === METEORA_DLMM_PROGRAM, orca = row.programId === ORCA_WHIRLPOOL_PROGRAM, clmm = row.programId === RAYDIUM_CLMM_PROGRAM, cpmm = row.programId === RAYDIUM_CPMM_PROGRAM, pumpSwap = row.programId === PUMP_SWAP_PROGRAM;
         if (!meteora && !orca && !clmm && !cpmm && !pumpSwap) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: "unsupported_construction_protocol" });
         if (!preparePayload || typeof preparePayload !== "object" || Array.isArray(preparePayload) || !/^\d+$/.test(preparePayload.amountRaw ?? "") || typeof preparePayload.inputMint !== "string" || !preparePayload.inputMint) return json(response, 400, { error: "invalid_prepare_parameters" });
@@ -174,6 +175,7 @@ export function createServer(config, store) {
       if (prepareCurveSwap) {
         const mint = decodeURIComponent(prepareCurveSwap[1]), side = preparePayload?.side ?? "sell", curve = Object.values(store.state.poolSnapshots).find((row) => row?.programId === PUMP_PROGRAM && row.mint === mint);
         if (!curve) return json(response, 404, { error: "bonding_curve_snapshot_not_found" });
+        if (curve.sourceHash) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: quality.reason }); }
         if (!preparePayload || typeof preparePayload !== "object" || Array.isArray(preparePayload) || !new Set(["buy", "sell"]).has(side) || !/^\d+$/.test(preparePayload.amountRaw ?? "")) return json(response, 400, { error: "invalid_prepare_parameters" });
         try {
           const quote = side === "buy" ? store.buyRouteQuote(mint, preparePayload.amountRaw, config.staleAfterMs) : store.sellRouteQuote(mint, preparePayload.amountRaw, config.staleAfterMs);
@@ -187,6 +189,7 @@ export function createServer(config, store) {
       if (derivedLedgerConsumer) { const quality = store.derivedLedgerQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       const aggregateConsumer = new Set(["/internal/trending", "/internal/candidates", "/internal/new-pairs", "/api/trending", "/api/v1/tokens", "/api/v1/pools"]).has(url.pathname) || ["/internal/evidence/", "/internal/tokens/", "/internal/wallets/", "/api/account/", "/api/mint/", "/api/v1/holders/", "/api/v1/token-account/"].some((prefix) => url.pathname.startsWith(prefix));
       if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.aggregateQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
+      if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (url.pathname === "/internal/execution-policy") return json(response, 200, EXECUTION_HANDOFF_POLICY);
       if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, auditSink.failures, server.webSocketStats); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }

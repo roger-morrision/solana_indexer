@@ -106,6 +106,13 @@ execution-price fields must agree, while independently validated snapshot and
 lifecycle enrichment remains intact. Divergence fails closed instead of serving
 stale or fork-contaminated aggregates.
 
+Persisted finalized holder and pool snapshots also retain their content-addressed
+source hash, canonical mainnet/finality envelope, maximum dependency evidence
+slot and exact binding into mint/pool projections. Health, bot readiness,
+snapshot-backed REST consumers and Redis hot-state publication fail closed when
+those bindings diverge. PostgreSQL repair-job projection remains available so a
+quarantined snapshot can still be replaced through the governed worker.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether
