@@ -1062,7 +1062,8 @@ test("validator stream validates prior skipped-slot evidence before network or i
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-prior-gaps-")), inbox = path.join(root, "inbox"), statusFile = path.join(root, "status.json"); let calls = 0;
   const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => { calls++; return MAINNET_GENESIS_HASH; } }, inbox, statusFile, WebSocketClass: class {} });
   await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, lastConfirmedSlot: 10, lastFinalizedSlot: 9, durableSkippedSlots: [8, 8] })); await assert.rejects(() => stream.initializeAndConnect(), /skipped-slot evidence is invalid/); assert.equal(calls, 0); await assert.rejects(fs.access(inbox));
-  await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, lastConfirmedSlot: 10, lastFinalizedSlot: 9, durableSkippedSlots: [11] })); await assert.rejects(() => stream.initializeAndConnect(), /ahead of durable progress/); assert.equal(calls, 1); await assert.rejects(fs.access(inbox));
+  await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, lastConfirmedSlot: 10, lastFinalizedSlot: 9, durableSkippedSlots: [11] })); await assert.rejects(() => stream.initializeAndConnect(), /ahead of durable progress/); assert.equal(calls, 0); await assert.rejects(fs.access(inbox));
+  for (const prior of [{ lastConfirmedSlot: "10" }, { lastFinalizedSlot: -1 }, { lastFinalizedSlot: 9, cursor: 8 }]) { await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, durableSkippedSlots: [], ...prior })); await assert.rejects(() => stream.initializeAndConnect(), /prior stream/); assert.equal(calls, 0); }
 });
 
 test("stream health permits confirmed skipped slots ahead of finalized cursor", () => {
