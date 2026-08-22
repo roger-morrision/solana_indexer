@@ -6,10 +6,13 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { canonicalPersistedRecoveryState } from "./store.js";
 
 function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 export async function retainInbox({ inbox, dataFile, archiveReceiptFile = path.resolve(process.env.INBOX_ARCHIVE_RECEIPT_FILE ?? "data/inbox-archive-receipt.json"), retentionSeconds, now = Date.now(), confirmDelete = false }) {
-  const state = JSON.parse(await fs.readFile(dataFile, "utf8")), cutoff = now - retentionSeconds * 1_000, dead = new Set((state.deadLetters ?? []).filter((row) => !row.resolved).map((row) => row.filename));
+  const state = JSON.parse(await fs.readFile(dataFile, "utf8"));
+  if (!canonicalPersistedRecoveryState(state)) throw new Error("indexed recovery evidence invalid; inbox retention refused");
+  const cutoff = now - retentionSeconds * 1_000, dead = new Set(state.deadLetters.filter((row) => !row.resolved).map((row) => row.filename));
   let receipt = null;
   try { receipt = JSON.parse(await fs.readFile(archiveReceiptFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const receiptValid = receipt?.schemaVersion === 1 && receipt?.storage === "self-hosted" && ["uploaded", "verified_local"].includes(receipt?.status) && parseCanonicalUtcTimestamp(receipt?.completedAt ?? receipt?.uploadCompletedAt) != null;

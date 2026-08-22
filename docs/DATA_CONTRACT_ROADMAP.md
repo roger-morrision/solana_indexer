@@ -177,6 +177,12 @@ before discovery or RPC acquisition: automatic discovery and any run that would
 mutate local index state are blocked while quarantined. An explicit target with
 `--artifact-only` remains available to acquire independently validated recovery
 evidence without reading identities from, or writing to, the corrupt index.
+Raw inbox retention validates the complete persisted recovery graph before it
+uses any checkpoint as deletion authorization; detached checkpoints, malformed
+dead-letter lifecycle evidence, or invalid reorg corrections block the entire
+run before a file is removed. Isolated recovery qualification also stops at the
+quarantine boundary before reading downstream sink evidence or creating a
+consumer-enablement report, so an empty diagnostic shell cannot qualify.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
