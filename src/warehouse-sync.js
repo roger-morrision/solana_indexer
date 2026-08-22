@@ -88,13 +88,36 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
   if (!checkpoint) return unavailable("checkpoint_unavailable");
   const updated = Date.parse(checkpoint.updatedAt ?? ""), sequence = Number(checkpoint.lastSequence);
   if (checkpoint.schemaVersion !== 1 || checkpoint.consumer !== "warehouse-canonical-events" || !Number.isSafeInteger(sequence) || sequence < 0 || !Number.isSafeInteger(eventSequence) || eventSequence < 0 || !Number.isSafeInteger(oldestSequence) || oldestSequence < 1 || !Number.isFinite(updated)) return unavailable("checkpoint_invalid");
+  const sinks = checkpoint.sinks;
+  if (!sinks || ![sinks.clickhouse, sinks.postgres, sinks.redis].every((value) => Number.isSafeInteger(value) && value >= 0)) return { ...unavailable("sink_evidence_unavailable"), sequence };
+  if ([sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) return { ...unavailable("sink_sequence_mismatch"), sequence, sinks };
   if (sequence > eventSequence) return { ...unavailable("checkpoint_ahead_of_index"), sequence };
   const lagEvents = eventSequence - sequence, ageMs = now - updated, replayHistoryLost = sequence < oldestSequence - 1, reason = ageMs < 0 ? "checkpoint_clock_skew" : replayHistoryLost ? "checkpoint_behind_replay_history" : lagEvents > maxLagEvents ? "warehouse_lag_exceeded" : ageMs > staleAfterMs ? "warehouse_checkpoint_stale" : null;
-  return { available: true, healthy: reason == null, reason, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost };
+  return { available: true, healthy: reason == null, reason, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost, sinks };
 }
 
 function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
   return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
+}
+
+function captureProcess(command, args, spawnProcess = spawn, env = process.env) {
+  return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env }); let output = "", errorText = ""; child.stdout.on("data", (chunk) => { if (output.length < 1_024) output += chunk; }); child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(output.trim()) : reject(new Error(`${command} warehouse probe failed (${code}): ${errorText.trim().slice(0, 512)}`))); });
+}
+
+export function validateWarehouseSinkSequences(expectedSequence, values) {
+  if (!Number.isSafeInteger(expectedSequence) || expectedSequence < 0) throw new Error("invalid expected warehouse sequence");
+  const sinks = {};
+  for (const name of ["clickhouse", "postgres", "redis"]) { const text = String(values?.[name] ?? "").trim(); if (!/^\d+$/.test(text)) throw new Error(`${name} warehouse sequence unavailable`); const sequence = Number(text); if (!Number.isSafeInteger(sequence) || sequence !== expectedSequence) throw new Error(`${name} warehouse sequence mismatch`); sinks[name] = sequence; }
+  return sinks;
+}
+
+export async function probeWarehouseSinks(expectedSequence, spawnProcess = spawn, env = process.env) {
+  const [clickhouse, postgres, redis] = await Promise.all([
+    captureProcess("clickhouse-client", ["--query", "SELECT toString(ifNull(max(sequence), 0)) FROM terminal_dex.canonical_events FORMAT TabSeparatedRaw"], spawnProcess, env),
+    captureProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1", "--tuples-only", "--no-align", "--quiet", "--command", "SELECT COALESCE(cursor, '') FROM ingestion_checkpoints WHERE consumer='warehouse-canonical-events'"], spawnProcess, env),
+    captureProcess("redis-cli", ["--raw", "GET", "terminal_dex:hot:current"], spawnProcess, env),
+  ]);
+  return validateWarehouseSinkSequences(expectedSequence, { clickhouse, postgres, redis });
 }
 
 export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null, postgresSql = checkpointSql(batch.toSequence), redisInput = null) {
@@ -114,15 +137,15 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
   return { synced: batch.events.length, sequence: batch.toSequence };
 }
 
-export async function writeWarehouseCheckpoint(filename, sequence) {
-  const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
+export async function writeWarehouseCheckpoint(filename, sequence, sinks) {
+  validateWarehouseSinkSequences(sequence, sinks); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, sinks, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
 }
 
 async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
   try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; } if (config.redisPasswordFile) { const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); clientEnv.REDISCLI_AUTH = password; }
-  const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); await store.load(); const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify({ ...result, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length, deadLetters: facts.deadLetters.length, tokens: Object.keys(state.mints).length, pools: Object.keys(state.pools).length, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));
+  const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); await store.load(); const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks); console.log(JSON.stringify({ ...result, sinks, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length, deadLetters: facts.deadLetters.length, tokens: Object.keys(state.mints).length, pools: Object.keys(state.pools).length, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -184,8 +184,11 @@ API keys remain required as an independent application-layer control.
 
 `npm run sync:warehouse` replays the persisted canonical event sequence into
 ClickHouse and advances the PostgreSQL ingestion checkpoint only after the
-ClickHouse client acknowledges the batch. It then atomically advances a local
-0600 checkpoint. Retries are idempotent by `(chain, sequence)`, and the worker
+ClickHouse client acknowledges the batch. It then probes ClickHouse canonical
+events, the PostgreSQL ingestion checkpoint, and the Redis hot-state pointer;
+only exact three-sink sequence agreement permits the atomic local 0600
+checkpoint to advance. Legacy local-only checkpoints fail health closed.
+Retries are idempotent by `(chain, sequence)`, and the worker
 fails closed if its checkpoint falls behind the bounded replay history, moves
 ahead of the index, or encounters a sequence gap. Database passwords remain in
 the clients' normal environment/password-file configuration and are never
