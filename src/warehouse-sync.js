@@ -233,14 +233,15 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
   const unavailable = (reason) => ({ available: false, healthy: false, reason, sequence: null, eventSequence, lagEvents: null, ageMs: null, staleAfterMs, maxLagEvents });
   if (!checkpoint) return unavailable("checkpoint_unavailable");
   const updated = Date.parse(checkpoint.updatedAt ?? ""), sequence = Number(checkpoint.lastSequence);
-  if (checkpoint.schemaVersion !== 1 || checkpoint.consumer !== "warehouse-canonical-events" || !Number.isSafeInteger(sequence) || sequence < 0 || !Number.isSafeInteger(eventSequence) || eventSequence < 0 || !Number.isSafeInteger(oldestSequence) || oldestSequence < 1 || !Number.isFinite(updated)) return unavailable("checkpoint_invalid");
+  if (checkpoint.schemaVersion !== 2 || checkpoint.consumer !== "warehouse-canonical-events" || !Number.isSafeInteger(sequence) || sequence < 0 || !Number.isSafeInteger(eventSequence) || eventSequence < 0 || !Number.isSafeInteger(oldestSequence) || oldestSequence < 1 || !Number.isFinite(updated)) return unavailable("checkpoint_invalid");
+  if (checkpoint.chain !== CHAIN || checkpoint.genesisHash !== GENESIS_HASH) return { ...unavailable("checkpoint_network_mismatch"), sequence };
   const sinks = checkpoint.sinks;
   if (!sinks || ![sinks.clickhouse, sinks.postgres, sinks.redis].every((value) => Number.isSafeInteger(value) && value >= 0)) return { ...unavailable("sink_evidence_unavailable"), sequence };
   if ([sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) return { ...unavailable("sink_sequence_mismatch"), sequence, sinks };
   const reconciliation = checkpoint.reconciliation; if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) return { ...unavailable("content_reconciliation_unavailable"), sequence, sinks };
   if (sequence > eventSequence) return { ...unavailable("checkpoint_ahead_of_index"), sequence };
   const lagEvents = eventSequence - sequence, ageMs = now - updated, replayHistoryLost = sequence < oldestSequence - 1, reason = ageMs < 0 ? "checkpoint_clock_skew" : replayHistoryLost ? "checkpoint_behind_replay_history" : lagEvents > maxLagEvents ? "warehouse_lag_exceeded" : ageMs > staleAfterMs ? "warehouse_checkpoint_stale" : null;
-  return { available: true, healthy: reason == null, reason, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost, sinks, reconciliation };
+  return { available: true, healthy: reason == null, reason, chain: checkpoint.chain, genesisHash: checkpoint.genesisHash, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost, sinks, reconciliation };
 }
 
 function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
@@ -316,7 +317,7 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
 }
 
 export async function writeWarehouseCheckpoint(filename, sequence, sinks, reconciliation) {
-  if (!Number.isSafeInteger(sequence) || sequence < 0 || !sinks || [sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) throw new Error("warehouse checkpoint sink sequence mismatch"); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 1, consumer: "warehouse-canonical-events", lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
+  if (!Number.isSafeInteger(sequence) || sequence < 0 || !sinks || [sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) throw new Error("warehouse checkpoint sink sequence mismatch"); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 2, consumer: "warehouse-canonical-events", chain: CHAIN, genesisHash: GENESIS_HASH, lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
 }
 
 async function main() {

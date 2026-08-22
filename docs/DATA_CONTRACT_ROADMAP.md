@@ -71,6 +71,9 @@ Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
 closed before restore qualification.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
+The atomic local warehouse receipt is version 2 and independently carries the
+same canonical chain and genesis hash; health, bot readiness, and recovery
+qualification reject copied, legacy, or wrong-network receipts.
 Versioned Redis hot-state stats carry the same chain and genesis identity, and
 content reconciliation rejects missing or mismatched cache identity.
 ClickHouse sequence, fact-count, and identity-digest probes are explicitly
