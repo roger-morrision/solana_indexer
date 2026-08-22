@@ -62,7 +62,7 @@ import { buildOrcaWhirlpoolSwapInstruction, createOrcaWhirlpoolSigningRequest, d
 import { buildUnsignedLegacyTransaction, decodeSimulatedTokenAccount, inspectUnsignedTransactionPrograms, simulateUnsignedTransaction, validateUnsignedTransactionBase64, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "../src/transaction-simulation.js";
 import { buildRaydiumClmmSwapV2Instruction, createRaydiumClmmSigningRequest, prepareRaydiumClmmSwapV2Simulation, simulatePreparedRaydiumClmmSwapV2, verifyFinalizedRaydiumClmmSwap, verifyRaydiumClmmSignedRequest, RAYDIUM_CLMM_EXECUTION_CONSTANTS } from "../src/raydium-clmm-execution.js";
 import { calculateTransferFeeForNetAmount, calculateTransferFeeIncludedAmount, normalizeTransferFeeConfig, selectEpochTransferFee } from "../src/token-2022-transfer-fee.js";
-import { durableAppendFile, durableAtomicWrite } from "../src/durable-file.js";
+import { durableAppendFile, durableAtomicRewriteIfUnchanged, durableAtomicWrite } from "../src/durable-file.js";
 import { shutdownIndexer } from "../src/graceful-shutdown.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, deriveTransferHookValidationAccount, POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "../src/pool-mint-evidence.js";
 import { redactDiagnostic } from "../src/diagnostic-redaction.js";
@@ -80,6 +80,10 @@ test("durable appends preserve same-process submission order", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-durable-append-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const filename = path.join(root, "nested", "audit.jsonl"), lines = Array.from({ length: 32 }, (_, index) => `${index}\n`);
   await Promise.all(lines.map((line) => durableAppendFile(filename, line)));
   assert.equal(await fs.readFile(filename, "utf8"), lines.join("")); await assert.rejects(durableAppendFile(filename, null), /invalid durable append/);
+});
+
+test("content-bound durable rewrites serialize behind appends and reject changed sources", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-durable-rewrite-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const filename = path.join(root, "audit.jsonl"), original = "original\n", digest = crypto.createHash("sha256").update(original).digest("hex"); await fs.writeFile(filename, original); await Promise.all([durableAppendFile(filename, "appended\n"), assert.rejects(durableAtomicRewriteIfUnchanged(filename, digest, "replacement\n"), /source changed/)]); assert.equal(await fs.readFile(filename, "utf8"), "original\nappended\n");
 });
 
 test("graceful shutdown drains HTTP before flushing durable audit work", async () => {
@@ -2055,8 +2059,9 @@ test("protected API fails closed after its durable audit sink fails", async (t) 
 
 test("API audit retention is tenant-aware, dry-run-first, validated, and atomic", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-api-audit-retention-")), filename = path.join(root, "audit.jsonl"), now = Date.parse("2026-08-22T00:00:00.000Z"), rows = [{ schemaVersion: 1, observedAt: "2026-08-01T00:00:00.000Z", retentionDays: 7, tenantId: "short" }, { schemaVersion: 1, observedAt: "2026-08-01T00:00:00.000Z", retentionDays: 90, tenantId: "long" }, { schemaVersion: 1, observedAt: "2026-08-21T00:00:00.000Z", tenantId: null }]; await fs.writeFile(filename, `${rows.map(JSON.stringify).join("\n")}\n`);
-  const preview = await retainApiAudit({ filename, defaultRetentionDays: 30, now }); assert.deepEqual(preview, { available: true, confirmRequired: true, retained: 2, eligible: 1, deleted: 0 }); assert.equal((await fs.readFile(filename, "utf8")).trim().split("\n").length, 3); const applied = await retainApiAudit({ filename, defaultRetentionDays: 30, now, confirm: true }); assert.equal(applied.deleted, 1); assert.deepEqual((await fs.readFile(filename, "utf8")).trim().split("\n").map(JSON.parse).map((row) => row.tenantId), ["long", null]); await fs.writeFile(filename, "not-json\n"); await assert.rejects(retainApiAudit({ filename, now, confirm: true }), /invalid audit JSON at line 1/); assert.equal(await fs.readFile(filename, "utf8"), "not-json\n");
+  const preview = await retainApiAudit({ filename, defaultRetentionDays: 30, now }); assert.equal(preview.available, true); assert.equal(preview.confirmRequired, true); assert.equal(preview.retained, 2); assert.equal(preview.eligible, 1); assert.equal(preview.deleted, 0); assert.match(preview.contentSha256, /^[0-9a-f]{64}$/); assert.equal((await fs.readFile(filename, "utf8")).trim().split("\n").length, 3); await assert.rejects(retainApiAudit({ filename, defaultRetentionDays: 30, now, confirm: true, expectedSha256: preview.contentSha256 }), /writer must be quiesced/); await fs.appendFile(filename, `${JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-21T12:00:00.000Z", tenantId: "concurrent" })}\n`); await assert.rejects(retainApiAudit({ filename, defaultRetentionDays: 30, now, confirm: true, writerQuiesced: true, expectedSha256: preview.contentSha256 }), /source digest changed/); const refreshed = await retainApiAudit({ filename, defaultRetentionDays: 30, now }), applied = await retainApiAudit({ filename, defaultRetentionDays: 30, now, confirm: true, writerQuiesced: true, expectedSha256: refreshed.contentSha256 }); assert.equal(applied.deleted, 1); assert.deepEqual((await fs.readFile(filename, "utf8")).trim().split("\n").map(JSON.parse).map((row) => row.tenantId), ["long", null, "concurrent"]); await fs.writeFile(filename, "not-json\n"); await assert.rejects(retainApiAudit({ filename, now, confirm: true }), /invalid audit JSON at line 1/); assert.equal(await fs.readFile(filename, "utf8"), "not-json\n");
   await fs.writeFile(filename, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-01T00:00:00Z" })); await assert.rejects(retainApiAudit({ filename, now, confirm: true }), /invalid audit record at line 1/);
+  await assert.rejects(retainApiAudit({ filename, now: Number.NaN }), /invalid audit retention time/);
 });
 
 test("commercial sync deterministically upserts hash-only tenants and hourly usage", () => {

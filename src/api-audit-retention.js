@@ -1,18 +1,21 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
-import { durableAtomicWrite } from "./durable-file.js";
+import { durableAtomicRewriteIfUnchanged } from "./durable-file.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
-export async function retainApiAudit({ filename, defaultRetentionDays = 30, now = Date.now(), confirm = false }) {
-  if (!filename) throw new Error("API audit log file is required"); if (!Number.isInteger(defaultRetentionDays) || defaultRetentionDays < 1 || defaultRetentionDays > 3_650) throw new Error("invalid default audit retention days");
-  let text; try { text = await fs.readFile(filename, "utf8"); } catch (error) { if (error.code === "ENOENT") return { available: false, confirmRequired: true, retained: 0, eligible: 0, deleted: 0 }; throw error; }
+export async function retainApiAudit({ filename, defaultRetentionDays = 30, now = Date.now(), confirm = false, expectedSha256 = null, writerQuiesced = false }) {
+  if (!filename) throw new Error("API audit log file is required"); if (!Number.isInteger(defaultRetentionDays) || defaultRetentionDays < 1 || defaultRetentionDays > 3_650) throw new Error("invalid default audit retention days"); if (!Number.isSafeInteger(now) || now < 0 || now > 8_640_000_000_000_000) throw new Error("invalid audit retention time");
+  let content; try { content = await fs.readFile(filename); } catch (error) { if (error.code === "ENOENT") return { available: false, confirmRequired: true, retained: 0, eligible: 0, deleted: 0 }; throw error; }
+  const text = content.toString("utf8"), contentSha256 = crypto.createHash("sha256").update(content).digest("hex");
   const lines = text.split(/\r?\n/).filter(Boolean), retained = [], eligible = [];
   for (let index = 0; index < lines.length; index++) { let row; try { row = JSON.parse(lines[index]); } catch { throw new Error(`invalid audit JSON at line ${index + 1}`); } const observed = parseCanonicalUtcTimestamp(row?.observedAt), retentionDays = row?.retentionDays ?? defaultRetentionDays; if (row?.schemaVersion !== 1 || observed == null || !Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 3_650) throw new Error(`invalid audit record at line ${index + 1}`); if (observed + retentionDays * 86_400_000 <= now) eligible.push(lines[index]); else retained.push(lines[index]); }
-  if (confirm && eligible.length) await durableAtomicWrite(filename, retained.length ? `${retained.join("\n")}\n` : "");
-  return { available: true, confirmRequired: !confirm, retained: retained.length, eligible: eligible.length, deleted: confirm ? eligible.length : 0 };
+  if (confirm && (!writerQuiesced || expectedSha256 !== contentSha256)) throw new Error(!writerQuiesced ? "audit writer must be quiesced before deletion" : "audit retention source digest changed");
+  if (confirm && eligible.length) await durableAtomicRewriteIfUnchanged(filename, expectedSha256, retained.length ? `${retained.join("\n")}\n` : "");
+  return { available: true, confirmRequired: !confirm, contentSha256, retained: retained.length, eligible: eligible.length, deleted: confirm ? eligible.length : 0 };
 }
 
-async function main() { const config = loadConfig(), confirm = process.argv.includes("--confirm-delete"), result = await retainApiAudit({ filename: config.auditLogFile, defaultRetentionDays: config.auditRetentionDays, confirm }); if (!confirm) console.warn("dry run only; pass --confirm-delete after reviewing eligible records"); console.log(JSON.stringify(result, null, 2)); }
+async function main() { const config = loadConfig(), confirm = process.argv.includes("--confirm-delete"), writerQuiesced = process.argv.includes("--writer-quiesced"), expectedSha256 = process.argv.find((value) => value.startsWith("--expected-sha256="))?.slice("--expected-sha256=".length) ?? null, result = await retainApiAudit({ filename: config.auditLogFile, defaultRetentionDays: config.auditRetentionDays, confirm, writerQuiesced, expectedSha256 }); if (!confirm) console.warn("dry run only; stop the API writer, then pass --confirm-delete --writer-quiesced and the reviewed --expected-sha256 digest"); console.log(JSON.stringify(result, null, 2)); }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

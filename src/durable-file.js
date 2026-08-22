@@ -47,6 +47,15 @@ export function durableAtomicWrite(filename, data, { mode = 0o600 } = {}) {
   return enqueue(filename, () => writeDurably(filename, data, mode));
 }
 
+export function durableAtomicRewriteIfUnchanged(filename, expectedSha256, data, { mode = 0o600 } = {}) {
+  if (typeof filename !== "string" || !filename || !/^[0-9a-f]{64}$/.test(expectedSha256 ?? "") || (!Buffer.isBuffer(data) && typeof data !== "string") || !Number.isInteger(mode) || mode < 0 || mode > 0o777) return Promise.reject(new Error("invalid content-bound atomic rewrite"));
+  return enqueue(filename, async () => {
+    const current = await fs.readFile(filename), actualSha256 = crypto.createHash("sha256").update(current).digest("hex");
+    if (actualSha256 !== expectedSha256) throw new Error("durable rewrite source changed");
+    await writeDurably(filename, data, mode);
+  });
+}
+
 async function writeDirect(filename, data, mode, flags) {
   const directory = path.dirname(filename); await fs.mkdir(directory, { recursive: true }); const handle = await fs.open(filename, flags, mode);
   try { await handle.writeFile(data); await handle.sync(); } finally { await handle.close(); }

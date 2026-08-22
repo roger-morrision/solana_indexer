@@ -303,7 +303,9 @@ once. Scheduled workers must use this mode to avoid cross-process lost updates.
 Every snapshot artifact uses the shared crash-durable publication boundary
 before the serialized indexer can observe it. Backup preflight evidence, inbox
 manifests/archive receipts, verified compressed inbox copies, and confirmed
-audit-retention replacements use the same boundary.
+audit-retention replacements use the same boundary. Audit deletion additionally
+binds the reviewed source digest and requires the API writer to be quiesced, so
+newly appended records cannot be replaced by an older retention snapshot.
 Append-only commercial audit records are serialized and synchronized before
 their write is acknowledged internally, while recovery qualification reports
 retain exclusive-create semantics and synchronize both contents and directory
@@ -958,7 +960,7 @@ not live market data, and is never ingested by production commands.
 - `npm run reconcile:dead-letters` previews historical dead letters eligible for exact-checkpoint reconciliation. Use `-- --confirm` only after reviewing the IDs; the command never retries or rewrites raw events.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
 - `npm run retention:inbox` previews old raw inbox files eligible for deletion. It only selects parser-v2 checkpointed files whose current SHA-256 matches both the checkpoint and the last successfully uploaded self-hosted archive receipt, and excludes unresolved dead letters. `ops/backup.sh` installs that receipt only after the manifest and archive uploads succeed. Rerun with `-- --confirm-delete`; deletion is never implicit.
-- `npm run retention:audit` validates every JSONL audit record and previews tenant-aware expiration. Rerun with `-- --confirm-delete` only after review; the retained log is replaced atomically and malformed input blocks all deletion.
+- `npm run retention:audit` validates every JSONL audit record and previews tenant-aware expiration with an exact `contentSha256`. Stop the API writer, then rerun with `-- --confirm-delete --writer-quiesced --expected-sha256=<reviewed-digest>`; changed content, missing quiescence, or malformed input blocks all deletion, and the retained log is replaced durably.
 - `npm run sync:commercial` validates the complete retained audit log, aggregates tenant usage by UTC hour/route/status class, and transactionally upserts the reviewed hash-only registry and usage into PostgreSQL. It invokes `psql` with fixed arguments, a terminating deadline, bounded/redacted diagnostics, graceful termination followed by bounded force-kill escalation, and inherited `PG*`/`.pgpass` configuration so credentials never appear in process arguments or output. Leased operational snapshot subprocesses use the same bounded execution contract and retain their existing lease-loss and retry semantics.
 - Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.
 - The version-2 bot-readiness endpoint returns HTTP 503 until canonical finalized provenance, decoded swaps, liquidity, prices, and risk signals are all available, the index is healthy, durable exporter evidence is fresh, and the verified ClickHouse/PostgreSQL/Redis warehouse receipt is exactly converged at zero event lag. The operator warehouse endpoint may remain healthy within its configured bounded-lag tolerance, but that tolerance never unlocks automation.
