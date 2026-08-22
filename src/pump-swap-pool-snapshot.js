@@ -1,4 +1,11 @@
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+import { loadConfig } from "./config.js";
+import { IndexStore } from "./store.js";
+import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 
 export const PUMP_SWAP_PROGRAM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
@@ -35,3 +42,7 @@ export async function createPumpSwapPoolSnapshot({ client, pools, genesisHash, o
   decoded.forEach((row, index) => { const first = parsedVault(vaultResponse.value[index * 2], row.tokenMint0, `PumpSwap pool ${row.address} base vault`), second = parsedVault(vaultResponse.value[index * 2 + 1], row.tokenMint1, `PumpSwap pool ${row.address} quote vault`); row.tokenProgram0 = first.tokenProgram; row.tokenProgram1 = second.tokenProgram; row.vaultAuthority0 = first.authority; row.vaultAuthority1 = second.authority; row.vault0AmountRaw = first.amountRaw; row.vault1AmountRaw = second.amountRaw; row.mintDecimals0 = first.decimals; row.mintDecimals1 = second.decimals; });
   return { schemaVersion: 1, type: "pump_swap_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
 }
+
+async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
+async function main() { const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"), pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "pump-swap").map(([address]) => address); if (!pools.length) throw new Error("no PumpSwap pools supplied or discovered"); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected), snapshot = await createPumpSwapPoolSnapshot({ client, pools, genesisHash }); if (!artifactOnly) { store.applyPumpSwapPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.pumpSwapPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly })); }
+const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

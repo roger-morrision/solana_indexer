@@ -643,6 +643,9 @@ exact quote execution remain unsupported and therefore fail closed.
 Validated artifacts import content-addressedly into canonical `pump-swap`
 constant-product pool state, reject conflicting evidence at the same finalized
 slot, and emit the shared replayable warehouse/WebSocket sequence.
+Run `npm run snapshot:pump-swap-pools -- <POOL_ADDRESS...>` against the loopback
+validator. Missing or stale canonical PumpSwap pools are scheduled through the
+same leased, bounded-retry artifact-only operational worker.
 
 ## Operational safety
 
