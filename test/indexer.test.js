@@ -516,9 +516,10 @@ test("rejects noncanonical block identity and duplicate transactions", () => {
 
 test("rejects malformed or internally inconsistent block provenance", async () => {
   const input = { slot: 118, blockhash: "block-118", previousBlockhash: "block-117", parentSlot: 117, blockTime: 1_700_000_018, transactions: [], provenance: { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00Z", sourceTip: 120, exportLagSlots: 2 } };
-  assert.deepEqual(parseBlock(input).provenance, { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00.000Z", sourceTip: 120, exportLagSlots: 2 });
+  assert.deepEqual(parseBlock(input).provenance, { source: "local-rpc", genesisHash: null, commitment: "finalized", observedAt: "2026-08-22T00:00:00.000Z", sourceTip: 120, exportLagSlots: 2 });
   const invalid = [
     [{ source: " " }, /provenance.source/],
+    [{ genesisHash: " " }, /provenance.genesisHash/],
     [{ commitment: "processed" }, /provenance.commitment/],
     [{ observedAt: "not-a-date" }, /provenance.observedAt/],
     [{ sourceTip: 117 }, /provenance.sourceTip/],
@@ -528,9 +529,9 @@ test("rejects malformed or internally inconsistent block provenance", async () =
     [{ sourceTip: 120, exportLagSlots: 1 }, /inconsistent/],
   ];
   for (const [replacement, error] of invalid) assert.throws(() => parseBlock({ ...input, provenance: { ...input.provenance, ...replacement } }), error);
-  assert.deepEqual(parseBlock({ ...input, provenance: undefined }).provenance, { source: "unknown", commitment: "unknown", observedAt: null, sourceTip: null, exportLagSlots: null });
+  assert.deepEqual(parseBlock({ ...input, provenance: undefined }).provenance, { source: "unknown", genesisHash: null, commitment: "unknown", observedAt: null, sourceTip: null, exportLagSlots: null });
   const swapInput = JSON.parse(await fs.readFile(fixture, "utf8")); swapInput.provenance = { ...swapInput.provenance, source: " local-agave-rpc ", observedAt: "2023-11-14T22:13:20.1Z", sourceTip: 101, exportLagSlots: 1 };
-  const parsed = parseBlock(swapInput); assert.deepEqual(parsed.swaps[0].provenance, parsed.provenance); assert.deepEqual(parsed.provenance, { source: "local-agave-rpc", commitment: "finalized", observedAt: "2023-11-14T22:13:20.100Z", sourceTip: 101, exportLagSlots: 1 });
+  const parsed = parseBlock(swapInput); assert.deepEqual(parsed.swaps[0].provenance, parsed.provenance); assert.deepEqual(parsed.provenance, { source: "local-agave-rpc", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", observedAt: "2023-11-14T22:13:20.100Z", sourceTip: 101, exportLagSlots: 1 });
 });
 
 test("canonical finalized account snapshots persist complete holder and authority evidence", async () => {
@@ -927,6 +928,14 @@ test("health rejects future canonical block timestamps", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString(); const result = store.health(120_000, block.blockTime * 1_000 - 1); assert.equal(result.healthy, false); assert.equal(result.status, "clock_skew"); assert.equal(result.reason, "latest_block_time_is_in_future"); assert.equal(result.ageMs, -1);
 });
 
+test("health and bot capabilities require block-bound mainnet identity", async () => {
+  const input = JSON.parse(await fs.readFile(fixture, "utf8"));
+  for (const genesisHash of [undefined, "private-development-genesis"]) {
+    const store = new IndexStore("unused"); await store.load(); input.provenance = { ...input.provenance, genesisHash }; store.apply(parseBlock(input)); store.state.updatedAt = new Date(input.blockTime * 1_000).toISOString();
+    const health = store.health(120_000, input.blockTime * 1_000); assert.deepEqual({ healthy: health.healthy, status: health.status, reason: health.reason }, { healthy: false, status: "wrong_network", reason: "indexed_block_mainnet_identity_missing_or_invalid" }); assert.equal(store.dataCapabilities(120_000, input.blockTime * 1_000).mainnetIdentity, false);
+  }
+});
+
 test("health fails closed when indexed parent hashes conflict", async () => {
   const store = new IndexStore("unused"); await store.load();
   const original = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
@@ -1013,7 +1022,7 @@ test("validator stream rotates unique loopback endpoints and attributes active-n
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-failover-")), scheduled = []; class FakeSocket { static endpoints = []; constructor(endpoint) { this.readyState = 1; FakeSocket.endpoints.push(endpoint); } send() {} close() {} }
   const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: {}, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: FakeSocket, scheduleReconnect: (callback, delay) => scheduled.push([callback, delay]) });
   stream.connect(); const primary = stream.socket; primary.onclose(); assert.equal(scheduled.length, 1); assert.equal(scheduled[0][1], 500); scheduled[0][0](); assert.deepEqual(FakeSocket.endpoints, ["ws://127.0.0.1:8900/", "ws://127.0.0.1:8901/"]);
-  await stream.persistBlock("finalized", 42, { blockhash: "block-42" }, 42); const stored = JSON.parse(await fs.readFile(path.join(root, "inbox", "42.finalized.json"), "utf8")); assert.equal(stored.provenance.source, "local-agave-pubsub-2"); await stream.persistBlock("finalized", 43, { blockhash: "block-43" }, 43, "local-agave-pubsub-1"); const queued = JSON.parse(await fs.readFile(path.join(root, "inbox", "43.finalized.json"), "utf8")); assert.equal(queued.provenance.source, "local-agave-pubsub-1");
+  stream.genesisHash = MAINNET_GENESIS_HASH; await stream.persistBlock("finalized", 42, { blockhash: "block-42" }, 42); const stored = JSON.parse(await fs.readFile(path.join(root, "inbox", "42.finalized.json"), "utf8")); assert.deepEqual({ source: stored.provenance.source, genesisHash: stored.provenance.genesisHash }, { source: "local-agave-pubsub-2", genesisHash: MAINNET_GENESIS_HASH }); await stream.persistBlock("finalized", 43, { blockhash: "block-43" }, 43, "local-agave-pubsub-1"); const queued = JSON.parse(await fs.readFile(path.join(root, "inbox", "43.finalized.json"), "utf8")); assert.equal(queued.provenance.source, "local-agave-pubsub-1");
   assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8900/"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /unique/); assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "wss://example.com"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /must use ws/);
 });
 
@@ -1053,13 +1062,13 @@ test("validator stream never records an unavailable produced block as skipped", 
 
 test("exporter records finalized provenance, lag, and skipped slots", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-"));
-  const client = { call: async (method, params) => method === "getSlot" ? 12 : method === "getBlocks" ? [10] : { blockhash: `block-${params[0]}`, previousBlockhash: "parent", parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] } };
+  const client = { assertGenesis: async () => MAINNET_GENESIS_HASH, call: async (method, params) => method === "getSlot" ? 12 : method === "getBlocks" ? [10] : { blockhash: `block-${params[0]}`, previousBlockhash: "parent", parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] } };
   await fs.writeFile(path.join(root, "cursor"), "9\n");
   const statusFile = path.join(root, "status.json");
-  const result = await exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile: path.join(root, "cursor"), statusFile, batchSize: 2 });
+  const result = await exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile: path.join(root, "cursor"), statusFile, batchSize: 2, expectedGenesisHash: MAINNET_GENESIS_HASH });
   assert.deepEqual(result, { localValidatorTip: 12, cursor: 11, lagSlots: 1, exported: 1, skipped: 1, skippedSlots: [11] });
   const block = JSON.parse(await fs.readFile(path.join(root, "inbox", "10.json"), "utf8"));
-  assert.deepEqual({ source: block.provenance.source, commitment: block.provenance.commitment, sourceTip: block.provenance.sourceTip, exportLagSlots: block.provenance.exportLagSlots }, { source: "local-agave-rpc", commitment: "finalized", sourceTip: 12, exportLagSlots: 2 });
+  assert.deepEqual({ source: block.provenance.source, genesisHash: block.provenance.genesisHash, commitment: block.provenance.commitment, sourceTip: block.provenance.sourceTip, exportLagSlots: block.provenance.exportLagSlots }, { source: "local-agave-rpc", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", sourceTip: 12, exportLagSlots: 2 });
   const status = JSON.parse(await fs.readFile(statusFile, "utf8"));
   assert.deepEqual({ commitment: status.commitment, lagSlots: status.lagSlots, durableSkippedSlots: status.durableSkippedSlots, failures: status.consecutiveFailures, error: status.lastError }, { commitment: "finalized", lagSlots: 1, durableSkippedSlots: [11], failures: 0, error: null });
 });
@@ -1423,7 +1432,7 @@ test("pool risk and bot readiness require explicit mature two-way finalized evid
   const eventStore = new IndexStore("unused"); await eventStore.load(); eventStore.apply(block); const freshEventRisk = eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 60) * 1_000), freshEventLiquidity = freshEventRisk.liquidity; assert.equal(freshEventLiquidity.assessable, true); assert.equal(freshEventLiquidity.eventEvidence.fresh, true); assert.equal(freshEventLiquidity.executionEvidenceComplete, false); assert.ok(freshEventRisk.blockers.includes("execution_snapshot_incomplete")); const staleEventLiquidity = eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 180) * 1_000); assert.equal(staleEventLiquidity.liquidity.assessable, false); assert.equal(staleEventLiquidity.liquidity.stale, true); assert.ok(staleEventLiquidity.blockers.includes("liquidity_state_stale"));
   eventStore.state.pools["pool-address"].accountSnapshot = withLegacyMintEvidence({ commitment: "finalized", stateSlot: 120, configSlot: 121, balanceSlot: 121, ammConfigSlot: 121, status: 0, openTime: "0", observedAt: new Date((block.blockTime + 60) * 1_000).toISOString(), tokenMint0: "mint-address", tokenMint1: "quote-mint", tokenProgram0: SPL_TOKEN_PROGRAM, tokenProgram1: SPL_TOKEN_PROGRAM, mintDecimals0: 6, mintDecimals1: 6, vault0AmountRaw: "1000", vault1AmountRaw: "2000" }, 122); const executionBoundRisk = eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 60) * 1_000); assert.equal(executionBoundRisk.liquidity.executionEvidenceComplete, true); assert.equal(executionBoundRisk.blockers.includes("execution_snapshot_incomplete"), false); eventStore.state.pools["pool-address"].accountSnapshot.status = 4; assert.ok(eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 60) * 1_000).blockers.includes("execution_snapshot_incomplete")); eventStore.state.pools["pool-address"].accountSnapshot.status = "0"; assert.ok(eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 60) * 1_000).blockers.includes("execution_snapshot_incomplete")); eventStore.state.pools["pool-address"].accountSnapshot.status = 0; eventStore.state.pools["pool-address"].accountSnapshot.openTime = "corrupt"; assert.doesNotThrow(() => eventStore.botReadiness(120_000, (block.blockTime + 60) * 1_000, "pool-address")); assert.ok(eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 60) * 1_000).blockers.includes("execution_snapshot_incomplete")); eventStore.state.pools["pool-address"].accountSnapshot.openTime = "0"; eventStore.state.pools["pool-address"].accountSnapshot.mint1Evidence.epoch = 3; assert.ok(eventStore.poolRisk("pool-address", 120_000, (block.blockTime + 60) * 1_000).blockers.includes("execution_snapshot_incomplete"));
   store.state.blocks["119"] = { blockTime: 1_700_000_019, provenance: { commitment: "finalized" } }; store.state.tip = 119; store.state.updatedAt = new Date(now).toISOString(); store.state.pools["pool-address"] = { swapCount: 20 };
-  const readiness = store.botReadiness(120_000, now, "pool-address"); assert.equal(readiness.ready, false); assert.deepEqual(readiness.missing, ["riskSignals", "independentUsdReference"]);
+  const readiness = store.botReadiness(120_000, now, "pool-address"); assert.equal(readiness.ready, false); assert.deepEqual(readiness.missing, ["mainnetIdentity", "riskSignals", "independentUsdReference"]);
 });
 
 test("pool manipulation risk detects exact notional concentration and burst patterns", async () => {

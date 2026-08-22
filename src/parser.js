@@ -535,6 +535,7 @@ export function parseBlock(block) {
   }
   const suppliedProvenance = block.provenance ?? {};
   if (Object.hasOwn(suppliedProvenance, "source") && (typeof suppliedProvenance.source !== "string" || !suppliedProvenance.source.trim())) throw new Error("provenance.source must be a non-empty string");
+  if (suppliedProvenance.genesisHash != null && (typeof suppliedProvenance.genesisHash !== "string" || !suppliedProvenance.genesisHash.trim())) throw new Error("provenance.genesisHash must be a non-empty string");
   if (Object.hasOwn(suppliedProvenance, "commitment") && !["unknown", "confirmed", "finalized"].includes(suppliedProvenance.commitment)) throw new Error("provenance.commitment must be unknown, confirmed, or finalized");
   const observedAtMs = suppliedProvenance.observedAt == null ? null : Date.parse(suppliedProvenance.observedAt);
   if (suppliedProvenance.observedAt != null && (typeof suppliedProvenance.observedAt !== "string" || !Number.isFinite(observedAtMs))) throw new Error("provenance.observedAt must be a valid timestamp");
@@ -543,6 +544,7 @@ export function parseBlock(block) {
   if (suppliedProvenance.sourceTip != null && suppliedProvenance.exportLagSlots != null && suppliedProvenance.sourceTip - block.slot !== suppliedProvenance.exportLagSlots) throw new Error("provenance source tip and export lag are inconsistent");
   const provenance = {
     source: suppliedProvenance.source?.trim() || "unknown",
+    genesisHash: suppliedProvenance.genesisHash?.trim() || null,
     commitment: suppliedProvenance.commitment ?? "unknown",
     observedAt: observedAtMs == null ? null : new Date(observedAtMs).toISOString(),
     sourceTip: suppliedProvenance.sourceTip ?? null,

@@ -113,7 +113,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   for (let slot = cursor + 1; slot <= end; slot++) {
     if (!produced.has(slot)) { skippedSlots.push(slot); await durableAtomicWrite(cursorFile, `${slot}\n`); continue; }
     const { block, source } = produced.get(slot);
-    const provenance = { source, commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
+    const provenance = { source, genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
     await durableAtomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
     await durableAtomicWrite(cursorFile, `${slot}\n`);
   }

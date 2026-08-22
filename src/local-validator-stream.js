@@ -79,7 +79,7 @@ export class LocalValidatorStream {
     this.metrics.skippedSlots = [...new Set(this.metrics.skippedSlots)].sort((a, b) => a - b).slice(-10_000);
   }
   async persistBlock(commitment, slot, block, sourceTip, source = this.provenanceSource) {
-    const provenance = { source, commitment, observedAt: new Date().toISOString(), sourceTip, exportLagSlots: Math.max(0, sourceTip - slot) };
+    const provenance = { source, genesisHash: this.genesisHash, commitment, observedAt: new Date().toISOString(), sourceTip, exportLagSlots: Math.max(0, sourceTip - slot) };
     await atomicWrite(path.join(this.inbox, `${slot}.${commitment}.json`), { slot, ...block, provenance });
   }
   async writeStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) {
