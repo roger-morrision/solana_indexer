@@ -348,10 +348,12 @@ curve reserves, or Pump's exact-spend buy formula when `side=buy`, and rounds
 protocol and creator fees upward independently. `side` defaults to `sell` for
 backward compatibility; other values return `400`.
 The result is deliberately `executable: false` and `safeForAutomation: false`.
-The Orca/Meteora preparation endpoint independently requotes the persisted fresh
-finalized snapshot and accepts explicit user/token accounts, amount and tick
-bounds, recent blockhash, pre-balances, and optional Meteora hash-bound
-transfer-hook evidence.
+Authenticated `POST /internal/tokens/:mint/prepare-swap` accepts the same side,
+independently obtains the current fail-closed route quote, and returns only an
+unsigned Pump V2 simulation artifact. Pool preparation likewise independently
+requotes persisted finalized evidence. Both contracts require explicit user and
+token accounts, bounds, recent blockhash and pre-balances; neither signs nor
+submits transactions.
 It returns a deterministic unsigned simulation preparation plus explicit next
 steps; it never calls simulation, signs, or submits, and request bodies are
 bounded to 512 KiB.
