@@ -45,10 +45,10 @@ import { reducedPreflight } from "../src/reduced-preflight.js";
 import { compileHolderExclusions, holderExclusionContentSha256 } from "../src/holder-exclusions.js";
 import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
-import { buildCommercialSyncSql } from "../src/postgres-commercial-sync.js";
+import { buildCommercialSyncSql, runCommercialSync } from "../src/postgres-commercial-sync.js";
 import { assertWarehousePublicationState, assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileWarehouseBatch, compileWarehouseCandles, compileWarehouseFacts, compileWarehouseMetadataSql, compileWarehouseProjections, expectedWarehouseReconciliation, probeWarehouseReconciliation, probeWarehouseSinks, syncWarehouseBatch, validateWarehouseReconciliation, validateWarehouseSinkSequences, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
 import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis-quota.js";
-import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
+import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalCommand, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT, watchUsdDepegReference } from "../src/usd-depeg-reference.js";
 import { createUsdDepegReference, decodePythPriceUpdateV2 } from "../src/usdc-oracle-snapshot.js";
 import { assertSnapshotAcquisitionAllowed } from "../src/snapshot-cli-policy.js";
@@ -2052,6 +2052,15 @@ test("bounded subprocesses terminate stalled sink commands", async () => {
   const pending = runBoundedProcess({ command: "sink-cli", input: "payload", timeoutMs: 1_000, spawnProcess: () => child, schedule: (callback, delay) => { scheduled.push([callback, delay]); return "timer"; }, cancel: (timer) => cancelled.push(timer) }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0]();
   await assert.rejects(pending, /sink-cli timed out after 1000ms/); assert.deepEqual(killed, ["SIGTERM"]); assert.deepEqual(cancelled, ["timer"]); listeners.close?.(0);
   assert.throws(() => runBoundedProcess({ command: "sink-cli", timeoutMs: 999 }), /configuration is invalid/);
+});
+
+test("commercial and operational commands inherit bounded redacted execution", async () => {
+  const stalled = () => {
+    const scheduled = [], killed = [], child = { stderr: { on(name, handler) { if (name === "data") handler(Buffer.from("token=secret https://provider.invalid/private")); } }, stdin: { end() {} }, on() {}, kill(signal) { killed.push(signal); } };
+    return { child, killed, options: { timeoutMs: 1_000, schedule: (callback) => { scheduled.push(callback); return "timer"; }, cancel() {} }, expire() { scheduled[0](); } };
+  };
+  const commercial = stalled(), commercialPending = runCommercialSync("BEGIN;", () => commercial.child, commercial.options); commercial.expire(); await assert.rejects(commercialPending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|provider\.invalid/.test(error.message)); assert.deepEqual(commercial.killed, ["SIGTERM"]);
+  const operational = stalled(), operationalPending = runOperationalCommand("snapshot-cli", [], null, () => operational.child, false, operational.options); operational.expire(); await assert.rejects(operationalPending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|provider\.invalid/.test(error.message)); assert.deepEqual(operational.killed, ["SIGTERM"]);
 });
 
 test("warehouse sync is ordered, retry-safe, and checkpoints only after both sinks", async () => {

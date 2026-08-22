@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { loadApiTenants } from "./api-tenants.js";
 import { loadConfig } from "./config.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { runBoundedProcess } from "./bounded-process.js";
+import { redactDiagnostic } from "./diagnostic-redaction.js";
 
 function literal(value) { return value == null ? "NULL" : `'${String(value).replaceAll("'", "''")}'`; }
 function values(rows) { return rows.map((row) => `(${row.join(", ")})`).join(",\n"); }
@@ -16,8 +18,9 @@ export function buildCommercialSyncSql(registry, auditText) {
   return `BEGIN;\nINSERT INTO api_tenants (tenant_id, plan, status, rate_limit_per_minute, retention_days) VALUES\n${values(tenants)}\nON CONFLICT (tenant_id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status, rate_limit_per_minute = EXCLUDED.rate_limit_per_minute, retention_days = EXCLUDED.retention_days, updated_at = now();\nINSERT INTO api_key_hashes (key_hash, tenant_id, activates_at, expires_at) VALUES\n${values(keys)}\nON CONFLICT (key_hash) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, activates_at = EXCLUDED.activates_at, expires_at = EXCLUDED.expires_at;\n${usageRows.length ? `INSERT INTO api_usage_hourly (tenant_id, bucket_start, route, status_class, requests, duration_ms) VALUES\n${values(usageRows)}\nON CONFLICT (tenant_id, bucket_start, route, status_class) DO UPDATE SET requests = EXCLUDED.requests, duration_ms = EXCLUDED.duration_ms;\n` : ""}COMMIT;\n`;
 }
 
-export async function runCommercialSync(sql, spawnProcess = spawn) {
-  return new Promise((resolve, reject) => { const child = spawnProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"] }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`psql commercial sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(sql); });
+export async function runCommercialSync(sql, spawnProcess = spawn, processOptions = {}) {
+  try { await runBoundedProcess({ command: "psql", args: ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], input: sql, spawnProcess, timeoutMs: 300_000, label: "psql commercial sync", ...processOptions }); }
+  catch (error) { throw new Error(redactDiagnostic(error, "commercial sync failed")); }
 }
 
 async function main() { const config = loadConfig(), registry = await loadApiTenants(config.apiTenantsFile); if (!config.auditLogFile) throw new Error("INDEXER_AUDIT_LOG_FILE is required"); const auditText = await fs.readFile(config.auditLogFile, "utf8"), sql = buildCommercialSyncSql(registry, auditText); await runCommercialSync(sql); console.log(JSON.stringify({ tenants: registry.tenants.length, auditRecords: auditText.split(/\r?\n/).filter(Boolean).length, synced: true })); }
