@@ -354,6 +354,11 @@ unsigned Pump V2 simulation artifact. Pool preparation likewise independently
 requotes persisted finalized evidence. Both contracts require explicit user and
 token accounts, bounds, recent blockhash and pre-balances; neither signs nor
 submits transactions.
+`GET /internal/execution-policy` publishes the versioned external handoff
+contract. Each preparation response embeds a hash-bound copy covering the
+preparation, unsigned message and transaction identities, finalized simulation,
+explicit signer approval, expiry/amount/slippage limits, external submission,
+and finalized landed-message verification.
 It returns a deterministic unsigned simulation preparation plus explicit next
 steps; it never calls simulation, signs, or submits, and request bodies are
 bounded to 512 KiB.
