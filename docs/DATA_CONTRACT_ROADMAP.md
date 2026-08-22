@@ -66,6 +66,13 @@ no simulation, signing, or submission.
 
 Phase 9 warehouse batches preserve explicitly untrusted off-chain metadata events without promoting them to canonical chain evidence: only the metadata snapshot event type accepts the `offchain_untrusted` commitment and its exact source identity, while every other event remains restricted to confirmed/finalized provenance. Zero-event synchronization cycles still reconcile canonical dead letters, PostgreSQL projections/jobs/checkpoints and versioned Redis hot state, so TTL expiry or partial sink loss self-heals without waiting for unrelated chain activity. Redis rebuilds atomically cover deletion, complete hash population, stats/TTL updates, event publication and the current-version pointer, including same-sequence repair. PostgreSQL token projections and warehouse checkpoints now use the same canonical `solana-mainnet` chain identity as reconciliation.
 
+Retained WebSocket replay is revalidated after reload before any ready/event
+frame is emitted: sequences must be contiguous through the persisted high-water
+mark, clocks must be representable, event types recognized, canonical block
+events mainnet-bound, finalized snapshot sources exact, and off-chain metadata
+explicitly untrusted. Invalid retained evidence receives `resync_required` and
+policy close instead of being broadcast.
+
 Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
 `solana-mainnet` identity; wrong-network and legacy generic-chain artifacts fail
 closed before restore qualification.
