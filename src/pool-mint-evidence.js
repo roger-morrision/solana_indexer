@@ -15,6 +15,7 @@ export async function acquirePoolMintEvidence(client, pools, minContextSlot) {
   for (let index = 0; index < mints.length; index++) {
     const mint = mints[index], account = response.value[index], info = account?.data?.parsed?.info;
     if (!TOKEN_PROGRAMS.has(account?.owner) || !Number.isInteger(info?.decimals) || info.decimals < 0 || info.decimals > 255 || !/^\d+$/.test(info?.supply ?? "")) throw new Error(`pool mint ${mint} evidence is invalid`);
+    if (account.owner === TOKEN_2022_PROGRAM && !Array.isArray(info.extensions)) throw new Error(`pool mint ${mint} extension inventory is invalid`);
     const extensionTypes = account.owner === TOKEN_2022_PROGRAM ? info.extensions.map((extension) => extension?.extension) : [];
     if (extensionTypes.some((type) => typeof type !== "string" || !type) || new Set(extensionTypes).size !== extensionTypes.length) throw new Error(`pool mint ${mint} extension inventory is invalid`);
     byMint.set(mint, { schemaVersion: 1, mint, programId: account.owner, commitment: "finalized", slot, epoch, decimals: info.decimals, extensionTypes: extensionTypes.sort(), token2022Evidence: extractToken2022MintEvidence(account, epoch, slot) });
