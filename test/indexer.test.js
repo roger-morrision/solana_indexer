@@ -47,6 +47,7 @@ import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT, watchUsdDepegReference } from "../src/usd-depeg-reference.js";
 import { createUsdDepegReference, decodePythPriceUpdateV2 } from "../src/usdc-oracle-snapshot.js";
+import { assertSnapshotAcquisitionAllowed } from "../src/snapshot-cli-policy.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
 import { fetchOffchainTokenMetadata, normalizeOffchainTokenMetadata } from "../src/offchain-token-metadata.js";
 import { createOffchainMetadataSnapshot } from "../src/offchain-metadata-snapshot.js";
@@ -1675,6 +1676,7 @@ test("restart quarantines invalid JSON without disclosing or replacing its conte
   assert.deepEqual(store.structureQuality(), { canonical: false, reason: "indexed_state_json_invalid", fields: [] }); assert.equal(store.health().reason, "indexed_state_json_invalid"); assert.throws(() => store.recordDeadLetter("input", "hash", "failure"), /index state is quarantined/); await assert.rejects(store.save(), /index state is quarantined/); assert.equal(await fs.readFile(filename, "utf8"), original); assert.doesNotMatch(JSON.stringify(store.loadFailure), /privateProviderToken|do-not-log/);
   await assert.rejects(indexInbox({ inbox }, store), (error) => error.code === "INDEX_STATE_QUARANTINED" && error.reason === "indexed_state_json_invalid"); await assert.rejects(applySnapshotArtifacts({}, store), (error) => error.code === "INDEX_STATE_QUARANTINED"); assert.equal(await fs.readFile(filename, "utf8"), original);
   assert.throws(() => assertWarehousePublicationState(store), (error) => error.code === "INDEX_STATE_QUARANTINED" && error.reason === "indexed_state_json_invalid"); await assert.rejects(reconcileDeadLetters({ dataFile: filename }), (error) => error.code === "INDEX_STATE_QUARANTINED");
+  for (const policy of [{ artifactOnly: false, requested: ["pool"] }, { artifactOnly: false, requested: [] }, { artifactOnly: true, requested: [] }]) assert.throws(() => assertSnapshotAcquisitionAllowed(store, policy), (error) => error.code === "INDEX_STATE_QUARANTINED"); assert.deepEqual(assertSnapshotAcquisitionAllowed(store, { artifactOnly: true, requested: ["pool"] }), { artifactOnly: true, discovery: false, localMutation: false });
   let cycles = 0; const result = await new Promise((resolve) => { watchInbox({ inbox, pollMs: 5 }, store, (value) => { cycles++; resolve(value); }); }); assert.deepEqual({ suspended: result.suspended, reason: result.reason, code: result.errors[0].code }, { suspended: true, reason: "indexed_state_json_invalid", code: "INDEX_STATE_QUARANTINED" }); await new Promise((resolve) => setTimeout(resolve, 20)); assert.equal(cycles, 1);
 });
 

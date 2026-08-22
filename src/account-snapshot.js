@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { IndexStore } from "./store.js";
+import { assertSnapshotAcquisitionAllowed } from "./snapshot-cli-policy.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "./token-metadata.js";
@@ -43,7 +44,7 @@ export async function createAccountSnapshot({ client, mints, genesisHash, observ
 }
 
 async function main() {
-  const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"); const mints = requested.length ? requested : Object.keys(store.state.mints); if (!mints.length) throw new Error("no mints supplied or discovered");
+  const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"); assertSnapshotAcquisitionAllowed(store, { artifactOnly, requested }); const mints = requested.length ? requested : Object.keys(store.state.mints); if (!mints.length) throw new Error("no mints supplied or discovered");
   const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createAccountSnapshot({ client, mints, genesisHash }); if (!artifactOnly) { store.applyAccountSnapshot(snapshot); await store.save(); } await atomicWrite(config.accountSnapshotFile, snapshot); console.log(JSON.stringify({ slot: snapshot.slot, mints: snapshot.mints.length, accounts: snapshot.mints.reduce((sum, row) => sum + row.accounts.length, 0), artifactOnly }));
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";

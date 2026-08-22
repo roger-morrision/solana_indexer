@@ -172,6 +172,11 @@ compiling any deletion/upsert transaction, preventing an empty diagnostic shell
 from replacing valid ClickHouse, PostgreSQL, or Redis projections. Dead-letter
 reconciliation shares the same guard, and CLI status includes structure and
 health evidence for offline recovery workflows.
+Every account and supported-pool snapshot command applies one shared policy
+before discovery or RPC acquisition: automatic discovery and any run that would
+mutate local index state are blocked while quarantined. An explicit target with
+`--artifact-only` remains available to acquire independently validated recovery
+evidence without reading identities from, or writing to, the corrupt index.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
