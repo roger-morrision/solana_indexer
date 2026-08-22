@@ -482,6 +482,10 @@ uses `simulateTransaction` with a finalized minimum context and replacement
 blockhash, and emits a hash-bound receipt. Requested token-account effects are
 mint-bound and must fall inside explicit signed raw-balance delta ranges. It never
 signs or submits a transaction.
+Finalized confirmation is also read-only: the landed signed transaction must be
+successful at or after the simulation slot, and its serialized message hash must
+match the unsigned simulation receipt exactly. Signature bytes are intentionally
+excluded from that comparison; transaction submission remains out of scope.
 Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
 Future-dated block, exporter, market, and pool-snapshot timestamps are treated
