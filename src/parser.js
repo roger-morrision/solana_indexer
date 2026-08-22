@@ -11,6 +11,7 @@ const RAYDIUM_CLMM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 const ORCA_WHIRLPOOL = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 const PUMP_AMM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+const METEORA_DLMM = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const STAKE_PROGRAM = "Stake11111111111111111111111111111111111111";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
@@ -30,6 +31,10 @@ const PUMP_MIGRATE_DISCRIMINATOR = Buffer.from([155, 234, 231, 146, 236, 158, 16
 const PUMP_MIGRATE_V2_DISCRIMINATOR = Buffer.from([187, 203, 18, 31, 206, 237, 254, 41]);
 const PUMP_COMPLETE_EVENT_DISCRIMINATOR = Buffer.from([95, 114, 97, 156, 212, 46, 152, 8]);
 const PUMP_COMPLETE_MIGRATION_EVENT_DISCRIMINATOR = Buffer.from([189, 233, 93, 185, 92, 148, 234, 148]);
+const METEORA_SWAP_INSTRUCTION_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
+const METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR = Buffer.from([65, 75, 63, 76, 235, 91, 91, 136]);
+const METEORA_SWAP_EVENT_DISCRIMINATOR = Buffer.from([81, 108, 227, 190, 205, 208, 10, 196]);
+const METEORA_SWAP2_EVENT_DISCRIMINATOR = Buffer.from([46, 116, 82, 215, 148, 27, 84, 77]);
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");
@@ -176,6 +181,33 @@ export function decodeOrcaWhirlpoolSwapEvents(entry, signature) {
   }
   return events;
 }
+export function decodeMeteoraDlmmSwapEvents(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const keys = accountKeys(entry.transaction?.message, entry.meta), decimals = mintDecimalEvidence(entry);
+  const contexts = instructionRows(entry).flatMap((instruction) => {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== METEORA_DLMM || accounts.some((account) => typeof account !== "string" || !account) || typeof instruction.data !== "string") return [];
+    let data; try { data = decodeBase58(instruction.data); } catch { return []; }
+    const legacy = data.length === 24 && data.subarray(0, 8).equals(METEORA_SWAP_INSTRUCTION_DISCRIMINATOR), v2 = data.length >= 25 && data.subarray(0, 8).equals(METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR); if (!legacy && !v2) return [];
+    const requiredAccounts = v2 ? 16 : 15, programAccountIndex = v2 ? 15 : 14;
+    if (accounts.length < requiredAccounts || accounts[programAccountIndex] !== METEORA_DLMM || !TOKEN_PROGRAMS.has(accounts[11]) || !TOKEN_PROGRAMS.has(accounts[12]) || accounts[6] === accounts[7]) return [];
+    return [{ pool: accounts[0], user: accounts[10], tokenMint0: accounts[6], tokenMint1: accounts[7], instructionVersion: v2 ? 2 : 1 }];
+  });
+  const events = [], stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== METEORA_DLMM || !line.startsWith("Program data: ")) continue;
+    let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
+    const legacy = data.length === 137 && data.subarray(0, 8).equals(METEORA_SWAP_EVENT_DISCRIMINATOR), v2 = data.length === 155 && data.subarray(0, 8).equals(METEORA_SWAP2_EVENT_DISCRIMINATOR); if (!legacy && !v2 || v2 && (data[153] > 1 || data[154] > 1)) continue;
+    const pool = base58(data.subarray(8, 40)), user = base58(data.subarray(40, 72)), context = contexts.find((candidate) => candidate.pool === pool && candidate.user === user && candidate.instructionVersion === (v2 ? 2 : 1)); if (!context) continue;
+    const swapForY = data[v2 ? 80 : 96]; if (swapForY > 1) continue; const token0Decimals = decimals.get(context.tokenMint0), token1Decimals = decimals.get(context.tokenMint1); if (!Number.isInteger(token0Decimals) || !Number.isInteger(token1Decimals)) continue;
+    const inputMint = swapForY ? context.tokenMint0 : context.tokenMint1, outputMint = swapForY ? context.tokenMint1 : context.tokenMint0, amountIn = readU64(data, v2 ? 97 : 80), amountLeft = v2 ? readU64(data, 105) : "0", consumed = BigInt(amountIn) - BigInt(amountLeft); if (consumed <= 0n) continue;
+    const mmFee = readU64(data, v2 ? 121 : 97), protocolFee = readU64(data, v2 ? 129 : 105), limitOrderFee = v2 ? readU64(data, 137) : "0", hostFee = readU64(data, v2 ? 145 : 129), tradeFee = BigInt(mmFee) + BigInt(limitOrderFee); if (tradeFee > 18_446_744_073_709_551_615n) continue;
+    events.push({ protocol: "meteora-dlmm", programId: METEORA_DLMM, venueType: "dlmm", type: "swap", signature, pool, user, baseMint: context.tokenMint0, quoteMint: context.tokenMint1, inputMint, outputMint, inputAmountRaw: consumed.toString(), outputAmountRaw: readU64(data, v2 ? 113 : 88), inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable", inputDecimals: swapForY ? token0Decimals : token1Decimals, outputDecimals: swapForY ? token1Decimals : token0Decimals, tradeFeeRaw: tradeFee.toString(), protocolFeeRaw: protocolFee, hostFeeRaw: hostFee, limitOrderFeeRaw: limitOrderFee, amountLeftRaw: amountLeft, swapForY: Boolean(swapForY), startBinId: data.readInt32LE(72), endBinId: data.readInt32LE(76), feeBpsRaw: readU128(data, v2 ? 81 : 113), feesOnInput: v2 ? data[153] === 1 : null, feesOnTokenX: v2 ? data[154] === 1 : null, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
 export function decodeOrcaWhirlpoolPoolInitializations(entry, signature) {
   if (entry.meta?.err != null) return [];
   const events = [], stack = [];
@@ -265,22 +297,26 @@ function dexSwaps(block, transactions, decodedEvents) {
   const events = [...sidecar, ...uncoveredDecoded]; const indices = new Map();
   return events.map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
-    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "orca-whirlpool" && event.programId === ORCA_WHIRLPOOL) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM);
+    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "orca-whirlpool" && event.programId === ORCA_WHIRLPOOL) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM) || (event.protocol === "meteora-dlmm" && event.programId === METEORA_DLMM);
     if (!supported || event.type !== "swap") throw new Error(`dexEvents[${index}] is not a supported DEX swap`);
     const signature = field("signature"); if (!successful.has(signature)) throw new Error(`dexEvents[${index}].signature must reference a successful transaction`);
     const inputDecimals = event.inputDecimals; const outputDecimals = event.outputDecimals;
     if (!Number.isInteger(inputDecimals) || inputDecimals < 0 || inputDecimals > 255 || !Number.isInteger(outputDecimals) || outputDecimals < 0 || outputDecimals > 255) throw new Error(`dexEvents[${index}] decimals must be integers from 0 to 255`);
     const eventIndex = indices.get(signature) ?? 0; indices.set(signature, eventIndex + 1);
     const inputMint = field("inputMint"), outputMint = field("outputMint"); const authoritativeBase = event.baseMint ?? (event.protocol === "pump-bonding-curve" ? event.mint : null); const baseMint = authoritativeBase ?? [inputMint, outputMint].sort()[0]; const quoteMint = event.quoteMint ?? (baseMint === inputMint ? outputMint : inputMint);
-    const nullableReserves = event.protocol === "raydium-clmm" || event.protocol === "orca-whirlpool"; let clmmEvidence = null;
+    const nullableReserves = event.protocol === "raydium-clmm" || event.protocol === "orca-whirlpool" || event.protocol === "meteora-dlmm"; let clmmEvidence = null;
     if (nullableReserves) {
       if (typeof event.user !== "string" || !event.user) throw new Error(`dexEvents[${index}].user is required`);
-      if (typeof event.zeroForOne !== "boolean") throw new Error(`dexEvents[${index}].zeroForOne must be boolean`);
+      if (event.protocol !== "meteora-dlmm" && typeof event.zeroForOne !== "boolean") throw new Error(`dexEvents[${index}].zeroForOne must be boolean`);
       if (event.protocol === "raydium-clmm" && (!Number.isInteger(event.tick) || event.tick < -2_147_483_648 || event.tick > 2_147_483_647)) throw new Error(`dexEvents[${index}].tick must be an i32`);
       if (event.reserveTiming !== "unavailable" || event.inputVaultBeforeRaw != null || event.outputVaultBeforeRaw != null) throw new Error(`dexEvents[${index}] CLMM SwapEvent reserves must be explicitly unavailable`);
-      clmmEvidence = { user: event.user, zeroForOne: event.zeroForOne, sqrtPriceX64: u128(event.sqrtPriceX64, "sqrtPriceX64"), inputTransferFeeRaw: u64(event.inputTransferFeeRaw, "inputTransferFeeRaw"), outputTransferFeeRaw: u64(event.outputTransferFeeRaw, "outputTransferFeeRaw") };
-      if (event.protocol === "raydium-clmm") Object.assign(clmmEvidence, { liquidityRaw: u128(event.liquidityRaw, "liquidityRaw"), tick: event.tick });
-      else Object.assign(clmmEvidence, { preSqrtPriceX64: u128(event.preSqrtPriceX64, "preSqrtPriceX64"), lpFeeRaw: u64(event.lpFeeRaw, "lpFeeRaw"), protocolFeeRaw: u64(event.protocolFeeRaw, "protocolFeeRaw") });
+      if (event.protocol === "meteora-dlmm") {
+        if (typeof event.swapForY !== "boolean") throw new Error(`dexEvents[${index}].swapForY must be boolean`);
+        if (![event.startBinId, event.endBinId].every((value) => Number.isInteger(value) && value >= -2_147_483_648 && value <= 2_147_483_647)) throw new Error(`dexEvents[${index}] bin IDs must be i32 integers`);
+        if (![event.feesOnInput, event.feesOnTokenX].every((value) => value == null || typeof value === "boolean")) throw new Error(`dexEvents[${index}] fee-side flags must be boolean or null`);
+        clmmEvidence = { user: event.user, swapForY: event.swapForY, startBinId: event.startBinId, endBinId: event.endBinId, feeBpsRaw: u128(event.feeBpsRaw, "feeBpsRaw"), protocolFeeRaw: u64(event.protocolFeeRaw, "protocolFeeRaw"), hostFeeRaw: u64(event.hostFeeRaw, "hostFeeRaw"), limitOrderFeeRaw: u64(event.limitOrderFeeRaw, "limitOrderFeeRaw"), amountLeftRaw: u64(event.amountLeftRaw, "amountLeftRaw"), feesOnInput: event.feesOnInput, feesOnTokenX: event.feesOnTokenX };
+      }
+      else { clmmEvidence = { user: event.user, zeroForOne: event.zeroForOne, sqrtPriceX64: u128(event.sqrtPriceX64, "sqrtPriceX64"), inputTransferFeeRaw: u64(event.inputTransferFeeRaw, "inputTransferFeeRaw"), outputTransferFeeRaw: u64(event.outputTransferFeeRaw, "outputTransferFeeRaw") }; if (event.protocol === "raydium-clmm") Object.assign(clmmEvidence, { liquidityRaw: u128(event.liquidityRaw, "liquidityRaw"), tick: event.tick }); else Object.assign(clmmEvidence, { preSqrtPriceX64: u128(event.preSqrtPriceX64, "preSqrtPriceX64"), lpFeeRaw: u64(event.lpFeeRaw, "lpFeeRaw"), protocolFeeRaw: u64(event.protocolFeeRaw, "protocolFeeRaw") }); }
     }
     const normalized = { swapId: `${signature}:${eventIndex}`, eventIndex, protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), baseMint, quoteMint, pairIdentitySource: authoritativeBase && event.quoteMint ? "protocol_event" : "canonical_lexical", inputMint, outputMint, inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: nullableReserves && event.inputVaultBeforeRaw == null ? null : u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: nullableReserves && event.outputVaultBeforeRaw == null ? null : u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, baseDecimals: baseMint === inputMint ? inputDecimals : outputDecimals, quoteDecimals: quoteMint === inputMint ? inputDecimals : outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
     if (clmmEvidence) Object.assign(normalized, clmmEvidence);
@@ -489,7 +525,7 @@ export function parseBlock(block) {
     if (failed) continue;
     nativeTransfers.push(...decodeSystemTransfers(normalized));
     poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeRaydiumClmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
-    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
+    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodeMeteoraDlmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     const tokenAccounts = tokenAccountEvidence(entry, keys);
     for (const instruction of normalized) {

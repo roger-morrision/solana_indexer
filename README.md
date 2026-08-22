@@ -566,9 +566,18 @@ before holder concentration can unlock trading-bot decisions.
 Pool candles support 60, 300, 900, 3600, 14400, and 86400-second intervals.
 Prices remain exact `quote_raw/base_raw` fractions and volumes remain separate
 base/quote raw integer strings. Protocol events provide pair orientation for
-Raydium CPMM/CLMM, Orca Whirlpools, PumpSwap, and Pump bonding curves; sidecars without authoritative
+Raydium CPMM/CLMM, Orca Whirlpools, Meteora DLMM, PumpSwap, and Pump bonding curves; sidecars without authoritative
 pair fields use a visibly labeled deterministic lexical fallback. No USD value
 is inferred.
+
+Meteora DLMM mainnet `Swap` and `Swap2` events are decoded only when the
+transaction also carries the matching official instruction version, pool/user,
+ordered mint accounts, canonical token programs, program self-account, and
+conflict-free mint decimals. Partial `Swap2` input is reported as
+`amount_in - amount_left`; bin IDs, direction, fees, and fee-side flags remain
+exact. DLMM event logs do not provide spendable bin liquidity, so reserves are
+explicitly unavailable and Meteora quotes and bot execution remain disabled
+until finalized bin-array snapshots and exact route math are implemented.
 
 The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may

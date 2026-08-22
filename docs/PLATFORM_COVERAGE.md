@@ -22,6 +22,13 @@ Orca legacy-SPL quotes and their read-only execution chain now require one
 complete finalized mint-evidence slot/epoch, propagate it through construction,
 and pin simulation to that later context; incomplete fresh snapshots are repaired.
 
+Meteora DLMM now contributes trusted `Swap` and `Swap2` activity to terminal,
+history, candle, and evidence consumers. Publication requires the official
+instruction version and complete fixed-account suffix, matching pool/user,
+canonical token programs, conflict-free decimals, and valid event booleans.
+Reserves remain explicitly unavailable; DLMM snapshots, bin traversal, quotes,
+and execution are the next dependency and remain fail closed.
+
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
 | Mainnet RPC | deployable, not running here | non-voting Agave unit, genesis verifier, private loopback RPC with strict JSON-RPC version/request-ID correlation | production Ubuntu hosts and snapshots |
