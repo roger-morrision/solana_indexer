@@ -341,7 +341,9 @@ curve reserves and rounds protocol and creator fees upward independently.
 The result is deliberately `executable: false` and `safeForAutomation: false`.
 Fresh finalized curve, mint-owner, Global, and FeeConfig evidence now feeds an
 exact unsigned Sell V2 builder and hash-bound local simulation preparation;
-external signer approval and landed confirmation remain required. Other venues and fee modes return
+bounded external signer approval, cryptographic signature verification, and
+identical finalized landed-message confirmation are available and remain required.
+The indexer never signs or submits. Other venues and fee modes return
 an explicit unavailable response rather than an estimate.
 
 Run `npm run snapshot:accounts -- <mint> [mint...]` against the loopback mainnet
