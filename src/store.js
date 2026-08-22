@@ -215,10 +215,12 @@ export class IndexStore {
   }
   sellRouteQuote(mint, amountRaw, staleAfterMs = 120_000, now = Date.now()) {
     const unavailable = (reason, missing, evidence = null) => ({ schemaVersion: 1, available: false, executable: false, safeForAutomation: false, selfHosted: true, mint, amountRaw, reason, missing, evidence });
-    if (!/^\d+$/.test(amountRaw ?? "") || BigInt(amountRaw) === 0n) return unavailable("invalid_amount", ["positive_raw_token_amount"]);
+    if (!/^\d{1,20}$/.test(amountRaw ?? "") || BigInt(amountRaw) === 0n || BigInt(amountRaw) > 18_446_744_073_709_551_615n) return unavailable("invalid_amount", ["positive_u64_raw_token_amount"]);
     const latest = this.state.swaps.filter((row) => row.protocol === "pump-bonding-curve" && row.mint === mint).reduce((selected, row) => !selected || row.slot > selected.slot || (row.slot === selected.slot && (row.eventIndex ?? 0) > (selected.eventIndex ?? 0)) ? row : selected, null);
     if (!latest) return unavailable("unsupported_or_unobserved_venue", ["fresh_finalized_pump_bonding_curve_event"]);
     const ageMs = latest.blockTime == null ? null : now - latest.blockTime * 1_000, evidence = { protocol: latest.protocol, pool: latest.pool, quoteMint: latest.quoteMint, slot: latest.slot, blockTime: latest.blockTime, ageMs, commitment: latest.provenance?.commitment ?? null, reserveTiming: latest.reserveTiming ?? null, event: latest.ixName ?? null };
+    const lifecycle = this.state.pools[latest.pool]?.lifecycle;
+    if (lifecycle?.type === "curve_completed" && lifecycle.slot >= latest.slot) return unavailable("bonding_curve_completed", ["active_bonding_curve"], { ...evidence, completionSlot: lifecycle.slot });
     if (latest.provenance?.commitment !== "finalized") return unavailable("unfinalized_curve_state", ["finalized_curve_state"], evidence);
     if (ageMs == null || ageMs < 0 || ageMs > staleAfterMs) return unavailable(ageMs != null && ageMs < 0 ? "curve_state_clock_skew" : "stale_curve_state", ["fresh_curve_state"], evidence);
     const required = ["virtualTokenReservesRaw", "virtualQuoteReservesRaw", "realQuoteReservesRaw", "feeBasisPoints", "creatorFeeBasisPoints", "cashbackFeeBasisPoints", "buybackFeeBasisPoints"];
