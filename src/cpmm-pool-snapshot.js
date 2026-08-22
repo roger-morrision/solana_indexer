@@ -7,6 +7,7 @@ import { loadConfig } from "./config.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
+import { acquirePoolMintEvidence, bindPoolMintEvidence } from "./pool-mint-evidence.js";
 
 export const RAYDIUM_CPMM_PROGRAM = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
 export const SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -48,7 +49,7 @@ function parsedVault(account, expectedMint, expectedProgram, label) {
   return { amountRaw: info.tokenAmount.amount, decimals: info.tokenAmount.decimals };
 }
 
-export async function createCpmmPoolSnapshot({ client, pools, genesisHash, observedAt = new Date().toISOString() }) {
+export async function createCpmmPoolSnapshot({ client, pools, automaticMintEvidence = false, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(pools) || !pools.length || new Set(pools).size !== pools.length) throw new Error("CPMM pools must be a non-empty unique array");
   const stateResponse = await getMultipleAccountsBatched(client, pools, { commitment: "finalized", encoding: "base64" }, { label: "CPMM pool" }), stateSlot = stateResponse?.context?.slot;
   if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid CPMM pool account response");
@@ -59,6 +60,7 @@ export async function createCpmmPoolSnapshot({ client, pools, genesisHash, obser
   const vaultResponse = await getMultipleAccountsBatched(client, decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]), { commitment: "finalized", encoding: "jsonParsed", minContextSlot: configSlot }, { label: "CPMM vault" }), balanceSlot = vaultResponse?.context?.slot;
   if (!Number.isSafeInteger(balanceSlot) || balanceSlot < configSlot || vaultResponse.value?.length !== decoded.length * 2) throw new Error("invalid CPMM vault response");
   decoded.forEach((row, index) => { const vault0 = parsedVault(vaultResponse.value[index * 2], row.tokenMint0, row.tokenProgram0, `CPMM pool ${row.address} vault 0`), vault1 = parsedVault(vaultResponse.value[index * 2 + 1], row.tokenMint1, row.tokenProgram1, `CPMM pool ${row.address} vault 1`); if (vault0.decimals !== row.mintDecimals0 || vault1.decimals !== row.mintDecimals1) throw new Error(`CPMM pool ${row.address} vault decimals mismatch`); row.vault0AmountRaw = vault0.amountRaw; row.vault1AmountRaw = vault1.amountRaw; row.ammConfigState = byConfig.get(row.ammConfig); row.ammConfigSlot = configSlot; });
+  if (automaticMintEvidence) { const evidence = await acquirePoolMintEvidence(client, decoded, balanceSlot); for (const row of decoded) bindPoolMintEvidence(row, evidence); }
   return { schemaVersion: 1, type: "raydium_cpmm_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, configSlot, balanceSlot, observedAt, pools: decoded };
 }
 
@@ -81,5 +83,5 @@ export function quoteCpmmSnapshotExactInput({ snapshot, poolAddress, inputMint, 
 }
 
 async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
-async function main() { const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"), pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-cpmm").map(([address]) => address); if (!pools.length) throw new Error("no Raydium CPMM pools supplied or discovered"); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected), snapshot = await createCpmmPoolSnapshot({ client, pools, genesisHash }); if (!artifactOnly) { store.applyCpmmPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.cpmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, configSlot: snapshot.configSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly })); }
+async function main() { const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"), pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-cpmm").map(([address]) => address); if (!pools.length) throw new Error("no Raydium CPMM pools supplied or discovered"); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected), snapshot = await createCpmmPoolSnapshot({ client, pools, automaticMintEvidence: true, genesisHash }); if (!artifactOnly) { store.applyCpmmPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.cpmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, configSlot: snapshot.configSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly })); }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

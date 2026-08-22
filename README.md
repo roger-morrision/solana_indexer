@@ -563,7 +563,7 @@ Account snapshots capture Token-2022 mint-extension transfer-fee schedules and
 select the active fee at the exact finalized epoch/slot. The shared exact fee primitive implements
 the program's ceiling-rounded basis-point fee, maximum cap, older/newer epoch
 selection, and inverse gross-for-net calculation with u64 overflow checks.
-Raydium CLMM and Orca Whirlpool production snapshots now bind both vault
+Raydium CLMM/CPMM and Orca Whirlpool production snapshots now bind both vault
 token-program owners and both mint accounts to one finalized epoch/context at
 or after all pool, tick,
 configuration, and vault reads. Fee-only Token-2022 quotes deduct the active
