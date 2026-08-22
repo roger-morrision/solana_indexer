@@ -8,9 +8,12 @@ function frame(opcode, payload = Buffer.alloc(0)) {
   const header = Buffer.alloc(10); header[0] = 0x80 | opcode; header[1] = 127; header.writeBigUInt64BE(BigInt(body.length), 2); return Buffer.concat([header, body]);
 }
 function reject(socket, status, reason, rateLimit = null) {
-  let quotaHeaders = "";
-  if (rateLimit && Number.isInteger(rateLimit.limit) && rateLimit.limit > 0 && Number.isInteger(rateLimit.remaining) && rateLimit.remaining >= 0 && Number.isInteger(rateLimit.retryAfterSeconds) && rateLimit.retryAfterSeconds > 0) quotaHeaders = `X-RateLimit-Limit: ${rateLimit.limit}\r\nX-RateLimit-Remaining: ${rateLimit.remaining}\r\nRetry-After: ${rateLimit.retryAfterSeconds}\r\n`;
+  const quotaHeaders = webSocketRateLimitHeaders(rateLimit, true);
   socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n${quotaHeaders}Content-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`);
+}
+export function webSocketRateLimitHeaders(rateLimit, includeRetryAfter = false) {
+  if (!rateLimit || !Number.isInteger(rateLimit.limit) || rateLimit.limit < 1 || !Number.isInteger(rateLimit.remaining) || rateLimit.remaining < 0 || !Number.isInteger(rateLimit.retryAfterSeconds) || rateLimit.retryAfterSeconds < 1) return "";
+  return `X-RateLimit-Limit: ${rateLimit.limit}\r\nX-RateLimit-Remaining: ${rateLimit.remaining}\r\n${includeRetryAfter ? `Retry-After: ${rateLimit.retryAfterSeconds}\r\n` : ""}`;
 }
 function close(socket, code) { const payload = Buffer.alloc(2); payload.writeUInt16BE(code); socket.end(frame(0x8, payload)); }
 function closePayloadError(payload) {
@@ -102,7 +105,7 @@ export function attachWebSocket(server, store, config, authorize = () => true, {
     const accept = crypto.createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
     const protocols = String(request.headers["sec-websocket-protocol"] ?? "").split(",").map((value) => value.trim());
     const selectedProtocol = protocols.includes("indexer.v1") ? "Sec-WebSocket-Protocol: indexer.v1\r\n" : "";
-    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}\r\n`); observe(request, 101, authorization); const client = { filter, acknowledgements: filter.acknowledgements, outstanding: new Map(), lastAcknowledged: cursor }; clients.set(socket, client);
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}${webSocketRateLimitHeaders(admission.rateLimit)}\r\n`); observe(request, 101, authorization); const client = { filter, acknowledgements: filter.acknowledgements, outstanding: new Map(), lastAcknowledged: cursor }; clients.set(socket, client);
     const replay = store.replayEvents(cursor);
     if (replay.evidenceInvalid || replay.cursorTooOld || replay.cursorAhead) { const delivered = send(socket, { type: "resync_required", reason: replay.evidenceInvalid ? "retained_event_evidence_invalid" : replay.cursorTooOld ? "cursor_before_retained_history" : "cursor_ahead_of_server", requestedCursor: cursor, oldestCursor: replay.oldestCursor, latestCursor: replay.latestCursor }, maximumBufferedBytes, evicted); clients.delete(socket); if (delivered) socket.end(frame(0x8, Buffer.from([0x03, 0xf0]))); }
     else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter, acknowledgement: filter.acknowledgements ? { schemaVersion: 1, type: "ack", cumulative: true, timeoutMs: acknowledgementTimeoutMs, maximumOutstanding: maximumOutstandingAcks } : null }, maximumBufferedBytes, evicted)) clients.delete(socket);
