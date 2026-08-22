@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "chain": "solana-mainnet",
   "status": "blocked",
   "agave": {
@@ -13,6 +13,34 @@
     "sourceCommit": "replace-with-reviewed-40-or-64-character-source-commit",
     "binarySha256": "replace-with-64-character-library-sha256"
   },
-  "qualification": null,
+  "qualification": {
+    "testedAt": "replace-with-canonical-UTC-timestamp",
+    "sustainedSeconds": 0,
+    "finalizedBlocks": 0,
+    "maxRssBytes": 0,
+    "rssSlopeBytesPerHour": 0,
+    "replay": {
+      "schemaVersion": 1,
+      "digest": "replace-with-64-character-replay-sha256",
+      "canonicalCounts": false,
+      "duplicateIdempotency": false,
+      "replacementCorrections": false,
+      "boundedHeapDelta": false,
+      "throughput": false
+    },
+    "reconciliation": {
+      "schemaVersion": 1,
+      "comparedFinalizedBlocks": 0,
+      "mismatchedBlocks": 0,
+      "missingGeyserBlocks": 0,
+      "missingPubsubBlocks": 0
+    },
+    "transport": {
+      "schemaVersion": 1,
+      "droppedUpdates": 0,
+      "reconnects": 0,
+      "maxBufferedUpdates": 0
+    }
+  },
   "reviewedBy": ""
 }

@@ -894,8 +894,12 @@ Yellowstone/Geyser activation is fail-closed. `npm run validate:geyser-abi --
 /absolute/libyellowstone_grpc_geyser.so` hashes the installed binaries, checks
 the exact Agave version output, and requires a reviewed qualification recorded
 within 30 days with at least 24 hours, 100,000 finalized blocks, a replay digest,
-and bounded RSS slope. The checked-in example remains `blocked`; it is not an
-approval to load the currently incompatible plugin.
+all replay invariants, zero cross-lane block divergence or loss, zero dropped
+updates, bounded buffering, and bounded RSS slope. The version-2 contract also
+requires the exact Yellowstone plugin identity, canonical versions/commits, and
+a bounded reviewer identity. The checked-in example documents every required
+field but remains `blocked`; it is not an approval to load the currently
+incompatible plugin.
 
 Run `npm run validate:replay-load -- --blocks 10000`
 for an explicitly synthetic, non-production replay drill through the real parser and
