@@ -37,7 +37,7 @@ import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLea
 import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT } from "../src/usd-depeg-reference.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
 import { computeStaticFeeExactInputStep, quoteRaydiumSnapshotExactInput, quoteRaydiumStaticFeeExactInput, raydiumSqrtPriceX64AtTick } from "../src/clmm-math.js";
-import { decodeSimulatedTokenAccount, inspectUnsignedTransactionPrograms, simulateUnsignedTransaction, validateUnsignedTransactionBase64, verifyFinalizedLandedTransaction } from "../src/transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, decodeSimulatedTokenAccount, inspectUnsignedTransactionPrograms, simulateUnsignedTransaction, validateUnsignedTransactionBase64, verifyFinalizedLandedTransaction } from "../src/transaction-simulation.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,6 +72,12 @@ test("unsigned message inspection binds exact instruction accounts, roles, and d
   const bytes58 = (fill) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; const bytes = Buffer.alloc(32, fill); for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } return output; }, payer = bytes58(2), readonly = bytes58(3), programId = bytes58(4), message = Buffer.concat([Buffer.from([1, 0, 2, 3]), Buffer.alloc(32, 2), Buffer.alloc(32, 3), Buffer.alloc(32, 4), Buffer.alloc(32), Buffer.from([1, 2, 2, 0, 1, 2, 0xab, 0xcd])]), transaction = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), message]).toString("base64"), policy = [{ programId, accounts: [{ address: payer, signer: true, writable: true }, { address: readonly, signer: false, writable: false }], dataHex: "abcd" }];
   const inspected = inspectUnsignedTransactionPrograms(transaction, { allowedProgramIds: [programId], instructionPolicies: policy }); assert.deepEqual(inspected.instructions, policy);
   assert.throws(() => inspectUnsignedTransactionPrograms(transaction, { allowedProgramIds: [programId], instructionPolicies: [{ ...policy[0], dataHex: "abce" }] }), /approved policy/); assert.throws(() => inspectUnsignedTransactionPrograms(transaction, { allowedProgramIds: [programId], instructionPolicies: [{ ...policy[0], accounts: [{ ...policy[0].accounts[0], writable: false }, policy[0].accounts[1]] }] }), /approved policy/);
+});
+
+test("legacy transaction construction is deterministic, unsigned, and policy-bound", () => {
+  const feePayer = "11111111111111111111111111111111", recentBlockhash = "4vJ9JU1bJJE96FWSJKvHsmmFZ5kfJPh1iuxzbErVf9iC", programId = "8qbHbw2BbbTHBW1sbeqakYXVWq2MbyYf3tR6Q3WRg13i", writable = "CktRuQ2mttgRG9u8G9rCqjWnqgP2x5z3R9LzW4JqXG9", readonly = "GgBaCs3N7Mc9fQkWZVjR8M8j1KJX4e8qR4kJw4p6D6T";
+  const input = { feePayer, recentBlockhash, instructions: [{ programId, accounts: [{ address: writable, signer: false, writable: true }, { address: readonly, signer: false, writable: false }], dataHex: "010203" }] }, first = buildUnsignedLegacyTransaction(input), second = buildUnsignedLegacyTransaction(input); assert.deepEqual(first, second); assert.equal(first.signed, false); assert.equal(first.submitted, false); assert.equal(first.signatureCount, 1); assert.deepEqual(inspectUnsignedTransactionPrograms(first.transactionBase64, { allowedProgramIds: [programId], instructionPolicies: first.instructionPolicies }).instructions, first.instructionPolicies);
+  const bytes = Buffer.from(first.transactionBase64, "base64"); assert.ok(bytes.subarray(1, 65).every((byte) => byte === 0)); assert.throws(() => buildUnsignedLegacyTransaction({ ...input, recentBlockhash: "invalid" }), /address is invalid/);
 });
 
 test("Raydium CLMM tick math preserves protocol Q64.64 integer vectors", () => {

@@ -488,6 +488,9 @@ required program allowlist. Version-0 address-table lookups fail closed until th
 loaded addresses can be resolved independently.
 An optional instruction policy additionally binds every instruction in order to
 its exact program, account addresses, signer/writable roles, and payload bytes.
+The deterministic legacy-message constructor merges duplicate account privileges,
+orders static keys by Solana header class, enforces the packet limit, emits only
+zero signature placeholders, and verifies its own output against that policy.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Signature bytes are intentionally

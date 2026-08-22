@@ -7,6 +7,44 @@ const TOKEN_PROGRAMS = new Set(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "
 
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n; for (const byte of bytes) value = value * 256n + BigInt(byte); let output = ""; while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
 
+function base58Bytes(value) {
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  if (typeof value !== "string" || value.length < 1 || value.length > 44) throw new Error("Solana address is invalid");
+  let number = 0n;
+  for (const character of value) { const digit = alphabet.indexOf(character); if (digit < 0) throw new Error("Solana address is invalid"); number = number * 58n + BigInt(digit); }
+  const bytes = []; while (number) { bytes.unshift(Number(number & 255n)); number >>= 8n; }
+  let leading = 0; while (value[leading] === "1") leading++;
+  const decoded = Buffer.concat([Buffer.alloc(leading), Buffer.from(bytes)]);
+  if (decoded.length !== 32 || base58(decoded) !== value) throw new Error("Solana address is invalid");
+  return decoded;
+}
+
+function shortVec(value) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 16_383) throw new Error("short vector length is invalid");
+  const bytes = []; do { let byte = value & 0x7f; value >>= 7; if (value) byte |= 0x80; bytes.push(byte); } while (value); return Buffer.from(bytes);
+}
+
+export function buildUnsignedLegacyTransaction({ feePayer, recentBlockhash, instructions }) {
+  base58Bytes(feePayer); const blockhash = base58Bytes(recentBlockhash);
+  if (!Array.isArray(instructions) || instructions.length < 1 || instructions.length > 64) throw new Error("transaction instructions are invalid");
+  const metas = new Map([[feePayer, { address: feePayer, signer: true, writable: true, payer: true }]]), normalized = instructions.map((instruction) => {
+    if (!instruction || !Array.isArray(instruction.accounts) || instruction.accounts.length > 64 || typeof instruction.dataHex !== "string" || !/^(?:[0-9a-f]{2})*$/.test(instruction.dataHex)) throw new Error("transaction instruction is invalid");
+    base58Bytes(instruction.programId);
+    for (const account of instruction.accounts) { if (!account || typeof account.signer !== "boolean" || typeof account.writable !== "boolean") throw new Error("transaction account meta is invalid"); base58Bytes(account.address); const prior = metas.get(account.address); metas.set(account.address, { address: account.address, signer: account.signer || prior?.signer === true, writable: account.writable || prior?.writable === true, payer: prior?.payer === true }); }
+    const programMeta = metas.get(instruction.programId); if (programMeta?.signer || programMeta?.writable) throw new Error("program account cannot request signer or writable privileges"); metas.set(instruction.programId, { address: instruction.programId, signer: false, writable: false, payer: false });
+    return instruction;
+  });
+  const rank = (meta) => meta.payer ? 0 : meta.signer && meta.writable ? 1 : meta.signer ? 2 : meta.writable ? 3 : 4, accounts = [...metas.values()].sort((left, right) => rank(left) - rank(right) || left.address.localeCompare(right.address));
+  if (accounts.length > 64) throw new Error("transaction account count is invalid");
+  const requiredSignatures = accounts.filter((meta) => meta.signer).length; if (requiredSignatures < 1 || requiredSignatures > MAX_SIGNATURES) throw new Error("transaction signature count is invalid"); const readonlySigned = accounts.filter((meta) => meta.signer && !meta.writable).length, readonlyUnsigned = accounts.filter((meta) => !meta.signer && !meta.writable).length, indexes = new Map(accounts.map((meta, index) => [meta.address, index]));
+  const compiled = normalized.map((instruction) => Buffer.concat([Buffer.from([indexes.get(instruction.programId)]), shortVec(instruction.accounts.length), Buffer.from(instruction.accounts.map((account) => indexes.get(account.address))), shortVec(instruction.dataHex.length / 2), Buffer.from(instruction.dataHex, "hex")]));
+  const message = Buffer.concat([Buffer.from([requiredSignatures, readonlySigned, readonlyUnsigned]), shortVec(accounts.length), ...accounts.map((meta) => base58Bytes(meta.address)), blockhash, shortVec(compiled.length), ...compiled]), transaction = Buffer.concat([shortVec(requiredSignatures), Buffer.alloc(requiredSignatures * 64), message]);
+  if (transaction.length > MAX_TRANSACTION_BYTES) throw new Error("constructed transaction exceeds the Solana packet limit");
+  const transactionBase64 = transaction.toString("base64"), policy = normalized.map((instruction) => ({ programId: instruction.programId, accounts: instruction.accounts.map((account) => ({ address: account.address, signer: metas.get(account.address).signer, writable: metas.get(account.address).writable })), dataHex: instruction.dataHex }));
+  const inspection = inspectUnsignedTransactionPrograms(transactionBase64, { allowedProgramIds: [...new Set(normalized.map((instruction) => instruction.programId))], instructionPolicies: policy });
+  return { schemaVersion: 1, transactionBase64, transactionHash: crypto.createHash("sha256").update(transaction).digest("hex"), messageHash: inspection.messageHash, signatureCount: requiredSignatures, messageVersion: "legacy", instructionPolicies: policy, submitted: false, signed: false };
+}
+
 function decodeShortVec(bytes) {
   let value = 0, shift = 0, offset = 0;
   while (offset < bytes.length && offset < 3) { const byte = bytes[offset++]; value |= (byte & 0x7f) << shift; if ((byte & 0x80) === 0) return { value, offset }; shift += 7; }
