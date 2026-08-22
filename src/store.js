@@ -5,7 +5,7 @@ import { assessUsdDepegReference, MAINNET_USDC_MINT } from "./usd-depeg-referenc
 import { normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { PROGRAM_REGISTRY } from "./program-registry.js";
-import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 function gcd(a, b) { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a || 1n; }
 function rational(numerator = 0n, denominator = 1n) { if (denominator === 0n) throw new Error("zero rational denominator"); if (denominator < 0n) { numerator = -numerator; denominator = -denominator; } const divisor = gcd(numerator, denominator); return { n: numerator / divisor, d: denominator / divisor }; }
@@ -22,7 +22,7 @@ const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const TOKEN_PROGRAMS = new Set(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"]);
 const PRICING_PROTOCOLS = new Set([...PROGRAM_REGISTRY.values()].filter((row) => row.eventTypes.includes("swap")).map((row) => row.protocol));
 const U64_MAX = (1n << 64n) - 1n;
-function canonicalBlockTimeMs(value) { if (!Number.isSafeInteger(value) || value < 0) return null; const milliseconds = value * 1_000; return Number.isSafeInteger(milliseconds) ? milliseconds : null; }
+const canonicalBlockTimeMs = canonicalUnixSecondsToMilliseconds;
 function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
   if (snapshot?.complete !== true || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || snapshot.slot < 0 || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || !Array.isArray(snapshot.accounts) || !Number.isSafeInteger(snapshot.accountCount) || snapshot.accountCount !== snapshot.accounts.length || !/^\d+$/.test(snapshot.mintInfo?.supply ?? "") || BigInt(snapshot.mintInfo.supply) > U64_MAX || !Number.isInteger(snapshot.mintInfo?.decimals) || snapshot.mintInfo.decimals < 0 || snapshot.mintInfo.decimals > 255 || mintInfo?.supply !== snapshot.mintInfo.supply || mintInfo?.decimals !== snapshot.mintInfo.decimals) return false;

@@ -13,7 +13,7 @@ import { RAYDIUM_CPMM_PROGRAM } from "./cpmm-pool-snapshot.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
 import { derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, derivePumpSwapFeeConfig, derivePumpSwapGlobalConfig, PUMP_PROGRAM, PUMP_SWAP_PROGRAM } from "./pump-swap-pool-snapshot.js";
 import { durableAtomicWrite } from "./durable-file.js";
-import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const CHAIN = "solana-mainnet";
 const GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -113,7 +113,7 @@ export function compileWarehouseBatch(state, checkpoint = { lastSequence: 0 }) {
   if (!Number.isSafeInteger(lastSequence) || lastSequence < 0) throw new Error("invalid warehouse checkpoint");
   if (!Number.isSafeInteger(state?.eventSequence) || !Array.isArray(state?.events)) throw new Error("invalid index event state");
   let previous = null;
-  for (const event of state.events) { if (!Number.isSafeInteger(event?.sequence) || (previous != null && event.sequence !== previous + 1) || typeof event.type !== "string" || !event.type) throw new Error(previous != null && event?.sequence > previous + 1 ? "warehouse event sequence gap" : "invalid non-monotonic index event sequence"); if (!Number.isSafeInteger(event.slot) || event.slot < 0 || (event.blockTime != null && (!Number.isSafeInteger(event.blockTime) || event.blockTime < 0)) || !validWarehouseEventProvenance(event) || typeof event.blockhash !== "string" || !event.blockhash) throw new Error(`invalid warehouse event ${event.sequence}`); previous = event.sequence; }
+  for (const event of state.events) { if (!Number.isSafeInteger(event?.sequence) || (previous != null && event.sequence !== previous + 1) || typeof event.type !== "string" || !event.type) throw new Error(previous != null && event?.sequence > previous + 1 ? "warehouse event sequence gap" : "invalid non-monotonic index event sequence"); if (!Number.isSafeInteger(event.slot) || event.slot < 0 || (event.blockTime != null && canonicalUnixSecondsToMilliseconds(event.blockTime) == null) || !validWarehouseEventProvenance(event) || typeof event.blockhash !== "string" || !event.blockhash) throw new Error(`invalid warehouse event ${event.sequence}`); previous = event.sequence; }
   if (state.events.length && previous !== state.eventSequence) throw new Error("index event high-water mark mismatch");
   if (lastSequence > state.eventSequence) throw new Error("warehouse checkpoint is ahead of index");
   const oldest = state.events[0]?.sequence ?? state.eventSequence + 1;
@@ -125,7 +125,7 @@ export function compileWarehouseBatch(state, checkpoint = { lastSequence: 0 }) {
 }
 
 function factBase(row) {
-  if (!Number.isSafeInteger(row?.slot) || row.slot < 0 || (row.blockTime != null && (!Number.isSafeInteger(row.blockTime) || row.blockTime < 0)) || typeof row.signature !== "string" || !row.signature || !["confirmed", "finalized"].includes(row.provenance?.commitment)) throw new Error("invalid canonical warehouse fact");
+  if (!Number.isSafeInteger(row?.slot) || row.slot < 0 || (row.blockTime != null && canonicalUnixSecondsToMilliseconds(row.blockTime) == null) || typeof row.signature !== "string" || !row.signature || !["confirmed", "finalized"].includes(row.provenance?.commitment)) throw new Error("invalid canonical warehouse fact");
   return { chain: CHAIN, slot: row.slot, block_time: row.blockTime == null ? null : new Date(row.blockTime * 1_000).toISOString(), signature: row.signature, commitment: row.provenance.commitment };
 }
 
