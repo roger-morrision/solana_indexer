@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
+import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 
 export const RAYDIUM_CLMM_PROGRAM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 const DISCRIMINATOR = crypto.createHash("sha256").update("account:PoolState").digest().subarray(0, 8);
@@ -95,23 +96,23 @@ export function parseClmmBitmapExtensionMap(value, pools) {
 
 export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, bitmapExtensions = {}, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(pools) || !pools.length) throw new Error("at least one CLMM pool is required");
-  const stateResponse = await client.call("getMultipleAccounts", [pools, { commitment: "finalized", encoding: "base64" }]); const stateSlot = stateResponse?.context?.slot;
+  const stateResponse = await getMultipleAccountsBatched(client, pools, { commitment: "finalized", encoding: "base64" }, { label: "CLMM pool" }); const stateSlot = stateResponse?.context?.slot;
   if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid CLMM pool account response");
   const decoded = pools.map((address, index) => decodeClmmPoolAccount(address, stateResponse.value[index]));
   const requestedExtensions = decoded.filter((row) => bitmapExtensions[row.address]).map((row) => ({ address: bitmapExtensions[row.address], pool: row.address }));
-  if (requestedExtensions.length) { const extensionResponse = await client.call("getMultipleAccounts", [requestedExtensions.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]); if (!Number.isSafeInteger(extensionResponse?.context?.slot) || extensionResponse.context.slot < stateSlot || extensionResponse.value?.length !== requestedExtensions.length) throw new Error("invalid CLMM bitmap extension account response"); requestedExtensions.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), extension = decodeClmmBitmapExtensionAccount(requested.address, extensionResponse.value[index], pool.tickSpacing); if (extension.pool !== requested.pool) throw new Error(`CLMM bitmap extension ${requested.address} pool identity mismatch`); pool.bitmapExtension = extension; pool.bitmapExtensionSlot = extensionResponse.context.slot; }); }
+  if (requestedExtensions.length) { const extensionResponse = await getMultipleAccountsBatched(client, requestedExtensions.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }, { label: "CLMM bitmap extension" }); if (extensionResponse.context.slot < stateSlot) throw new Error("invalid CLMM bitmap extension account response"); requestedExtensions.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), extension = decodeClmmBitmapExtensionAccount(requested.address, extensionResponse.value[index], pool.tickSpacing); if (extension.pool !== requested.pool) throw new Error(`CLMM bitmap extension ${requested.address} pool identity mismatch`); pool.bitmapExtension = extension; pool.bitmapExtensionSlot = extensionResponse.context.slot; }); }
   for (const row of decoded) { row.bitmapExtension ??= null; row.bitmapExtensionSlot ??= null; }
   const requestedTickArrays = decoded.flatMap((row) => (tickArrays[row.address] ?? []).map((address) => ({ address, pool: row.address })));
   if (new Set(requestedTickArrays.map((row) => row.address)).size !== requestedTickArrays.length) throw new Error("CLMM tick array addresses must be unique");
   if (requestedTickArrays.length) {
-    const tickResponse = await client.call("getMultipleAccounts", [requestedTickArrays.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }]);
-    if (!Number.isSafeInteger(tickResponse?.context?.slot) || tickResponse.context.slot < stateSlot || tickResponse.value?.length !== requestedTickArrays.length) throw new Error("invalid CLMM tick array account response");
+    const tickResponse = await getMultipleAccountsBatched(client, requestedTickArrays.map((row) => row.address), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }, { label: "CLMM tick array" });
+    if (tickResponse.context.slot < stateSlot) throw new Error("invalid CLMM tick array account response");
     requestedTickArrays.forEach((requested, index) => { const pool = decoded.find((row) => row.address === requested.pool), tickArray = decodeClmmTickArrayAccount(requested.address, tickResponse.value[index], pool.tickSpacing); if (tickArray.pool !== requested.pool) throw new Error(`CLMM tick array ${requested.address} pool identity mismatch`); const bitmap = pool.defaultTickArrayBitmap, insideDefaultBitmap = tickArray.startTickIndex >= bitmap.minStartTickIndex && tickArray.startTickIndex < bitmap.maxStartTickIndexExclusive, initializedIndexes = insideDefaultBitmap ? bitmap.initializedTickArrayStartIndexes : pool.bitmapExtension?.initializedTickArrayStartIndexes; if (!initializedIndexes?.includes(tickArray.startTickIndex)) throw new Error(`CLMM tick array ${requested.address} is absent from ${insideDefaultBitmap ? "pool" : "extension"} bitmap`); tickArray.bitmapSource = insideDefaultBitmap ? "pool_default" : "extension_bitmap"; pool.tickArrays ??= []; pool.tickArrays.push(tickArray); pool.tickArraySlot = tickResponse.context.slot; });
   }
   for (const row of decoded) { row.tickArrays ??= []; row.tickArraySlot ??= null; }
   const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]);
-  const balanceResponse = await client.call("getMultipleAccounts", [vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: stateSlot }]); const balanceSlot = balanceResponse?.context?.slot;
-  if (!Number.isSafeInteger(balanceSlot) || balanceSlot < stateSlot || balanceResponse.value?.length !== vaults.length) throw new Error("invalid CLMM vault account response");
+  const balanceResponse = await getMultipleAccountsBatched(client, vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: stateSlot }, { label: "CLMM vault" }); const balanceSlot = balanceResponse?.context?.slot;
+  if (balanceSlot < stateSlot) throw new Error("invalid CLMM vault account response");
   for (let index = 0; index < decoded.length; index++) {
     const first = balanceResponse.value[index * 2]?.data?.parsed?.info, second = balanceResponse.value[index * 2 + 1]?.data?.parsed?.info;
     if (first?.mint !== decoded[index].tokenMint0 || second?.mint !== decoded[index].tokenMint1 || !/^\d+$/.test(first?.tokenAmount?.amount ?? "") || !/^\d+$/.test(second?.tokenAmount?.amount ?? "")) throw new Error(`CLMM pool ${decoded[index].address} vault identity mismatch`);

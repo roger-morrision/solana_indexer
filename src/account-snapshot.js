@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
+import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
 const validAmount = (value) => typeof value === "string" && /^\d+$/.test(value);
@@ -15,7 +16,7 @@ async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filena
 export async function createAccountSnapshot({ client, mints, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(mints) || !mints.length || new Set(mints).size !== mints.length || mints.some((mint) => typeof mint !== "string" || !mint)) throw new Error("snapshot mints must be unique non-empty addresses");
   const slot = await client.call("getSlot", [{ commitment: "finalized" }]); if (!Number.isSafeInteger(slot) || slot < 0) throw new Error("invalid finalized account snapshot slot");
-  const mintAccounts = await client.call("getMultipleAccounts", [mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }]); if (mintAccounts?.context?.slot !== slot || mintAccounts.value?.length !== mints.length) throw new Error("mint accounts did not share the exact finalized snapshot context"); const rows = [];
+  const mintAccounts = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "mint" }); const rows = [];
   for (let index = 0; index < mints.length; index++) {
     const mint = mints[index], mintAccount = mintAccounts.value[index], mintInfo = mintAccount?.data?.parsed?.info; const accounts = new Map();
     if (!TOKEN_PROGRAMS.includes(mintAccount?.owner) || !mintInfo || !validAmount(mintInfo.supply) || !validDecimals(mintInfo.decimals)) throw new Error(`invalid canonical mint account ${mint}`);

@@ -14,6 +14,7 @@ import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
+import { getMultipleAccountsBatched, MAX_GET_MULTIPLE_ACCOUNTS } from "../src/rpc-account-batch.js";
 import { createClmmPoolSnapshot, decodeClmmBitmapExtensionAccount, decodeClmmBitmapExtensionIndexes, decodeClmmPoolAccount, decodeClmmTickArrayAccount, parseClmmBitmapExtensionMap, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { retainInbox } from "../src/inbox-retention.js";
@@ -32,6 +33,14 @@ import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLea
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("getMultipleAccounts batching honors the RPC cap and one snapshot context", async () => {
+  const addresses = Array.from({ length: 205 }, (_, index) => `address-${index}`), calls = [];
+  const client = { call: async (method, params) => { calls.push(params[0]); return { context: { slot: 500 }, value: params[0].map((address) => ({ address })) }; } };
+  const response = await getMultipleAccountsBatched(client, addresses, { commitment: "finalized" }, { expectedSlot: 500, label: "mint" });
+  assert.equal(MAX_GET_MULTIPLE_ACCOUNTS, 100); assert.deepEqual(calls.map((batch) => batch.length), [100, 100, 5]); assert.equal(response.value.length, 205); assert.deepEqual(response.value.map((row) => row.address), addresses);
+  let call = 0; await assert.rejects(getMultipleAccountsBatched({ call: async (_method, params) => ({ context: { slot: call++ ? 501 : 500 }, value: params[0].map(() => null) }) }, addresses.slice(0, 101), {}, { label: "vault" }), /exact finalized snapshot context/);
+});
 
 test("pins the canonical Solana mainnet genesis hash", () => {
   assert.equal(MAINNET_GENESIS_HASH, "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d");
