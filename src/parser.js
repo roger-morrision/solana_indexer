@@ -241,13 +241,16 @@ export function decodePumpTradeEvents(entry, signature) {
 }
 function dexSwaps(block, transactions, decodedEvents) {
   const successful = new Set(transactions.filter((row) => row.success).map((row) => row.signature));
-  const sidecar = block.dexEvents ?? []; const covered = new Set(sidecar.map((event) => `${event.signature}:${event.protocol}`));
+  const sidecar = block.dexEvents ?? [];
   // Provider blocks do not guarantee that every mint touched by a program log
   // appears in pre/post token balances. Preserve the canonical block and raw
   // instruction evidence, but do not publish a swap whose decimal precision is
   // unknown. Explicit sidecars remain strict contracts and are validated below.
   const completeDecoded = decodedEvents.filter((event) => Number.isInteger(event.inputDecimals) && Number.isInteger(event.outputDecimals));
-  const events = [...sidecar, ...completeDecoded.filter((event) => !covered.has(`${event.signature}:${event.protocol}`))]; const indices = new Map();
+  const evidenceKey = (event) => [event.signature, event.protocol, event.pool, event.inputMint, event.outputMint, event.inputAmountRaw, event.outputAmountRaw].join("\u0000"), covered = new Map();
+  for (const event of sidecar) { const key = evidenceKey(event); covered.set(key, (covered.get(key) ?? 0) + 1); }
+  const uncoveredDecoded = completeDecoded.filter((event) => { const key = evidenceKey(event), remaining = covered.get(key) ?? 0; if (!remaining) return true; covered.set(key, remaining - 1); return false; });
+  const events = [...sidecar, ...uncoveredDecoded]; const indices = new Map();
   return events.map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
     const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "orca-whirlpool" && event.programId === ORCA_WHIRLPOOL) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM);
