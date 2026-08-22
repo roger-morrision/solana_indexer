@@ -1,6 +1,7 @@
 import { computeStaticFeeExactInputStep } from "./clmm-math.js";
 import { ORCA_WHIRLPOOL_PROGRAM } from "./orca-pool-snapshot.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const Q64 = 1n << 64n;
 const Q96 = 1n << 96n;
@@ -49,8 +50,9 @@ export function quoteOrcaStaticFeeExactInput({ sqrtPriceX64, currentTick, liquid
 }
 
 export function quoteOrcaSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, limitTick, now = Date.now(), maxAgeMs = 120_000 }) {
-  if (snapshot?.schemaVersion !== 1 || snapshot.type !== "orca_whirlpool_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < snapshot.stateSlot || !Number.isFinite(Date.parse(snapshot.observedAt ?? "")) || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) throw new Error("finalized Orca snapshot evidence is invalid");
-  const ageMs = now - Date.parse(snapshot.observedAt); if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Orca snapshot evidence is stale");
+  const observedAt = parseCanonicalUtcTimestamp(snapshot?.observedAt);
+  if (snapshot?.schemaVersion !== 1 || snapshot.type !== "orca_whirlpool_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < snapshot.stateSlot || observedAt == null || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) throw new Error("finalized Orca snapshot evidence is invalid");
+  const ageMs = now - observedAt; if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Orca snapshot evidence is stale");
   const pool = snapshot.pools?.find((row) => row.address === poolAddress); if (!pool || pool.programId !== ORCA_WHIRLPOOL_PROGRAM || pool.tickArrayCoverage !== "finalized_program_account_snapshot" || !Number.isSafeInteger(pool.tickArraySlot) || pool.tickArraySlot < snapshot.stateSlot || pool.tickArraySlot > snapshot.balanceSlot || !Array.isArray(pool.tickArrays)) throw new Error("Orca snapshot lacks complete quote evidence");
   if (pool.tokenProgram0 !== LEGACY_TOKEN_PROGRAM || pool.tokenProgram1 !== LEGACY_TOKEN_PROGRAM) throw new Error("Orca Token-2022 quoting is unsupported");
   if (!validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("Orca quote requires complete finalized mint evidence");

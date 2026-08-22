@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const CATEGORIES = new Set(["burn", "exchange", "locker", "pool", "protocol", "vault"]);
 
 export function compileHolderExclusions(value) {
-  if (value?.schemaVersion !== 1 || value.chain !== "solana" || value.genesisHash !== MAINNET_GENESIS_HASH || !Number.isFinite(Date.parse(value.observedAt ?? "")) || typeof value.source !== "string" || !value.source || !Array.isArray(value.completeMints) || !Array.isArray(value.entries)) throw new Error("invalid holder exclusion registry");
+  if (value?.schemaVersion !== 1 || value.chain !== "solana" || value.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(value.observedAt) == null || typeof value.source !== "string" || !value.source || !Array.isArray(value.completeMints) || !Array.isArray(value.entries)) throw new Error("invalid holder exclusion registry");
   const completeMints = new Set(); for (const mint of value.completeMints) { if (typeof mint !== "string" || !mint || completeMints.has(mint)) throw new Error("invalid complete holder exclusion mint"); completeMints.add(mint); }
   const byMint = new Map(), selectors = new Set();
   for (const entry of value.entries) {

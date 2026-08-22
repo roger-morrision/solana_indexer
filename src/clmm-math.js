@@ -1,5 +1,6 @@
 import { calculateTransferFeeIncludedAmount } from "./token-2022-transfer-fee.js";
 import { POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const Q64 = 1n << 64n;
 const FEE_DENOMINATOR = 1_000_000n;
@@ -118,8 +119,9 @@ export function quoteRaydiumStaticFeeExactInput({ sqrtPriceX64, currentTick, liq
 }
 
 export function quoteRaydiumSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, limitTick, transferFeeAmount = 0, now = Date.now(), maxAgeMs = 120_000 }) {
-  if (snapshot?.schemaVersion !== 1 || snapshot.type !== "raydium_clmm_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < snapshot.stateSlot || !Number.isFinite(Date.parse(snapshot.observedAt ?? "")) || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) throw new Error("finalized Raydium snapshot evidence is invalid");
-  const ageMs = now - Date.parse(snapshot.observedAt); if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Raydium snapshot evidence is stale");
+  const observedAt = parseCanonicalUtcTimestamp(snapshot?.observedAt);
+  if (snapshot?.schemaVersion !== 1 || snapshot.type !== "raydium_clmm_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < snapshot.stateSlot || observedAt == null || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) throw new Error("finalized Raydium snapshot evidence is invalid");
+  const ageMs = now - observedAt; if (ageMs < 0 || ageMs > maxAgeMs) throw new Error("finalized Raydium snapshot evidence is stale");
   const pool = snapshot.pools?.find((row) => row.address === poolAddress); if (!pool || pool.tickArrayCoverage !== "finalized_program_account_snapshot" || !pool.ammConfigState || !Number.isSafeInteger(pool.tickArraySlot) || !Number.isSafeInteger(pool.ammConfigSlot)) throw new Error("Raydium snapshot lacks complete quote evidence");
   if (!Number.isInteger(pool.status) || pool.status < 0 || pool.status > 255 || (pool.status & (1 << 4)) !== 0) throw new Error("Raydium pool status is malformed or swaps are disabled");
   if (pool.dynamicFeeEnabled) throw new Error("Raydium dynamic-fee quoting is unsupported");
