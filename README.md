@@ -380,7 +380,11 @@ exact allocated space, owner program, and optional base/seed. The view is
 augmented with exact per-mint SPL/Token-2022 funding totals when parsed or exact
 raw `Transfer`/`TransferChecked` instructions can be bound to source and
 destination wallet owners through matching
-transaction token-balance evidence. The view is deliberately partial and
+transaction token-balance evidence. It also decodes the exact Token-2022
+`TransferCheckedWithFee` wire format: sender
+totals use the gross amount while recipient and cluster totals use the net
+amount after the instruction-declared fee. Fee values are never inferred.
+The view is deliberately partial and
 non-automation-safe: it does not infer funding from
 balance deltas and does not claim coverage of zero-lamport allocation-only
 prefund creation, unsupported token extensions/instructions, or history before
