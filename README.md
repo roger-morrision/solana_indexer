@@ -577,6 +577,10 @@ CLMM liquidity scalar as spendable token reserves.
 Validator-provided CLMM sidecars pass the same strict contract: u128 bounds,
 i32 tick, boolean direction, u64 fees, required user identity, and explicitly
 unavailable event reserves are validated before any market record is accepted.
+The official `create_pool` instruction also produces replayable lifecycle
+evidence only when its exact payload, ordered mint pair, canonical token/system/rent
+programs, pool/vault/observation/bitmap accounts, initial Q64.64 price, and open
+time validate. Registry contract version 9 advertises this `pool_created` support.
 Run `npm run snapshot:clmm-pools -- <POOL_ADDRESS...>` against the loopback
 mainnet validator to capture the official PoolState header and both parsed token
 vault balances. The production command discovers all pool-bound TickArrayState
