@@ -533,12 +533,20 @@ export function parseBlock(block) {
       if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 7, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
     }
   }
+  const suppliedProvenance = block.provenance ?? {};
+  if (Object.hasOwn(suppliedProvenance, "source") && (typeof suppliedProvenance.source !== "string" || !suppliedProvenance.source.trim())) throw new Error("provenance.source must be a non-empty string");
+  if (Object.hasOwn(suppliedProvenance, "commitment") && !["unknown", "confirmed", "finalized"].includes(suppliedProvenance.commitment)) throw new Error("provenance.commitment must be unknown, confirmed, or finalized");
+  const observedAtMs = suppliedProvenance.observedAt == null ? null : Date.parse(suppliedProvenance.observedAt);
+  if (suppliedProvenance.observedAt != null && (typeof suppliedProvenance.observedAt !== "string" || !Number.isFinite(observedAtMs))) throw new Error("provenance.observedAt must be a valid timestamp");
+  if (suppliedProvenance.sourceTip != null && (!Number.isSafeInteger(suppliedProvenance.sourceTip) || suppliedProvenance.sourceTip < block.slot)) throw new Error("provenance.sourceTip must be a safe integer at or above block.slot");
+  if (suppliedProvenance.exportLagSlots != null && (!Number.isSafeInteger(suppliedProvenance.exportLagSlots) || suppliedProvenance.exportLagSlots < 0)) throw new Error("provenance.exportLagSlots must be a non-negative safe integer");
+  if (suppliedProvenance.sourceTip != null && suppliedProvenance.exportLagSlots != null && suppliedProvenance.sourceTip - block.slot !== suppliedProvenance.exportLagSlots) throw new Error("provenance source tip and export lag are inconsistent");
   const provenance = {
-    source: typeof block.provenance?.source === "string" ? block.provenance.source : "unknown",
-    commitment: block.provenance?.commitment === "finalized" || block.provenance?.commitment === "confirmed" ? block.provenance.commitment : "unknown",
-    observedAt: typeof block.provenance?.observedAt === "string" ? block.provenance.observedAt : null,
-    sourceTip: Number.isInteger(block.provenance?.sourceTip) ? block.provenance.sourceTip : null,
-    exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
+    source: suppliedProvenance.source?.trim() || "unknown",
+    commitment: suppliedProvenance.commitment ?? "unknown",
+    observedAt: observedAtMs == null ? null : new Date(observedAtMs).toISOString(),
+    sourceTip: suppliedProvenance.sourceTip ?? null,
+    exportLagSlots: suppliedProvenance.exportLagSlots ?? null,
   };
   const swaps = dexSwaps(block, transactions, decodedDexEvents);
   return { slot: block.slot, blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime, provenance, transactions, instructions, transfers, nativeTransfers, balanceChanges, swaps, poolLifecycleEvents };

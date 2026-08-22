@@ -514,6 +514,23 @@ test("rejects noncanonical block identity and duplicate transactions", () => {
   assert.throws(() => parseBlock({ ...input, transactions: [entry, structuredClone(entry)] }), /transaction signatures must be unique/);
 });
 
+test("rejects malformed or internally inconsistent block provenance", () => {
+  const input = { slot: 118, blockhash: "block-118", previousBlockhash: "block-117", parentSlot: 117, blockTime: 1_700_000_018, transactions: [], provenance: { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00Z", sourceTip: 120, exportLagSlots: 2 } };
+  assert.deepEqual(parseBlock(input).provenance, { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00.000Z", sourceTip: 120, exportLagSlots: 2 });
+  const invalid = [
+    [{ source: " " }, /provenance.source/],
+    [{ commitment: "processed" }, /provenance.commitment/],
+    [{ observedAt: "not-a-date" }, /provenance.observedAt/],
+    [{ sourceTip: 117 }, /provenance.sourceTip/],
+    [{ sourceTip: Number.MAX_SAFE_INTEGER + 1 }, /provenance.sourceTip/],
+    [{ exportLagSlots: -1 }, /provenance.exportLagSlots/],
+    [{ exportLagSlots: Number.MAX_SAFE_INTEGER + 1 }, /provenance.exportLagSlots/],
+    [{ sourceTip: 120, exportLagSlots: 1 }, /inconsistent/],
+  ];
+  for (const [replacement, error] of invalid) assert.throws(() => parseBlock({ ...input, provenance: { ...input.provenance, ...replacement } }), error);
+  assert.deepEqual(parseBlock({ ...input, provenance: undefined }).provenance, { source: "unknown", commitment: "unknown", observedAt: null, sourceTip: null, exportLagSlots: null });
+});
+
 test("canonical finalized account snapshots persist complete holder and authority evidence", async () => {
   const client = { call: async (method, params) => { if (method === "getEpochInfo") return { absoluteSlot: 500, epoch: 9 }; assert.equal(params[1].minContextSlot, 500); if (method === "getMultipleAccounts") return { context: { slot: 500 }, value: [{ owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: { parsed: { info: { decimals: 6, supply: "100", mintAuthority: null, freezeAuthority: null, extensions: [] } } } }] }; if (method === "getProgramAccounts") { assert.equal(params[1].withContext, true); return { context: { slot: 500 }, value: params[0].startsWith("Tokenkeg") ? [{ pubkey: "token-a", account: { owner: params[0], data: { parsed: { info: { mint: "mint-a", owner: "wallet-a", state: "initialized", tokenAmount: { amount: "100", decimals: 6 } } } } } }] : [] }; } throw new Error(method); } };
   const snapshot = await createAccountSnapshot({ client, mints: ["mint-a"], genesisHash: MAINNET_GENESIS_HASH, observedAt: "2026-08-20T00:00:00.000Z" }); const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-account-snapshot-")), filename = path.join(root, "index.json"); const store = new IndexStore(filename); await store.load(); store.applyAccountSnapshot(snapshot); assert.equal(store.state.events.at(-1).type, "account_snapshot_applied"); assert.match(store.state.events.at(-1).blockhash, /^snapshot:[0-9a-f]{64}$/); assert.deepEqual(compileWarehouseBatch(store.state, { lastSequence: 0 }).events.map((row) => row.event_type), ["account_snapshot_applied"]); await store.save();
