@@ -64,12 +64,19 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
   if (cursor == null) cursor = Math.max(0, tip - 1);
   if (cursor > tip) throw new Error(`exporter cursor ${cursor} is ahead of finalized tip ${tip}; inspect provider/network state and cursor ownership`);
   const end = Math.min(tip, cursor + batchSize); let exported = 0; const skippedSlots = [];
-  for (let slot = cursor + 1; slot <= end; slot++) {
+  const producedSlots = end > cursor ? await client.call("getBlocks", [cursor + 1, end, { commitment: "finalized" }]) : [];
+  if (!Array.isArray(producedSlots) || producedSlots.some((slot, index) => !Number.isSafeInteger(slot) || slot < cursor + 1 || slot > end || (index > 0 && producedSlots[index - 1] >= slot))) throw new Error("finalized getBlocks response must be a strictly increasing in-range slot list");
+  const produced = new Map();
+  for (const slot of producedSlots) {
     const block = await client.call("getBlock", [slot, { commitment: "finalized", encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
-    if (block) {
-      const provenance = { source: client.provenanceSource ?? "local-agave-rpc", commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
-      await atomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
-    } else skippedSlots.push(slot);
+    if (!block) throw new Error(`finalized block ${slot} was listed by getBlocks but is unavailable`);
+    produced.set(slot, { block, source: client.provenanceSource ?? "local-agave-rpc" });
+  }
+  for (let slot = cursor + 1; slot <= end; slot++) {
+    if (!produced.has(slot)) { skippedSlots.push(slot); await atomicWrite(cursorFile, `${slot}\n`); continue; }
+    const { block, source } = produced.get(slot);
+    const provenance = { source, commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
+    await atomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
     await atomicWrite(cursorFile, `${slot}\n`);
   }
   const result = { localValidatorTip: tip, cursor: end, lagSlots: tip - end, exported, skipped: skippedSlots.length, skippedSlots: skippedSlots.slice(0, 256) };

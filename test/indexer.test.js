@@ -289,7 +289,7 @@ test("validator stream atomically persists commitments and repairs bounded gaps"
 
 test("exporter records finalized provenance, lag, and skipped slots", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-"));
-  const client = { call: async (method, params) => method === "getSlot" ? 12 : params[0] === 11 ? null : { blockhash: `block-${params[0]}`, previousBlockhash: "parent", parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] } };
+  const client = { call: async (method, params) => method === "getSlot" ? 12 : method === "getBlocks" ? [10] : { blockhash: `block-${params[0]}`, previousBlockhash: "parent", parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] } };
   await fs.writeFile(path.join(root, "cursor"), "9\n");
   const statusFile = path.join(root, "status.json");
   const result = await exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile: path.join(root, "cursor"), statusFile, batchSize: 2 });
@@ -298,6 +298,32 @@ test("exporter records finalized provenance, lag, and skipped slots", async () =
   assert.deepEqual({ source: block.provenance.source, commitment: block.provenance.commitment, sourceTip: block.provenance.sourceTip, exportLagSlots: block.provenance.exportLagSlots }, { source: "local-agave-rpc", commitment: "finalized", sourceTip: 12, exportLagSlots: 2 });
   const status = JSON.parse(await fs.readFile(statusFile, "utf8"));
   assert.deepEqual({ commitment: status.commitment, lagSlots: status.lagSlots, durableSkippedSlots: status.durableSkippedSlots, failures: status.consecutiveFailures, error: status.lastError }, { commitment: "finalized", lagSlots: 1, durableSkippedSlots: [11], failures: 0, error: null });
+});
+
+test("exporter never advances past a produced slot whose block is unavailable", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-gap-")), inbox = path.join(root, "inbox"), cursorFile = path.join(root, "cursor"); await fs.writeFile(cursorFile, "9\n");
+  const client = { call: async (method, params) => method === "getSlot" ? 11 : method === "getBlocks" ? [10, 11] : params[0] === 10 ? { blockhash: "block-10", previousBlockhash: "block-9", parentSlot: 9, blockTime: 1_700_000_000, transactions: [] } : null };
+  await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile, batchSize: 2 }), /block 11 was listed by getBlocks but is unavailable/);
+  assert.equal((await fs.readFile(cursorFile, "utf8")).trim(), "9"); await assert.rejects(fs.access(path.join(inbox, "10.json"))); await assert.rejects(fs.access(path.join(inbox, "11.json")));
+});
+
+test("exporter rejects malformed produced-slot inventories before advancing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-slots-")), cursorFile = path.join(root, "cursor"); await fs.writeFile(cursorFile, "9\n");
+  const client = { call: async (method) => method === "getSlot" ? 11 : [11, 10] };
+  await assert.rejects(() => exportFinalizedBlocks({ client, inbox: path.join(root, "inbox"), cursorFile, batchSize: 2 }), /strictly increasing/); assert.equal((await fs.readFile(cursorFile, "utf8")).trim(), "9");
+});
+
+test("caught-up exporter does not request an invalid empty slot range", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-caught-up-")), cursorFile = path.join(root, "cursor"); await fs.writeFile(cursorFile, "11\n"); const methods = [];
+  const result = await exportFinalizedBlocks({ client: { call: async (method) => { methods.push(method); if (method === "getSlot") return 11; throw new Error("unexpected range request"); } }, inbox: path.join(root, "inbox"), cursorFile });
+  assert.deepEqual(methods, ["getSlot"]); assert.deepEqual(result, { localValidatorTip: 11, cursor: 11, lagSlots: 0, exported: 0, skipped: 0, skippedSlots: [] });
+});
+
+test("exporter binds provider provenance to each fetched block", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-provenance-")), inbox = path.join(root, "inbox"), cursorFile = path.join(root, "cursor"); await fs.writeFile(cursorFile, "9\n");
+  const client = { provenanceSource: "external-rpc-helius", call: async (method, params) => { if (method === "getSlot") return 11; if (method === "getBlocks") return [10, 11]; client.provenanceSource = params[0] === 10 ? "external-rpc-helius" : "external-rpc-alchemy"; return { blockhash: `block-${params[0]}`, previousBlockhash: `block-${params[0] - 1}`, parentSlot: params[0] - 1, blockTime: 1_700_000_000, transactions: [] }; } };
+  await exportFinalizedBlocks({ client, inbox, cursorFile, batchSize: 2 }); const first = JSON.parse(await fs.readFile(path.join(inbox, "10.json"))), second = JSON.parse(await fs.readFile(path.join(inbox, "11.json")));
+  assert.equal(first.provenance.source, "external-rpc-helius"); assert.equal(second.provenance.source, "external-rpc-alchemy");
 });
 
 test("exporter rejects corrupt and future cursors without false progress", async () => {
