@@ -61,7 +61,7 @@ Helius as primary and Alchemy as failover without weakening the loopback-only
 self-hosted-validator path. Copy `validator/external-rpc.env.example` outside
 the repository, insert private provider URLs, and load that protected environment
 before running `npm run export:external`. Both private URLs are mandatory. The
-exporter validates mainnet genesis, uses bounded batches, opens a provider circuit
+exporter requires every configured failover provider to independently validate mainnet genesis before ingestion, refreshes that verification on a bounded five-minute TTL, uses bounded batches, opens a provider circuit
 after repeated failures, and persists only provider names—never URLs or keys.
 
 `infra/reduced/compose.yaml` packages this lane for Docker Desktop. Set
