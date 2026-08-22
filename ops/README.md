@@ -20,7 +20,9 @@ that the uploaded receipt names the exact inbox
 manifest artifact in the quiesced cross-store backup and has canonical matching
 upload-completion evidence. This is the
 only evidence accepted by API/Prometheus RPO health; creating artifacts locally
-or partially uploading a backup does not report success.
+or partially uploading a backup does not report success. The installed
+version-2 status embeds and digest-binds its chain, storage, backup, completion,
+manifest, and receipt identities so monitoring rejects edited or legacy status.
 
 `fetch-backup.sh <UTC-stamp>` downloads a known archive from that same loopback
 filer and verifies its checksum inventory and version-3 manifest before it can

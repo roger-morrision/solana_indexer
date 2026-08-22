@@ -227,6 +227,8 @@ endpoint, RPO gauges, and critical alert reject missing, malformed, future, or
 older-than-24-hour evidence without disclosing storage locations.
 Completion additionally requires the full quiesced artifact inventory and exact
 receipt-to-inbox-manifest hash identity with matching canonical upload times.
+Its installed version-2 status embeds those identities under a recomputed
+evidence digest, preventing altered or legacy evidence from reporting healthy.
 The latest isolated recovery report has a separate version-3 canonical assessment and
 90-day expiry contract. API/Prometheus expose only its backup identity, age and
 duration; missing, malformed, future-dated, invariant-incomplete or expired

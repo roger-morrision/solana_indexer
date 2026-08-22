@@ -495,6 +495,9 @@ freshness without exposing the archive endpoint.
 Status creation revalidates the complete version-3 artifact inventory and proves
 the uploaded receipt's manifest hash equals the exact `inbox-manifest.json`
 artifact hash. Missing or divergent upload-completion timestamps fail closed.
+The installed version-2 status embeds those completion identities under a
+canonical SHA-256 evidence digest; API and metrics recompute it and reject
+legacy, edited, or internally divergent status files.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
 storage. `ops/restore.sh` verifies checksums and requires the explicit
 `npm run validate:backup -- /absolute/backup-directory` preflight. The preflight
