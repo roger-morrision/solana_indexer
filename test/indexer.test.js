@@ -958,6 +958,13 @@ test("validator stream rotates unique loopback endpoints and attributes active-n
   assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8900/"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /unique/); assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "wss://example.com"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /must use ws/);
 });
 
+test("validator stream durably reports open and closed lifecycle without stale-socket mutation", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-lifecycle-")), statusFile = path.join(root, "status.json"), scheduled = []; class FakeSocket { constructor() { this.readyState = 1; this.sent = []; } send(value) { this.sent.push(value); } close() {} }
+  const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: {}, inbox: path.join(root, "inbox"), statusFile, WebSocketClass: FakeSocket, scheduleReconnect: (callback) => scheduled.push(callback) }); stream.lastSlots = { confirmed: 100, finalized: 98 };
+  stream.connect(); const primary = stream.socket; primary.onopen(); await stream.messageQueue; let status = JSON.parse(await fs.readFile(statusFile, "utf8")); assert.equal(status.connected, true); assert.equal(status.cursor, 98); assert.equal(status.localValidatorTip, 100); assert.equal(status.lagSlots, 2); assert.equal((await exporterHealthCheck(statusFile, 60_000)).healthy, true);
+  primary.onclose(); await stream.messageQueue; status = JSON.parse(await fs.readFile(statusFile, "utf8")); assert.equal(status.connected, false); assert.equal(status.source, "local-agave-pubsub-1"); assert.equal((await exporterHealthCheck(statusFile, 60_000)).reason, "stream_disconnected"); scheduled[0](); const secondary = stream.socket; primary.onopen(); assert.equal(primary.sent.length, 2); secondary.onopen(); await stream.messageQueue; status = JSON.parse(await fs.readFile(statusFile, "utf8")); assert.equal(status.connected, true); assert.equal(status.source, "local-agave-pubsub-2"); assert.equal(status.lastError, null);
+});
+
 test("verified stream refuses an existing inbox with unknown genesis", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-network-boundary-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "1.json"), "{}\n");
   const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox, statusFile: path.join(root, "status.json"), WebSocketClass: class {} });

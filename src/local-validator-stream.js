@@ -26,13 +26,14 @@ export class LocalValidatorStream {
   stop() { this.stopped = true; this.socket?.close(); this.socket = null; }
   get endpoint() { return this.endpoints[this.endpointIndex]; }
   get provenanceSource() { return this.endpoints.length === 1 ? "local-agave-pubsub" : `local-agave-pubsub-${this.endpointIndex + 1}`; }
+  queueStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) { this.messageQueue = this.messageQueue.then(() => this.writeStatus(source, connected)).catch((error) => { this.lastError = { at: new Date().toISOString(), message: error.message }; }); return this.messageQueue; }
   connect() {
     if (this.stopped) return;
     const source = this.provenanceSource, socket = new this.WebSocketClass(this.endpoint); this.socket = socket;
-    socket.onopen = () => { this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] })); };
-    socket.onmessage = ({ data }) => { if (socket !== this.socket) return; this.messageQueue = this.messageQueue.then(() => this.handleMessage(data, source)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: error.message }; await this.writeStatus(); }); };
+    socket.onopen = () => { if (this.stopped || socket !== this.socket) return; this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); this.lastError = null; for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] })); this.queueStatus(source, true); };
+    socket.onmessage = ({ data }) => { if (socket !== this.socket) return; this.messageQueue = this.messageQueue.then(() => this.handleMessage(data, source)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: error.message }; await this.writeStatus(source); }); };
     socket.onerror = () => {};
-    socket.onclose = () => { if (this.stopped || socket !== this.socket) return; this.metrics.reconnects++; this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); this.scheduleReconnect(() => this.connect(), delay); };
+    socket.onclose = () => { if (this.stopped || socket !== this.socket) return; this.socket = null; this.metrics.reconnects++; this.lastError = { at: new Date().toISOString(), message: "validator stream disconnected" }; this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); this.queueStatus(source, false); this.scheduleReconnect(() => this.connect(), delay); };
   }
   async handleMessage(data, source = this.provenanceSource) {
     const payload = JSON.parse(String(data));
@@ -50,7 +51,7 @@ export class LocalValidatorStream {
   async ingestBlock(commitment, slot, block, source = this.provenanceSource) {
     const previous = this.lastSlots[commitment];
     if (previous != null && slot > previous + 1) await this.repairGap(commitment, previous + 1, slot - 1);
-    await this.persistBlock(commitment, slot, block, slot, source); this.lastSlots[commitment] = Math.max(previous ?? slot, slot); this.metrics.notifications++; await this.writeStatus();
+    await this.persistBlock(commitment, slot, block, slot, source); this.lastSlots[commitment] = Math.max(previous ?? slot, slot); this.metrics.notifications++; await this.writeStatus(source);
   }
   async repairGap(commitment, first, last) {
     if (last - first > 511) throw new Error(`stream gap ${first}-${last} exceeds bounded repair window`);
@@ -69,9 +70,10 @@ export class LocalValidatorStream {
     const provenance = { source, commitment, observedAt: new Date().toISOString(), sourceTip, exportLagSlots: Math.max(0, sourceTip - slot) };
     await atomicWrite(path.join(this.inbox, `${slot}.${commitment}.json`), { slot, ...block, provenance });
   }
-  async writeStatus() {
+  async writeStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) {
     const previous = await readJson(this.statusFile); const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...this.metrics.skippedSlots])].sort((a, b) => a - b).slice(-10_000);
-    await atomicWrite(this.statusFile, { version: 2, source: this.provenanceSource, genesisHash: this.genesisHash, observedAt: new Date().toISOString(), connected: this.socket?.readyState === 1, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots: this.lastSlots.confirmed != null && this.lastSlots.finalized != null ? Math.max(0, this.lastSlots.confirmed - this.lastSlots.finalized) : null, ...this.metrics, lastError: this.lastError, durableSkippedSlots });
+    const finalizationLagSlots = this.lastSlots.confirmed != null && this.lastSlots.finalized != null ? Math.max(0, this.lastSlots.confirmed - this.lastSlots.finalized) : null;
+    await atomicWrite(this.statusFile, { version: 2, source, genesisHash: this.genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), connected, cursor: this.lastSlots.finalized, localValidatorTip: this.lastSlots.confirmed, lagSlots: finalizationLagSlots, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots, consecutiveFailures: this.lastError ? 1 : 0, ...this.metrics, lastError: this.lastError, durableSkippedSlots });
   }
 }
 

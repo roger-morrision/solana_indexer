@@ -116,12 +116,14 @@ npm start
 `stream` opens loopback-only Solana PubSub subscriptions for both `confirmed`
 and `finalized` full blocks. Confirmed blocks provide the low-latency lane;
 finalized copies canonically promote or replace them. Subscription acknowledgements
-must be unique and commitment-bound, and superseded sockets cannot deliver into
-the active queue. The stream persists every
+must be unique and commitment-bound, and superseded sockets cannot open or deliver into
+the active queue. Each open/closed transition is serialized into the shared
+health contract; a disconnected stream fails readiness immediately instead of
+waiting for the status freshness window. The stream persists every
 notification atomically into `inbox/`, repairs bounded slot gaps with local
 `getBlocks`-verified `getBlock` reads, resumes from durable status after restart, reconnects with bounded
 exponential backoff, and records finalization lag, reconnects, decode errors,
-repairs, and skipped slots. Keep `npm run export` available as the finalized
+repairs, skipped slots, and the exact active private-node source. Keep `npm run export` available as the finalized
 HTTP backfill/recovery process, but do not run both writers against the same
 inbox unless operationally coordinated.
 

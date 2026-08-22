@@ -10,6 +10,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | Complete execution snapshot | 100% of automation-ready responses | event-only, stale, or mismatched mint evidence blocks bot readiness |
 | Newest finalized block age | <=120 seconds for 99.9% of minutes | page and bot responses disclose stale data |
 | Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
+| Private block stream connection | connected during normal operation | readiness fails immediately on a durable disconnect transition; rotate nodes and repair gaps over verified RPC |
 | REST read latency | p99 <=500 ms monthly | alert and shed expensive requests |
 | WebSocket persisted-event delivery | p99 <=2 seconds after index commit | reconnect and resume from cursor |
 | Unresolved decoder dead letters | zero older than 10 minutes | affected protocol coverage becomes incomplete |
