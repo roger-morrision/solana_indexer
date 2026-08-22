@@ -596,8 +596,10 @@ Audit rows carry bounded `quotaUnits`; legacy rows default to one unit, while RP
 batches are enforced and aggregated by logical call count without duplicating HTTP duration.
 Dynamic token, pool, wallet, account, and transaction identities are replaced by
 stable route templates before audit persistence and again while synchronizing
-legacy rows. Unknown API/internal paths share bounded unmatched buckets, and
-hourly request totals use integer-safe accumulation with exact millisecond sums.
+legacy rows. Only explicit route suffixes are retained; unknown API, internal,
+and public paths share bounded unmatched buckets. Registry sync also removes
+revoked key hashes transactionally, while hourly request totals use integer-safe
+accumulation with exact millisecond sums.
 WebSocket clients receive `ready`, then ordered `block_indexed` or
 `block_replaced` events after atomic index persistence. Confirmed blocks are
 preserved as provisional evidence and promoted with `block_finalized` when the
