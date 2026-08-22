@@ -76,14 +76,15 @@ export class LocalValidatorStream {
     if (last - first > 511) throw new Error(`stream gap ${first}-${last} exceeds bounded repair window`);
     const producedSlots = await this.rpcClient.call("getBlocks", [first, last, { commitment }]);
     if (!Array.isArray(producedSlots) || producedSlots.some((slot, index) => !Number.isSafeInteger(slot) || slot < first || slot > last || (index > 0 && producedSlots[index - 1] >= slot))) throw new Error("stream getBlocks response must be a strictly increasing in-range slot list");
-    const produced = new Set(producedSlots);
+    const produced = new Set(producedSlots), skippedSlots = []; let repaired = 0;
     for (let slot = first; slot <= last; slot++) {
-      if (!produced.has(slot)) { this.metrics.skippedSlots.push(slot); continue; }
+      if (!produced.has(slot)) { skippedSlots.push(slot); continue; }
       const block = await this.rpcClient.call("getBlock", [slot, { commitment, encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
       if (!block) throw new Error(`stream block ${slot} was listed by getBlocks but is unavailable`);
-      await this.persistBlock(commitment, slot, block, last, this.rpcClient.provenanceSource ?? "local-agave-rpc"); this.metrics.gapRepairs++;
+      await this.persistBlock(commitment, slot, block, last, this.rpcClient.provenanceSource ?? "local-agave-rpc"); repaired++;
     }
-    this.metrics.skippedSlots = [...new Set(this.metrics.skippedSlots)].sort((a, b) => a - b).slice(-10_000);
+    this.metrics.gapRepairs += repaired;
+    this.metrics.skippedSlots = [...new Set([...this.metrics.skippedSlots, ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
   }
   async persistBlock(commitment, slot, block, sourceTip, source = this.provenanceSource) {
     const provenance = { source, genesisHash: this.genesisHash, commitment, observedAt: new Date().toISOString(), sourceTip, exportLagSlots: Math.max(0, sourceTip - slot) };

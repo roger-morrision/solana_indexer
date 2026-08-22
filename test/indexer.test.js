@@ -1202,6 +1202,8 @@ test("validator stream atomically persists commitments and repairs bounded gaps"
 test("validator stream never records an unavailable produced block as skipped", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-gap-integrity-")); const stream = new LocalValidatorStream({ rpcClient: { call: async (method) => method === "getBlocks" ? [11] : null }, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
   await assert.rejects(() => stream.repairGap("confirmed", 11, 11), /block 11 was listed by getBlocks but is unavailable/); assert.deepEqual(stream.metrics.skippedSlots, []); await assert.rejects(fs.access(path.join(root, "inbox", "11.confirmed.json")));
+  const partial = new LocalValidatorStream({ rpcClient: { call: async (method, params) => method === "getBlocks" ? [12, 13] : params[0] === 12 ? { blockhash: "block-12" } : null }, inbox: path.join(root, "partial"), statusFile: path.join(root, "partial-status.json"), WebSocketClass: class {} });
+  await assert.rejects(() => partial.repairGap("confirmed", 11, 13), /block 13 was listed by getBlocks but is unavailable/); assert.deepEqual(partial.metrics.skippedSlots, []); assert.equal(partial.metrics.gapRepairs, 0); await fs.access(path.join(root, "partial", "12.confirmed.json"));
   await assert.rejects(() => stream.repairGap("processed", 11, 11), /range is invalid/); await assert.rejects(() => stream.repairGap("confirmed", 12, 11), /range is invalid/); await assert.rejects(() => stream.repairGap("confirmed", 1, 513), /exceeds bounded repair window/);
 });
 
