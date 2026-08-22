@@ -50,6 +50,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     auditRetentionDays: boundedInt(env.INDEXER_AUDIT_RETENTION_DAYS, 30, 1, 3_650),
     webSocketHeartbeatMs: boundedInt(env.INDEXER_WS_HEARTBEAT_MS, 30_000, 1_000, 300_000),
     webSocketMaxBufferedBytes: boundedInt(env.INDEXER_WS_MAX_BUFFERED_BYTES, 1_048_576, 65_536, 16_777_216),
+    webSocketMaxInboundBytes: boundedInt(env.INDEXER_WS_MAX_INBOUND_BYTES, 4_096, 125, 65_536),
     streamReconnectMinMs: boundedInt(env.INDEXER_STREAM_RECONNECT_MIN_MS, 500, 100, 60_000),
     streamReconnectMaxMs: boundedInt(env.INDEXER_STREAM_RECONNECT_MAX_MS, 30_000, 1_000, 300_000),
   };

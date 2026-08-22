@@ -7,6 +7,26 @@ function frame(opcode, payload = Buffer.alloc(0)) {
   const header = Buffer.alloc(10); header[0] = 0x80 | opcode; header[1] = 127; header.writeBigUInt64BE(BigInt(body.length), 2); return Buffer.concat([header, body]);
 }
 function reject(socket, status, reason) { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`); }
+function close(socket, code) { const payload = Buffer.alloc(2); payload.writeUInt16BE(code); socket.end(frame(0x8, payload)); }
+export function createInboundFrameParser(socket, maximumBytes = 4_096) {
+  let buffered = Buffer.alloc(0), closed = false;
+  const protocolError = (code = 1002) => { if (!closed) { closed = true; close(socket, code); } };
+  return (chunk) => {
+    if (closed || !Buffer.isBuffer(chunk) || chunk.length === 0) return;
+    buffered = Buffer.concat([buffered, chunk]);
+    while (!closed && buffered.length >= 2) {
+      const first = buffered[0], second = buffered[1], fin = Boolean(first & 0x80), opcode = first & 0x0f, masked = Boolean(second & 0x80); let length = second & 0x7f, offset = 2;
+      if (first & 0x70 || !masked) return protocolError();
+      if (length === 126) { if (buffered.length < 4) return; length = buffered.readUInt16BE(2); offset = 4; }
+      else if (length === 127) { if (buffered.length < 10) return; const wide = buffered.readBigUInt64BE(2); if (wide > BigInt(Number.MAX_SAFE_INTEGER)) return protocolError(1009); length = Number(wide); offset = 10; }
+      const control = opcode >= 0x8; if (length > maximumBytes) return protocolError(1009); if (control && (!fin || length > 125) || ![0x8, 0x9, 0xa].includes(opcode)) return protocolError(control ? 1002 : 1003);
+      if (buffered.length < offset + 4 + length) return;
+      const mask = buffered.subarray(offset, offset + 4), payload = Buffer.from(buffered.subarray(offset + 4, offset + 4 + length)); for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4]; buffered = buffered.subarray(offset + 4 + length);
+      if (opcode === 0x8) { if (payload.length === 1) return protocolError(); closed = true; socket.end(frame(0x8, payload)); }
+      else if (opcode === 0x9) socket.write(frame(0x0a, payload));
+    }
+  };
+}
 function send(socket, value, maximumBufferedBytes) {
   if (socket.destroyed) return false;
   const message = frame(0x1, JSON.stringify(value));
@@ -51,11 +71,7 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     if (replay.cursorTooOld || replay.cursorAhead) { const delivered = send(socket, { type: "resync_required", reason: replay.cursorTooOld ? "cursor_before_retained_history" : "cursor_ahead_of_server", requestedCursor: cursor, oldestCursor: replay.oldestCursor, latestCursor: replay.latestCursor }, maximumBufferedBytes); clients.delete(socket); if (delivered) socket.end(frame(0x8, Buffer.from([0x03, 0xf0]))); }
     else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes)) clients.delete(socket);
     else for (const event of replay.events) { const value = project(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) { clients.delete(socket); break; } }
-    socket.on("data", (chunk) => {
-      const opcode = chunk[0] & 0x0f;
-      if (opcode === 0x8) socket.end(frame(0x8));
-      else if (opcode === 0x9) socket.write(frame(0x0a, Buffer.alloc(0)));
-    });
+    socket.on("data", createInboundFrameParser(socket, config.webSocketMaxInboundBytes ?? 4_096));
     socket.on("close", () => clients.delete(socket)); socket.on("error", () => clients.delete(socket));
   });
   const timer = setInterval(() => { for (const socket of clients.keys()) { if (socket.destroyed || socket.writableLength > maximumBufferedBytes) { socket.destroy(); clients.delete(socket); } else socket.write(frame(0x9)); } }, heartbeatMs); timer.unref();

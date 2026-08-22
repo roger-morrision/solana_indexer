@@ -10,6 +10,7 @@ import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
 import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
+import { createInboundFrameParser } from "../src/websocket.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
@@ -1749,6 +1750,17 @@ test("WebSocket terminates expired and future resume cursors with explicit resyn
   const connect = (cursor) => new Promise((resolve, reject) => { const socket = new WebSocket(`${base}?cursor=${cursor}`), messages = []; socket.onmessage = ({ data }) => messages.push(JSON.parse(data)); socket.onerror = reject; socket.onclose = (event) => resolve({ event, messages }); });
   const expired = await connect(0); assert.equal(expired.event.code, 1008); assert.deepEqual(expired.messages, [{ type: "resync_required", reason: "cursor_before_retained_history", requestedCursor: 0, oldestCursor: 4, latestCursor: 5 }]);
   const future = await connect(6); assert.equal(future.event.code, 1008); assert.deepEqual(future.messages, [{ type: "resync_required", reason: "cursor_ahead_of_server", requestedCursor: 6, oldestCursor: 4, latestCursor: 5 }]);
+});
+
+test("WebSocket inbound parser handles TCP fragmentation and rejects invalid client frames", () => {
+  const clientFrame = (opcode, payload = Buffer.alloc(0), { masked = true, fin = true } = {}) => { const body = Buffer.from(payload), header = Buffer.alloc(masked ? 6 : 2), mask = Buffer.from([1, 2, 3, 4]); header[0] = (fin ? 0x80 : 0) | opcode; header[1] = (masked ? 0x80 : 0) | body.length; if (masked) mask.copy(header, 2); const encoded = Buffer.from(body); if (masked) for (let index = 0; index < encoded.length; index++) encoded[index] ^= mask[index % 4]; return Buffer.concat([header, encoded]); };
+  const socket = () => ({ writes: [], endings: [], write(value) { this.writes.push(Buffer.from(value)); }, end(value) { this.endings.push(Buffer.from(value)); } });
+  let peer = socket(), parse = createInboundFrameParser(peer), ping = clientFrame(0x9, "ok"); parse(ping.subarray(0, 3)); assert.equal(peer.writes.length, 0); parse(ping.subarray(3)); assert.equal(peer.writes.length, 1); assert.equal(peer.writes[0][0] & 0x0f, 0x0a); assert.equal(peer.writes[0].subarray(2).toString(), "ok");
+  peer = socket(); parse = createInboundFrameParser(peer, 4); parse(Buffer.concat(Array.from({ length: 20 }, () => clientFrame(0x9, "ping")))); assert.equal(peer.writes.length, 20);
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "bad", { masked: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x1, "unsupported")); assert.equal(peer.endings[0].readUInt16BE(2), 1003);
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "fragment", { fin: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
+  peer = socket(); createInboundFrameParser(peer, 4)(clientFrame(0x9, "12345")); assert.equal(peer.endings[0].readUInt16BE(2), 1009);
 });
 
 test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) => {

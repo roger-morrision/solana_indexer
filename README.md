@@ -560,7 +560,11 @@ carry explicit reasons plus retained/latest boundaries and terminate the socket
 with policy-close code 1008, so clients cannot mix an invalid resume state with
 live updates and must rebuild from REST. Heartbeat pings and bounded
 socket buffers reject any single oversized frame and evict stalled consumers
-before the next write would exceed the cap. When API keys are enabled, WebSocket
+before the next write would exceed the cap. Inbound control frames are parsed
+across TCP boundaries, must be masked and protocol-valid, and are bounded by
+`INDEXER_WS_MAX_INBOUND_BYTES` (default 4096); unsupported data frames and
+malformed or oversized frames close with standard 1003, 1002, or 1009 codes.
+When API keys are enabled, WebSocket
 clients must present the key as an HTTP authorization or `X-API-Key` header.
 Browser clients can request subprotocols `indexer.v1` and
 `bearer.<base64url-api-key>`; the server negotiates only `indexer.v1`.
