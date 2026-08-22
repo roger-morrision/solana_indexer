@@ -651,7 +651,7 @@ test("REST v1 paginates stably and rejects invalid cursors", async (t) => {
   assert.equal(first.data[0].slot, 101); assert.ok(first.nextCursor);
   const second = await (await fetch(`${base}/api/v1/blocks?limit=1&cursor=${first.nextCursor}`)).json();
   assert.equal(second.data[0].slot, 100); assert.equal(second.nextCursor, null);
-  assert.equal((await fetch(`${base}/api/v1/blocks?cursor=bad`)).status, 400); assert.equal((await fetch(`${base}/api/v1/transactions?cursor=${first.nextCursor}`)).status, 400);
+  assert.equal((await fetch(`${base}/api/v1/blocks?cursor=bad`)).status, 400); assert.equal((await fetch(`${base}/api/v1/transactions?cursor=${first.nextCursor}`)).status, 400); for (const invalid of ["0", "-1", "1.5", "501", "text"]) assert.equal((await fetch(`${base}/api/v1/blocks?limit=${invalid}`)).status, 400);
 });
 
 test("REST v1 token and pool catalogs are compact, filterable, and cursor stable", async (t) => {
