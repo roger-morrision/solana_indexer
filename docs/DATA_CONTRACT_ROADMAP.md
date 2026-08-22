@@ -42,9 +42,11 @@ repair. Fresh finalized snapshots with explicit function mode now expose
 analysis-only exact-input quotes using canonical bin and limit-order traversal,
 Q64 rounding, dynamic/base fee updates, fee-side modes, protocol/owner splits,
 and epoch-bound transfer fees. Undetermined function mode is resolved from both
-finalized reward mints exactly as the official SDK;
-missing reward evidence, unsigned transaction construction, simulation, and
-automation remain blocked.
+finalized reward mints exactly as the official SDK. Legacy-SPL routes whose
+quoted arrays fit the finalized default bitmap now support official-ABI-bound
+unsigned `swap` construction and hash/policy/token-effect-bound local
+simulation. Token-2022 `swap2`, extension-bitmap routes, external signing,
+submission, and automation remain fail closed.
 
 ## Known limits
 

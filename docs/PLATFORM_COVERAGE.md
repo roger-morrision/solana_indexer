@@ -56,3 +56,9 @@ remain unavailable.
 | Smart money | evidence only | exact partial cost basis/PnL, activity profile, direct/seeded-transfer/standard/seeded/prefunded account-creation, nonce-withdrawal and Stake Program withdrawal totals, strictly validated parsed/raw SPL/Token-2022 wallet-owner funding totals per mint with fee-bearing gross/net separation, and deterministic native/per-mint token shared-funder peers; no wallet classification is inferred | complete wallet history, unsupported token instruction coverage, USD references, and validated sybil/entity clustering |
 | mTLS/SLO/backup | deployable | optional mTLS gateway, Prometheus endpoint, alert rules, stated SLO/RPO/RTO and checksum-gated restore; version-2 backup evidence binds one backup identity, quiesced writers, exact artifact sizes/hashes and inbox archive identity, while restore preflight enforces exact sink inventory, RPO age, safe tar structure and required canonical state before destructive tooling runs; post-restore qualification binds that manifest hash to canonical index health, zero-lag exact warehouse reconciliation, healthy finalized export and elapsed RTO in an exclusive report | production PKI, monitoring destination and an executed quarterly isolated recovery drill |
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |
+
+Meteora execution detail: legacy-SPL quotes confined to the finalized default
+bitmap now have official-ABI-bound unsigned `swap` construction and local
+simulation with exact instruction policy and token-effect bounds. Token-2022
+`swap2`, extension-bitmap paths, external signing, submission, and automation
+remain fail closed.

@@ -1,0 +1,57 @@
+import crypto from "node:crypto";
+import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
+import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction } from "./transaction-simulation.js";
+
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const SWAP_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
+const U64_MAX = (1n << 64n) - 1n;
+const ED25519_P = (1n << 255n) - 19n;
+
+function integer(value, label) { let parsed; try { parsed = BigInt(value); } catch { throw new Error(`${label} is invalid`); } if (parsed < 0n || parsed > U64_MAX) throw new Error(`${label} is invalid`); return parsed; }
+function u64(value) { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(value); return bytes; }
+function meta(address, signer, writable) { if (typeof address !== "string" || !address) throw new Error("Meteora execution account is missing"); return { address, signer, writable }; }
+function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
+function base58Bytes(value) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", indexes = new Map([...alphabet].map((character, index) => [character, index])); let number = 0n; if (typeof value !== "string" || !value) throw new Error("Solana address is invalid"); for (const character of value) { const digit = indexes.get(character); if (digit == null) throw new Error("Solana address is invalid"); number = number * 58n + BigInt(digit); } const bytes = []; while (number) { bytes.unshift(Number(number & 255n)); number >>= 8n; } for (const character of value) { if (character !== "1") break; bytes.unshift(0); } const decoded = Buffer.from(bytes); if (decoded.length !== 32 || base58(decoded) !== value) throw new Error("Solana address is invalid"); return decoded; }
+function mod(value) { const result = value % ED25519_P; return result < 0n ? result + ED25519_P : result; }
+function modPow(base, exponent) { let result = 1n, factor = mod(base), power = exponent; while (power) { if (power & 1n) result = mod(result * factor); factor = mod(factor * factor); power >>= 1n; } return result; }
+function onEd25519Curve(encoded) { let y = 0n; for (let index = 31; index >= 0; index--) y = (y << 8n) | BigInt(encoded[index]); const sign = y >> 255n; y &= (1n << 255n) - 1n; if (y >= ED25519_P) return false; const y2 = mod(y * y), d = mod(-121665n * modPow(121666n, ED25519_P - 2n)), x2 = mod((y2 - 1n) * modPow(d * y2 + 1n, ED25519_P - 2n)); return x2 === 0n ? sign === 0n : modPow(x2, (ED25519_P - 1n) / 2n) === 1n; }
+function deriveEventAuthority() { const program = base58Bytes(METEORA_DLMM_PROGRAM); for (let bump = 255; bump >= 0; bump--) { const digest = crypto.createHash("sha256").update(Buffer.concat([Buffer.from("__event_authority"), Buffer.from([bump]), program, Buffer.from("ProgramDerivedAddress")])).digest(); if (!onEd25519Curve(digest)) return base58(digest); } throw new Error("unable to derive Meteora event authority"); }
+
+function selectBinArrays(quote, pool) {
+  if (!Array.isArray(quote.binArrayIndexes) || !quote.binArrayIndexes.length || !Array.isArray(pool.binArrays) || pool.binArrayCoverage !== "finalized_program_account_snapshot") throw new Error("Meteora execution bin-array evidence is invalid");
+  const byIndex = new Map(pool.binArrays.map((row) => [row?.index, row]));
+  const selected = quote.binArrayIndexes.map((index) => byIndex.get(index));
+  if (selected.some((row) => typeof row?.address !== "string" || !row.address) || new Set(selected.map((row) => row.address)).size !== selected.length) throw new Error("Meteora execution requires every quoted finalized bin array");
+  return selected;
+}
+
+export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null }) {
+  const direction = quote?.inputMint === pool?.tokenMint0 && quote?.outputMint === pool?.tokenMint1 ? true : quote?.inputMint === pool?.tokenMint1 && quote?.outputMint === pool?.tokenMint0 ? false : null;
+  if (quote?.schemaVersion !== 1 || quote.protocol !== "meteora-dlmm" || quote.status !== "quoted" || quote.amountLeftRaw !== "0" || direction == null || quote.swapForY !== direction || quote.pool !== pool?.address || pool.programId !== METEORA_DLMM_PROGRAM || pool.tokenProgram0 !== TOKEN_PROGRAM || pool.tokenProgram1 !== TOKEN_PROGRAM || ![quote.stateSlot, quote.binArraySlot, quote.balanceSlot, quote.mintEvidenceSlot, quote.epoch].every((slot) => Number.isSafeInteger(slot) && slot >= 0) || quote.binArraySlot < quote.stateSlot || quote.binArraySlot > quote.balanceSlot || quote.mintEvidenceSlot < quote.balanceSlot || pool.binArraySlot !== quote.binArraySlot || pool.mintEvidenceSlot !== quote.mintEvidenceSlot || pool.epoch !== quote.epoch || !validateBoundPoolMintEvidence(pool, quote.balanceSlot) || typeof pool.oracle !== "string" || !pool.oracle) throw new Error("Meteora execution quote evidence is invalid");
+  if (quote.binArrayIndexes.some((index) => !Number.isInteger(index) || index < -512 || index >= 512) || bitmapExtension != null) throw new Error("Meteora legacy execution supports default-bitmap pools only");
+  const amount = integer(quote.amountInRaw, "Meteora amount"), consumed = integer(quote.consumedInRaw, "Meteora consumed amount"), quotedOutput = integer(quote.amountOutRaw, "Meteora quoted output"), minimumOutput = integer(minimumOutputRaw, "Meteora minimum output");
+  if (amount === 0n || amount !== consumed || quotedOutput === 0n || minimumOutput === 0n || minimumOutput > quotedOutput || quote.inputTransferFeeRaw !== "0" || quote.outputTransferFeeRaw !== "0") throw new Error("Meteora execution bounds are invalid");
+  const arrays = selectBinArrays(quote, pool), eventAuthority = deriveEventAuthority();
+  const accounts = [meta(pool.address, false, true), meta(METEORA_DLMM_PROGRAM, false, false), meta(pool.tokenVault0, false, true), meta(pool.tokenVault1, false, true), meta(inputTokenAccount, false, true), meta(outputTokenAccount, false, true), meta(pool.tokenMint0, false, false), meta(pool.tokenMint1, false, false), meta(pool.oracle, false, true), meta(hostFeeAccount ?? METEORA_DLMM_PROGRAM, false, hostFeeAccount != null), meta(user, true, false), meta(TOKEN_PROGRAM, false, false), meta(TOKEN_PROGRAM, false, false), meta(eventAuthority, false, false), meta(METEORA_DLMM_PROGRAM, false, false), ...arrays.map((row) => meta(row.address, false, true))];
+  const data = Buffer.concat([SWAP_DISCRIMINATOR, u64(amount), u64(minimumOutput)]);
+  return { programId: METEORA_DLMM_PROGRAM, accounts, dataHex: data.toString("hex"), evidence: { pool: pool.address, stateSlot: quote.stateSlot, binArraySlot: quote.binArraySlot, balanceSlot: quote.balanceSlot, mintEvidenceSlot: quote.mintEvidenceSlot, epoch: quote.epoch, amountInRaw: amount.toString(), quotedOutputRaw: quotedOutput.toString(), minimumOutputRaw: minimumOutput.toString(), swapForY: direction, binArrays: arrays.map((row) => row.address), optionalBitmapExtension: null, optionalHostFeeAccount: hostFeeAccount, eventAuthority } };
+}
+
+export function prepareMeteoraDlmmSwapSimulation(args) {
+  const instruction = buildMeteoraDlmmSwapInstruction(args), transaction = buildUnsignedLegacyTransaction({ feePayer: args.user, recentBlockhash: args.recentBlockhash, instructions: [instruction] });
+  const inputPre = integer(args.inputPreAmountRaw, "Meteora input balance"), outputPre = integer(args.outputPreAmountRaw, "Meteora output balance"), amount = integer(args.quote.amountInRaw, "Meteora amount"), minimumOutput = integer(args.minimumOutputRaw, "Meteora minimum output"), quotedOutput = integer(args.quote.amountOutRaw, "Meteora quoted output");
+  if (inputPre < amount || outputPre + quotedOutput > U64_MAX) throw new Error("Meteora simulation balance bounds are invalid");
+  const prepared = { schemaVersion: 1, type: "meteora_dlmm_swap_simulation", protocol: "meteora-dlmm", commitment: "finalized", minContextSlot: args.quote.mintEvidenceSlot, transaction, instructionEvidence: instruction.evidence, simulationPolicy: { allowedProgramIds: [METEORA_DLMM_PROGRAM], requiredProgramIds: [METEORA_DLMM_PROGRAM], instructionPolicies: transaction.instructionPolicies, accountExpectations: [{ address: args.inputTokenAccount, mint: args.quote.inputMint, preAmountRaw: inputPre.toString(), minDeltaRaw: (-amount).toString(), maxDeltaRaw: (-amount).toString() }, { address: args.outputTokenAccount, mint: args.quote.outputMint, preAmountRaw: outputPre.toString(), minDeltaRaw: minimumOutput.toString(), maxDeltaRaw: quotedOutput.toString() }] } };
+  prepared.preparationHash = crypto.createHash("sha256").update(JSON.stringify(prepared)).digest("hex"); return prepared;
+}
+
+export async function simulatePreparedMeteoraDlmmSwap(client, { preparation, expectedGenesisHash, genesisHash }) {
+  const { preparationHash, ...unsignedPreparation } = preparation ?? {}, expectedHash = crypto.createHash("sha256").update(JSON.stringify(unsignedPreparation)).digest("hex");
+  if (preparation?.schemaVersion !== 1 || preparation.type !== "meteora_dlmm_swap_simulation" || preparation.protocol !== "meteora-dlmm" || preparation.commitment !== "finalized" || preparation.transaction?.signed !== false || preparation.transaction.submitted !== false || !Number.isSafeInteger(preparation.minContextSlot) || preparation.minContextSlot < 0 || !preparation.simulationPolicy || preparationHash !== expectedHash) throw new Error("Meteora simulation preparation is invalid");
+  const policy = preparation.simulationPolicy, receipt = await simulateUnsignedTransaction(client, { transactionBase64: preparation.transaction.transactionBase64, minContextSlot: preparation.minContextSlot, expectedGenesisHash, genesisHash, allowedProgramIds: policy.allowedProgramIds, requiredProgramIds: policy.requiredProgramIds, instructionPolicies: policy.instructionPolicies, accountExpectations: policy.accountExpectations });
+  if (receipt.transactionHash !== preparation.transaction.transactionHash || receipt.messageHash !== preparation.transaction.messageHash || receipt.simulationSlot < preparation.minContextSlot || receipt.messageVersion !== "legacy" || receipt.programIds?.length !== 1 || receipt.programIds[0] !== METEORA_DLMM_PROGRAM) throw new Error("Meteora simulation receipt does not match preparation");
+  const result = { ...receipt, type: "meteora_dlmm_swap_simulation_receipt", protocol: "meteora-dlmm", preparationHash, preparationMessageHash: preparation.transaction.messageHash, instructionEvidence: preparation.instructionEvidence }; result.receiptHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;
+}
+
+export const METEORA_DLMM_EXECUTION_CONSTANTS = Object.freeze({ tokenProgram: TOKEN_PROGRAM, swapDiscriminatorHex: SWAP_DISCRIMINATOR.toString("hex") });
