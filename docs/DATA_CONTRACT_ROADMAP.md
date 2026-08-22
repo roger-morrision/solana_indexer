@@ -73,6 +73,8 @@ Versioned Redis hot-state stats carry the same chain and genesis identity, and
 content reconciliation rejects missing or mismatched cache identity.
 ClickHouse sequence, fact-count, and identity-digest probes are explicitly
 scoped to canonical `solana-mainnet` rows.
+Synchronous reorg materialization also scopes every slot deletion to that chain,
+so repair cannot erase another network's rows in a shared cluster.
 
 ## Known limits
 

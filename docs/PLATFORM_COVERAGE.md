@@ -71,6 +71,8 @@ Redis hot-state stats and reconciliation independently require that same
 canonical chain and genesis identity.
 ClickHouse convergence queries scope every canonical fact and digest input to
 `solana-mainnet`, preventing foreign-chain rows from satisfying readiness.
+Reorg repair mutations apply the same chain predicate before deleting any
+slot-scoped instruction, swap, balance-change, or native-transfer facts.
 
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
