@@ -118,7 +118,7 @@ and `finalized` full blocks. Confirmed blocks provide the low-latency lane;
 finalized copies canonically promote or replace them. Subscription acknowledgements
 must be unique and commitment-bound, and superseded sockets cannot open or deliver into
 the active queue. Each open/closed transition is serialized into the shared
-health contract; a disconnected stream fails readiness immediately instead of
+health contract; a disconnected or gracefully stopped stream fails readiness immediately instead of
 waiting for the status freshness window. The stream persists every
 notification atomically into `inbox/`, repairs bounded slot gaps with local
 `getBlocks`-verified `getBlock` reads, resumes from durable status after restart, reconnects with bounded

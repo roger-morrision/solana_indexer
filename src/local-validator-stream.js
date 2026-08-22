@@ -23,7 +23,7 @@ export class LocalValidatorStream {
   }
   async start() { this.stopped = false; await this.initializeAndConnect(); return () => this.stop(); }
   async initializeAndConnect() { this.genesisHash = await this.rpcClient.assertGenesis(this.expectedGenesisHash); const prior = await readJson(this.statusFile); let names = []; try { names = await fs.readdir(this.inbox); } catch (error) { if (error.code !== "ENOENT") throw error; } if (!prior.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox"); if (prior.genesisHash && prior.genesisHash !== this.genesisHash) throw new Error(`refusing to reuse stream state from genesis ${prior.genesisHash}`); if (Number.isSafeInteger(prior.lastConfirmedSlot)) this.lastSlots.confirmed = prior.lastConfirmedSlot; if (Number.isSafeInteger(prior.lastFinalizedSlot)) this.lastSlots.finalized = prior.lastFinalizedSlot; await this.writeStatus(); this.connect(); }
-  stop() { this.stopped = true; this.socket?.close(); this.socket = null; }
+  stop() { if (this.stopped) return this.messageQueue; const source = this.provenanceSource; this.stopped = true; this.socket?.close(); this.socket = null; this.lastError = { at: new Date().toISOString(), message: "validator stream stopped" }; return this.queueStatus(source, false); }
   get endpoint() { return this.endpoints[this.endpointIndex]; }
   get provenanceSource() { return this.endpoints.length === 1 ? "local-agave-pubsub" : `local-agave-pubsub-${this.endpointIndex + 1}`; }
   queueStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) { this.messageQueue = this.messageQueue.then(() => this.writeStatus(source, connected)).catch((error) => { this.lastError = { at: new Date().toISOString(), message: error.message }; }); return this.messageQueue; }
@@ -72,8 +72,8 @@ export class LocalValidatorStream {
   }
   async writeStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) {
     const previous = await readJson(this.statusFile); const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...this.metrics.skippedSlots])].sort((a, b) => a - b).slice(-10_000);
-    const finalizationLagSlots = this.lastSlots.confirmed != null && this.lastSlots.finalized != null ? Math.max(0, this.lastSlots.confirmed - this.lastSlots.finalized) : null;
-    await atomicWrite(this.statusFile, { version: 2, source, genesisHash: this.genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), connected, cursor: this.lastSlots.finalized, localValidatorTip: this.lastSlots.confirmed, lagSlots: finalizationLagSlots, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots, consecutiveFailures: this.lastError ? 1 : 0, ...this.metrics, lastError: this.lastError, durableSkippedSlots });
+    const observedTip = this.lastSlots.confirmed == null ? this.lastSlots.finalized : this.lastSlots.finalized == null ? this.lastSlots.confirmed : Math.max(this.lastSlots.confirmed, this.lastSlots.finalized), finalizationLagSlots = observedTip != null && this.lastSlots.finalized != null ? observedTip - this.lastSlots.finalized : null;
+    await atomicWrite(this.statusFile, { version: 2, source, genesisHash: this.genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), connected, cursor: this.lastSlots.finalized, localValidatorTip: observedTip, lagSlots: finalizationLagSlots, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots, consecutiveFailures: this.lastError ? 1 : 0, ...this.metrics, lastError: this.lastError, durableSkippedSlots });
   }
 }
 
@@ -82,7 +82,7 @@ async function main() {
   if (wsEndpoints.length > 1 && rpcEndpoints.length !== wsEndpoints.length) throw new Error("Redundant validator streaming requires one verified RPC endpoint per WebSocket endpoint");
   const rpcClient = rpcEndpoints.length === 1 ? new LocalValidatorClient(rpcEndpoints[0]) : new LocalValidatorPool(rpcEndpoints, { failureThreshold: Number(process.env.LOCAL_RPC_FAILURE_THRESHOLD) || 3, cooldownMs: Number(process.env.LOCAL_RPC_COOLDOWN_MS) || 30_000 });
   const stream = new LocalValidatorStream({ endpoints: wsEndpoints, rpcClient, inbox: config.inbox, statusFile: config.exporterStatusFile, reconnectMinMs: config.streamReconnectMinMs, reconnectMaxMs: config.streamReconnectMaxMs, expectedGenesisHash: process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH });
-  await stream.start(); const stop = () => { stream.stop(); process.exit(0); }; process.once("SIGINT", stop); process.once("SIGTERM", stop);
+  await stream.start(); const stop = async () => { await stream.stop(); process.exit(0); }; process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
 if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
