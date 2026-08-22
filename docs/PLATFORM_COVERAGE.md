@@ -63,6 +63,8 @@ Redis hot state before reconciliation.
 The complete Redis delete/repopulate, stats, TTL, publication, and
 current-version pointer transition is atomic even when repairing the already
 advertised sequence.
+PostgreSQL token projections and warehouse checkpoints share the canonical
+`solana-mainnet` identity used by reconciliation.
 
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
