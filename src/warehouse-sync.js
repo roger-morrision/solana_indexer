@@ -36,8 +36,8 @@ function completeClmmEconomics(snapshot) {
 }
 
 function completeCpmmEconomics(snapshot) {
-  const config = snapshot?.ammConfigState, values = [snapshot?.vault0AmountRaw, snapshot?.vault1AmountRaw, snapshot?.protocolFeesToken0Raw, snapshot?.protocolFeesToken1Raw, snapshot?.fundFeesToken0Raw, snapshot?.fundFeesToken1Raw, snapshot?.creatorFeesToken0Raw, snapshot?.creatorFeesToken1Raw, config?.tradeFeeRate, config?.protocolFeeRate, config?.fundFeeRate, config?.creatorFeeRate];
-  if (!values.every((value) => /^\d+$/.test(value ?? "") && BigInt(value) <= 18_446_744_073_709_551_615n)) return false;
+  const config = snapshot?.ammConfigState, values = [snapshot?.vault0AmountRaw, snapshot?.vault1AmountRaw, snapshot?.protocolFeesToken0Raw, snapshot?.protocolFeesToken1Raw, snapshot?.fundFeesToken0Raw, snapshot?.fundFeesToken1Raw, snapshot?.creatorFeesToken0Raw, snapshot?.creatorFeesToken1Raw, snapshot?.openTime, config?.tradeFeeRate, config?.protocolFeeRate, config?.fundFeeRate, config?.creatorFeeRate];
+  if (typeof snapshot?.tokenMint0 !== "string" || !snapshot.tokenMint0 || typeof snapshot.tokenMint1 !== "string" || !snapshot.tokenMint1 || snapshot.tokenMint0 === snapshot.tokenMint1 || typeof snapshot.tokenVault0 !== "string" || !snapshot.tokenVault0 || typeof snapshot.tokenVault1 !== "string" || !snapshot.tokenVault1 || snapshot.tokenVault0 === snapshot.tokenVault1 || !values.every((value) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= 18_446_744_073_709_551_615n)) return false;
   const trade = BigInt(config.tradeFeeRate), protocol = BigInt(config.protocolFeeRate), fund = BigInt(config.fundFeeRate), creator = BigInt(config.creatorFeeRate), accrued0 = BigInt(snapshot.protocolFeesToken0Raw) + BigInt(snapshot.fundFeesToken0Raw) + BigInt(snapshot.creatorFeesToken0Raw), accrued1 = BigInt(snapshot.protocolFeesToken1Raw) + BigInt(snapshot.fundFeesToken1Raw) + BigInt(snapshot.creatorFeesToken1Raw);
   return trade + creator < 1_000_000n && protocol + fund <= 1_000_000n && accrued0 <= BigInt(snapshot.vault0AmountRaw) && accrued1 <= BigInt(snapshot.vault1AmountRaw);
 }
