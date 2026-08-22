@@ -337,7 +337,9 @@ stable on-chain name, symbol, URI, seller fee, and update-authority prefix. It
 does not fetch or trust the URI's off-chain JSON during canonical snapshots. An
 optional enrichment boundary separately enforces HTTPS, DNS-pinned public IPs,
 no redirects, strict size/type/schema limits, and content hashes; its normalized
-display fields remain explicitly untrusted and unsafe for automation. With no arguments it uses mints
+display fields remain explicitly untrusted and unsafe for automation. Imported
+enrichment artifacts must bind the exact current Metaplex payload hash and are
+projected separately into PostgreSQL metadata. With no arguments it uses mints
 already discovered by the index. This is intentionally bounded because
 `getProgramAccounts` is expensive. Holder concentration remains unsafe for
 automation until pool, burn, locker, and exchange exclusions are authoritative.
