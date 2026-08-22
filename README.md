@@ -272,6 +272,7 @@ Configuration:
 | `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
 | `LOCAL_VALIDATOR_WS` | `ws://127.0.0.1:8900` | Loopback-only Agave PubSub endpoint |
 | `LOCAL_VALIDATOR_RPC` | `http://127.0.0.1:8899` | Loopback-only gap-repair RPC endpoint |
+| `LOCAL_VALIDATOR_RPCS` | unset | Comma-separated 2-4 unique loopback Agave RPC endpoints. Overrides `LOCAL_VALIDATOR_RPC`; every node must pass the configured genesis check before failover is enabled. |
 | `INDEXER_STREAM_RECONNECT_MIN_MS` | `500` | Initial reconnect backoff |
 | `INDEXER_STREAM_RECONNECT_MAX_MS` | `30000` | Maximum reconnect backoff |
 

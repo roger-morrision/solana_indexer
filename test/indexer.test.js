@@ -11,7 +11,7 @@ import { loadConfig } from "../src/config.js";
 import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
-import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
+import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot, extractToken2022MintEvidence } from "../src/account-snapshot.js";
 import { getMultipleAccountsBatched, MAX_GET_MULTIPLE_ACCOUNTS } from "../src/rpc-account-batch.js";
@@ -898,6 +898,11 @@ test("local validator client correlates concurrent JSON-RPC responses", async ()
   await assert.rejects(() => mismatched.call("getSlot"), /invalid JSON-RPC response envelope/);
   const ambiguous = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl: async (_endpoint, options) => { const request = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: null, error: null }) }; } });
   await assert.rejects(() => ambiguous.call("getHealth"), /invalid JSON-RPC response envelope/);
+});
+
+test("local validator pool verifies every genesis and fails over without exposing endpoints", async () => {
+  const calls = [], fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); calls.push([endpoint, request.method]); if (request.method === "getGenesisHash") return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) }; if (endpoint.includes("8899")) throw new Error("primary offline at http://127.0.0.1:8899/private"); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: 42 }) }; }, pool = new LocalValidatorPool(["http://127.0.0.1:8899", "http://127.0.0.1:8900"], { fetchImpl });
+  assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.equal(await pool.call("getSlot", [{ commitment: "finalized" }]), 42); assert.equal(pool.provenanceSource, "local-agave-rpc-2"); assert.equal(calls.filter((row) => row[1] === "getGenesisHash").length, 2); await assert.rejects(new LocalValidatorPool(["http://127.0.0.1:8899", "http://127.0.0.1:8900"], { fetchImpl: async () => { throw new Error("http://127.0.0.1:8899/secret"); } }).call("getSlot"), (error) => !error.message.includes("/secret") && /local validator pool getSlot failed/.test(error.message)); assert.throws(() => new LocalValidatorPool(["http://127.0.0.1:8899", "http://127.0.0.1:8899/"]), /unique/); assert.throws(() => new LocalValidatorPool(["http://127.0.0.1:8899", "https://rpc.example.com"]), /loopback|http/);
 });
 
 test("external RPC pool enforces providers, fails over, and never exposes credential URLs", async () => {

@@ -27,6 +27,28 @@ export class LocalValidatorClient {
   async assertGenesis(expected = MAINNET_GENESIS_HASH) { const actual = await this.call("getGenesisHash"); if (expected !== "any" && actual !== expected) throw new Error(`validator genesis mismatch: expected ${expected}, received ${actual}`); return actual; }
 }
 
+export class LocalValidatorPool {
+  constructor(endpoints, options = {}) {
+    if (!Array.isArray(endpoints) || endpoints.length < 2 || endpoints.length > 4) throw new Error("Local validator pool requires 2 through 4 unique endpoints");
+    const normalized = endpoints.map(validateLocalRpcUrl);
+    if (new Set(normalized).size !== normalized.length) throw new Error("Local validator pool requires 2 through 4 unique endpoints");
+    this.clients = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, options); client.provenanceSource = `local-agave-rpc-${index + 1}`; return client; }); this.activeIndex = 0; this.provenanceSource = this.clients[0].provenanceSource;
+  }
+  async assertGenesis(expected = MAINNET_GENESIS_HASH) {
+    const hashes = await Promise.all(this.clients.map((client) => client.assertGenesis(expected)));
+    if (new Set(hashes).size !== 1) throw new Error("local validator pool genesis mismatch");
+    return hashes[0];
+  }
+  async call(method, params = []) {
+    const errors = [];
+    for (let offset = 0; offset < this.clients.length; offset++) {
+      const index = (this.activeIndex + offset) % this.clients.length, client = this.clients[index];
+      try { const result = await client.call(method, params); this.activeIndex = index; this.provenanceSource = client.provenanceSource; return result; } catch (error) { errors.push(`${client.provenanceSource}: ${safeError(error)}`); }
+    }
+    throw new Error(`local validator pool ${method} failed: ${errors.join("; ")}`);
+  }
+}
+
 async function readCursor(filename) {
   try {
     const raw = (await fs.readFile(filename, "utf8")).trim();
@@ -93,7 +115,7 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
 }
 
 async function main() {
-  const config = loadConfig(); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899");
+  const config = loadConfig(), endpoints = (process.env.LOCAL_VALIDATOR_RPCS || process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899").split(",").map((value) => value.trim()).filter(Boolean), client = endpoints.length === 1 ? new LocalValidatorClient(endpoints[0]) : new LocalValidatorPool(endpoints);
   const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/exporter.cursor"); const batchSize = Math.min(256, Math.max(1, Number(process.env.EXPORTER_BATCH_SIZE) || 32)); const once = process.argv.includes("--once");
   const expectedGenesisHash = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH;
   do { try { console.log(JSON.stringify(await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }))); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: "local-agave-rpc" }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
