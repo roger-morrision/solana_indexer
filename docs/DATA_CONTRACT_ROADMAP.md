@@ -45,7 +45,9 @@ and epoch-bound transfer fees. Undetermined function mode is resolved from both
 finalized reward mints exactly as the official SDK. Legacy-SPL routes whose
 quoted arrays fit the finalized default bitmap now support official-ABI-bound
 unsigned `swap` construction and hash/policy/token-effect-bound local
-simulation. Token-2022 `swap2`, extension-bitmap routes, external signing,
+simulation. Fee-only Token-2022 pools use `swap2`, direction-specific token
+programs, Memo, and a canonically empty remaining-account slice vector. Transfer
+hooks, other Token-2022 extensions, extension-bitmap routes, external signing,
 submission, and automation remain fail closed.
 
 ## Known limits

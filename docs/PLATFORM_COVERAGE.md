@@ -58,7 +58,9 @@ remain unavailable.
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |
 
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
-bitmap now have official-ABI-bound unsigned `swap` construction and local
-simulation with exact instruction policy and token-effect bounds. Token-2022
-`swap2`, extension-bitmap paths, external signing, submission, and automation
-remain fail closed.
+bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
+local simulation with exact instruction policy and token-effect bounds.
+Fee-only Token-2022 routes bind their two token programs, Memo, finalized fee
+evidence, and an empty transfer-hook slice vector. Transfer hooks, other
+extensions, extension-bitmap paths, external signing, submission, and
+automation remain fail closed.
