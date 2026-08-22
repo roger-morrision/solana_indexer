@@ -604,6 +604,8 @@ codes or text terminate with 1002 or 1007 instead of being echoed.
 additional authenticated upgrades receive `503 websocket_capacity_exceeded`
 until an existing socket closes. `/metrics` reports active clients, capacity
 rejections, slow-consumer evictions, and protocol closes without client keys.
+Baseline alerts page on durable audit failure, report sustained capacity or
+backpressure rejection, and flag protocol-error floods without client labels.
 Graceful process shutdown stops subscriptions and closes upgraded sockets with
 going-away code 1001 before draining HTTP and flushing the durable audit sink,
 so a connected subscriber cannot indefinitely hold shutdown open.

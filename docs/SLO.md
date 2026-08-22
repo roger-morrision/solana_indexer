@@ -14,6 +14,9 @@ maintenance is reported separately and is not silently removed from raw data.
 | Private block stream connection | connected during normal operation | readiness fails immediately on a durable disconnect transition; rotate nodes and repair gaps over verified RPC |
 | REST read latency | p99 <=500 ms monthly | alert and shed expensive requests |
 | WebSocket persisted-event delivery | p99 <=2 seconds after index commit | reconnect and resume from cursor |
+| WebSocket admission/backpressure | no capacity rejection or slow-consumer eviction during normal operation | alert on any sustained five-minute increase; scale or isolate slow consumers |
+| WebSocket protocol errors | <=100 closes per five minutes | alert on sustained abuse or client incompatibility while preserving bounded parser limits |
+| Durable API audit | zero write failures | protected routes fail closed immediately and page operators |
 | Unresolved decoder dead letters | zero older than 10 minutes | affected protocol coverage becomes incomplete |
 | Restore point objective | <=24 hours | block commercial launch if last verified backup is older |
 | Restore time objective | <=4 hours | rehearse quarterly on an isolated host |
@@ -49,6 +52,10 @@ length redaction policy as durable dead-letter evidence.
 Fixed-label `terminal_dex_internal_failures_total` counters cover generic HTTP,
 pool quote, pool preparation, and curve preparation failures. Any increase over
 five minutes alerts operators without placing diagnostic content in telemetry.
+Audit-sink failure, WebSocket capacity rejection and slow-consumer counters alert
+on any sustained five-minute increase. Protocol-error closes use a bounded
+five-minute threshold so malformed-client floods are visible without embedding
+client identity or frame contents in monitoring.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of

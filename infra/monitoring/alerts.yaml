@@ -61,8 +61,28 @@ groups:
         for: 1m
         labels: { severity: warning }
         annotations: { summary: "Indexer API quote, preparation, or server operation failed unexpectedly; inspect redacted diagnostics" }
+      - alert: TerminalDexAuditSinkFailures
+        expr: increase(terminal_dex_api_audit_failures_total[5m]) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Durable API audit writes failed and protected routes are failing closed" }
       - alert: TerminalDexDistributedQuotaFailures
         expr: increase(terminal_dex_distributed_quota_failures_total[5m]) > 0
         for: 1m
         labels: { severity: critical }
         annotations: { summary: "Redis distributed quota admission has failed closed" }
+      - alert: TerminalDexWebSocketCapacityRejected
+        expr: increase(terminal_dex_websocket_capacity_rejections_total[5m]) > 0
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "WebSocket clients are being rejected at the configured connection ceiling" }
+      - alert: TerminalDexWebSocketBackpressure
+        expr: increase(terminal_dex_websocket_slow_consumer_evictions_total[5m]) > 0
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "WebSocket clients are being evicted by bounded backpressure" }
+      - alert: TerminalDexWebSocketProtocolAbuse
+        expr: increase(terminal_dex_websocket_protocol_closes_total[5m]) > 100
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "WebSocket protocol-error closes exceed the abuse or incompatibility threshold" }
