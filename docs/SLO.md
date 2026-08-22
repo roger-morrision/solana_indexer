@@ -57,8 +57,10 @@ on any sustained five-minute increase. Protocol-error closes use a bounded
 five-minute threshold so malformed-client floods are visible without embedding
 client identity or frame contents in monitoring.
 WebSocket delivery latency is measured only for clients that opt into the
-versioned cumulative `ack=1` contract. It starts after durable event persistence
-and ends when the server receives the corresponding application acknowledgement;
+versioned cumulative `ack=1` contract. Live delivery starts at the durable commit
+notification (before projection and socket fan-out); replay starts when retained
+evidence becomes available to the connection. The timer ends
+when the server receives the corresponding application acknowledgement;
 enqueue time is never substituted for delivery. Outstanding acknowledgements are
 bounded by count and time, with timeouts separately alerted and no client labels.
 GET latency for `/api/` and `/internal/` reads is exported as a fixed route-free

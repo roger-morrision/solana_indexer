@@ -289,8 +289,8 @@ export class IndexStore {
     this.assertWritable();
     this.state.updatedAt = new Date().toISOString();
     await durableAtomicWrite(this.filename, `${JSON.stringify(this.state)}\n`);
-    const committed = this.pendingEvents.splice(0);
-    for (const event of committed) for (const listener of this.listeners) listener(event);
+    const committedAt = Date.now(), committed = this.pendingEvents.splice(0);
+    for (const event of committed) for (const listener of this.listeners) listener(event, { committedAt });
   }
   hasFile(name, fingerprint) { const row = this.structureQuality().canonical ? this.state.processedFiles[name] : null; return row?.fingerprint === fingerprint && row?.parserVersion === 2; }
   deadLetterRetryStatus(filename, fingerprint, retryIdentity, now = Date.now()) { const row = this.state.deadLetters.find((candidate) => !candidate.resolved && candidate.filename === filename && candidate.fingerprint === fingerprint); if (!row) return { eligible: true, reason: "new_evidence" }; if (row.retryIdentity !== retryIdentity) return { eligible: true, reason: "decoder_changed" }; const nextRetryAt = parseCanonicalUtcTimestamp(row.nextRetryAt); if (nextRetryAt == null) return { eligible: true, reason: "legacy_evidence" }; return { eligible: now >= nextRetryAt, reason: now >= nextRetryAt ? "retry_due" : "retry_deferred", nextRetryAt: row.nextRetryAt }; }
