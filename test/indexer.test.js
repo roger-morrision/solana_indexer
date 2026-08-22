@@ -34,6 +34,7 @@ import { assessRecoveryQualification, compileRecoveryQualification, writeRecover
 import { validateGeyserCompatibility } from "../src/geyser-abi-preflight.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { MAX_RETRY_AFTER_MS, MIN_RETRY_AFTER_MS, parseRetryAfterMs } from "../src/provider-retry.js";
+import { readBoundedRpcJson } from "../src/rpc-response.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
@@ -1028,6 +1029,14 @@ test("local validator client correlates concurrent JSON-RPC responses", async ()
   await mismatched.assertGenesis(); await assert.rejects(() => mismatched.call("getSlot"), /invalid JSON-RPC response envelope/);
   const ambiguous = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl: async (_endpoint, options) => { const request = JSON.parse(options.body); return { ok: true, json: async () => request.method === "getGenesisHash" ? ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) : ({ jsonrpc: "2.0", id: request.id, result: null, error: null }) }; } });
   await ambiguous.assertGenesis(); await assert.rejects(() => ambiguous.call("getHealth"), /invalid JSON-RPC response envelope/);
+});
+
+test("RPC response decoding rejects oversized and malformed bodies before parsing", async () => {
+  await assert.rejects(() => readBoundedRpcJson(new Response("x".repeat(1_025)), 1_024), /exceeds byte limit/);
+  await assert.rejects(() => readBoundedRpcJson(new Response("not-json"), 1_024), /JSON is invalid/);
+  let parsed = false; const fetchImpl = async (_endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getGenesisHash") return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) }; return { ok: true, headers: { get: (name) => name === "content-length" ? "1025" : null }, json: async () => { parsed = true; return {}; } }; };
+  const client = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl, maxResponseBytes: 1_024 }); await client.assertGenesis(); await assert.rejects(() => client.call("getBlock"), /exceeds byte limit/); assert.equal(parsed, false);
+  assert.throws(() => new LocalValidatorClient(undefined, { maxResponseBytes: 1_023 }), /response limit/); assert.throws(() => new ExternalRpcPool([{ name: "solana-public", endpoint: "https://api.mainnet.solana.com" }], { maxResponseBytes: 268_435_457 }), /response limit/);
 });
 
 test("local validator pool verifies every genesis and fails over without exposing endpoints", async () => {

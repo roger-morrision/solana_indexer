@@ -7,6 +7,7 @@ import { loadConfig, parseBoundedInteger } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { parseRetryAfterMs } from "./provider-retry.js";
+import { readBoundedRpcJson } from "./rpc-response.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
@@ -18,13 +19,13 @@ export function validateLocalRpcUrl(value) {
 }
 
 export class LocalValidatorClient {
-  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, now = () => Date.now() } = {}) { if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error("Local validator RPC timeout must be a positive integer"); this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.now = now; this.id = 0; this.verifiedGenesisHash = null; }
+  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, maxResponseBytes = 67_108_864, now = () => Date.now() } = {}) { if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error("Local validator RPC timeout must be a positive integer"); if (!Number.isSafeInteger(maxResponseBytes) || maxResponseBytes < 1_024 || maxResponseBytes > 268_435_456) throw new Error("Local validator RPC response limit is invalid"); this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.maxResponseBytes = maxResponseBytes; this.now = now; this.id = 0; this.verifiedGenesisHash = null; }
   async call(method, params = []) {
     if (method !== "getGenesisHash" && this.verifiedGenesisHash == null) throw new Error("Local validator RPC requires genesis verification before data calls");
     const requestId = ++this.id;
     const response = await this.fetchImpl(this.endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params }), signal: AbortSignal.timeout(this.timeoutMs) });
     if (!response.ok) { const error = new Error(`local validator ${method}: HTTP ${response.status}`); error.retryable = [429, 503].includes(response.status); error.retryAfterMs = error.retryable ? parseRetryAfterMs(response.headers?.get?.("retry-after"), this.now()) : null; throw error; }
-    const payload = await response.json(), hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
+    const payload = await readBoundedRpcJson(response, this.maxResponseBytes), hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
     if (payload?.jsonrpc !== "2.0" || payload.id !== requestId || hasResult === hasError) throw new Error(`local validator ${method}: invalid JSON-RPC response envelope`);
     if (hasError) throw new Error(`local validator ${method}: ${payload.error?.message ?? `RPC ${payload.error?.code ?? "unknown"}`}`); return payload.result;
   }
