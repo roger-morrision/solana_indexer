@@ -98,3 +98,5 @@ All REST and internal execution surfaces now use stable non-leaking failure
 envelopes. Redacted callback diagnostics preserve operator visibility without
 making provider URLs, credentials, filesystem details, or exception text part
 of a commercial consumer contract.
+Fixed-cardinality Prometheus counters and an increase alert make each protected
+failure family observable even when no diagnostic callback is configured.

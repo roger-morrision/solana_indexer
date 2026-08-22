@@ -247,6 +247,8 @@ are synchronized before their consumer-enablement evidence is returned.
 Commercial HTTP contracts expose stable codes rather than exception text for
 unexpected server, quote, or preparation failures. Controlled validation detail
 remains bounded; optional operator diagnostics reuse the shared redaction policy.
+Four fixed operation labels provide counter and alert coverage without exposing
+exception, request, tenant, provider, or credential data as metric dimensions.
 Graceful API shutdown stops producers, drains HTTP requests, closes idle
 connections, and flushes pending durable audit records before successful exit.
 Versioned Redis hot-state stats carry the same chain and genesis identity, and

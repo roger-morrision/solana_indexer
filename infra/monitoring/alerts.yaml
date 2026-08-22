@@ -56,6 +56,11 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "Indexer HTTP 5xx rate exceeds the production objective" }
+      - alert: TerminalDexInternalFailures
+        expr: sum(increase(terminal_dex_internal_failures_total[5m])) > 0
+        for: 1m
+        labels: { severity: warning }
+        annotations: { summary: "Indexer API quote, preparation, or server operation failed unexpectedly; inspect redacted diagnostics" }
       - alert: TerminalDexDistributedQuotaFailures
         expr: increase(terminal_dex_distributed_quota_failures_total[5m]) > 0
         for: 1m

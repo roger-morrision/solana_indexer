@@ -611,6 +611,8 @@ Controlled request-validation failures retain bounded, stable detail. Unexpected
 HTTP, quote, and execution-preparation exceptions expose only versioned reason
 codes; their exception text is available solely through the optional redacted
 internal diagnostic callback and is never reflected to API consumers.
+Prometheus exports counters for four fixed internal-failure operations and never
+uses exception text, request data, provider identity, or credentials as labels.
 The HTTP upgrade requires GET, canonical RFC 6455 Upgrade/Connection/version
 headers, and an exactly 16-byte canonical Base64 nonce.
 When API keys are enabled, WebSocket

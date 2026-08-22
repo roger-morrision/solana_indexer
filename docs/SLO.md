@@ -44,6 +44,9 @@ Public HTTP failures are a trust boundary: unexpected exceptions return only
 Only controlled 4xx validation failures may include bounded detail. Optional
 internal diagnostics apply the same credential, URL, control-character, and
 length redaction policy as durable dead-letter evidence.
+Fixed-label `terminal_dex_internal_failures_total` counters cover generic HTTP,
+pool quote, pool preparation, and curve preparation failures. Any increase over
+five minutes alerts operators without placing diagnostic content in telemetry.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of
