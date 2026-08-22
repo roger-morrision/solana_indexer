@@ -461,7 +461,10 @@ against canonical mainnet USDC or through wrapped SOL. Each venue is
 time-weighted over its retained fresh observations. An edge with at least three
 independent venues uses their exact rational median so one venue outlier cannot
 dominate; thinner edges use the mean and retain explicit manipulation-coverage
-missing signals. Paths with fewer than two venues also retain a
+missing signals. When direct-USDC and wrapped-SOL paths both exist, complete
+paths are ranked deterministically by robust median coverage, minimum independent
+venue count, and hop count, so one weak direct pool cannot override stronger
+indirect evidence. Paths with fewer than two venues also retain a
 `multi_venue_twap` missing signal. Amounts and decimal normalization remain
 exact rational integers. These references are suitable for display/research
 only unless `USD_DEPEG_REFERENCE_FILE` supplies fresh finalized evidence from an
