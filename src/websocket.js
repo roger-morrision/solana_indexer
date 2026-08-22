@@ -99,6 +99,6 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     socket.on("close", () => clients.delete(socket)); socket.on("error", () => clients.delete(socket));
   });
   const timer = setInterval(() => { for (const socket of clients.keys()) { if (socket.destroyed || socket.writableLength > maximumBufferedBytes) { if (!socket.destroyed) stats.slowConsumerEvictions++; socket.destroy(); clients.delete(socket); } else socket.write(frame(0x9)); } }, heartbeatMs); timer.unref();
-  server.on("close", () => { clearInterval(timer); unsubscribe(); for (const socket of clients.keys()) socket.destroy(); clients.clear(); });
+  let stopped = false; const closeClients = () => { if (stopped) return; stopped = true; clearInterval(timer); unsubscribe(); const payload = Buffer.alloc(2); payload.writeUInt16BE(1001); for (const socket of clients.keys()) { if (!socket.destroyed) { socket.end(frame(0x8, payload)); socket.destroySoon?.(); } } clients.clear(); }; server.closeWebSocketClients = closeClients; server.on("close", closeClients);
   return server;
 }

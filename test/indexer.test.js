@@ -76,10 +76,15 @@ test("durable appends preserve same-process submission order", async (t) => {
 });
 
 test("graceful shutdown drains HTTP before flushing durable audit work", async () => {
-  const calls = [], server = { close(callback) { calls.push("close"); queueMicrotask(() => { calls.push("drained"); callback(); }); }, closeIdleConnections() { calls.push("close-idle"); }, auditSink: { async flush() { calls.push("audit-flushed"); } } };
+  const calls = [], server = { closeWebSocketClients() { calls.push("close-websockets"); }, close(callback) { calls.push("close"); queueMicrotask(() => { calls.push("drained"); callback(); }); }, closeIdleConnections() { calls.push("close-idle"); }, auditSink: { async flush() { calls.push("audit-flushed"); } } };
   await shutdownIndexer({ server, oracleWatcher: { stop() { calls.push("oracle-stopped"); } }, stopWatching() { calls.push("watch-stopped"); } });
-  assert.deepEqual(calls, ["oracle-stopped", "watch-stopped", "close", "close-idle", "drained", "audit-flushed"]);
+  assert.deepEqual(calls, ["oracle-stopped", "watch-stopped", "close-websockets", "close", "close-idle", "drained", "audit-flushed"]);
   await assert.rejects(shutdownIndexer({ server: { close(callback) { callback(new Error("close failed")); } } }), /close failed/);
+});
+
+test("graceful shutdown cannot be held open by an active WebSocket", async () => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({ webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws`); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); const closed = new Promise((resolve) => { socket.onclose = resolve; });
+  let timeout; try { await Promise.race([shutdownIndexer({ server }), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("shutdown timed out with active WebSocket")), 1_000); })]); } finally { clearTimeout(timeout); } const event = await closed; assert.equal(event.code, 1001); assert.equal(server.webSocketStats.activeClients, 0);
 });
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const withLegacyMintEvidence = (pool, slot, epoch = 2) => ({ ...pool, mintEvidenceSlot: slot, epoch, mint0Evidence: { schemaVersion: 1, mint: pool.tokenMint0, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals0 ?? 6, extensionTypes: [], token2022Evidence: null }, mint1Evidence: { schemaVersion: 1, mint: pool.tokenMint1, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals1 ?? 6, extensionTypes: [], token2022Evidence: null } });

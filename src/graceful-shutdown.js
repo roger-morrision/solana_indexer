@@ -2,6 +2,7 @@ export async function shutdownIndexer({ server = null, oracleWatcher, stopWatchi
   oracleWatcher?.stop();
   stopWatching?.();
   if (!server) return;
+  server.closeWebSocketClients?.();
   await new Promise((resolve, reject) => {
     server.close((error) => error ? reject(error) : resolve());
     server.closeIdleConnections?.();

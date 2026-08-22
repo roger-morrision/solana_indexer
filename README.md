@@ -570,6 +570,9 @@ codes or text terminate with 1002 or 1007 instead of being echoed.
 additional authenticated upgrades receive `503 websocket_capacity_exceeded`
 until an existing socket closes. `/metrics` reports active clients, capacity
 rejections, slow-consumer evictions, and protocol closes without client keys.
+Graceful process shutdown stops subscriptions and closes upgraded sockets with
+going-away code 1001 before draining HTTP and flushing the durable audit sink,
+so a connected subscriber cannot indefinitely hold shutdown open.
 
 RPC JSON bodies are capped by `INDEXER_RPC_MAX_BODY_BYTES` (default 65536)
 and execution-preparation bodies by `INDEXER_EXECUTION_MAX_BODY_BYTES`

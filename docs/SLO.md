@@ -26,6 +26,9 @@ so a prior successful rehearsal cannot be silently overwritten.
 It includes active WebSocket clients plus cumulative capacity rejections,
 slow-consumer evictions, and protocol-error closes so saturation and abusive
 or incompatible clients are observable without logging credentials.
+Shutdown closes upgraded sockets before waiting for the HTTP server drain, then
+flushes durable audit work; long-lived subscribers therefore cannot defeat the
+documented recovery and restart objectives.
 It must not be publicly exposed without the mTLS gateway or a private monitoring
 network. `infra/monitoring/alerts.yaml` contains baseline alerts; operators must
 connect them to an approved notification system and test alert delivery.
