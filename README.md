@@ -333,7 +333,7 @@ Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
-`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote`;
+`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the Meteora-only authenticated `POST /internal/pools/:address/prepare-swap`;
 `/internal/feed/health`;
 and `/internal/feed/gaps`. Evidence bundle v2 includes exact USD-reference and
 USD-volume completeness plus per-pool risk outputs alongside stable schema
@@ -348,6 +348,12 @@ curve reserves, or Pump's exact-spend buy formula when `side=buy`, and rounds
 protocol and creator fees upward independently. `side` defaults to `sell` for
 backward compatibility; other values return `400`.
 The result is deliberately `executable: false` and `safeForAutomation: false`.
+The Meteora preparation endpoint independently requotes the persisted fresh
+finalized snapshot and accepts explicit user/token accounts, amount bounds,
+recent blockhash, pre-balances, and optional hash-bound transfer-hook evidence.
+It returns a deterministic unsigned simulation preparation plus explicit next
+steps; it never calls simulation, signs, or submits, and request bodies are
+bounded to 512 KiB.
 Fresh finalized curve, mint-owner, Global, and FeeConfig evidence now feeds an
 exact unsigned Sell V2 and Buy Exact Quote In V2 builders with hash-bound local simulation preparation;
 the quote, instruction, and simulation all bind the same finalized mint-evidence

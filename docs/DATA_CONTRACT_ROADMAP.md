@@ -55,6 +55,12 @@ range for quoting and construction. Hash-bound, capped, expiring requests can be
 cryptographically verified, and landed transactions require finalized
 byte-identical message evidence; the indexer still never signs or submits and
 automation remains disabled.
+The authenticated Meteora preparation contract requotes canonical persisted
+state on every request and exposes its deterministic unsigned simulation
+artifact through `POST /internal/pools/:address/prepare-swap`. Caller-provided
+account identities, bounds, pre-balances, blockhash, and optional transfer-hook
+source evidence pass through the same construction gates; the endpoint performs
+no simulation, signing, or submission.
 
 ## Known limits
 

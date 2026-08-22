@@ -17,6 +17,7 @@ import { quoteOrcaSnapshotExactInput } from "./orca-clmm-math.js";
 import { ORCA_WHIRLPOOL_PROGRAM } from "./orca-pool-snapshot.js";
 import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
+import { prepareMeteoraDlmmSwapSimulation } from "./meteora-dlmm-execution.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
@@ -44,7 +45,7 @@ function optionalFilter(url, name, maximum = 64) { const value = url.searchParam
 async function readJsonFile(filename) { if (!filename) return null; try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
 async function readJsonBody(request, maximum = 65_536) {
   const chunks = []; let size = 0;
-  for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error("request body exceeds 64 KiB"); error.code = "BAD_REQUEST"; throw error; } chunks.push(chunk); }
+  for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error(`request body exceeds ${maximum} bytes`); error.code = "BAD_REQUEST"; throw error; } chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { const error = new Error("request body must be valid JSON"); error.code = "BAD_REQUEST"; throw error; }
 }
 function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result }; }
@@ -131,7 +132,7 @@ export function createServer(config, store) {
       if (protectedRoute && config.auditLogFile && auditSink.failures > 0) return json(response, 503, { error: "audit_sink_unavailable" });
       if (protectedRoute && config.apiTenants && !tenant) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
       if (protectedRoute && !config.apiTenants && apiKeys.length && !keyMatches(presented, apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
-      let rpcPayload = null; if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request); const requestWeight = Array.isArray(rpcPayload) && rpcPayload.length >= 1 && rpcPayload.length <= 100 ? rpcPayload.length : 1; auditUnits = requestWeight;
+      const preparePoolSwap = request.method === "POST" ? url.pathname.match(/^\/internal\/pools\/([^/]+)\/prepare-swap$/) : null; let rpcPayload = null, preparePayload = null; if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request); else if (preparePoolSwap) preparePayload = await readJsonBody(request, 524_288); const requestWeight = Array.isArray(rpcPayload) && rpcPayload.length >= 1 && rpcPayload.length <= 100 ? rpcPayload.length : 1; auditUnits = requestWeight;
       const requestLimit = tenant?.rateLimitPerMinute ?? config.rateLimitPerMinute;
       if (protectedRoute && requestLimit) {
         const quotaIdentity = tenant?.id ?? (apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown");
@@ -141,6 +142,17 @@ export function createServer(config, store) {
         if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) });
       }
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpcEnvelope(rpcPayload, config, store));
+      if (preparePoolSwap) {
+        const poolAddress = decodeURIComponent(preparePoolSwap[1]), row = store.state.poolSnapshots[poolAddress];
+        if (!row) return json(response, 404, { error: "pool_snapshot_not_found" });
+        if (row.programId !== METEORA_DLMM_PROGRAM) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: "unsupported_construction_protocol" });
+        if (!preparePayload || typeof preparePayload !== "object" || Array.isArray(preparePayload) || !/^\d+$/.test(preparePayload.amountRaw ?? "") || typeof preparePayload.inputMint !== "string" || !preparePayload.inputMint) return json(response, 400, { error: "invalid_prepare_parameters" });
+        const snapshot = { schemaVersion: 1, type: "meteora_dlmm_pool_snapshot", commitment: row.commitment, stateSlot: row.stateSlot, balanceSlot: row.balanceSlot, observedAt: row.observedAt, pools: [row] };
+        try {
+          const quote = quoteMeteoraDlmmSnapshotExactInput({ snapshot, poolAddress, inputMint: preparePayload.inputMint, amountIn: preparePayload.amountRaw, staleAfterMs: config.staleAfterMs }), preparation = prepareMeteoraDlmmSwapSimulation({ quote, pool: row, user: preparePayload.user, inputTokenAccount: preparePayload.inputTokenAccount, outputTokenAccount: preparePayload.outputTokenAccount, minimumOutputRaw: preparePayload.minimumOutputRaw, recentBlockhash: preparePayload.recentBlockhash, inputPreAmountRaw: preparePayload.inputPreAmountRaw, outputPreAmountRaw: preparePayload.outputPreAmountRaw, bitmapExtension: preparePayload.bitmapExtension ?? null, hostFeeAccount: preparePayload.hostFeeAccount ?? null, transferHookAccountData: preparePayload.transferHookAccountData ?? null });
+          return json(response, 200, { schemaVersion: 1, prepared: true, automationSafe: false, signed: false, submitted: false, requiredNextSteps: ["local_simulation", "external_signer_approval", "externally_operated_submission"], quote, preparation });
+        } catch (error) { return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: error.message }); }
+      }
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
       if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, auditSink.failures); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }
