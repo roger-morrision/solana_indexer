@@ -950,6 +950,14 @@ test("validator stream rejects crossed subscriptions and ignores superseded sock
   stream.connect(); const oldSocket = FakeSocket.instances.at(-1); stream.connect(); oldSocket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 42 }) }); await stream.messageQueue; assert.equal(stream.subscriptions.has(42), false);
 });
 
+test("validator stream rotates unique loopback endpoints and attributes active-node provenance", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-failover-")), scheduled = []; class FakeSocket { static endpoints = []; constructor(endpoint) { this.readyState = 1; FakeSocket.endpoints.push(endpoint); } send() {} close() {} }
+  const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: {}, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: FakeSocket, scheduleReconnect: (callback, delay) => scheduled.push([callback, delay]) });
+  stream.connect(); const primary = stream.socket; primary.onclose(); assert.equal(scheduled.length, 1); assert.equal(scheduled[0][1], 500); scheduled[0][0](); assert.deepEqual(FakeSocket.endpoints, ["ws://127.0.0.1:8900/", "ws://127.0.0.1:8901/"]);
+  await stream.persistBlock("finalized", 42, { blockhash: "block-42" }, 42); const stored = JSON.parse(await fs.readFile(path.join(root, "inbox", "42.finalized.json"), "utf8")); assert.equal(stored.provenance.source, "local-agave-pubsub-2"); await stream.persistBlock("finalized", 43, { blockhash: "block-43" }, 43, "local-agave-pubsub-1"); const queued = JSON.parse(await fs.readFile(path.join(root, "inbox", "43.finalized.json"), "utf8")); assert.equal(queued.provenance.source, "local-agave-pubsub-1");
+  assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8900/"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /unique/); assert.throws(() => new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "wss://example.com"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket }), /must use ws/);
+});
+
 test("verified stream refuses an existing inbox with unknown genesis", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-network-boundary-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "1.json"), "{}\n");
   const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox, statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
@@ -962,7 +970,7 @@ test("validator stream atomically persists commitments and repairs bounded gaps"
   const stream = new LocalValidatorStream({ rpcClient, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: class {}, endpoint: "ws://127.0.0.1:8900" });
   const block = (slot) => ({ blockhash: `block-${slot}`, previousBlockhash: `block-${slot - 1}`, parentSlot: slot - 1, blockTime: 1_700_000_000, transactions: [] });
   await stream.ingestBlock("confirmed", 10, block(10)); await stream.ingestBlock("confirmed", 12, block(12)); await stream.ingestBlock("finalized", 10, block(10));
-  assert.deepEqual(calls, [["getBlocks", 11], ["getBlock", 11]]); assert.ok(await fs.readFile(path.join(root, "inbox", "11.confirmed.json"), "utf8"));
+  assert.deepEqual(calls, [["getBlocks", 11], ["getBlock", 11]]); const repaired = JSON.parse(await fs.readFile(path.join(root, "inbox", "11.confirmed.json"), "utf8")); assert.equal(repaired.provenance.source, "local-agave-rpc");
   const status = JSON.parse(await fs.readFile(path.join(root, "status.json"), "utf8")); assert.deepEqual({ confirmed: status.lastConfirmedSlot, finalized: status.lastFinalizedSlot, lag: status.finalizationLagSlots, repairs: status.gapRepairs }, { confirmed: 12, finalized: 10, lag: 2, repairs: 1 });
 });
 
