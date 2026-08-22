@@ -74,7 +74,7 @@ export function quoteCpmmSnapshotExactInput({ snapshot, poolAddress, inputMint, 
   if ((pool.status & 4) !== 0 || BigInt(pool.openTime) * 1_000n > BigInt(now)) throw new Error("CPMM swaps are disabled or not open");
   const zeroForOne = inputMint === pool.tokenMint0 ? true : inputMint === pool.tokenMint1 ? false : null; if (zeroForOne == null) throw new Error("CPMM input mint does not belong to pool");
   const token2022 = POOL_MINT_EVIDENCE_CONSTANTS.token2022Program, hasToken2022 = pool.tokenProgram0 === token2022 || pool.tokenProgram1 === token2022;
-  if (hasToken2022 && !validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("CPMM Token-2022 mint evidence is incomplete");
+  if (!validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("CPMM mint evidence is incomplete");
   const inputEvidence = zeroForOne ? pool.mint0Evidence : pool.mint1Evidence, outputEvidence = zeroForOne ? pool.mint1Evidence : pool.mint0Evidence;
   for (const evidence of [inputEvidence, outputEvidence]) if (evidence?.programId === token2022 && evidence.extensionTypes.some((type) => type !== "transferFeeConfig")) throw new Error("CPMM Token-2022 transfer extensions are unsupported");
   const inputTransfer = inputEvidence?.token2022Evidence?.activeTransferFee ? calculateTransferFeeIncludedAmount(amount, inputEvidence.token2022Evidence.activeTransferFee) : { grossAmountRaw: amount.toString(), netAmountRaw: amount.toString(), transferFeeRaw: "0" };
