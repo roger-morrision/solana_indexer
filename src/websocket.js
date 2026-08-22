@@ -7,7 +7,11 @@ function frame(opcode, payload = Buffer.alloc(0)) {
   if (body.length <= 65_535) { const header = Buffer.alloc(4); header[0] = 0x80 | opcode; header[1] = 126; header.writeUInt16BE(body.length, 2); return Buffer.concat([header, body]); }
   const header = Buffer.alloc(10); header[0] = 0x80 | opcode; header[1] = 127; header.writeBigUInt64BE(BigInt(body.length), 2); return Buffer.concat([header, body]);
 }
-function reject(socket, status, reason) { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`); }
+function reject(socket, status, reason, rateLimit = null) {
+  let quotaHeaders = "";
+  if (rateLimit && Number.isInteger(rateLimit.limit) && rateLimit.limit > 0 && Number.isInteger(rateLimit.remaining) && rateLimit.remaining >= 0 && Number.isInteger(rateLimit.retryAfterSeconds) && rateLimit.retryAfterSeconds > 0) quotaHeaders = `X-RateLimit-Limit: ${rateLimit.limit}\r\nX-RateLimit-Remaining: ${rateLimit.remaining}\r\nRetry-After: ${rateLimit.retryAfterSeconds}\r\n`;
+  socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n${quotaHeaders}Content-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`);
+}
 function close(socket, code) { const payload = Buffer.alloc(2); payload.writeUInt16BE(code); socket.end(frame(0x8, payload)); }
 function closePayloadError(payload) {
   if (payload.length === 0) return null;
@@ -82,13 +86,13 @@ export function attachWebSocket(server, store, config, authorize = () => true, {
   const acknowledge = (client, text) => { let value; try { value = JSON.parse(text); } catch { return 1008; } if (!client.acknowledgements || value?.schemaVersion !== 1 || value.type !== "ack" || !Number.isSafeInteger(value.sequence) || value.sequence <= client.lastAcknowledged || !client.outstanding.has(value.sequence) || Object.keys(value).sort().join(",") !== "schemaVersion,sequence,type") return 1008; const now = Date.now(); for (const [sequence, sentAt] of client.outstanding) { if (sequence > value.sequence) break; const seconds = Math.max(0, now - sentAt) / 1_000; stats.acknowledgementCount++; stats.acknowledgementLatencyMs += seconds * 1_000; for (const le of latencyBuckets) if (seconds <= le) stats.acknowledgementLatencyBuckets[le]++; client.outstanding.delete(sequence); } client.lastAcknowledged = value.sequence; return null; };
   const unsubscribe = store.subscribe((event, commit) => { const availableAt = Number.isSafeInteger(commit?.committedAt) ? commit.committedAt : Date.now(); for (const [socket, client] of clients) { const value = projectWebSocketEvent(event, client.filter); if (value) deliver(socket, client, value, availableAt); } });
   const observe = (request, statusCode, authorization = null) => { if (upgradeObserved.has(request)) return; upgradeObserved.add(request); const started = upgradeStarted.get(request), durationMs = started == null ? 0 : Number(process.hrtime.bigint() - started) / 1_000_000; upgradeStarted.delete(request); try { audit(request, statusCode, authorization, durationMs); } catch {} };
-  const rejectUpgrade = (request, socket, status, reason, authorization = null) => { observe(request, Number(status.slice(0, 3)), authorization); reject(socket, status, reason); };
+  const rejectUpgrade = (request, socket, status, reason, authorization = null, rateLimit = null) => { observe(request, Number(status.slice(0, 3)), authorization); reject(socket, status, reason, rateLimit); };
   server.on("upgrade", (request, socket) => { upgradeStarted.set(request, process.hrtime.bigint()); void (async () => {
     const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
     if (url.pathname !== "/ws") return rejectUpgrade(request, socket, "404 Not Found", "not_found");
     const filter = subscription(url); if (!filter) return rejectUpgrade(request, socket, "400 Bad Request", "invalid_topic");
     const authorization = await authorize(request); if (!authorization || authorization?.authorized === false) return rejectUpgrade(request, socket, authorization?.status ?? "401 Unauthorized", authorization?.reason ?? "unauthorized", authorization);
-    let admission; try { admission = await admit(request, authorization); } catch { admission = { allowed: false, status: "503 Service Unavailable", reason: "quota_unavailable" }; } if (!admission?.allowed) return rejectUpgrade(request, socket, admission?.status ?? "503 Service Unavailable", admission?.reason ?? "quota_unavailable", authorization);
+    let admission; try { admission = await admit(request, authorization); } catch { admission = { allowed: false, status: "503 Service Unavailable", reason: "quota_unavailable" }; } if (!admission?.allowed) return rejectUpgrade(request, socket, admission?.status ?? "503 Service Unavailable", admission?.reason ?? "quota_unavailable", authorization, admission?.rateLimit);
     if (!store.structureQuality().canonical) return rejectUpgrade(request, socket, "503 Service Unavailable", "index_state_unavailable", authorization);
     if (clients.size >= maximumClients) { stats.capacityRejections++; return rejectUpgrade(request, socket, "503 Service Unavailable", "websocket_capacity_exceeded", authorization); }
     const key = request.headers["sec-websocket-key"];

@@ -604,7 +604,9 @@ revoked key hashes transactionally, while hourly request totals use integer-safe
 accumulation with exact millisecond sums.
 Authenticated WebSocket upgrades consume the same local or Redis-backed tenant
 quota as HTTP calls. Every accepted or rejected `/ws` upgrade is recorded in the
-same redacted durable usage log with measured admission latency.
+same redacted durable usage log with measured admission latency. Quota-denied
+upgrades return bounded `Retry-After`, `X-RateLimit-Limit`, and
+`X-RateLimit-Remaining` headers so reconnect loops can back off deterministically.
 WebSocket clients receive `ready`, then ordered `block_indexed` or
 `block_replaced` events after atomic index persistence. Confirmed blocks are
 preserved as provisional evidence and promoted with `block_finalized` when the

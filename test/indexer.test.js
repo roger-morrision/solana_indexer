@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import net from "node:net";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
@@ -2328,7 +2329,7 @@ test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) =
 
 test("WebSocket upgrades share tenant quotas and durable commercial metering", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-websocket-audit-")), auditLogFile = path.join(root, "audit.jsonl"), store = new IndexStore("unused"); t.after(() => fs.rm(root, { recursive: true, force: true })); await store.load(); const server = createServer({ apiKeys: ["secret"], rateLimitPerMinute: 1, auditLogFile, webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const credential = Buffer.from("secret").toString("base64url"), url = `ws://127.0.0.1:${server.address().port}/ws`;
-  const first = new WebSocket(url, ["indexer.v1", `bearer.${credential}`]); await new Promise((resolve, reject) => { first.onopen = resolve; first.onerror = reject; }); const limited = new WebSocket(url, ["indexer.v1", `bearer.${credential}`]); await new Promise((resolve) => { limited.onerror = resolve; }); await server.auditSink.flush(); const rows = (await fs.readFile(auditLogFile, "utf8")).trim().split("\n").map(JSON.parse); assert.deepEqual(rows.map((row) => [row.path, row.statusCode, row.quotaUnits]), [["/ws", 101, 1], ["/ws", 429, 1]]); assert.ok(rows.every((row) => Number.isFinite(row.durationMs) && row.durationMs >= 0)); assert.equal(JSON.stringify(rows).includes("secret"), false); first.close();
+  const first = new WebSocket(url, ["indexer.v1", `bearer.${credential}`]); await new Promise((resolve, reject) => { first.onopen = resolve; first.onerror = reject; }); const response = await new Promise((resolve, reject) => { const socket = net.createConnection({ host: "127.0.0.1", port: server.address().port }), chunks = []; socket.once("error", reject); socket.once("connect", () => socket.write(`GET /ws HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${Buffer.alloc(16, 9).toString("base64")}\r\nX-API-Key: secret\r\n\r\n`)); socket.on("data", (chunk) => chunks.push(chunk)); socket.once("close", () => resolve(Buffer.concat(chunks).toString())); }); assert.match(response, /^HTTP\/1\.1 429 Too Many Requests\r\n/); assert.match(response, /\r\nX-RateLimit-Limit: 1\r\n/); assert.match(response, /\r\nX-RateLimit-Remaining: 0\r\n/); assert.match(response, /\r\nRetry-After: ([1-9]|[1-5][0-9]|60)\r\n/); await server.auditSink.flush(); const rows = (await fs.readFile(auditLogFile, "utf8")).trim().split("\n").map(JSON.parse); assert.deepEqual(rows.map((row) => [row.path, row.statusCode, row.quotaUnits]), [["/ws", 101, 1], ["/ws", 429, 1]]); assert.ok(rows.every((row) => Number.isFinite(row.durationMs) && row.durationMs >= 0)); assert.equal(JSON.stringify(rows).includes("secret"), false); first.close();
 });
 
 test("WebSocket admission fails closed at capacity and recovers after disconnect", async (t) => {
