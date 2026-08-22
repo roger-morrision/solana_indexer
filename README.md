@@ -369,12 +369,13 @@ basis/PnL only for decoded swaps carrying an explicit user address. The
 signals but never labels a wallet “smart money” without complete history, USD
 references, funding-graph, and sybil evidence.
 `/internal/wallets/:address/funding` reports exact lamport totals and
-counterparties from successful explicit System Program `Transfer` and
-`CreateAccount` instructions in retained canonical blocks. Account-creation
-facts preserve exact allocated space and owner program. The view is deliberately
-partial and non-automation-safe: it does not infer funding from balance deltas
-and does not claim coverage of seeded/prefund account creation, stake/nonce
-withdrawals, token transfers, or history before retention.
+counterparties from successful explicit System Program `Transfer`,
+`CreateAccount`, `CreateAccountWithSeed`, and `WithdrawNonceAccount`
+instructions in retained canonical blocks. Account-creation facts preserve
+exact allocated space, owner program, and optional base/seed. The view is
+deliberately partial and non-automation-safe: it does not infer funding from
+balance deltas and does not claim coverage of prefund creation, seeded
+transfers, stake withdrawals, token transfers, or history before retention.
 `/internal/wallets/:address/funding-cluster` deterministically lists other
 retained-history recipients funded by the wallet's direct System-transfer
 funders. It exposes evidence—not a sybil label—and keeps `classification: null`,
