@@ -416,9 +416,12 @@ function parsedTransfer(instruction, tokenAccounts = new Map()) {
 }
 
 export function parseBlock(block) {
-  if (!Number.isInteger(block?.slot) || block.slot < 0) throw new Error("block.slot must be a non-negative integer");
+  if (!Number.isSafeInteger(block?.slot) || block.slot < 0) throw new Error("block.slot must be a non-negative safe integer");
+  if (typeof block.blockhash !== "string" || !block.blockhash || typeof block.previousBlockhash !== "string" || !block.previousBlockhash) throw new Error("block hashes must be non-empty strings");
+  if (!Number.isSafeInteger(block.parentSlot) || block.parentSlot < 0 || (block.slot > 0 && block.parentSlot >= block.slot)) throw new Error("block.parentSlot must precede block.slot");
+  if (block.blockTime != null && (!Number.isSafeInteger(block.blockTime) || block.blockTime < 0)) throw new Error("block.blockTime must be null or a non-negative safe integer");
   if (!Array.isArray(block.transactions)) throw new Error("block.transactions must be an array");
-  const blockTime = Number.isInteger(block.blockTime) ? block.blockTime : null;
+  const blockTime = block.blockTime ?? null;
   const transactions = [];
   const transfers = [];
   const nativeTransfers = [];
@@ -426,10 +429,13 @@ export function parseBlock(block) {
   const instructions = [];
   const decodedDexEvents = [];
   const poolLifecycleEvents = [];
+  const transactionSignatures = new Set();
   for (const entry of block.transactions) {
     const signatures = entry?.transaction?.signatures;
     if (!Array.isArray(signatures) || signatures.length < 1 || signatures.some((value) => typeof value !== "string" || !value)) throw new Error("transaction signatures must be non-empty strings");
     const signature = signatures[0], feeLamports = entry.meta?.fee ?? 0;
+    if (transactionSignatures.has(signature)) throw new Error("block transaction signatures must be unique");
+    transactionSignatures.add(signature);
     if (!Number.isSafeInteger(feeLamports) || feeLamports < 0) throw new Error("transaction fee must be a non-negative safe integer");
     const keys = accountKeys(entry.transaction.message, entry.meta);
     validateInstructionLayout(entry);
@@ -461,7 +467,7 @@ export function parseBlock(block) {
     exportLagSlots: Number.isInteger(block.provenance?.exportLagSlots) && block.provenance.exportLagSlots >= 0 ? block.provenance.exportLagSlots : null,
   };
   const swaps = dexSwaps(block, transactions, decodedDexEvents);
-  return { slot: block.slot, blockhash: block.blockhash ?? "", previousBlockhash: block.previousBlockhash ?? "", parentSlot: block.parentSlot ?? block.slot - 1, blockTime, provenance, transactions, instructions, transfers, nativeTransfers, balanceChanges, swaps, poolLifecycleEvents };
+  return { slot: block.slot, blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime, provenance, transactions, instructions, transfers, nativeTransfers, balanceChanges, swaps, poolLifecycleEvents };
 }
 
 export function parseInput(text, filename = "input") {

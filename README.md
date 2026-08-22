@@ -399,6 +399,9 @@ outer instruction and contain an instruction array; ambiguous trees reject the
 block instead of producing consumer-specific interpretations. Transaction
 signature vectors contain only non-empty strings, and fees are accepted only as
 non-negative safe integers; neither field is coerced into canonical state.
+Blocks require explicit non-empty current/parent hashes, a preceding safe parent
+slot, a null or non-negative safe timestamp, and unique primary transaction
+signatures before any fact is published.
 Parsed transfer facts require an exact canonical token-program ID, decimal-u64
 amount, non-empty mint identity, u8 decimals, and consistency with any
 transaction token-balance mint/decimal evidence; conflicts are discarded.
