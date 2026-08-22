@@ -366,8 +366,9 @@ not receive contradictory completeness claims.
 findings. `/internal/wallets/:address/performance` reports exact rational cost
 basis/PnL only for decoded swaps carrying an explicit user address. The
 `/internal/wallets/:address/profile` contract exposes evidence-backed activity
-signals but never labels a wallet “smart money” without complete history, USD
-references, funding-graph, and sybil evidence.
+signals plus native and per-mint token funding-graph coverage, but never labels a
+wallet “smart money” without complete history, USD references, reviewed entity
+labels, and sybil evidence.
 `/internal/wallets/:address/funding` reports exact lamport totals and
 counterparties from successful explicit System Program `Transfer`,
 `TransferWithSeed`, `CreateAccount`, `CreateAccountWithSeed`,
