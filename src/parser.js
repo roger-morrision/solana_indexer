@@ -18,6 +18,7 @@ function readU64(buffer, offset) { return buffer.readBigUInt64LE(offset).toStrin
 function readU128(buffer, offset) { return (buffer.readBigUInt64LE(offset + 8) << 64n | buffer.readBigUInt64LE(offset)).toString(); }
 const SWAP_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:SwapEvent").digest().subarray(0, 8);
 const ORCA_TRADED_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:Traded").digest().subarray(0, 8);
+const ORCA_POOL_INITIALIZED_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:PoolInitialized").digest().subarray(0, 8);
 const RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR = crypto.createHash("sha256").update("global:initialize").digest().subarray(0, 8);
 const PUMP_AMM_CREATE_POOL_DISCRIMINATOR = Buffer.from([233, 146, 209, 142, 207, 104, 64, 188]);
 const PUMP_CREATE_V2_DISCRIMINATOR = Buffer.from([214, 144, 76, 236, 95, 139, 49, 180]);
@@ -157,6 +158,20 @@ export function decodeOrcaWhirlpoolSwapEvents(entry, signature) {
     const lpFeeRaw = readU64(data, 105), protocolFeeRaw = readU64(data, 113), tradeFeeRaw = (BigInt(lpFeeRaw) + BigInt(protocolFeeRaw)).toString();
     if (BigInt(tradeFeeRaw) > 18_446_744_073_709_551_615n) continue;
     events.push({ protocol: "orca-whirlpool", programId: ORCA_WHIRLPOOL, venueType: "clmm", type: "swap", signature, pool, user: context.user, baseMint: context.tokenA.mint, quoteMint: context.tokenB.mint, inputMint: input.mint, outputMint: output.mint, inputAmountRaw: readU64(data, 73), outputAmountRaw: readU64(data, 81), inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable", inputDecimals: input.decimals, outputDecimals: output.decimals, inputTransferFeeRaw: readU64(data, 89), outputTransferFeeRaw: readU64(data, 97), tradeFeeRaw, lpFeeRaw, protocolFeeRaw, zeroForOne: aToB, preSqrtPriceX64: readU128(data, 41), sqrtPriceX64: readU128(data, 57), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
+export function decodeOrcaWhirlpoolPoolInitializations(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== ORCA_WHIRLPOOL || !line.startsWith("Program data: ")) continue;
+    let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
+    if (data.length !== 220 || !data.subarray(0, 8).equals(ORCA_POOL_INITIALIZED_EVENT_DISCRIMINATOR)) continue;
+    const tickSpacing = data.readUInt16LE(136); if (!tickSpacing) continue;
+    events.push({ type: "pool_created", protocol: "orca-whirlpool", programId: ORCA_WHIRLPOOL, venueType: "clmm", signature, pool: base58(data.subarray(8, 40)), whirlpoolsConfig: base58(data.subarray(40, 72)), tokenMint0: base58(data.subarray(72, 104)), tokenMint1: base58(data.subarray(104, 136)), tickSpacing, baseTokenProgram: base58(data.subarray(138, 170)), quoteTokenProgram: base58(data.subarray(170, 202)), mintDecimals0: data[202], mintDecimals1: data[203], initialSqrtPriceX64: readU128(data, 204), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -337,7 +352,7 @@ export function parseBlock(block) {
     transactions.push(record);
     instructions.push(...normalizedInstructions(entry, keys, signature, block.slot, blockTime));
     if (failed) continue;
-    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
+    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     for (const instruction of instructionRows(entry)) {
