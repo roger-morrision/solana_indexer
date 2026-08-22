@@ -387,6 +387,10 @@ amount after the instruction-declared fee. Fee values are never inferred.
 Parsed transfer facts require an exact canonical token-program ID, decimal-u64
 amount, non-empty mint identity, u8 decimals, and consistency with any
 transaction token-balance mint/decimal evidence; conflicts are discarded.
+Pre/post balance metadata is merged field-by-field: omitted post fields retain
+validated pre-state identity, while conflicting mint, decimals, owner, or token
+program invalidates that account's binding. Wallet owners are exposed only when
+the balance evidence program exactly matches the transfer program.
 The view is deliberately partial and
 non-automation-safe: it does not infer funding from
 balance deltas and does not claim coverage of zero-lamport allocation-only
