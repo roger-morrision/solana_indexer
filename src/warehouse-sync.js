@@ -70,6 +70,13 @@ function completeOffchainMetadata(metadata, canonicalUri) {
   return metadata?.schemaVersion === 1 && metadata.sourceUri === canonicalUri && metadata.trusted === false && metadata.automationSafe === false && /^[0-9a-f]{64}$/.test(metadata.rawPayloadHash ?? "") && parseCanonicalUtcTimestamp(metadata.observedAt) != null && metadata.fields && typeof metadata.fields === "object" && !Array.isArray(metadata.fields);
 }
 
+function validWarehouseEventProvenance(event) {
+  if (event?.type === "offchain_metadata_snapshot_applied") {
+    return event.provenance?.commitment === "offchain_untrusted" && event.provenance.source === "offchain_metadata_snapshot";
+  }
+  return ["confirmed", "finalized"].includes(event?.provenance?.commitment);
+}
+
 function latestPoolDependencySlot(snapshot) {
   const dependencySlots = [snapshot?.stateSlot, snapshot?.balanceSlot, snapshot?.configSlot, snapshot?.mintSlot, snapshot?.tickArraySlot, snapshot?.binArraySlot, snapshot?.bitmapExtensionSlot, snapshot?.ammConfigSlot, snapshot?.feeConfigSlot, snapshot?.globalConfigSlot, snapshot?.mintEvidenceSlot].filter((slot) => Number.isSafeInteger(slot) && slot >= 0);
   return dependencySlots.length > 0 ? Math.max(...dependencySlots) : null;
@@ -106,7 +113,7 @@ export function compileWarehouseBatch(state, checkpoint = { lastSequence: 0 }) {
   if (!Number.isSafeInteger(lastSequence) || lastSequence < 0) throw new Error("invalid warehouse checkpoint");
   if (!Number.isSafeInteger(state?.eventSequence) || !Array.isArray(state?.events)) throw new Error("invalid index event state");
   let previous = null;
-  for (const event of state.events) { if (!Number.isSafeInteger(event?.sequence) || (previous != null && event.sequence !== previous + 1) || typeof event.type !== "string" || !event.type) throw new Error(previous != null && event?.sequence > previous + 1 ? "warehouse event sequence gap" : "invalid non-monotonic index event sequence"); if (!Number.isSafeInteger(event.slot) || event.slot < 0 || (event.blockTime != null && (!Number.isSafeInteger(event.blockTime) || event.blockTime < 0)) || !["confirmed", "finalized"].includes(event.provenance?.commitment) || typeof event.blockhash !== "string" || !event.blockhash) throw new Error(`invalid warehouse event ${event.sequence}`); previous = event.sequence; }
+  for (const event of state.events) { if (!Number.isSafeInteger(event?.sequence) || (previous != null && event.sequence !== previous + 1) || typeof event.type !== "string" || !event.type) throw new Error(previous != null && event?.sequence > previous + 1 ? "warehouse event sequence gap" : "invalid non-monotonic index event sequence"); if (!Number.isSafeInteger(event.slot) || event.slot < 0 || (event.blockTime != null && (!Number.isSafeInteger(event.blockTime) || event.blockTime < 0)) || !validWarehouseEventProvenance(event) || typeof event.blockhash !== "string" || !event.blockhash) throw new Error(`invalid warehouse event ${event.sequence}`); previous = event.sequence; }
   if (state.events.length && previous !== state.eventSequence) throw new Error("index event high-water mark mismatch");
   if (lastSequence > state.eventSequence) throw new Error("warehouse checkpoint is ahead of index");
   const oldest = state.events[0]?.sequence ?? state.eventSequence + 1;
