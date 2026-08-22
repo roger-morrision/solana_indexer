@@ -182,12 +182,23 @@ boundary on port 8443. It requires a server certificate/private key and a client
 CA in ignored secret files and rejects clients without a trusted certificate.
 API keys remain required as an independent application-layer control.
 
+`npm run sync:warehouse` replays the persisted canonical event sequence into
+ClickHouse and advances the PostgreSQL ingestion checkpoint only after the
+ClickHouse client acknowledges the batch. It then atomically advances a local
+0600 checkpoint. Retries are idempotent by `(chain, sequence)`, and the worker
+fails closed if its checkpoint falls behind the bounded replay history, moves
+ahead of the index, or encounters a sequence gap. Database passwords remain in
+the clients' normal environment/password-file configuration and are never
+passed as command arguments. Schedule this worker only after both local data
+services pass their health checks.
+
 Configuration:
 
 | Variable | Default | Purpose |
 |---|---:|---|
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
+| `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic checkpoint advanced only after ClickHouse and PostgreSQL acknowledge canonical events |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
