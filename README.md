@@ -244,7 +244,7 @@ Configuration:
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `ORCA_POOL_SNAPSHOT_FILE` | `data/orca-pool-snapshot.json` | Atomic finalized Orca Whirlpool state/vault evidence |
-| `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized state and advances the vault read barrier, but does not enable routing |
+| `CLMM_TICK_ARRAYS_JSON` | unset | Legacy compatibility input for library callers; the production snapshot command discovers every pool-bound Raydium tick array and bitmap extension at one finalized program-account context and fails if bitmap coverage is incomplete |
 | `CLMM_BITMAP_EXTENSIONS_JSON` | unset | Optional JSON map of Raydium CLMM pool addresses to unique overflow bitmap-extension addresses; captures pool-bound finalized raw segments without claiming executable coverage |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
 | `INDEXER_PORT` | `8787` | API port |
@@ -467,9 +467,14 @@ i32 tick, boolean direction, u64 fees, required user identity, and explicitly
 unavailable event reserves are validated before any market record is accepted.
 Run `npm run snapshot:clmm-pools -- <POOL_ADDRESS...>` against the loopback
 mainnet validator to capture the official PoolState header and both parsed token
-vault balances. State and balance context slots are retained separately, stale
-snapshots cannot replace newer evidence, and snapshots remain unsafe for route
-execution until tick arrays and local simulation are available.
+vault balances. The production command discovers all pool-bound TickArrayState
+accounts and the optional overflow bitmap extension with finalized filtered
+program-account reads, rejects mixed contexts, foreign/duplicate arrays, and any
+bitmap-to-account coverage gap, then advances the vault read barrier beyond that
+evidence. State and balance context slots are retained separately and stale
+snapshots cannot replace newer evidence. Snapshots remain unsafe for route
+execution until fee configuration, Token-2022 fees, and local simulation are
+available.
 Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
 Future-dated block, exporter, market, and pool-snapshot timestamps are treated
