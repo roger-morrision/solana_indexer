@@ -580,6 +580,14 @@ test("token security blocks authority and hazardous Token-2022 extension evidenc
   store.state.holderSnapshots["mint-risk"] = { ...store.state.holderSnapshots["mint-risk"], complete: true, genesisHash: "legacy-devnet" }; const wrongGenesis = store.tokenSecurity("mint-risk"); assert.equal(wrongGenesis.assessable, false); assert.deepEqual(wrongGenesis.missing, ["complete_finalized_mint_account_evidence"]); assert.equal(wrongGenesis.evidence, null);
 });
 
+test("persisted malformed account evidence is quarantined and scheduled for repair", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "legacy-account-evidence-")), filename = path.join(root, "index.json"), observedAt = "2026-08-22T00:00:00.000Z", store = new IndexStore(filename); await store.load();
+  store.applyAccountSnapshot({ schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 700, observedAt, mints: [{ mint: "legacy-mint", mintInfo: { supply: "100", decimals: 6, mintAuthority: null, freezeAuthority: null }, accounts: [{ tokenAccount: "legacy-account", owner: "wallet", programId: SPL_TOKEN_PROGRAM, amountRaw: "100", decimals: 6 }] }] }); await store.save();
+  const persisted = JSON.parse(await fs.readFile(filename, "utf8")); persisted.holderSnapshots["legacy-mint"].accounts[0].amountRaw = "not-u64"; await fs.writeFile(filename, JSON.stringify(persisted));
+  const reloaded = new IndexStore(filename); await reloaded.load(); assert.equal(reloaded.tokenAccount("legacy-account"), null); assert.equal(reloaded.holders("legacy-mint").complete, false); assert.equal(reloaded.tokenSecurity("legacy-mint").assessable, false);
+  const job = compileWarehouseProjections(reloaded).jobs.find((row) => row.type === "account_snapshot"); assert.deepEqual({ mint: job.payload.mint, reason: job.payload.reason, sourceSlot: job.payload.sourceSlot }, { mint: "legacy-mint", reason: "incomplete_account_evidence", sourceSlot: 700 });
+});
+
 test("snapshot batches validate atomically before mutating canonical state", async () => {
   const store = new IndexStore("unused"); await store.load();
   const accountEnvelope = { schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 800, observedAt: "2026-08-21T00:00:00.000Z" };
