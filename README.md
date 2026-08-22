@@ -566,6 +566,9 @@ across TCP boundaries, must be masked and protocol-valid, and are bounded by
 malformed or oversized frames close with standard 1003, 1002, or 1009 codes.
 Close frames require an allowed status code and a valid UTF-8 reason; invalid
 codes or text terminate with 1002 or 1007 instead of being echoed.
+`INDEXER_WS_MAX_CLIENTS` bounds admitted sockets globally (default 1000);
+additional authenticated upgrades receive `503 websocket_capacity_exceeded`
+until an existing socket closes.
 The HTTP upgrade requires GET, canonical RFC 6455 Upgrade/Connection/version
 headers, and an exactly 16-byte canonical Base64 nonce.
 When API keys are enabled, WebSocket

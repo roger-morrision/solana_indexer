@@ -74,13 +74,14 @@ export function projectWebSocketEvent(event, filter) {
 }
 
 export function attachWebSocket(server, store, config, authorize = () => true) {
-  const clients = new Map(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576;
+  const clients = new Map(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576; const maximumClients = config.webSocketMaxClients ?? 1_000;
   const unsubscribe = store.subscribe((event) => { for (const [socket, filter] of clients) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) clients.delete(socket); } });
   server.on("upgrade", (request, socket) => {
     const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
     if (url.pathname !== "/ws") return reject(socket, "404 Not Found", "not_found");
     const filter = subscription(url); if (!filter) return reject(socket, "400 Bad Request", "invalid_topic");
     if (!authorize(request)) return reject(socket, "401 Unauthorized", "unauthorized");
+    if (clients.size >= maximumClients) return reject(socket, "503 Service Unavailable", "websocket_capacity_exceeded");
     const key = request.headers["sec-websocket-key"];
     if (!validWebSocketHandshake(request)) return reject(socket, "400 Bad Request", "invalid_websocket_handshake");
     const cursorText = url.searchParams.get("cursor") ?? String(store.state.eventSequence); const cursor = Number(cursorText);

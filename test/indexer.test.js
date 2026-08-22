@@ -1476,6 +1476,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25); assert.equal(config.maxExporterLagSlots, 512);
   assert.equal(config.auditLogFile, path.resolve(process.cwd(), "data/audit.jsonl"));
   assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
+  assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25" }, process.cwd()).webSocketMaxClients, 25);
 });
 
 test("tenant registry supports hash-only key rotation and tenant quotas", async (t) => {
@@ -1783,6 +1784,14 @@ test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) =
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const credential = Buffer.from("secret").toString("base64url"); const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws`, ["indexer.v1", `bearer.${credential}`]);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); assert.equal(socket.protocol, "indexer.v1"); socket.close();
+});
+
+test("WebSocket admission fails closed at capacity and recovers after disconnect", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({ webSocketHeartbeatMs: 60_000, webSocketMaxClients: 1 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const url = `ws://127.0.0.1:${server.address().port}/ws`;
+  const first = new WebSocket(url); await new Promise((resolve, reject) => { first.onopen = resolve; first.onerror = reject; });
+  const saturated = new WebSocket(url), rejected = await new Promise((resolve) => { saturated.onerror = resolve; }); assert.ok(rejected); assert.equal(first.readyState, WebSocket.OPEN);
+  await new Promise((resolve) => { first.onclose = resolve; first.close(); });
+  const replacement = new WebSocket(url); await new Promise((resolve, reject) => { replacement.onopen = resolve; replacement.onerror = reject; }); assert.equal(replacement.readyState, WebSocket.OPEN); replacement.close();
 });
 
 test("WebSocket evicts a replay consumer before one frame exceeds its buffer cap", async (t) => {
