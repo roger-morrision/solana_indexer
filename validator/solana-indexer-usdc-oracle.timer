@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh finalized USDC oracle evidence every 30 seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=2s
+RandomizedDelaySec=2s
+Persistent=true
+Unit=solana-indexer-usdc-oracle.service
+
+[Install]
+WantedBy=timers.target

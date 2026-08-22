@@ -22,3 +22,17 @@ export function assessUsdDepegReference(reference, now = Date.now(), maxDeviatio
 }
 
 export async function loadUsdDepegReference(filename) { if (!filename) return null; let value; try { value = JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw new Error("invalid independent USD depeg reference file"); } return compileUsdDepegReference(value); }
+
+export function watchUsdDepegReference(filename, onReference, intervalMs = 5_000, { load = loadUsdDepegReference, onError = () => {} } = {}) {
+  if (typeof onReference !== "function" || !Number.isInteger(intervalMs) || intervalMs < 1_000 || intervalMs > 60_000) throw new Error("invalid USD depeg reference watcher");
+  let loading = false, stopped = false;
+  const refresh = async () => {
+    if (loading || stopped) return;
+    loading = true;
+    try { onReference(await load(filename)); }
+    catch (error) { onReference(null); onError(error); }
+    finally { loading = false; }
+  };
+  const timer = setInterval(refresh, intervalMs); timer.unref?.();
+  return { refresh, stop() { stopped = true; clearInterval(timer); } };
+}

@@ -7,7 +7,7 @@ import { IndexStore } from "./store.js";
 import { loadHolderExclusions } from "./holder-exclusions.js";
 import { loadApiTenants } from "./api-tenants.js";
 import { createRedisQuotaAdmitter } from "./redis-quota.js";
-import { loadUsdDepegReference } from "./usd-depeg-reference.js";
+import { loadUsdDepegReference, watchUsdDepegReference } from "./usd-depeg-reference.js";
 import fs from "node:fs/promises";
 
 const config = loadConfig(), holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), usdDepegReference = await loadUsdDepegReference(config.usdDepegReferenceFile), apiTenants = await loadApiTenants(config.apiTenantsFile); config.apiTenants = apiTenants; if (config.distributedQuotaEnabled) { if (!config.redisPasswordFile) throw new Error("REDIS_PASSWORD_FILE is required for distributed quota admission"); const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); config.quotaAdmitter = createRedisQuotaAdmitter({ host: config.redisHost, port: config.redisPort, password, timeoutMs: config.redisQuotaTimeoutMs }); } const store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions, usdDepegReference, config.usdcMaxDeviationBasisPoints); const command = process.argv[2] || "serve";
@@ -15,9 +15,10 @@ await store.load();
 if (command === "index") { console.log(JSON.stringify(await indexInbox(config, store), null, 2)); }
 else if (command === "status") { console.log(JSON.stringify(store.stats(), null, 2)); }
 else if (["serve", "watch"].includes(command)) {
+  const oracleWatcher = watchUsdDepegReference(config.usdDepegReferenceFile, (reference) => { store.usdDepegReference = reference; }, config.usdcOracleReloadMs, { onError: (error) => console.error(JSON.stringify({ event: "usdc_oracle_reload_failed", error: error.message })) });
   const stopWatching = watchInbox(config, store, (result) => { if (result.blocks || result.errors?.length) console.log(JSON.stringify({ event: "index_cycle", ...result })); });
   let server;
   if (command === "serve") server = createServer(config, store).listen(config.port, config.host, () => console.log(`Solana indexer listening on http://${config.host}:${config.port}`));
-  const shutdown = () => { stopWatching(); server?.close(() => process.exit(0)); if (!server) process.exit(0); };
+  const shutdown = () => { oracleWatcher.stop(); stopWatching(); server?.close(() => process.exit(0)); if (!server) process.exit(0); };
   process.once("SIGINT", shutdown); process.once("SIGTERM", shutdown);
 } else { console.error("Usage: node src/cli.js <serve|watch|index|status>"); process.exitCode = 2; }

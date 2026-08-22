@@ -16,9 +16,12 @@ install -m 0644 "$repo/validator/solana-indexer-commercial-sync.service" /etc/sy
 install -m 0644 "$repo/validator/solana-indexer-commercial-sync.timer" /etc/systemd/system/solana-indexer-commercial-sync.timer
 install -m 0644 "$repo/validator/solana-indexer-operational-worker.service" /etc/systemd/system/solana-indexer-operational-worker.service
 install -m 0644 "$repo/validator/solana-indexer-operational-worker.timer" /etc/systemd/system/solana-indexer-operational-worker.timer
+install -m 0644 "$repo/validator/solana-indexer-usdc-oracle.service" /etc/systemd/system/solana-indexer-usdc-oracle.service
+install -m 0644 "$repo/validator/solana-indexer-usdc-oracle.timer" /etc/systemd/system/solana-indexer-usdc-oracle.timer
 systemctl daemon-reload
 echo "Units installed but not started. As user sol, run: cd $repo && npm test && npm run verify:mainnet"
 echo "Then enable: systemctl enable --now agave-validator solana-indexer-stream solana-indexer-api"
 echo "After PostgreSQL and ClickHouse health checks pass, enable: systemctl enable --now solana-indexer-warehouse-sync.timer"
 echo "After PostgreSQL tenant/usage sync succeeds manually, enable: systemctl enable --now solana-indexer-commercial-sync.timer"
 echo "After a snapshot job succeeds manually, enable: systemctl enable --now solana-indexer-operational-worker.timer"
+echo "After reviewing the Pyth source identities and a one-shot oracle refresh succeeds, enable: systemctl enable --now solana-indexer-usdc-oracle.timer"

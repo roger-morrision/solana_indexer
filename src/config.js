@@ -12,6 +12,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     holderExclusionsFile: env.HOLDER_EXCLUSIONS_FILE ? path.resolve(cwd, env.HOLDER_EXCLUSIONS_FILE) : null,
     usdDepegReferenceFile: env.USD_DEPEG_REFERENCE_FILE ? path.resolve(cwd, env.USD_DEPEG_REFERENCE_FILE) : path.resolve(cwd, "data/usdc-usd-reference.json"),
     usdcOracleMaximumAgeSeconds: boundedInt(env.USDC_ORACLE_MAXIMUM_AGE_SECONDS, 120, 10, 3_600),
+    usdcOracleReloadMs: boundedInt(env.USDC_ORACLE_RELOAD_MS, 5_000, 1_000, 60_000),
     usdcMaxDeviationBasisPoints: boundedInt(env.USDC_MAX_DEVIATION_BASIS_POINTS, 200, 1, 5_000),
     accountSnapshotFile: path.resolve(cwd, env.ACCOUNT_SNAPSHOT_FILE || "data/account-snapshot.json"),
     cpmmPoolSnapshotFile: path.resolve(cwd, env.CPMM_POOL_SNAPSHOT_FILE || "data/cpmm-pool-snapshot.json"),

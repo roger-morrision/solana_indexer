@@ -260,6 +260,7 @@ Configuration:
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `USD_DEPEG_REFERENCE_FILE` | unset | Reviewed, expiring exact-rational finalized independent on-chain USDC/USD evidence |
+| `USDC_ORACLE_RELOAD_MS` | `5000` | Fail-closed live reload interval for refreshed USDC/USD evidence |
 | `USDC_MAX_DEVIATION_BASIS_POINTS` | `200` | Maximum accepted independent USDC/USD deviation before automation fails closed |
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
@@ -462,7 +463,11 @@ contract pins mainnet identity, source program/account/context slot, feed ID,
 fully verified status, posted slot, publish time, confidence, raw account hash,
 exact positive rational price, observation and publish-time-derived expiry.
 Missing, malformed, future, expired, non-finalized, or over-limit
-evidence fails bot readiness closed. Robust three-venue price paths plus healthy
+evidence fails bot readiness closed. Long-running serve/watch processes reload
+the artifact every five seconds by default and clear previously loaded evidence
+when a replacement is missing or malformed. The hardened disabled-by-default
+`solana-indexer-usdc-oracle.timer` refreshes it every 30 seconds after an
+operator reviews source identities and verifies a one-shot refresh. Robust three-venue price paths plus healthy
 depeg evidence can unlock the price/volume component only; all other bot gates
 still apply. The repository does not synthesize or silently substitute this
 oracle evidence.
