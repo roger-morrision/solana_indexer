@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { PROGRAM_REGISTRY_VERSION, programRegistration } from "./program-registry.js";
 
 const TOKEN_PROGRAMS = new Set([
@@ -537,8 +538,8 @@ export function parseBlock(block) {
   if (Object.hasOwn(suppliedProvenance, "source") && (typeof suppliedProvenance.source !== "string" || !suppliedProvenance.source.trim())) throw new Error("provenance.source must be a non-empty string");
   if (suppliedProvenance.genesisHash != null && (typeof suppliedProvenance.genesisHash !== "string" || !suppliedProvenance.genesisHash.trim())) throw new Error("provenance.genesisHash must be a non-empty string");
   if (Object.hasOwn(suppliedProvenance, "commitment") && !["unknown", "confirmed", "finalized"].includes(suppliedProvenance.commitment)) throw new Error("provenance.commitment must be unknown, confirmed, or finalized");
-  const observedAtMs = suppliedProvenance.observedAt == null ? null : Date.parse(suppliedProvenance.observedAt);
-  if (suppliedProvenance.observedAt != null && (typeof suppliedProvenance.observedAt !== "string" || !Number.isFinite(observedAtMs))) throw new Error("provenance.observedAt must be a valid timestamp");
+  const observedAtMs = suppliedProvenance.observedAt == null ? null : parseCanonicalUtcTimestamp(suppliedProvenance.observedAt);
+  if (suppliedProvenance.observedAt != null && observedAtMs == null) throw new Error("provenance.observedAt must be a canonical UTC timestamp");
   if (suppliedProvenance.sourceTip != null && (!Number.isSafeInteger(suppliedProvenance.sourceTip) || suppliedProvenance.sourceTip < block.slot)) throw new Error("provenance.sourceTip must be a safe integer at or above block.slot");
   if (suppliedProvenance.exportLagSlots != null && (!Number.isSafeInteger(suppliedProvenance.exportLagSlots) || suppliedProvenance.exportLagSlots < 0)) throw new Error("provenance.exportLagSlots must be a non-negative safe integer");
   if (suppliedProvenance.sourceTip != null && suppliedProvenance.exportLagSlots != null && suppliedProvenance.sourceTip - block.slot !== suppliedProvenance.exportLagSlots) throw new Error("provenance source tip and export lag are inconsistent");

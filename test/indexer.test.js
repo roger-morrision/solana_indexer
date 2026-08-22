@@ -348,6 +348,7 @@ test("pins the canonical Solana mainnet genesis hash", () => {
 
 test("Yellowstone activation requires exact installed ABI and sustained qualification evidence", () => {
   const hash = "a".repeat(64), observed = { agaveVersionOutput: "agave-validator 4.1.0", agaveBinarySha256: hash, pluginBinarySha256: "b".repeat(64) }, manifest = { schemaVersion: 1, chain: "solana-mainnet", status: "qualified", agave: { versionOutput: observed.agaveVersionOutput, sourceCommit: "c".repeat(64), binarySha256: observed.agaveBinarySha256 }, plugin: { name: "yellowstone-grpc-geyser", version: "14.2.2", sourceCommit: "d".repeat(64), binarySha256: observed.pluginBinarySha256 }, qualification: { testedAt: "2026-08-22T00:00:00.000Z", sustainedSeconds: 86_400, finalizedBlocks: 100_000, maxRssBytes: 1_000_000_000, rssSlopeBytesPerHour: 1_000_000, replayDigest: "e".repeat(64) }, reviewedBy: "platform-review" }, now = Date.parse("2026-08-23T00:00:00.000Z"); assert.equal(validateGeyserCompatibility(manifest, observed, now).activationAllowed, true); assert.equal(validateGeyserCompatibility({ ...manifest, status: "blocked" }, observed, now).reason, "compatibility_not_qualified"); assert.equal(validateGeyserCompatibility(manifest, { ...observed, pluginBinarySha256: hash }, now).reason, "installed_binary_mismatch"); assert.equal(validateGeyserCompatibility({ ...manifest, qualification: { ...manifest.qualification, sustainedSeconds: 3_600 } }, observed, now).reason, "sustained_qualification_insufficient");
+  for (const testedAt of ["2026-08-22", "2026-08-22T00:00:00Z", "2026-08-22T07:00:00.000+07:00", "2026-02-30T00:00:00.000Z", 1_776_729_600_000]) assert.equal(validateGeyserCompatibility({ ...manifest, qualification: { ...manifest.qualification, testedAt } }, observed, now).reason, "sustained_qualification_insufficient");
 });
 
 test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {
@@ -520,7 +521,7 @@ test("rejects noncanonical block identity and duplicate transactions", () => {
 });
 
 test("rejects malformed or internally inconsistent block provenance", async () => {
-  const input = { slot: 118, blockhash: "block-118", previousBlockhash: "block-117", parentSlot: 117, blockTime: 1_700_000_018, transactions: [], provenance: { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00Z", sourceTip: 120, exportLagSlots: 2 } };
+  const input = { slot: 118, blockhash: "block-118", previousBlockhash: "block-117", parentSlot: 117, blockTime: 1_700_000_018, transactions: [], provenance: { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00.000Z", sourceTip: 120, exportLagSlots: 2 } };
   assert.deepEqual(parseBlock(input).provenance, { source: "local-rpc", genesisHash: null, commitment: "finalized", observedAt: "2026-08-22T00:00:00.000Z", sourceTip: 120, exportLagSlots: 2 });
   const invalid = [
     [{ source: " " }, /provenance.source/],
@@ -533,9 +534,10 @@ test("rejects malformed or internally inconsistent block provenance", async () =
     [{ exportLagSlots: Number.MAX_SAFE_INTEGER + 1 }, /provenance.exportLagSlots/],
     [{ sourceTip: 120, exportLagSlots: 1 }, /inconsistent/],
   ];
+  for (const observedAt of ["2026-08-22", "2026-08-22T00:00:00Z", "2026-08-22T07:00:00.000+07:00", "2026-02-30T00:00:00.000Z", 1_776_729_600_000]) invalid.push([{ observedAt }, /provenance.observedAt/]);
   for (const [replacement, error] of invalid) assert.throws(() => parseBlock({ ...input, provenance: { ...input.provenance, ...replacement } }), error);
   assert.deepEqual(parseBlock({ ...input, provenance: undefined }).provenance, { source: "unknown", genesisHash: null, commitment: "unknown", observedAt: null, sourceTip: null, exportLagSlots: null });
-  const swapInput = JSON.parse(await fs.readFile(fixture, "utf8")); swapInput.provenance = { ...swapInput.provenance, source: " local-agave-rpc ", observedAt: "2023-11-14T22:13:20.1Z", sourceTip: 101, exportLagSlots: 1 };
+  const swapInput = JSON.parse(await fs.readFile(fixture, "utf8")); swapInput.provenance = { ...swapInput.provenance, source: " local-agave-rpc ", observedAt: "2023-11-14T22:13:20.100Z", sourceTip: 101, exportLagSlots: 1 };
   const parsed = parseBlock(swapInput); assert.deepEqual(parsed.swaps[0].provenance, parsed.provenance); assert.deepEqual(parsed.provenance, { source: "local-agave-rpc", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", observedAt: "2023-11-14T22:13:20.100Z", sourceTip: 101, exportLagSlots: 1 });
 });
 

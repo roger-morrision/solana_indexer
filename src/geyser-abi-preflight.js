@@ -6,6 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const SHA = /^[0-9a-f]{64}$/, GIT_COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 async function sha256(filename) { const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk); return hash.digest("hex"); }
@@ -16,8 +17,8 @@ export function validateGeyserCompatibility(manifest, observed, now = Date.now()
   if (manifest?.schemaVersion !== 1 || manifest?.chain !== "solana-mainnet" || manifest?.status !== "qualified") return fail("compatibility_not_qualified");
   if (!manifest.agave || !manifest.plugin || !manifest.qualification || !observed || !SHA.test(manifest.agave.binarySha256 ?? "") || !SHA.test(manifest.plugin.binarySha256 ?? "") || !GIT_COMMIT.test(manifest.agave.sourceCommit ?? "") || !GIT_COMMIT.test(manifest.plugin.sourceCommit ?? "") || typeof manifest.plugin.name !== "string" || !manifest.plugin.name || typeof manifest.plugin.version !== "string" || !manifest.plugin.version) return fail("compatibility_evidence_invalid");
   if (manifest.agave.versionOutput !== observed.agaveVersionOutput || manifest.agave.binarySha256 !== observed.agaveBinarySha256 || manifest.plugin.binarySha256 !== observed.pluginBinarySha256) return fail("installed_binary_mismatch");
-  const testedAt = Date.parse(manifest.qualification.testedAt ?? ""), duration = manifest.qualification.sustainedSeconds, blocks = manifest.qualification.finalizedBlocks, rss = manifest.qualification.maxRssBytes, slope = manifest.qualification.rssSlopeBytesPerHour;
-  if (!Number.isFinite(testedAt) || testedAt > now || now - testedAt > 30 * 86_400_000 || !Number.isSafeInteger(duration) || duration < 86_400 || !Number.isSafeInteger(blocks) || blocks < 100_000 || !Number.isSafeInteger(rss) || rss < 1 || !Number.isFinite(slope) || slope < 0 || slope > 16 * 1024 * 1024 || typeof manifest.qualification.replayDigest !== "string" || !SHA.test(manifest.qualification.replayDigest) || typeof manifest.reviewedBy !== "string" || !manifest.reviewedBy.trim()) return fail("sustained_qualification_insufficient");
+  const testedAt = parseCanonicalUtcTimestamp(manifest.qualification.testedAt), duration = manifest.qualification.sustainedSeconds, blocks = manifest.qualification.finalizedBlocks, rss = manifest.qualification.maxRssBytes, slope = manifest.qualification.rssSlopeBytesPerHour;
+  if (testedAt == null || testedAt > now || now - testedAt > 30 * 86_400_000 || !Number.isSafeInteger(duration) || duration < 86_400 || !Number.isSafeInteger(blocks) || blocks < 100_000 || !Number.isSafeInteger(rss) || rss < 1 || !Number.isFinite(slope) || slope < 0 || slope > 16 * 1024 * 1024 || typeof manifest.qualification.replayDigest !== "string" || !SHA.test(manifest.qualification.replayDigest) || typeof manifest.reviewedBy !== "string" || !manifest.reviewedBy.trim()) return fail("sustained_qualification_insufficient");
   return { schemaVersion: 1, compatible: true, activationAllowed: true, reason: null, agaveVersionOutput: observed.agaveVersionOutput, pluginVersion: manifest.plugin.version, testedAt: manifest.qualification.testedAt, sustainedSeconds: duration, finalizedBlocks: blocks, maxRssBytes: rss, rssSlopeBytesPerHour: slope, reviewedBy: manifest.reviewedBy };
 }
 
