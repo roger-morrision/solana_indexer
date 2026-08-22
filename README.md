@@ -562,11 +562,13 @@ spendable reserves and mirrors ceiling-rounded fee-on-input/output behavior.
 Account snapshots capture Token-2022 mint-extension transfer-fee schedules and
 select the active fee at the exact finalized epoch/slot. The shared exact fee primitive implements
 the program's ceiling-rounded basis-point fee, maximum cap, older/newer epoch
-selection, and inverse gross-for-net calculation with u64 overflow checks; it is
+selection, and inverse gross-for-net calculation with u64 overflow checks.
 Raydium CLMM production snapshots now bind both vault token-program owners and
 both mint accounts to one finalized epoch/context at or after all pool, tick,
-configuration, and vault reads. Routes still require explicit transfer-hook
-eligibility. Quotes share the
+configuration, and vault reads. Fee-only Token-2022 quotes deduct the active
+input fee before traversal and the active output fee afterward, then carry the
+mint-evidence slot and epoch into unsigned simulation. Transfer hooks and every
+other unimplemented extension fail closed. Quotes share the
 analysis-only internal pool endpoint and are never labeled as executable routes.
 
 The shared quote endpoint dispatches only snapshots whose canonical program ID
@@ -605,8 +607,10 @@ program-account reads, rejects mixed contexts, foreign/duplicate arrays, and any
 bitmap-to-account coverage gap, then advances the vault read barrier beyond that
 evidence. State and balance context slots are retained separately and stale
 snapshots cannot replace newer evidence. Snapshots remain unsafe for route
-execution until dynamic/fee-on-output calculation, Token-2022 fees, transaction
-construction, effect verification, and landed confirmation are available.
+execution when dynamic AMM fees, fee-on-output AMM modes, incomplete mint
+evidence, or unsupported Token-2022 extensions are present. Eligible fee-only
+routes use the existing construction, effect-verification, external-signature,
+and landed-confirmation boundary without indexer signing or submission.
 The transaction-simulation boundary is deliberately separate: it accepts only
 unsigned packet-sized base64 transactions, only through a loopback validator,
 uses `simulateTransaction` with a finalized minimum context and replacement

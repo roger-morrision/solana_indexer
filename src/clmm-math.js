@@ -1,3 +1,6 @@
+import { calculateTransferFeeIncludedAmount } from "./token-2022-transfer-fee.js";
+import { POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+
 const Q64 = 1n << 64n;
 const FEE_DENOMINATOR = 1_000_000n;
 const MAX_U64 = (1n << 64n) - 1n;
@@ -80,14 +83,15 @@ function normalizedTicks(initializedTicks, tickSpacing) {
   return rows.sort((left, right) => left.tick - right.tick);
 }
 
-export function quoteRaydiumStaticFeeExactInput({ sqrtPriceX64, currentTick, liquidity, amountIn, feeRateMillionths, zeroForOne, limitTick, tickSpacing, initializedTicks, coverageMinTick, coverageMaxTickExclusive, transferFeeAmount = 0 }) {
+export function quoteRaydiumStaticFeeExactInput({ sqrtPriceX64, currentTick, liquidity, amountIn, feeRateMillionths, zeroForOne, limitTick, tickSpacing, initializedTicks, coverageMinTick, coverageMaxTickExclusive, transferFeeAmount = 0, inputTransferFee = null, outputTransferFee = null }) {
   if (!Number.isInteger(currentTick) || !Number.isInteger(limitTick) || !Number.isInteger(coverageMinTick) || !Number.isInteger(coverageMaxTickExclusive) || coverageMinTick >= coverageMaxTickExclusive) throw new Error("tick coverage bounds are invalid");
   if (typeof zeroForOne !== "boolean" || (zeroForOne ? limitTick >= currentTick : limitTick <= currentTick)) throw new Error("limit tick is inconsistent with swap direction");
   if (currentTick < coverageMinTick || currentTick >= coverageMaxTickExclusive || limitTick < coverageMinTick || limitTick >= coverageMaxTickExclusive) throw new Error("quote range is not covered by the finalized tick snapshot");
   if (integer(transferFeeAmount, "transferFeeAmount") !== 0n) throw new Error("Token-2022 transfer-fee quoting is unsupported");
-  const ticks = normalizedTicks(initializedTicks, tickSpacing), limitPrice = raydiumSqrtPriceX64AtTick(limitTick);
+  const grossInput = integer(amountIn, "amountIn", { maximum: MAX_U64 }), inputTransfer = inputTransferFee ? calculateTransferFeeIncludedAmount(grossInput, inputTransferFee) : { grossAmountRaw: grossInput.toString(), netAmountRaw: grossInput.toString(), transferFeeRaw: "0" }, ticks = normalizedTicks(initializedTicks, tickSpacing), limitPrice = raydiumSqrtPriceX64AtTick(limitTick);
+  if (grossInput > 0n && BigInt(inputTransfer.netAmountRaw) === 0n) throw new Error("input transfer fee consumes the complete amount");
   let price = integer(sqrtPriceX64, "sqrtPriceX64", { positive: true }), activeLiquidity = integer(liquidity, "liquidity", { positive: true, maximum: MAX_U128 });
-  let remaining = integer(amountIn, "amountIn", { maximum: MAX_U64 }), totalIn = 0n, totalOut = 0n, totalFee = 0n, crossedTicks = 0; const crossedTickIndexes = [];
+  let remaining = BigInt(inputTransfer.netAmountRaw), totalIn = 0n, totalOut = 0n, totalFee = 0n, crossedTicks = 0; const crossedTickIndexes = [];
   if ((zeroForOne && price <= limitPrice) || (!zeroForOne && price >= limitPrice)) throw new Error("limit price is inconsistent with current price");
   const candidates = ticks.filter((row) => zeroForOne ? row.tick <= currentTick && row.tick > limitTick : row.tick > currentTick && row.tick < limitTick);
   if (zeroForOne) candidates.reverse();
@@ -109,7 +113,8 @@ export function quoteRaydiumStaticFeeExactInput({ sqrtPriceX64, currentTick, liq
       crossedTicks++; crossedTickIndexes.push(nextTick.tick); candidateIndex++;
     } else break;
   }
-  return { status: remaining === 0n ? "quoted" : "price_limit_reached", amountSpecifiedRaw: BigInt(amountIn).toString(), amountInRaw: totalIn.toString(), amountOutRaw: totalOut.toString(), feeAmountRaw: totalFee.toString(), amountUnconsumedRaw: remaining.toString(), endSqrtPriceX64: price.toString(), endLiquidityRaw: activeLiquidity.toString(), crossedTicks, crossedTickIndexes, fullyConsumed: remaining === 0n };
+  const outputTransfer = outputTransferFee ? calculateTransferFeeIncludedAmount(totalOut, outputTransferFee) : { grossAmountRaw: totalOut.toString(), netAmountRaw: totalOut.toString(), transferFeeRaw: "0" };
+  return { status: remaining === 0n ? "quoted" : "price_limit_reached", amountSpecifiedRaw: grossInput.toString(), amountInRaw: totalIn.toString(), amountOutRaw: outputTransfer.netAmountRaw, grossOutputRaw: outputTransfer.grossAmountRaw, inputTransferFeeRaw: inputTransfer.transferFeeRaw, outputTransferFeeRaw: outputTransfer.transferFeeRaw, feeAmountRaw: totalFee.toString(), amountUnconsumedRaw: remaining.toString(), endSqrtPriceX64: price.toString(), endLiquidityRaw: activeLiquidity.toString(), crossedTicks, crossedTickIndexes, fullyConsumed: remaining === 0n };
 }
 
 export function quoteRaydiumSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, limitTick, transferFeeAmount = 0, now = Date.now(), maxAgeMs = 120_000 }) {
@@ -121,9 +126,14 @@ export function quoteRaydiumSnapshotExactInput({ snapshot, poolAddress, inputMin
   if (pool.feeOn !== 0) throw new Error("Raydium fee-on-output quoting is unsupported");
   if (inputMint !== pool.tokenMint0 && inputMint !== pool.tokenMint1) throw new Error("input mint is not part of the Raydium pool");
   const zeroForOne = inputMint === pool.tokenMint0, bitmap = pool.defaultTickArrayBitmap;
+  const token2022 = POOL_MINT_EVIDENCE_CONSTANTS.token2022Program, hasToken2022 = pool.tokenProgram0 === token2022 || pool.tokenProgram1 === token2022;
+  if (hasToken2022 && !validateBoundPoolMintEvidence(pool, snapshot.balanceSlot)) throw new Error("Raydium Token-2022 mint evidence is incomplete");
+  const inputEvidence = zeroForOne ? pool.mint0Evidence : pool.mint1Evidence, outputEvidence = zeroForOne ? pool.mint1Evidence : pool.mint0Evidence;
+  for (const evidence of [inputEvidence, outputEvidence]) if (evidence?.programId === token2022 && evidence.extensionTypes.some((type) => type !== "transferFeeConfig")) throw new Error("Raydium Token-2022 transfer extensions are unsupported");
+  const inputTransferFee = inputEvidence?.token2022Evidence?.activeTransferFee ?? null, outputTransferFee = outputEvidence?.token2022Evidence?.activeTransferFee ?? null;
   if (!bitmap || !Number.isInteger(bitmap.minStartTickIndex) || !Number.isInteger(bitmap.maxStartTickIndexExclusive)) throw new Error("Raydium default bitmap evidence is invalid");
-  const quote = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: pool.sqrtPriceX64, currentTick: pool.tick, liquidity: pool.liquidityRaw, amountIn, feeRateMillionths: pool.ammConfigState.tradeFeeRate, zeroForOne, limitTick, tickSpacing: pool.tickSpacing, initializedTicks: pool.tickArrays.flatMap((array) => array.initializedTicks), coverageMinTick: bitmap.minStartTickIndex, coverageMaxTickExclusive: bitmap.maxStartTickIndexExclusive, transferFeeAmount });
-  return { ...quote, protocol: "raydium-clmm", pool: pool.address, inputMint, outputMint: zeroForOne ? pool.tokenMint1 : pool.tokenMint0, zeroForOne, limitTick, sqrtPriceLimitX64: raydiumSqrtPriceX64AtTick(limitTick).toString(), commitment: "finalized", stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, tickArraySlot: pool.tickArraySlot, ammConfigSlot: pool.ammConfigSlot, observedAt: snapshot.observedAt, ageMs, feeRateMillionths: String(pool.ammConfigState.tradeFeeRate), feeMode: "from_input_static" };
+  const quote = quoteRaydiumStaticFeeExactInput({ sqrtPriceX64: pool.sqrtPriceX64, currentTick: pool.tick, liquidity: pool.liquidityRaw, amountIn, feeRateMillionths: pool.ammConfigState.tradeFeeRate, zeroForOne, limitTick, tickSpacing: pool.tickSpacing, initializedTicks: pool.tickArrays.flatMap((array) => array.initializedTicks), coverageMinTick: bitmap.minStartTickIndex, coverageMaxTickExclusive: bitmap.maxStartTickIndexExclusive, transferFeeAmount, inputTransferFee, outputTransferFee });
+  return { ...quote, protocol: "raydium-clmm", pool: pool.address, inputMint, outputMint: zeroForOne ? pool.tokenMint1 : pool.tokenMint0, zeroForOne, limitTick, sqrtPriceLimitX64: raydiumSqrtPriceX64AtTick(limitTick).toString(), commitment: "finalized", stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, tickArraySlot: pool.tickArraySlot, ammConfigSlot: pool.ammConfigSlot, mintEvidenceSlot: pool.mintEvidenceSlot ?? null, epoch: pool.epoch ?? null, observedAt: snapshot.observedAt, ageMs, feeRateMillionths: String(pool.ammConfigState.tradeFeeRate), feeMode: "from_input_static", transferFeeMode: hasToken2022 ? "finalized_epoch_mint_evidence" : "none" };
 }
 
 export const CLMM_MATH_CONSTANTS = Object.freeze({ Q64: Q64.toString(), feeDenominator: FEE_DENOMINATOR.toString(), minRaydiumTick: MIN_RAYDIUM_TICK, maxRaydiumTick: MAX_RAYDIUM_TICK });

@@ -15,7 +15,9 @@ export async function acquirePoolMintEvidence(client, pools, minContextSlot) {
   for (let index = 0; index < mints.length; index++) {
     const mint = mints[index], account = response.value[index], info = account?.data?.parsed?.info;
     if (!TOKEN_PROGRAMS.has(account?.owner) || !Number.isInteger(info?.decimals) || info.decimals < 0 || info.decimals > 255 || !/^\d+$/.test(info?.supply ?? "")) throw new Error(`pool mint ${mint} evidence is invalid`);
-    byMint.set(mint, { schemaVersion: 1, mint, programId: account.owner, commitment: "finalized", slot, epoch, decimals: info.decimals, token2022Evidence: extractToken2022MintEvidence(account, epoch, slot) });
+    const extensionTypes = account.owner === TOKEN_2022_PROGRAM ? info.extensions.map((extension) => extension?.extension) : [];
+    if (extensionTypes.some((type) => typeof type !== "string" || !type) || new Set(extensionTypes).size !== extensionTypes.length) throw new Error(`pool mint ${mint} extension inventory is invalid`);
+    byMint.set(mint, { schemaVersion: 1, mint, programId: account.owner, commitment: "finalized", slot, epoch, decimals: info.decimals, extensionTypes: extensionTypes.sort(), token2022Evidence: extractToken2022MintEvidence(account, epoch, slot) });
   }
   return { slot, epoch, byMint };
 }
@@ -31,8 +33,8 @@ export function validateBoundPoolMintEvidence(pool, minimumSlot = 0) {
   if (!Number.isSafeInteger(pool?.mintEvidenceSlot) || pool.mintEvidenceSlot < minimumSlot || !Number.isSafeInteger(pool.epoch) || pool.epoch < 0 || rows.some((row) => !row)) return false;
   for (let index = 0; index < 2; index++) {
     const row = rows[index], [mint, programId, decimals] = expected[index];
-    if (row.schemaVersion !== 1 || row.mint !== mint || row.programId !== programId || row.commitment !== "finalized" || row.slot !== pool.mintEvidenceSlot || row.epoch !== pool.epoch || row.decimals !== decimals || !TOKEN_PROGRAMS.has(row.programId)) return false;
-    if (row.programId === LEGACY_TOKEN_PROGRAM) { if (row.token2022Evidence != null) return false; continue; }
+    if (row.schemaVersion !== 1 || row.mint !== mint || row.programId !== programId || row.commitment !== "finalized" || row.slot !== pool.mintEvidenceSlot || row.epoch !== pool.epoch || row.decimals !== decimals || !TOKEN_PROGRAMS.has(row.programId) || !Array.isArray(row.extensionTypes) || row.extensionTypes.some((type, position) => typeof type !== "string" || !type || position && type <= row.extensionTypes[position - 1])) return false;
+    if (row.programId === LEGACY_TOKEN_PROGRAM) { if (row.token2022Evidence != null || row.extensionTypes.length) return false; continue; }
     const evidence = row.token2022Evidence; if (evidence?.schemaVersion !== 1 || evidence.programId !== TOKEN_2022_PROGRAM || evidence.commitment !== "finalized" || evidence.slot !== row.slot || evidence.epoch !== row.epoch) return false;
     if (evidence.transferFeeConfig == null) { if (evidence.activeTransferFee != null) return false; }
     else { let config, active; try { config = normalizeTransferFeeConfig(evidence.transferFeeConfig); active = selectEpochTransferFee(config, row.epoch); } catch { return false; } if (JSON.stringify(config) !== JSON.stringify(evidence.transferFeeConfig) || JSON.stringify(active) !== JSON.stringify(evidence.activeTransferFee)) return false; }
