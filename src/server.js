@@ -66,13 +66,15 @@ function dispatchRpc(payload, config, store) {
   if (payload.method === "getIndexedBlock") {
     const slot = Array.isArray(payload.params) ? payload.params[0] : payload.params?.slot;
     if (!Number.isSafeInteger(slot) || slot < 0) return rpcError(payload.id, -32602, "Invalid params");
-    const block = store.state.blocks[String(slot)]; return rpcResult(payload.id, block ? { slot, ...block } : null);
+    const view = store.indexedBlocks(); if (!view.available) return rpcError(payload.id, -32001, "Indexed block evidence unavailable");
+    return rpcResult(payload.id, view.data.find((block) => block.slot === slot) ?? null);
   }
   if (payload.method === "getIndexedBlocks") {
     const params = payload.params == null ? {} : Array.isArray(payload.params) ? { limit: payload.params[0], cursor: payload.params[1] } : payload.params;
     if (!params || typeof params !== "object" || Array.isArray(params)) return rpcError(payload.id, -32602, "Invalid params");
     const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || (cursor !== null && typeof cursor !== "string")) return rpcError(payload.id, -32602, "Invalid params");
-    const rows = Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot); try { return rpcResult(payload.id, page(rows, size, cursor, (row) => String(row.slot))); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+    const view = store.indexedBlocks(); if (!view.available) return rpcError(payload.id, -32001, "Indexed block evidence unavailable");
+    try { return rpcResult(payload.id, page(view.data, size, cursor, (row) => String(row.slot))); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   if (payload.method === "getIndexedTransaction") {
     const signature = Array.isArray(payload.params) ? payload.params[0] : payload.params?.signature;
@@ -209,8 +211,8 @@ export function createServer(config, store) {
       }
       const internalWallet = url.pathname.match(/^\/internal\/wallets\/([^/]+)(?:\/(performance|profile|funding|funding-cluster))?$/); if (internalWallet) { const address = decodeURIComponent(internalWallet[1]); return json(response, 200, internalWallet[2] === "performance" ? store.walletPerformance(address) : internalWallet[2] === "profile" ? store.walletProfile(address) : internalWallet[2] === "funding" ? store.walletFunding(address, limit(url)) : internalWallet[2] === "funding-cluster" ? store.walletFundingCluster(address, limit(url)) : store.account(address, limit(url))); }
       if (url.pathname === "/api/v1/blocks") {
-        const rows = Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot);
-        return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot), "blocks:v1"));
+        const view = store.indexedBlocks(); if (!view.available) return json(response, 503, { schemaVersion: 1, available: false, reason: view.reason });
+        return json(response, 200, page(view.data, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot), "blocks:v1"));
       }
       if (url.pathname === "/api/v1/transactions") {
         const rows = Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature));
@@ -222,7 +224,7 @@ export function createServer(config, store) {
       const price = url.pathname.match(/^\/api\/v1\/price\/([^/]+)$/); if (price) { const result = store.referencePrice(decodeURIComponent(price[1]), config.staleAfterMs); return json(response, result.available ? 200 : 503, result); }
       const volume = url.pathname.match(/^\/api\/v1\/volume\/([^/]+)$/); if (volume) { const window = trendingWindow(url), result = store.usdVolume(decodeURIComponent(volume[1]), window.seconds ?? 86_400, config.staleAfterMs); return json(response, result.available ? 200 : 503, result); }
       if (url.pathname === "/api/v1/bot/readiness") { const now = Date.now(), readiness = store.botReadiness(config.staleAfterMs, now, url.searchParams.get("pool")), [exporter, checkpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), ingestion = assessExporterStatus(exporter, config.staleAfterMs, now, config.maxExporterLagSlots), warehouse = assessWarehouseCheckpoint(checkpoint, store.state.eventSequence, store.state.events[0]?.sequence ?? store.state.eventSequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, now), gated = gateBotReadiness(readiness, ingestion, warehouse); return json(response, gated.ready ? 200 : 503, gated); }
-      if (url.pathname === "/api/blocks") return json(response, 200, Object.entries(store.state.blocks).map(([slot, row]) => ({ slot: Number(slot), ...row })).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
+      if (url.pathname === "/api/blocks") { const view = store.indexedBlocks(); return json(response, view.available ? 200 : 503, view.available ? view.data.slice(0, limit(url)) : { schemaVersion: 1, available: false, reason: view.reason }); }
       if (url.pathname === "/api/transactions") return json(response, 200, Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
       if (url.pathname === "/api/trending") { const window = trendingWindow(url); return json(response, 200, { asOf: new Date().toISOString(), window: window.label, methodology: "ranked by verified DEX swaps, unique decoded traders, then SPL transfers; no USD volume claim", tokens: store.trending(limit(url), window.seconds) }); }
       const transaction = url.pathname.match(/^\/api\/transaction\/([^/]+)$/); if (transaction) { const row = store.transaction(decodeURIComponent(transaction[1])); return json(response, row ? 200 : 404, row ?? { error: "not_found" }); }

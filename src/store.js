@@ -398,6 +398,13 @@ export class IndexStore {
     if (extensionNames.includes("transferFeeConfig")) findings.push({ code: "transfer_fee_extension", severity: "medium", blocksAutomation: true, value: "transferFeeConfig" });
     return { schemaVersion: 1, mint, assessable: !freshnessRequired || fresh, safeForAutomation: false, ruleVersion: "token-security-v1", freshness: { ageMs, staleAfterMs, observedInFuture, stale: !fresh }, missing: [...(!freshnessRequired || fresh ? [] : [observedInFuture ? "security_snapshot_clock_skew" : "fresh_finalized_mint_account_snapshot"]), "executable_sell_route", "liquidity_lock_evidence", ...(!exclusionsComplete ? ["holder_exclusions"] : [])], findings, evidence: { commitment: "finalized", slot: snapshot.slot, observedAt: snapshot.observedAt, genesisHash: snapshot.genesisHash, mintAuthority: info.mintAuthority ?? null, freezeAuthority: info.freezeAuthority ?? null, extensions: extensionNames, holderExclusions: { applied: exclusionsComplete, ...holderEvidence.exclusionEvidence } } };
   }
+  indexedBlocks() {
+    const entries = Object.entries(this.state.blocks);
+    if (entries.some(([key, block]) => !canonicalPersistedBlock(key, block) || canonicalBlockTimeMs(block.blockTime) == null)) {
+      return { available: false, reason: "indexed_block_evidence_invalid", data: [] };
+    }
+    return { available: true, reason: null, data: entries.map(([key, row]) => ({ ...row, slot: Number(key) })).sort((a, b) => b.slot - a.slot) };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };

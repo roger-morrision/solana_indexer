@@ -1558,6 +1558,22 @@ test("JSON-RPC exposes only read-only indexed methods", async (t) => {
   assert.equal((await call({ jsonrpc: "2.0", id: 3, method: "getIndexedTransaction", params: [] })).error.code, -32602);
 });
 
+test("block REST and RPC views fail closed on invalid persisted evidence", async (t) => {
+  const store = new IndexStore("unused"); await store.load();
+  const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block);
+  const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  store.state.blocks.invalid = { ...store.state.blocks["100"] };
+  assert.deepEqual(store.indexedBlocks(), { available: false, reason: "indexed_block_evidence_invalid", data: [] });
+  const call = async (method, params) => (await (await fetch(`${base}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json());
+  assert.equal((await call("getIndexedBlock", { slot: 100 })).error.code, -32001);
+  assert.equal((await call("getIndexedBlocks", { limit: 1 })).error.code, -32001);
+  for (const pathname of ["/api/v1/blocks", "/api/blocks"]) {
+    const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { schemaVersion: 1, available: false, reason: "indexed_block_evidence_invalid" });
+  }
+});
+
 test("JSON-RPC rejects oversized bodies with a stable 413 contract", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ rpcMaxBodyBytes: 128 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getIndexerHealth", padding: "x".repeat(256) }) }); assert.equal(response.status, 413); assert.deepEqual(await response.json(), { error: "payload_too_large", detail: "request body exceeds 128 bytes" });
 });
