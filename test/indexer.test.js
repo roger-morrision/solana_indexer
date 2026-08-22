@@ -689,8 +689,10 @@ test("ingestion and metrics fail closed for stale exporter status", async (t) =>
 
 test("configuration refuses public binding without API keys", () => {
   assert.throws(() => loadConfig({ INDEXER_HOST: "0.0.0.0" }, process.cwd()), /INDEXER_API_KEYS is required/);
-  const config = loadConfig({ INDEXER_HOST: "0.0.0.0", INDEXER_API_KEYS: "first, second", INDEXER_RATE_LIMIT_PER_MINUTE: "25" }, process.cwd());
+  assert.throws(() => loadConfig({ INDEXER_HOST: "0.0.0.0", INDEXER_API_KEYS: "first" }, process.cwd()), /INDEXER_AUDIT_LOG_FILE is required/);
+  const config = loadConfig({ INDEXER_HOST: "0.0.0.0", INDEXER_API_KEYS: "first, second", INDEXER_RATE_LIMIT_PER_MINUTE: "25", INDEXER_AUDIT_LOG_FILE: "data/audit.jsonl" }, process.cwd());
   assert.deepEqual(config.apiKeys, ["first", "second"]); assert.equal(config.rateLimitPerMinute, 25); assert.equal(config.maxExporterLagSlots, 512);
+  assert.equal(config.auditLogFile, path.resolve(process.cwd(), "data/audit.jsonl"));
   assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
 });
 
@@ -731,7 +733,7 @@ test("backup and restore tooling verifies integrity and gates destructive restor
 });
 
 test("API authentication and quotas fail closed", async (t) => {
-  const store = new IndexStore("unused"); await store.load(); const config = { staleAfterMs: 120_000, apiKeys: ["secret"], rateLimitPerMinute: 2 };
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-api-audit-")), auditLogFile = path.join(root, "audit.jsonl"), store = new IndexStore("unused"); await store.load(); const config = { staleAfterMs: 120_000, apiKeys: ["secret"], rateLimitPerMinute: 2, auditLogFile };
   const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/stats`;
   assert.equal((await fetch(endpoint)).status, 401); assert.equal((await fetch(endpoint, { headers: { "x-api-key": "wrong" } })).status, 401);
@@ -739,6 +741,12 @@ test("API authentication and quotas fail closed", async (t) => {
   const first = await fetch(endpoint, { headers: { authorization: "Bearer secret" } }); assert.equal(first.status, 200); assert.equal(first.headers.get("x-ratelimit-remaining"), "1");
   assert.equal((await fetch(endpoint, { headers: { "x-api-key": "secret" } })).status, 200);
   const limited = await fetch(endpoint, { headers: { "x-api-key": "secret" } }); assert.equal(limited.status, 429); assert.ok(limited.headers.get("retry-after"));
+  await server.auditSink.flush(); const audit = (await fs.readFile(auditLogFile, "utf8")).trim().split("\n").map(JSON.parse); assert.equal(audit.length, 6); assert.ok(audit.every((row) => row.schemaVersion === 1 && row.path && Number.isFinite(row.durationMs))); assert.equal(audit.some((row) => JSON.stringify(row).includes("secret")), false); assert.equal(audit.at(-1).statusCode, 429); assert.match(audit.at(-1).identityHash, /^[0-9a-f]{64}$/);
+});
+
+test("protected API fails closed after its durable audit sink fails", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-api-audit-failure-")), blockingFile = path.join(root, "not-a-directory"); await fs.writeFile(blockingFile, "blocked"); const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000, auditLogFile: path.join(blockingFile, "audit.jsonl") }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/stats`;
+  assert.equal((await fetch(endpoint)).status, 200); await server.auditSink.flush(); assert.equal(server.auditSink.failures, 1); const blocked = await fetch(endpoint); assert.equal(blocked.status, 503); assert.equal((await blocked.json()).error, "audit_sink_unavailable");
 });
 
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {

@@ -203,6 +203,7 @@ Configuration:
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
+| `INDEXER_AUDIT_LOG_FILE` | unset | Append-only redacted JSONL API audit sink; mandatory for non-loopback binding |
 | `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |
 | `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
 | `LOCAL_VALIDATOR_WS` | `ws://127.0.0.1:8900` | Loopback-only Agave PubSub endpoint |
