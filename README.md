@@ -640,6 +640,9 @@ ordered mints/vaults, LP supply, coin creator, mayhem/cashback flags, and signed
 virtual quote reserves. Both parsed vault identities and exact balances are read
 at a finalized context no earlier than the pool state. Fee configuration and
 exact quote execution remain unsupported and therefore fail closed.
+Validated artifacts import content-addressedly into canonical `pump-swap`
+constant-product pool state, reject conflicting evidence at the same finalized
+slot, and emit the shared replayable warehouse/WebSocket sequence.
 
 ## Operational safety
 
