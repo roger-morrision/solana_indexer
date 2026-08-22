@@ -494,6 +494,9 @@ zero signature placeholders, and verifies its own output against that policy.
 Raydium CLMM `swap_v2` manifests use the official account order and Anchor
 discriminator, exact-input bounds, direction-specific vaults/mints, and only the
 finalized snapshot tick arrays covering the quoted price-limit path.
+A single preparation artifact now binds that manifest to its unsigned message,
+minimum finalized context slot, program policy, and exact mint/account-specific
+input debit plus bounded output credit expected from local simulation.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Signature bytes are intentionally
