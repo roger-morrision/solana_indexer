@@ -657,10 +657,12 @@ test("ingestion API distinguishes unavailable from durable exporter evidence", a
   const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/v1/ingestion`;
   assert.equal((await fetch(endpoint)).status, 503);
-  await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: new Date().toISOString(), lagSlots: 0, durableSkippedSlots: [7] }));
+  await fs.writeFile(statusFile, JSON.stringify({ version: 2, commitment: "finalized", observedAt: new Date().toISOString(), cursor: 42, localValidatorTip: 42, lagSlots: 0, durableSkippedSlots: [7] }));
   const response = await fetch(endpoint); const body = await response.json();
   assert.equal(response.status, 200); assert.equal(body.available, true); assert.deepEqual(body.exporter.durableSkippedSlots, [7]);
   await fs.writeFile(statusFile, JSON.stringify({ ...body.exporter, consecutiveFailures: 1, lastAttemptAt: new Date().toISOString(), lastError: "HTTP 429" })); const failed = await fetch(endpoint); assert.equal(failed.status, 503); assert.equal((await failed.json()).reason, "exporter_failure");
+  await fs.writeFile(statusFile, JSON.stringify({ ...body.exporter, cursor: 43, localValidatorTip: 42 })); const inconsistent = await fetch(endpoint); assert.equal(inconsistent.status, 503); assert.equal((await inconsistent.json()).reason, "cursor_ahead_of_tip");
+  await fs.writeFile(statusFile, JSON.stringify({ ...body.exporter, cursor: "42" })); const malformed = await fetch(endpoint); assert.equal(malformed.status, 503); assert.equal((await malformed.json()).reason, "invalid_cursor");
 });
 
 test("ingestion and metrics fail closed for stale exporter status", async (t) => {

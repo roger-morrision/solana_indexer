@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { attachWebSocket } from "./websocket.js";
 import { registrySnapshot } from "./program-registry.js";
+import { assessExporterStatus } from "./exporter-health.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
@@ -26,7 +27,6 @@ function page(rows, size, cursor, key) {
   return { data, nextCursor: hasMore && data.length ? encodeCursor({ key: key(data.at(-1)) }) : null };
 }
 async function readJsonFile(filename) { if (!filename) return null; try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
-function exporterHealth(exporter, staleAfterMs, now = Date.now()) { const observed = Date.parse(exporter?.observedAt ?? ""), ageMs = Number.isFinite(observed) ? now - observed : null, failed = (Number(exporter?.consecutiveFailures) || 0) > 0, reason = exporter == null ? "status_unavailable" : failed ? "exporter_failure" : ageMs == null ? "invalid_observed_at" : exporter.commitment !== "finalized" ? "not_finalized" : ageMs < 0 ? "observed_at_in_future" : ageMs > staleAfterMs ? "exporter_stale" : null; return { available: exporter != null, healthy: reason == null, ageMs, staleAfterMs, reason }; }
 async function readJsonBody(request, maximum = 65_536) {
   const chunks = []; let size = 0;
   for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error("request body exceeds 64 KiB"); error.code = "BAD_REQUEST"; throw error; } chunks.push(chunk); }
@@ -58,7 +58,7 @@ function keyMatches(presented, configured) {
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
 function prometheus(metrics, store, staleAfterMs, exporter) {
-  const health = store.health(staleAfterMs), exporterStatus = exporterHealth(exporter, staleAfterMs), stats = store.stats(), lines = [
+  const health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs), stats = store.stats(), lines = [
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
@@ -76,8 +76,8 @@ function prometheus(metrics, store, staleAfterMs, exporter) {
     `terminal_dex_index_age_seconds ${health.ageMs == null ? "NaN" : health.ageMs / 1000}`,
     "# TYPE terminal_dex_exporter_healthy gauge", `terminal_dex_exporter_healthy ${exporterStatus.healthy ? 1 : 0}`,
     "# TYPE terminal_dex_exporter_age_seconds gauge", `terminal_dex_exporter_age_seconds ${exporterStatus.ageMs == null ? "NaN" : exporterStatus.ageMs / 1000}`,
-    "# TYPE terminal_dex_exporter_lag_slots gauge", `terminal_dex_exporter_lag_slots ${Number.isInteger(exporter?.lagSlots) ? exporter.lagSlots : "NaN"}`,
-    "# TYPE terminal_dex_exporter_consecutive_failures gauge", `terminal_dex_exporter_consecutive_failures ${Number.isInteger(exporter?.consecutiveFailures) ? exporter.consecutiveFailures : 0}`,
+    "# TYPE terminal_dex_exporter_lag_slots gauge", `terminal_dex_exporter_lag_slots ${exporterStatus.lagSlots ?? "NaN"}`,
+    "# TYPE terminal_dex_exporter_consecutive_failures gauge", `terminal_dex_exporter_consecutive_failures ${exporterStatus.consecutiveFailures}`,
     "# TYPE terminal_dex_index_tip_slot gauge", `terminal_dex_index_tip_slot ${stats.tip ?? "NaN"}`,
     "# TYPE terminal_dex_dead_letters gauge", `terminal_dex_dead_letters ${stats.unresolvedDeadLetters}`,
     "# TYPE terminal_dex_reorg_corrections_total counter", `terminal_dex_reorg_corrections_total ${stats.reorgCorrections}`,
@@ -108,7 +108,7 @@ export function createServer(config, store) {
       if (url.pathname === "/api/stats") return json(response, 200, { ...store.stats(), chain: store.chainQuality() });
       if (url.pathname === "/api/v1/ingestion") {
         const exporter = await readJsonFile(config.exporterStatusFile);
-        const status = exporterHealth(exporter, config.staleAfterMs), payload = { ...status, exporter, index: store.stats().ingestion };
+        const status = assessExporterStatus(exporter, config.staleAfterMs), payload = { ...status, exporter, index: store.stats().ingestion };
         return json(response, status.healthy ? 200 : 503, payload);
       }
       if (url.pathname === "/internal/registry") return json(response, 200, registrySnapshot());

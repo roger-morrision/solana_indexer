@@ -229,7 +229,7 @@ Configuration:
 - `GET /api/v1/holders/:mint?limit=100` (finalized snapshot coverage when available; exclusions disclosed)
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
-- `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence)
+- `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence; malformed cursor/lag/tip progress fails closed)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedTransaction` only)
 - `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume)
 
