@@ -67,6 +67,8 @@ PostgreSQL token projections and warehouse checkpoints share the canonical
 `solana-mainnet` identity used by reconciliation.
 Live sink convergence rejects a PostgreSQL checkpoint unless its chain and
 genesis hash match canonical mainnet in addition to its event sequence.
+Redis hot-state stats and reconciliation independently require that same
+canonical chain and genesis identity.
 
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
