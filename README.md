@@ -419,11 +419,14 @@ already discovered by the index. This is intentionally bounded because
 `getProgramAccounts` is expensive. Holder concentration remains unsafe for
 automation until pool, burn, locker, and exchange exclusions are authoritative.
 Set `HOLDER_EXCLUSIONS_FILE` to a reviewed JSON registry with
-`schemaVersion: 1`, `chain: "solana"`, the pinned mainnet `genesisHash`, an
-ISO `observedAt`, a non-empty `source`, unique `completeMints`, and `entries`.
+`schemaVersion: 2`, `chain: "solana"`, the pinned mainnet `genesisHash`, canonical
+`observedAt` and later `expiresAt` timestamps, a non-empty `source`, unique
+`completeMints`, `entries`, and the lowercase SHA-256 `contentSha256` of the
+canonical sorted registry content (use `holderExclusionContentSha256` when
+producing the reviewed artifact).
 Each entry identifies one `mint`, exactly one `owner` or `tokenAccount`, a
 `category` (`burn`, `exchange`, `locker`, `pool`, `protocol`, or `vault`), and
-an `evidenceSource`. Invalid, incomplete, stale, or future-dated registries do
+an `evidenceSource`. Invalid, hash-mismatched, expired, or future-dated registries do
 not unlock concentration or bot safety. Applied exclusion provenance and totals
 are shared by holder, token-security, and pool-risk projections so consumers do
 not receive contradictory completeness claims.

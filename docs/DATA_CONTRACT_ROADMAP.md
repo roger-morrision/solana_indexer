@@ -2,6 +2,11 @@
 
 This matrix describes verified capabilities, not aspirational marketing claims.
 
+Reviewed holder exclusions use a version-2 canonical-content hash and explicit
+expiry. Their governance lifetime is independent of market-data freshness, while
+both future review evidence and expired labels fail every concentration/risk gate
+closed. The hash and expiry are disclosed with applied exclusion totals.
+
 | Consumer | Required data | Current source | Normalized contract | Freshness / safety | Exposure | Coverage |
 |---|---|---|---|---|---|---|
 | Terminal DEX activity | provisional and canonical blocks, transactions, transfers and swaps | local Agave confirmed/finalized PubSub plus HTTP gap repair; reduced mode uses Helius/Alchemy finalized polling | exact slots, hashes, signatures, per-fact provider provenance and parser-preserved confirmed/finalized commitment, per-transaction event index/swap ID, string base-unit amounts | every configured local/external failover node independently passes mainnet genesis verification before any data call (external evidence refreshes on a bounded TTL), correlated JSON-RPC responses, commitment-bound unique PubSub subscriptions, stale-socket isolation, provider failover, bounded Retry-After circuits, atomic multi-record inbox application and all-fact finalized promotion, downgrade refusal, source deduplication, exact static/loaded account-index preservation with malformed-key and out-of-range-instruction rejection, non-coercing signature/fee validation, stale/conflict health | REST/RPC/WebSocket | stream subscription integrity, local/provider response-correlation, failover/rate-limit, inbox batch atomicity/finality, transaction/account-index integrity, gap, retention, multi-event pagination and decoder tests |

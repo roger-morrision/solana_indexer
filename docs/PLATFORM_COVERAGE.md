@@ -5,6 +5,11 @@ is complete only when production code, fail-closed behavior, and regression
 coverage exist. Unsupported fields are returned as missing; they are never
 synthetically populated.
 
+Holder exclusion governance uses a version-2, canonical-content SHA-256-bound
+registry with explicit review and expiry timestamps. Registry expiry is
+independent of block/snapshot freshness; expired, future-dated, malformed, or
+hash-divergent labels fail concentration and bot safety closed.
+
 Current route analysis includes fresh finalized exact-input Raydium CPMM/CLMM
 and PumpSwap quotes. PumpSwap mirrors the official SDK's integer buy/sell and
 fee rounding and binds finalized global disable/fee-mode evidence. Base-to-quote
