@@ -225,6 +225,8 @@ and installs a canonical status only after the full upload completes. It binds t
 digests of the version-3 manifest and uploaded inbox receipt; a versioned health
 endpoint, RPO gauges, and critical alert reject missing, malformed, future, or
 older-than-24-hour evidence without disclosing storage locations.
+Completion additionally requires the full quiesced artifact inventory and exact
+receipt-to-inbox-manifest hash identity with matching canonical upload times.
 The latest isolated recovery report has a separate version-3 canonical assessment and
 90-day expiry contract. API/Prometheus expose only its backup identity, age and
 duration; missing, malformed, future-dated, invariant-incomplete or expired

@@ -492,6 +492,9 @@ verified does it create, upload, verify, and
 install `data/backup-status.json`, binding the backup ID and hashes of both the
 backup manifest and archive receipt. `/api/v1/backup` and Prometheus expose its
 freshness without exposing the archive endpoint.
+Status creation revalidates the complete version-3 artifact inventory and proves
+the uploaded receipt's manifest hash equals the exact `inbox-manifest.json`
+artifact hash. Missing or divergent upload-completion timestamps fail closed.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
 storage. `ops/restore.sh` verifies checksums and requires the explicit
 `npm run validate:backup -- /absolute/backup-directory` preflight. The preflight

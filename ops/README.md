@@ -14,13 +14,16 @@ installed under `data/`; inbox retention requires this receipt and the matching
 parser checkpoint before any old raw file can be deleted.
 Every uploaded object is fetched back through the same loopback filer and its
 SHA-256 compared before the script advances. The script then uploads, verifies,
-and installs a separate content-bound backup status that
-ties the backup ID to the full manifest and archive-receipt hashes. This is the
+and installs a separate content-bound backup status that ties the backup ID to
+the full manifest and archive-receipt hashes. The status boundary also verifies
+that the uploaded receipt names the exact inbox
+manifest artifact in the quiesced cross-store backup and has canonical matching
+upload-completion evidence. This is the
 only evidence accepted by API/Prometheus RPO health; creating artifacts locally
 or partially uploading a backup does not report success.
 
 `fetch-backup.sh <UTC-stamp>` downloads a known archive from that same loopback
-filer and verifies its checksum inventory and version-2 manifest before it can
+filer and verifies its checksum inventory and version-3 manifest before it can
 be passed to `restore.sh`. The manifest binds the backup identity, quiesced-writer
 assertion, exact byte length and SHA-256 of every cross-store artifact, and the
 inbox manifest archive identity. It does

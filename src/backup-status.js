@@ -9,7 +9,9 @@ import { durableAtomicWrite } from "./durable-file.js";
 
 const BACKUP_ID = /^[0-9]{8}T[0-9]{6}Z$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+const ARTIFACTS = ["clickhouse-balance_changes.native", "clickhouse-dead_letters.native", "clickhouse-instructions.native", "clickhouse-swaps.native", "inbox-manifest.json", "indexer-state.tar", "postgres.dump", "redis.rdb"];
 const digest = (content) => crypto.createHash("sha256").update(content).digest("hex");
+const canonicalArtifact = (value) => Number.isSafeInteger(value?.bytes) && value.bytes >= 0 && SHA256.test(value.sha256 ?? "");
 
 export function assessBackupStatus(status, maximumAgeMs = 86_400_000, now = Date.now()) {
   if (!Number.isSafeInteger(maximumAgeMs) || maximumAgeMs < 1 || !Number.isFinite(now)) throw new Error("invalid backup status assessment parameters");
@@ -21,8 +23,8 @@ export function assessBackupStatus(status, maximumAgeMs = 86_400_000, now = Date
 }
 
 export async function createBackupStatus({ manifestFile, archiveReceiptFile, output, completedAt = new Date().toISOString() }) {
-  const [manifestBytes, receiptBytes] = await Promise.all([fs.readFile(manifestFile), fs.readFile(archiveReceiptFile)]), manifest = JSON.parse(manifestBytes), receipt = JSON.parse(receiptBytes), completedAtMs = parseCanonicalUtcTimestamp(completedAt), receiptCompletedAtMs = parseCanonicalUtcTimestamp(receipt.completedAt);
-  if (manifest.schemaVersion !== 3 || manifest.chain !== "solana-mainnet" || !BACKUP_ID.test(manifest.backupId ?? "") || receipt.schemaVersion !== 1 || receipt.storage !== "self-hosted" || receipt.status !== "uploaded" || receipt.archiveId !== manifest.backupId || receiptCompletedAtMs == null || completedAtMs == null || completedAtMs < receiptCompletedAtMs) throw new Error("backup completion evidence is invalid");
+  const [manifestBytes, receiptBytes] = await Promise.all([fs.readFile(manifestFile), fs.readFile(archiveReceiptFile)]), manifest = JSON.parse(manifestBytes), receipt = JSON.parse(receiptBytes), manifestCreatedAtMs = parseCanonicalUtcTimestamp(manifest.createdAt), completedAtMs = parseCanonicalUtcTimestamp(completedAt), receiptCompletedAtMs = parseCanonicalUtcTimestamp(receipt.completedAt), uploadCompletedAtMs = parseCanonicalUtcTimestamp(receipt.uploadCompletedAt), artifactNames = Object.keys(manifest.artifacts ?? {}).sort(), receiptFiles = Object.entries(receipt.files ?? {});
+  if (manifest.schemaVersion !== 3 || manifest.chain !== "solana-mainnet" || manifest.scope !== "postgres-clickhouse-redis-indexer-state" || manifest.writersQuiesced !== true || !BACKUP_ID.test(manifest.backupId ?? "") || manifestCreatedAtMs == null || JSON.stringify(artifactNames) !== JSON.stringify(ARTIFACTS) || ARTIFACTS.some((name) => !canonicalArtifact(manifest.artifacts[name])) || receipt.schemaVersion !== 1 || receipt.storage !== "self-hosted" || receipt.status !== "uploaded" || receipt.archiveId !== manifest.backupId || !receipt.files || Array.isArray(receipt.files) || typeof receipt.files !== "object" || receiptFiles.some(([name, hash]) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) || !SHA256.test(hash)) || receipt.manifestSha256 !== manifest.artifacts["inbox-manifest.json"].sha256 || receiptCompletedAtMs == null || uploadCompletedAtMs !== receiptCompletedAtMs || completedAtMs == null || manifestCreatedAtMs > receiptCompletedAtMs || completedAtMs < receiptCompletedAtMs) throw new Error("backup completion evidence is invalid");
   const status = { schemaVersion: 1, kind: "self_hosted_backup_completed", chain: "solana-mainnet", storage: "self-hosted", backupId: manifest.backupId, completedAt, backupManifestSha256: digest(manifestBytes), archiveReceiptSha256: digest(receiptBytes) };
   await durableAtomicWrite(output, `${JSON.stringify(status, null, 2)}\n`);
   return status;
