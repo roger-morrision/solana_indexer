@@ -453,9 +453,15 @@ missing signals. Paths with fewer than two venues also retain a
 `multi_venue_twap` missing signal. Amounts and decimal normalization remain
 exact rational integers. These references are suitable for display/research
 only unless `USD_DEPEG_REFERENCE_FILE` supplies fresh finalized evidence from an
-independent on-chain oracle. The versioned contract pins mainnet identity,
-source program/account/slot, exact positive rational price, observation and
-expiry times. Missing, malformed, future, expired, non-finalized, or over-limit
+independent on-chain oracle. `npm run snapshot:usdc-oracle` can produce that
+artifact from an operator-selected Pyth Solana Receiver `PriceUpdateV2` account
+through the loopback validator. It requires `USDC_ORACLE_SOURCE_PROGRAM`,
+`USDC_ORACLE_SOURCE_ACCOUNT`, and the reviewed 32-byte
+`USDC_ORACLE_FEED_ID`; partially verified updates are rejected. The version-2
+contract pins mainnet identity, source program/account/context slot, feed ID,
+fully verified status, posted slot, publish time, confidence, raw account hash,
+exact positive rational price, observation and publish-time-derived expiry.
+Missing, malformed, future, expired, non-finalized, or over-limit
 evidence fails bot readiness closed. Robust three-venue price paths plus healthy
 depeg evidence can unlock the price/volume component only; all other bot gates
 still apply. The repository does not synthesize or silently substitute this

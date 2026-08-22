@@ -19,6 +19,7 @@
     "reconcile:dead-letters": "node src/dead-letter-reconcile.js",
     "stream": "node src/local-validator-stream.js",
     "verify:mainnet": "node src/verify-mainnet.js",
+    "snapshot:usdc-oracle": "node src/usdc-oracle-snapshot.js",
     "snapshot:accounts": "node src/account-snapshot.js",
     "snapshot:cpmm-pools": "node src/cpmm-pool-snapshot.js",
     "snapshot:pump-swap-pools": "node src/pump-swap-pool-snapshot.js",
