@@ -5,6 +5,10 @@ is complete only when production code, fail-closed behavior, and regression
 coverage exist. Unsupported fields are returned as missing; they are never
 synthetically populated.
 
+Current route analysis includes fresh finalized exact-input Raydium CPMM/CLMM
+and PumpSwap quotes. PumpSwap mirrors the official SDK's integer buy/sell and
+fee rounding while remaining non-executable and failing closed for Token-2022.
+
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
 | Mainnet RPC | deployable, not running here | non-voting Agave unit, genesis verifier, private loopback RPC with strict JSON-RPC version/request-ID correlation | production Ubuntu hosts and snapshots |

@@ -548,8 +548,9 @@ quotes share the analysis-only internal pool endpoint and are never labeled as
 executable routes.
 
 The shared quote endpoint dispatches only snapshots whose canonical program ID
-matches an implemented quote engine. Orca, PumpSwap, and unknown snapshots fail
-closed with `unsupported_quote_protocol` until their exact math is implemented.
+matches an implemented quote engine. Raydium CPMM/CLMM and PumpSwap are
+supported; Orca and unknown snapshots fail closed with
+`unsupported_quote_protocol` until their exact math is implemented.
 
 Raydium CLMM program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`
 `SwapEvent` logs are decoded with exact u64/u128 values, token-account-to-mint
@@ -641,8 +642,7 @@ virtual quote reserves. Both parsed vault identities and exact balances are read
 at a finalized context no earlier than the pool state. The official Pump Fees
 `FeeConfig` PDA is independently derived, owner/discriminator validated,
 decoded without trailing bytes, and read at a third finalized context no
-earlier than the vault and mint evidence. Exact quote execution remains
-unsupported and therefore fails closed.
+earlier than the vault and mint evidence.
 Validated artifacts import content-addressedly into canonical `pump-swap`
 constant-product pool state, reject conflicting evidence at the same finalized
 slot, and emit the shared replayable warehouse/WebSocket sequence.
@@ -652,9 +652,11 @@ same leased, bounded-retry artifact-only operational worker.
 The fee foundation implements the official exact market-cap formula and
 canonical/noncanonical tier selection with strict ascending thresholds and
 basis-point bounds. Snapshots persist the flat, market-cap and stable fee tiers
-with the exact configuration slot. Quotes still fail closed until the official
-integer swap rounding and fee application order are implemented and
-regression-tested.
+with the exact configuration slot. Exact-input buy and sell quotes mirror the
+official SDK's integer constant-product operations, one-unit buy adjustment,
+and separately ceiling-rounded LP/protocol/creator fees. They require a fresh
+coherent finalized snapshot and canonical SPL Token accounts; Token-2022 and
+transaction execution remain fail-closed.
 Canonical identity is now independently derived from the official
 `["pool-authority", baseMint]` Pump-program PDA and verified against Pump's
 published example. Base-mint supply is fetched alongside both vault accounts at
