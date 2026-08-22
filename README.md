@@ -500,6 +500,9 @@ input debit plus bounded output credit expected from local simulation.
 The prepared-simulation executor accepts only that artifact, delegates to the
 loopback RPC boundary, and verifies receipt hashes, context, program identity,
 and token effects before emitting a protocol-typed receipt.
+A separate external-signer request gate requires an allowed fee payer, raw-input
+and ceiling-rounded slippage caps, a recent matching simulation, and a short slot
+expiry. It emits a content-addressed approval request but never signs or submits.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Signature bytes are intentionally
