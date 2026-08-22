@@ -191,6 +191,10 @@ ahead of the index, or encounters a sequence gap. Database passwords remain in
 the clients' normal environment/password-file configuration and are never
 passed as command arguments. Schedule this worker only after both local data
 services pass their health checks.
+The installer also installs a hardened one-shot service and one-minute timer,
+but does not enable either. Operators must first verify both database schemas,
+client credential files, and a manual synchronization before enabling
+`solana-indexer-warehouse-sync.timer`.
 
 Configuration:
 
@@ -199,6 +203,7 @@ Configuration:
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
 | `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic checkpoint advanced only after ClickHouse and PostgreSQL acknowledge canonical events |
+| `CLICKHOUSE_PASSWORD_FILE` | unset | Protected ClickHouse password file read into the client subprocess environment without command-line exposure |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |

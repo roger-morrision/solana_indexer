@@ -1,0 +1,19 @@
+[Unit]
+Description=Terminal DEX canonical event warehouse synchronization
+After=network-online.target solana-indexer-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sol
+WorkingDirectory=/home/sol/solana-indexer
+EnvironmentFile=/etc/solana-indexer.env
+ExecStart=/usr/bin/env npm run sync:warehouse
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/sol/solana-indexer/data
+

@@ -13,6 +13,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     auditLogFile: env.INDEXER_AUDIT_LOG_FILE ? path.resolve(cwd, env.INDEXER_AUDIT_LOG_FILE) : null,
     apiTenantsFile: env.INDEXER_API_TENANTS_FILE ? path.resolve(cwd, env.INDEXER_API_TENANTS_FILE) : null,
     warehouseCheckpointFile: path.resolve(cwd, env.INDEXER_WAREHOUSE_CHECKPOINT_FILE || "data/warehouse-checkpoint.json"),
+    clickhousePasswordFile: env.CLICKHOUSE_PASSWORD_FILE ? path.resolve(cwd, env.CLICKHOUSE_PASSWORD_FILE) : null,
     host,
     port: boundedInt(env.INDEXER_PORT, 8787, 1, 65535),
     pollMs: boundedInt(env.INDEXER_POLL_MS, 1000, 100, 60_000),

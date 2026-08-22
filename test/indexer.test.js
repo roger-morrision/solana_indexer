@@ -737,6 +737,11 @@ test("external mainnet services are supervised, isolated, and never auto-started
   assert.match(exporter, /npm run export:external/); assert.match(api, /npm start/); assert.match(installer, /must have mode 0600/); assert.match(installer, /systemctl daemon-reload/); assert.doesNotMatch(installer, /enable --now|systemctl start/);
 });
 
+test("warehouse synchronization timer is hardened and never auto-enabled", async () => {
+  const service = await fs.readFile(path.join(rootDir, "validator/solana-indexer-warehouse-sync.service"), "utf8"), timer = await fs.readFile(path.join(rootDir, "validator/solana-indexer-warehouse-sync.timer"), "utf8"), installer = await fs.readFile(path.join(rootDir, "validator/install-indexer-services.sh"), "utf8");
+  assert.match(service, /Type=oneshot/); assert.match(service, /User=sol/); assert.match(service, /npm run sync:warehouse/); assert.match(service, /NoNewPrivileges=true/); assert.match(service, /ProtectSystem=strict/); assert.match(service, /ReadWritePaths=\/home\/sol\/solana-indexer\/data/); assert.match(timer, /OnUnitActiveSec=1min/); assert.match(timer, /Persistent=true/); assert.match(installer, /install .*solana-indexer-warehouse-sync\.timer/); assert.doesNotMatch(installer, /^systemctl enable --now/m);
+});
+
 test("object archives remain fully self-hosted without S3 or cloud endpoints", async () => {
   const compose = await fs.readFile(path.join(rootDir, "infra/compose.yaml"), "utf8"), backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"); assert.match(compose, /SEAWEEDFS_IMAGE:\?Set SEAWEEDFS_IMAGE/); assert.match(compose, /127\.0\.0\.1:8888:8888/); assert.match(backup, /SELF_HOSTED_ARCHIVE_URL/); assert.match(backup, /must be loopback HTTP/); assert.doesNotMatch(backup, /BACKUP_S3|aws s3/);
   assert.match(backup, /archive-receipt\.js complete/); assert.match(backup, /install -m 0600 .*inbox-archive-receipt\.json/);

@@ -30,15 +30,15 @@ export function checkpointSql(sequence) {
   return `INSERT INTO ingestion_checkpoints (consumer, chain, genesis_hash, slot, cursor, schema_version) VALUES ('warehouse-canonical-events', 'solana', ${sqlLiteral(GENESIS_HASH)}, ${sequence}, ${sqlLiteral(String(sequence))}, 1) ON CONFLICT (consumer) DO UPDATE SET chain = EXCLUDED.chain, genesis_hash = EXCLUDED.genesis_hash, slot = EXCLUDED.slot, cursor = EXCLUDED.cursor, schema_version = EXCLUDED.schema_version, updated_at = now();\n`;
 }
 
-function runProcess(command, args, input, spawnProcess = spawn) {
-  return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"] }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
+function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
+  return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
 }
 
-export async function syncWarehouseBatch(batch, spawnProcess = spawn) {
+export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env) {
   if (!batch.events.length) return { synced: 0, sequence: batch.toSequence };
   const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`;
-  await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess);
-  await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], checkpointSql(batch.toSequence), spawnProcess);
+  await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env);
+  await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], checkpointSql(batch.toSequence), spawnProcess, env);
   return { synced: batch.events.length, sequence: batch.toSequence };
 }
 
@@ -49,7 +49,8 @@ export async function writeWarehouseCheckpoint(filename, sequence) {
 async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
   try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
-  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), result = await syncWarehouseBatch(batch); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify(result));
+  const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; }
+  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), result = await syncWarehouseBatch(batch, spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify(result));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
