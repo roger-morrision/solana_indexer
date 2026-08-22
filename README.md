@@ -339,7 +339,11 @@ optional enrichment boundary separately enforces HTTPS, DNS-pinned public IPs,
 no redirects, strict size/type/schema limits, and content hashes; its normalized
 display fields remain explicitly untrusted and unsafe for automation. Imported
 enrichment artifacts must bind the exact current Metaplex payload hash and are
-projected separately into PostgreSQL metadata. With no arguments it uses mints
+projected separately into PostgreSQL metadata. The warehouse scheduler creates
+deduplicated, leased `offchain_metadata_snapshot` jobs for missing or 24-hour
+stale HTTPS enrichment; the operational worker emits the bounded artifact with
+retry/backoff, and the normal importer revalidates its canonical hash binding.
+With no arguments the account snapshot command uses mints
 already discovered by the index. This is intentionally bounded because
 `getProgramAccounts` is expensive. Holder concentration remains unsafe for
 automation until pool, burn, locker, and exchange exclusions are authoritative.
