@@ -215,6 +215,11 @@ test("synthetic replay load validates duplicate idempotency and bounded reorg co
   const template = JSON.parse(await fs.readFile(fixture, "utf8")), options = { blocks: 500, duplicateEvery: 25, replaceEvery: 40, maxHeapDeltaBytes: 256 * 1024 * 1024 }; const first = await runReplayLoadValidation(template, options), second = await runReplayLoadValidation(template, options); assert.deepEqual({ blocks: first.blocks, duplicates: first.duplicates, replacements: first.replacements, invariants: first.invariants }, { blocks: 500, duplicates: 20, replacements: 12, invariants: { canonicalCounts: true, duplicateIdempotency: true, replacementCorrections: true, boundedHeapDelta: true, throughput: true } }); assert.match(first.stateDigest, /^[0-9a-f]{64}$/); assert.equal(first.stateDigest, second.stateDigest); assert.ok(first.blocksPerSecond > 0); await assert.rejects(runReplayLoadValidation(template, { blocks: 0 }), /blocks must be an integer/);
 });
 
+test("repository replay-load command is self-contained", async () => {
+  const manifest = JSON.parse(await fs.readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(manifest.scripts["validate:replay-load"], /--fixture test\/fixtures\/block\.json --blocks 1000$/);
+});
+
 test("parses a canonical parsed block and SPL transfer", async () => {
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")));
   assert.equal(block.transactions.length, 1); assert.equal(block.transfers.length, 1);

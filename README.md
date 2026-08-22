@@ -424,6 +424,11 @@ label—and keeps `classification: null`,
 history and reviewed entity labels exist.
 
 Production objectives and alert rules are documented in `docs/SLO.md`.
+`npm run validate:replay-load` executes the checked-in 1,000-block canonical
+replay workload, including duplicate idempotency, fork replacement, bounded
+heap growth, state-digest, and throughput invariants. The script supplies its
+fixture and workload size explicitly so the repository-defined validation
+command is runnable without undocumented arguments.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
 and inbox archives and uploads them to the loopback SeaweedFS filer.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
@@ -624,7 +629,7 @@ within 30 days with at least 24 hours, 100,000 finalized blocks, a replay digest
 and bounded RSS slope. The checked-in example remains `blocked`; it is not an
 approval to load the currently incompatible plugin.
 
-Run `npm run validate:replay-load -- --fixture test/fixtures/block.json --blocks 10000`
+Run `npm run validate:replay-load -- --blocks 10000`
 for an explicitly synthetic, non-production replay drill through the real parser and
 canonical store. It injects deterministic duplicates and same-slot replacements,
 checks canonical counts, bounded correction retention and heap growth, and emits a
