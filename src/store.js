@@ -25,11 +25,14 @@ const U64_MAX = (1n << 64n) - 1n;
 const canonicalBlockTimeMs = canonicalUnixSecondsToMilliseconds;
 const SNAPSHOT_EVENT_SOURCES = new Map([["account_snapshot_applied", "account_snapshot"], ["cpmm_pool_snapshot_applied", "cpmm_pool_snapshot"], ["pump_swap_pool_snapshot_applied", "pump_swap_pool_snapshot"], ["pump_bonding_curve_snapshot_applied", "pump_bonding_curve_snapshot"], ["clmm_pool_snapshot_applied", "clmm_pool_snapshot"], ["orca_pool_snapshot_applied", "orca_pool_snapshot"], ["meteora_dlmm_pool_snapshot_applied", "meteora_dlmm_pool_snapshot"]]);
 const BLOCK_EVENT_TYPES = new Set(["block_indexed", "block_replaced", "block_finalized"]);
-function canonicalPersistedEvent(event) {
+export function canonicalPersistedEvent(event) {
   if (!Number.isSafeInteger(event?.sequence) || event.sequence < 1 || !Number.isSafeInteger(event.slot) || event.slot < 0 || canonicalBlockTimeMs(event.blockTime) == null || typeof event.blockhash !== "string" || !event.blockhash) return false;
   if (event.type === "offchain_metadata_snapshot_applied") return event.provenance?.commitment === "offchain_untrusted" && event.provenance.source === "offchain_metadata_snapshot" && event.blockhash.startsWith("snapshot:");
   const snapshotSource = SNAPSHOT_EVENT_SOURCES.get(event.type); if (snapshotSource) return event.provenance?.commitment === "finalized" && event.provenance.source === snapshotSource && event.provenance.genesisHash === MAINNET_GENESIS_HASH && event.blockhash.startsWith("snapshot:");
   return BLOCK_EVENT_TYPES.has(event.type) && ["confirmed", "finalized"].includes(event.provenance?.commitment) && event.provenance.genesisHash === MAINNET_GENESIS_HASH;
+}
+export function canonicalPersistedEventLog(events, eventSequence) {
+  return Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
 }
 function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
@@ -473,7 +476,7 @@ export class IndexStore {
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   eventQuality() {
     const events = this.state.events, eventSequence = this.state.eventSequence;
-    const canonical = Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
+    const canonical = canonicalPersistedEventLog(events, eventSequence);
     return { canonical, eventSequence, retainedEvents: Array.isArray(events) ? events.length : null, oldestSequence: Array.isArray(events) ? events[0]?.sequence ?? null : null };
   }
   replayEvents(cursor = this.state.eventSequence) {
