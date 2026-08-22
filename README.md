@@ -478,8 +478,11 @@ when a replacement is missing or malformed. The hardened disabled-by-default
 `solana-indexer-usdc-oracle.timer` refreshes it every 30 seconds after an
 operator reviews source identities and verifies a one-shot refresh. Robust three-venue price paths plus healthy
 depeg evidence can unlock the price/volume component only; all other bot gates
-still apply. The repository does not synthesize or silently substitute this
-oracle evidence.
+still apply. Event-derived reserves may support liquidity analysis, but bot
+readiness additionally requires a complete finalized pool snapshot whose two
+mint accounts share a dependency-bound slot and epoch; absent or mismatched
+execution evidence is reported as `execution_snapshot_incomplete`. The
+repository does not synthesize or silently substitute this oracle evidence.
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers

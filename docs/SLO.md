@@ -7,6 +7,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | Signal | Objective | Fail-closed action |
 |---|---:|---|
 | Canonical feed availability | 99.9% monthly | trading-bot readiness returns unavailable |
+| Complete execution snapshot | 100% of automation-ready responses | event-only, stale, or mismatched mint evidence blocks bot readiness |
 | Newest finalized block age | <=120 seconds for 99.9% of minutes | page and bot responses disclose stale data |
 | Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
 | REST read latency | p99 <=500 ms monthly | alert and shed expensive requests |
