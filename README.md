@@ -335,12 +335,13 @@ registry is available at `/internal/registry`.
 
 `GET /internal/tokens/:mint/executable-depth?amountRaw=<raw-token-units>`
 provides an exact Pump bonding-curve sell quote only when the latest decoded
-curve event is finalized and fresh and its observed cashback/buyback fee rates
-are zero. It applies the constant-product sell formula to the event's post-trade
-virtual reserves and rounds protocol and creator fees upward independently.
-The result is deliberately `executable: false` and `safeForAutomation: false`
-until a fresh account decoder, transaction builder, local simulation, and
-landed-transaction confirmation are present. Other venues and fee modes return
+curve event is finalized and fresh and a coherent account snapshot proves zero
+cashback/buyback rates. It applies the constant-product sell formula to finalized
+curve reserves and rounds protocol and creator fees upward independently.
+The result is deliberately `executable: false` and `safeForAutomation: false`.
+Fresh finalized curve, mint-owner, Global, and FeeConfig evidence now feeds an
+exact unsigned Sell V2 builder and hash-bound local simulation preparation;
+external signer approval and landed confirmation remain required. Other venues and fee modes return
 an explicit unavailable response rather than an estimate.
 
 Run `npm run snapshot:accounts -- <mint> [mint...]` against the loopback mainnet
