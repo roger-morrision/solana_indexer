@@ -225,7 +225,10 @@ the CLI derives that evidence only from `BACKUP_WRITERS_QUIESCED=yes`. Checksum
 and JSON control files are regular-file and size bounded, then content-checked
 again after hashing so raced evidence cannot qualify. Tar members use canonical
 bounded paths and types, a bounded count, and an all-zero terminator tail so a
-concatenated archive cannot hide extraction payloads after qualified state.
+concatenated archive cannot hide extraction payloads after qualified state. The
+restore workflow validates and consumes a private, fixed-inventory staged copy,
+closing the source-directory check/use interval. Failed restores clean staging;
+successful restores retain the evidence through recovery qualification.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the

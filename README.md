@@ -514,6 +514,11 @@ files and rechecks their exact bytes after artifact hashing to reject concurrent
 replacement or mutation. Tar inventory rejects control/backslash paths,
 empty/dot/traversal segments, type/name mismatches, duplicate logical paths,
 excessive member counts, missing terminators, and nonzero trailing archives.
+The isolated restore copies the fixed artifact inventory without dereferencing
+links into a private temporary staging directory, validates that staged copy,
+and consumes only staged files to remove source-directory mutation races. Failed
+restores remove staging automatically; successful restores retain it until the
+operator completes recovery qualification against those exact bytes.
 Status creation revalidates the complete version-3 artifact inventory and proves
 the uploaded receipt's manifest hash equals the exact `inbox-manifest.json`
 artifact hash. Missing or divergent upload-completion timestamps fail closed.

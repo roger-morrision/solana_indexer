@@ -12,6 +12,12 @@ marker="${RECOVERY_TARGET_MARKER:-}"
 [[ "$marker" == /* && -f "$marker" && "$marker" != "$source_dir"/* ]] || { echo "RECOVERY_TARGET_MARKER must be an absolute file outside the backup" >&2; exit 1; }
 IFS= read -r marker_content < "$marker" || true
 [[ "$marker_content" == "terminal-dex-isolated-recovery-v1" ]] || { echo "Recovery target marker is invalid" >&2; exit 1; }
+staging="$(mktemp -d "${TMPDIR:-/tmp}/terminal-dex-recovery.XXXXXX")"
+restore_complete=no
+cleanup_staging() { if [[ "$restore_complete" != yes ]]; then rm -rf -- "$staging"; fi; }
+trap cleanup_staging EXIT
+for artifact in SHA256SUMS manifest.json postgres.dump clickhouse-instructions.native clickhouse-swaps.native clickhouse-balance_changes.native clickhouse-dead_letters.native redis.rdb indexer-state.tar inbox-manifest.json; do cp --no-dereference --reflink=auto -- "$source_dir/$artifact" "$staging/$artifact"; done
+source_dir="$staging"
 compose_cmd=(docker compose --project-name "$project" -f "$compose")
 (cd "$source_dir" && sha256sum --check SHA256SUMS)
 node "$repo/src/backup-preflight.js" "$source_dir"
@@ -23,5 +29,7 @@ for table in instructions swaps balance_changes dead_letters; do "${compose_cmd[
 "${compose_cmd[@]}" run --rm --no-deps --user root redis sh -c 'chown redis:redis /data/dump.rdb && chmod 600 /data/dump.rdb'
 "${compose_cmd[@]}" start redis
 tar --extract --file "$source_dir/indexer-state.tar" --directory "$repo"
+restore_complete=yes
 echo "Restore completed. Keep consumers disabled; run npm test, npm run sync:warehouse, health checks, then:"
 echo "npm run validate:recovery -- '$source_dir' '$restore_started_at' '/absolute/recovery-report.json'"
+echo "After successful qualification, remove retained staging directory: rm -rf -- '$source_dir'"
