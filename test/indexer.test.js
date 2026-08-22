@@ -1807,6 +1807,8 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25", INDEXER_WS_MAX_OUTSTANDING_ACKS: "50", INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketMaxClients, 25); assert.deepEqual({ outstanding: loadConfig({ INDEXER_WS_MAX_OUTSTANDING_ACKS: "50" }, process.cwd()).webSocketMaxOutstandingAcks, timeout: loadConfig({ INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketAcknowledgementTimeoutMs }, { outstanding: 50, timeout: 5_000 });
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
+  const http = loadConfig({ INDEXER_HTTP_HEADERS_TIMEOUT_MS: "4000", INDEXER_HTTP_REQUEST_TIMEOUT_MS: "12000", INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS: "3000", INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET: "250" }, process.cwd());
+  assert.deepEqual({ headers: http.httpHeadersTimeoutMs, request: http.httpRequestTimeoutMs, keepAlive: http.httpKeepAliveTimeoutMs, requests: http.httpMaxRequestsPerSocket }, { headers: 4_000, request: 12_000, keepAlive: 3_000, requests: 250 });
 });
 
 test("configuration rejects malformed and out-of-range explicit controls", () => {
@@ -1819,6 +1821,14 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.equal(parseBoundedInteger(undefined, 32, 1, 256), 32);
   assert.equal(parseBoundedInteger("256", 32, 1, 256), 256);
   for (const value of ["0", "257", "2.5", " 32", "+32", "01"]) assert.throws(() => parseBoundedInteger(value, 32, 1, 256), /integer configuration/);
+  for (const env of [{ INDEXER_HTTP_HEADERS_TIMEOUT_MS: "999" }, { INDEXER_HTTP_REQUEST_TIMEOUT_MS: "300001" }, { INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS: "0" }, { INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET: "100001" }]) assert.throws(() => loadConfig(env, process.cwd()), /integer configuration/);
+});
+
+test("HTTP server applies bounded connection lifecycle controls", async () => {
+  const store = new IndexStore("unused"); await store.load();
+  const defaults = createServer({}, store); assert.deepEqual({ headers: defaults.headersTimeout, request: defaults.requestTimeout, keepAlive: defaults.keepAliveTimeout, requests: defaults.maxRequestsPerSocket }, { headers: 10_000, request: 30_000, keepAlive: 5_000, requests: 1_000 });
+  const configured = createServer({ httpHeadersTimeoutMs: 4_000, httpRequestTimeoutMs: 12_000, httpKeepAliveTimeoutMs: 3_000, httpMaxRequestsPerSocket: 250 }, store);
+  assert.deepEqual({ headers: configured.headersTimeout, request: configured.requestTimeout, keepAlive: configured.keepAliveTimeout, requests: configured.maxRequestsPerSocket }, { headers: 4_000, request: 12_000, keepAlive: 3_000, requests: 250 });
 });
 
 test("tenant registry supports hash-only key rotation and tenant quotas", async (t) => {

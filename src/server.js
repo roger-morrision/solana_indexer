@@ -296,5 +296,9 @@ export function createServer(config, store) {
   });
   server.auditSink = auditSink;
   server.shutdownTimeoutMs = config.shutdownTimeoutMs ?? 30_000;
+  server.headersTimeout = config.httpHeadersTimeoutMs ?? 10_000;
+  server.requestTimeout = config.httpRequestTimeoutMs ?? 30_000;
+  server.keepAliveTimeout = config.httpKeepAliveTimeoutMs ?? 5_000;
+  server.maxRequestsPerSocket = config.httpMaxRequestsPerSocket ?? 1_000;
   return attachWebSocket(server, store, config, (request) => config.apiTenants ? Boolean(resolveApiTenant(config.apiTenants, presentedApiKey(request))) : !(config.apiKeys ?? []).length || keyMatches(presentedApiKey(request), config.apiKeys));
 }

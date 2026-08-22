@@ -277,6 +277,10 @@ Configuration:
 | `INDEXER_AUDIT_LOG_FILE` | unset | Append-only redacted JSONL API audit sink; mandatory for non-loopback binding |
 | `INDEXER_AUDIT_RETENTION_DAYS` | `30` | Default validated audit retention; tenant plans may override it |
 | `INDEXER_API_TENANTS_FILE` | unset | Reviewed hash-only tenant/key registry with rotation windows and plan quotas |
+| `INDEXER_HTTP_HEADERS_TIMEOUT_MS` | `10000` | Maximum time to receive complete HTTP headers |
+| `INDEXER_HTTP_REQUEST_TIMEOUT_MS` | `30000` | Maximum time to receive a complete HTTP request |
+| `INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS` | `5000` | Idle HTTP keep-alive lifetime |
+| `INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET` | `1000` | Maximum requests admitted on one HTTP connection |
 | `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |
 | `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
 | `LOCAL_VALIDATOR_WS` | `ws://127.0.0.1:8900` | Loopback-only Agave PubSub endpoint |

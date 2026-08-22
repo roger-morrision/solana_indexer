@@ -67,6 +67,10 @@ GET latency for `/api/` and `/internal/` reads is exported as a fixed route-free
 Prometheus histogram, allowing the 500 ms p99 objective to be evaluated without
 mixing metrics/static traffic or write preparation into the read SLO and without
 tenant, URL, or query labels.
+HTTP header receipt, complete-request receipt, idle keep-alive lifetime, and
+requests per socket are independently startup-validated and bounded. These
+connection controls protect latency and audit capacity from slow or indefinitely
+reused connections; payload byte ceilings remain a separate pre-dispatch gate.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of
