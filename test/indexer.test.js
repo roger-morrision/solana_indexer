@@ -514,7 +514,7 @@ test("rejects noncanonical block identity and duplicate transactions", () => {
   assert.throws(() => parseBlock({ ...input, transactions: [entry, structuredClone(entry)] }), /transaction signatures must be unique/);
 });
 
-test("rejects malformed or internally inconsistent block provenance", () => {
+test("rejects malformed or internally inconsistent block provenance", async () => {
   const input = { slot: 118, blockhash: "block-118", previousBlockhash: "block-117", parentSlot: 117, blockTime: 1_700_000_018, transactions: [], provenance: { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00Z", sourceTip: 120, exportLagSlots: 2 } };
   assert.deepEqual(parseBlock(input).provenance, { source: "local-rpc", commitment: "finalized", observedAt: "2026-08-22T00:00:00.000Z", sourceTip: 120, exportLagSlots: 2 });
   const invalid = [
@@ -529,6 +529,8 @@ test("rejects malformed or internally inconsistent block provenance", () => {
   ];
   for (const [replacement, error] of invalid) assert.throws(() => parseBlock({ ...input, provenance: { ...input.provenance, ...replacement } }), error);
   assert.deepEqual(parseBlock({ ...input, provenance: undefined }).provenance, { source: "unknown", commitment: "unknown", observedAt: null, sourceTip: null, exportLagSlots: null });
+  const swapInput = JSON.parse(await fs.readFile(fixture, "utf8")); swapInput.provenance = { ...swapInput.provenance, source: " local-agave-rpc ", observedAt: "2023-11-14T22:13:20.1Z", sourceTip: 101, exportLagSlots: 1 };
+  const parsed = parseBlock(swapInput); assert.deepEqual(parsed.swaps[0].provenance, parsed.provenance); assert.deepEqual(parsed.provenance, { source: "local-agave-rpc", commitment: "finalized", observedAt: "2023-11-14T22:13:20.100Z", sourceTip: 101, exportLagSlots: 1 });
 });
 
 test("canonical finalized account snapshots persist complete holder and authority evidence", async () => {

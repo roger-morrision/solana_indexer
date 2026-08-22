@@ -548,7 +548,7 @@ export function parseBlock(block) {
     sourceTip: suppliedProvenance.sourceTip ?? null,
     exportLagSlots: suppliedProvenance.exportLagSlots ?? null,
   };
-  const swaps = dexSwaps(block, transactions, decodedDexEvents);
+  const swaps = dexSwaps({ ...block, provenance }, transactions, decodedDexEvents);
   return { slot: block.slot, blockhash: block.blockhash, previousBlockhash: block.previousBlockhash, parentSlot: block.parentSlot, blockTime, provenance, transactions, instructions, transfers, nativeTransfers, balanceChanges, swaps, poolLifecycleEvents };
 }
 
