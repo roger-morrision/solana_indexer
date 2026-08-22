@@ -35,7 +35,7 @@ import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../sr
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
-import { exporterHealthCheck } from "../src/exporter-health.js";
+import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-health.js";
 import { archiveInbox } from "../src/inbox-archive.js";
 import { reducedPreflight } from "../src/reduced-preflight.js";
 import { compileHolderExclusions } from "../src/holder-exclusions.js";
@@ -1056,6 +1056,18 @@ test("verified stream refuses an existing inbox with unknown genesis", async () 
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-network-boundary-")); const inbox = path.join(root, "inbox"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "1.json"), "{}\n");
   const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox, statusFile: path.join(root, "status.json"), WebSocketClass: class {} });
   await assert.rejects(() => stream.initializeAndConnect(), /inbox with unknown genesis/);
+});
+
+test("validator stream validates prior skipped-slot evidence before network or inbox mutation", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-prior-gaps-")), inbox = path.join(root, "inbox"), statusFile = path.join(root, "status.json"); let calls = 0;
+  const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => { calls++; return MAINNET_GENESIS_HASH; } }, inbox, statusFile, WebSocketClass: class {} });
+  await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, lastConfirmedSlot: 10, lastFinalizedSlot: 9, durableSkippedSlots: [8, 8] })); await assert.rejects(() => stream.initializeAndConnect(), /skipped-slot evidence is invalid/); assert.equal(calls, 0); await assert.rejects(fs.access(inbox));
+  await fs.writeFile(statusFile, JSON.stringify({ genesisHash: MAINNET_GENESIS_HASH, lastConfirmedSlot: 10, lastFinalizedSlot: 9, durableSkippedSlots: [11] })); await assert.rejects(() => stream.initializeAndConnect(), /ahead of durable progress/); assert.equal(calls, 1); await assert.rejects(fs.access(inbox));
+});
+
+test("stream health permits confirmed skipped slots ahead of finalized cursor", () => {
+  const status = { version: 2, source: "local-agave-pubsub", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", connected: true, observedAt: "2026-08-21T00:00:00.000Z", cursor: 9, localValidatorTip: 10, lagSlots: 1, consecutiveFailures: 0, durableSkippedSlots: [10] };
+  assert.equal(assessExporterStatus(status, 60_000, Date.parse(status.observedAt)).healthy, true);
 });
 
 test("validator stream atomically persists commitments and repairs bounded gaps", async () => {
