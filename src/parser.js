@@ -334,7 +334,18 @@ export function decodeSystemTransfers(rows) {
 function parsedTransfer(instruction, tokenAccounts = new Map()) {
   const programId = instruction.programId || instruction.program;
   const parsed = instruction.parsed;
-  if ((!TOKEN_PROGRAMS.has(programId) && instruction.program !== "spl-token") || !parsed?.info) return null;
+  if (!TOKEN_PROGRAMS.has(programId) && instruction.program !== "spl-token") return null;
+  if (!parsed && typeof instruction.data === "string") {
+    let data; try { data = decodeBase58(instruction.data); } catch { return null; }
+    const checked = data.length === 10 && data[0] === 12, unchecked = data.length === 9 && data[0] === 3;
+    if ((!checked && !unchecked) || (checked ? instruction.accounts?.length < 4 : instruction.accounts?.length < 3)) return null;
+    const source = instruction.accounts[0], destination = instruction.accounts[checked ? 2 : 1], authority = instruction.accounts[checked ? 3 : 2], sourceEvidence = tokenAccounts.get(source), destinationEvidence = tokenAccounts.get(destination);
+    if (!sourceEvidence?.mint || sourceEvidence.mint !== destinationEvidence?.mint || !sourceEvidence.owner || !destinationEvidence.owner) return null;
+    const mint = sourceEvidence.mint, decimals = checked ? data[9] : (sourceEvidence.decimals === destinationEvidence.decimals ? sourceEvidence.decimals : null);
+    if ((checked && instruction.accounts[1] !== mint) || !Number.isInteger(decimals) || sourceEvidence.decimals !== decimals || destinationEvidence.decimals !== decimals) return null;
+    return { source, destination, sourceOwner: sourceEvidence.owner, destinationOwner: destinationEvidence.owner, authority, mint, amountRaw: readU64(data, 1), decimals, amountUiString: null };
+  }
+  if (!parsed?.info) return null;
   if (!["transfer", "transferChecked"].includes(parsed.type)) return null;
   const tokenAmount = parsed.info.tokenAmount;
   const amountRaw = tokenAmount?.amount ?? parsed.info.amount ?? null;
@@ -391,7 +402,7 @@ export function parseBlock(block) {
     const tokenAccounts = new Map(); for (const balance of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) { const tokenAccount = keys[balance.accountIndex]; if (tokenAccount && balance.mint) tokenAccounts.set(tokenAccount, { mint: balance.mint, owner: balance.owner ?? null, decimals: balance.uiTokenAmount?.decimals ?? null }); }
     for (const instruction of normalized) {
       const transfer = parsedTransfer(instruction, tokenAccounts);
-      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 2, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
+      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 3, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
     }
   }
   const provenance = {
