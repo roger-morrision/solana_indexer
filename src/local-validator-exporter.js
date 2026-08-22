@@ -23,7 +23,7 @@ export class LocalValidatorClient {
     if (method !== "getGenesisHash" && this.verifiedGenesisHash == null) throw new Error("Local validator RPC requires genesis verification before data calls");
     const requestId = ++this.id;
     const response = await this.fetchImpl(this.endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params }), signal: AbortSignal.timeout(this.timeoutMs) });
-    if (!response.ok) { const error = new Error(`local validator ${method}: HTTP ${response.status}`); error.retryAfterMs = response.status === 429 ? retryAfterMs(response.headers?.get?.("retry-after"), this.now()) : null; throw error; }
+    if (!response.ok) { const error = new Error(`local validator ${method}: HTTP ${response.status}`); error.retryable = [429, 503].includes(response.status); error.retryAfterMs = error.retryable ? retryAfterMs(response.headers?.get?.("retry-after"), this.now()) : null; throw error; }
     const payload = await response.json(), hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
     if (payload?.jsonrpc !== "2.0" || payload.id !== requestId || hasResult === hasError) throw new Error(`local validator ${method}: invalid JSON-RPC response envelope`);
     if (hasError) throw new Error(`local validator ${method}: ${payload.error?.message ?? `RPC ${payload.error?.code ?? "unknown"}`}`); return payload.result;
@@ -56,7 +56,7 @@ export class LocalValidatorPool {
     for (const node of this.nodes) {
       if (node.openUntil > this.now()) continue;
       node.calls++;
-      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { node.errors++; node.failures++; const retryAfter = Number.isSafeInteger(error.retryAfterMs) ? error.retryAfterMs : null; if (retryAfter != null || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs); errors.push(`${node.name}: ${safeError(error)}`); }
+      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { node.errors++; node.failures++; const retryAfter = Number.isSafeInteger(error.retryAfterMs) ? error.retryAfterMs : null; if (retryAfter != null || error.retryable === true || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs); errors.push(`${node.name}: ${safeError(error)}`); }
     }
     throw new Error(`local validator pool ${method} failed: ${errors.join("; ") || "circuits_open"}`);
   }
