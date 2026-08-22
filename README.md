@@ -36,6 +36,12 @@ Files may be `.json` (one block or an array) or `.ndjson` (one block per line). 
 
 Use parsed transaction encoding in the local exporter so SPL Token and Token-2022 transfers contain `instruction.parsed`. See `test/fixtures/block.json` for a complete fixture. Files are checkpointed by name and fingerprint; changed files are safely reprocessed. A conflicting block at the same slot replaces its orphaned transactions and transfers.
 
+Token balance changes are emitted only from unique, in-range account indexes with
+decimal-u64 amounts and canonical SPL/Token-2022 program, mint, owner, and u8
+decimal identity. Pre/post omissions are merged, but conflicting identities,
+duplicate indexes, numeric coercions, and u64 overflow are discarded per account
+without aborting other valid facts in the block.
+
 ## Run
 
 Node.js 20 or newer is the only requirement.

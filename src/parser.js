@@ -281,13 +281,16 @@ function accountKeys(message, meta = null) {
 }
 
 function tokenBalanceChanges(entry, keys, signature, slot, blockTime) {
-  const pre = new Map((entry.meta?.preTokenBalances ?? []).map((row) => [row.accountIndex, row])); const post = new Map((entry.meta?.postTokenBalances ?? []).map((row) => [row.accountIndex, row])); const changes = [];
+  const collect = (rows) => { const values = new Map(), conflicts = new Set(); for (const row of rows ?? []) { if (!Number.isSafeInteger(row?.accountIndex) || values.has(row.accountIndex)) { if (Number.isSafeInteger(row?.accountIndex)) conflicts.add(row.accountIndex); continue; } values.set(row.accountIndex, row); } return { values, conflicts }; }, beforeRows = collect(entry.meta?.preTokenBalances), afterRows = collect(entry.meta?.postTokenBalances), pre = beforeRows.values, post = afterRows.values, changes = [];
   for (const accountIndex of new Set([...pre.keys(), ...post.keys()])) {
-    if (!Number.isSafeInteger(accountIndex) || accountIndex < 0 || accountIndex >= keys.length) continue;
-    const before = pre.get(accountIndex), after = post.get(accountIndex); const mint = after?.mint ?? before?.mint; if (!mint) continue;
-    const preAmountRaw = u64(String(before?.uiTokenAmount?.amount ?? "0"), "preTokenBalance.amount"); const postAmountRaw = u64(String(after?.uiTokenAmount?.amount ?? "0"), "postTokenBalance.amount"); if (preAmountRaw === postAmountRaw) continue;
-    const decimals = after?.uiTokenAmount?.decimals ?? before?.uiTokenAmount?.decimals; if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) continue;
-    changes.push({ signature, slot, blockTime, accountIndex, tokenAccount: keys[accountIndex], owner: after?.owner ?? before?.owner ?? null, programId: after?.programId ?? before?.programId ?? null, mint, decimals, preAmountRaw, postAmountRaw, deltaDirection: BigInt(postAmountRaw) >= BigInt(preAmountRaw) ? "credit" : "debit", closed: !after });
+    if (accountIndex < 0 || accountIndex >= keys.length || beforeRows.conflicts.has(accountIndex) || afterRows.conflicts.has(accountIndex)) continue;
+    const before = pre.get(accountIndex), after = post.get(accountIndex), mint = after?.mint ?? before?.mint, owner = after?.owner ?? before?.owner, programId = after?.programId ?? before?.programId, decimals = after?.uiTokenAmount?.decimals ?? before?.uiTokenAmount?.decimals;
+    const differs = (left, right) => left != null && right != null && left !== right, identityConflict = before && after && (differs(before.mint, after.mint) || differs(before.owner, after.owner) || differs(before.programId, after.programId) || differs(before.uiTokenAmount?.decimals, after.uiTokenAmount?.decimals));
+    if (typeof mint !== "string" || !mint || typeof owner !== "string" || !owner || !TOKEN_PROGRAMS.has(programId) || !Number.isInteger(decimals) || decimals < 0 || decimals > 255 || identityConflict) continue;
+    const beforeAmount = before?.uiTokenAmount?.amount, afterAmount = after?.uiTokenAmount?.amount, validAmount = (value) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= 18_446_744_073_709_551_615n;
+    if ((before && !validAmount(beforeAmount)) || (after && !validAmount(afterAmount))) continue;
+    const preAmountRaw = beforeAmount ?? "0", postAmountRaw = afterAmount ?? "0"; if (preAmountRaw === postAmountRaw) continue;
+    changes.push({ signature, slot, blockTime, accountIndex, tokenAccount: keys[accountIndex], owner, programId, mint, decimals, preAmountRaw, postAmountRaw, deltaDirection: BigInt(postAmountRaw) >= BigInt(preAmountRaw) ? "credit" : "debit", closed: !after });
   }
   return changes;
 }
