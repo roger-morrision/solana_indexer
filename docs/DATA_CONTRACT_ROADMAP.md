@@ -92,6 +92,13 @@ successful parent transaction, canonical pair/direction, positive exact u64
 amounts, decimals, decoder provenance and payload hashes are mandatory; one
 malformed or duplicate swap makes the view explicitly unavailable.
 
+The derived wallet ledger (SPL/Token-2022 transfers, native funding transfers,
+and token balance changes) is validated as one relationship-bound collection.
+Facts must bind a successful canonical parent transaction, exact instruction
+location where applicable, u64-safe raw amounts, fee/net conservation, stable
+identity, decoder payload hash and exact provenance. Health, bot readiness and
+warehouse export fail closed on any detached, duplicate or inconsistent fact.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether

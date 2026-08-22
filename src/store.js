@@ -61,6 +61,31 @@ export function canonicalPersistedSwapLog(swaps, transactions, blocks) {
     return swap.swapId === swapId && swap.eventId === eventId && canonicalPersistedTransaction(swap.signature, transaction, blocks) && transaction.success === true && canonicalPersistedBlock(String(swap.slot), block) && swap.blockTime === transaction.blockTime && Number.isInteger(swap.eventIndex) && swap.eventIndex >= 0 && [swap.protocol, swap.programId, swap.pool, swap.baseMint, swap.quoteMint, swap.inputMint, swap.outputMint].every((value) => typeof value === "string" && Boolean(value)) && swap.baseMint !== swap.quoteMint && swap.inputMint !== swap.outputMint && [swap.inputMint, swap.outputMint].every((mint) => mint === swap.baseMint || mint === swap.quoteMint) && u64(swap.inputAmountRaw, true) && u64(swap.outputAmountRaw, true) && (swap.tradeFeeRaw == null || u64(swap.tradeFeeRaw) && BigInt(swap.tradeFeeRaw) <= BigInt(swap.inputAmountRaw)) && [swap.inputDecimals, swap.outputDecimals, swap.baseDecimals, swap.quoteDecimals].every((value) => Number.isInteger(value) && value >= 0 && value <= 255) && Number.isSafeInteger(swap.registryVersion) && swap.registryVersion > 0 && Number.isSafeInteger(swap.decoderVersion) && swap.decoderVersion > 0 && /^[0-9a-f]{64}$/.test(swap.rawPayloadHash ?? "") && ["raw", "source_event"].includes(swap.payloadHashKind) && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt;
   });
 }
+export function canonicalPersistedDerivedLedger({ transfers, nativeTransfers, balanceChanges, instructions, transactions, blocks }) {
+  if (![transfers, nativeTransfers, balanceChanges, instructions].every(Array.isArray)) return false;
+  const instructionByLocation = new Map(instructions.map((row) => [`${row.signature}:${row.instructionIndex}:${row.innerIndex ?? -1}`, row])), identities = new Set(), balances = new Set();
+  const u64 = (value) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= U64_MAX;
+  const parent = (row) => { const transaction = transactions?.[row?.signature], block = blocks?.[String(row?.slot)], provenance = row?.provenance; return canonicalPersistedTransaction(row?.signature, transaction, blocks) && transaction.success === true && canonicalPersistedBlock(String(row.slot), block) && row.blockTime === transaction.blockTime && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt; };
+  const location = (row) => Number.isInteger(row?.instructionIndex) && row.instructionIndex >= 0 && (row.innerIndex == null || Number.isInteger(row.innerIndex) && row.innerIndex >= 0);
+  const instruction = (row) => { const fact = instructionByLocation.get(`${row?.signature}:${row?.instructionIndex}:${row?.innerIndex ?? -1}`); return fact?.programId === row?.programId && fact.rawPayloadHash === row.rawPayloadHash; };
+  for (const row of transfers) {
+    const identity = `solana:${row?.slot}:${row?.signature}:${row?.instructionIndex}:${row?.innerIndex ?? -1}:token_transfer`;
+    if (typeof row?.transferId !== "string" || row.transferId !== identity || identities.has(row.transferId) || !parent(row) || !location(row) || !instruction(row) || !TOKEN_PROGRAMS.has(row.programId) || ![row.source, row.destination, row.authority, row.mint].every((value) => typeof value === "string" && Boolean(value)) || ![row.sourceOwner, row.destinationOwner].every((value) => value == null || typeof value === "string" && Boolean(value)) || !u64(row.amountRaw) || !u64(row.feeAmountRaw) || !u64(row.netAmountRaw) || BigInt(row.amountRaw) !== BigInt(row.feeAmountRaw) + BigInt(row.netAmountRaw) || !Number.isInteger(row.decimals) || row.decimals < 0 || row.decimals > 255 || ![3, 4, 5, 6, 7].includes(row.decoderVersion) || !/^[0-9a-f]{64}$/.test(row.rawPayloadHash ?? "") || !(row.amountUiString == null || typeof row.amountUiString === "string")) return false;
+    identities.add(row.transferId);
+  }
+  const systemProgram = "11111111111111111111111111111111", stakeProgram = "Stake11111111111111111111111111111111111111";
+  for (const row of nativeTransfers) {
+    const identity = `solana:${row?.slot}:${row?.signature}:${row?.instructionIndex}:${row?.innerIndex ?? -1}:native_transfer`, accountCreation = ["account_creation", "seeded_account_creation", "prefunded_account_creation"].includes(row?.transferKind), seeded = ["seeded_account_creation", "seeded_transfer"].includes(row?.transferKind);
+    if (row?.chain !== "solana" || row.transferId !== identity || identities.has(row.transferId) || !parent(row) || !location(row) || !instruction(row) || !((row.programId === systemProgram && ["transfer", "seeded_transfer", "account_creation", "seeded_account_creation", "prefunded_account_creation", "nonce_withdrawal"].includes(row.transferKind)) || row.programId === stakeProgram && row.transferKind === "stake_withdrawal") || ![row.source, row.destination].every((value) => typeof value === "string" && Boolean(value)) || !u64(row.lamportsRaw) || accountCreation !== (u64(row.allocatedSpaceRaw) && typeof row.ownerProgram === "string" && Boolean(row.ownerProgram)) || seeded !== (typeof row.baseAddress === "string" && Boolean(row.baseAddress) && typeof row.seed === "string" && row.seed.length <= 32 && [...row.seed].every((character) => character.charCodeAt(0) <= 0x7f)) || seeded && (typeof row.ownerProgram !== "string" || !row.ownerProgram) || (!accountCreation && !seeded && row.ownerProgram != null) || ![3, 4, 5, 6, 7].includes(row.decoderVersion) || !/^[0-9a-f]{64}$/.test(row.rawPayloadHash ?? "")) return false;
+    identities.add(row.transferId);
+  }
+  for (const row of balanceChanges) {
+    const identity = `${row?.signature}:${row?.accountIndex}`;
+    if (balances.has(identity) || !parent(row) || !Number.isInteger(row.accountIndex) || row.accountIndex < 0 || ![row.tokenAccount, row.mint].every((value) => typeof value === "string" && Boolean(value)) || !(row.owner == null || typeof row.owner === "string" && Boolean(row.owner)) || !TOKEN_PROGRAMS.has(row.programId) || !Number.isInteger(row.decimals) || row.decimals < 0 || row.decimals > 255 || !u64(row.preAmountRaw) || !u64(row.postAmountRaw) || row.deltaDirection !== (BigInt(row.postAmountRaw) > BigInt(row.preAmountRaw) ? "credit" : BigInt(row.postAmountRaw) < BigInt(row.preAmountRaw) ? "debit" : "unchanged") || typeof row.closed !== "boolean" || row.closed && BigInt(row.postAmountRaw) !== 0n) return false;
+    balances.add(identity);
+  }
+  return true;
+}
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
   if (snapshot?.complete !== true || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || snapshot.slot < 0 || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || !Array.isArray(snapshot.accounts) || !Number.isSafeInteger(snapshot.accountCount) || snapshot.accountCount !== snapshot.accounts.length || !/^\d+$/.test(snapshot.mintInfo?.supply ?? "") || BigInt(snapshot.mintInfo.supply) > U64_MAX || !Number.isInteger(snapshot.mintInfo?.decimals) || snapshot.mintInfo.decimals < 0 || snapshot.mintInfo.decimals > 255 || mintInfo?.supply !== snapshot.mintInfo.supply || mintInfo?.decimals !== snapshot.mintInfo.decimals) return false;
   const accounts = new Set();
@@ -455,6 +480,10 @@ export class IndexStore {
     if (!canonicalPersistedSwapLog(this.state.swaps, this.state.transactions, this.state.blocks)) return { available: false, reason: "indexed_swap_evidence_invalid", data: [] };
     return { available: true, reason: null, data: [...this.state.swaps].sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature) || a.eventIndex - b.eventIndex) };
   }
+  derivedLedgerQuality() {
+    const canonical = canonicalPersistedDerivedLedger({ ...this.state, instructions: this.state.instructions });
+    return { canonical, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, reason: canonical ? null : "indexed_derived_ledger_evidence_invalid" };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -482,6 +511,7 @@ export class IndexStore {
       canonicalTransactions: this.indexedTransactions().available,
       canonicalInstructions: this.instructionQuality().canonical,
       canonicalSwaps: this.indexedSwaps().available,
+      canonicalDerivedLedger: this.derivedLedgerQuality().canonical,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -511,7 +541,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -540,6 +570,7 @@ export class IndexStore {
     const transactions = this.indexedTransactions(); if (!transactions.available) return { status: "invalid_evidence", healthy: false, reason: transactions.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const instructions = this.instructionQuality(); if (!instructions.canonical) return { status: "invalid_evidence", healthy: false, reason: instructions.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const swaps = this.indexedSwaps(); if (!swaps.available) return { status: "invalid_evidence", healthy: false, reason: swaps.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
+    const derivedLedger = this.derivedLedgerQuality(); if (!derivedLedger.canonical) return { status: "invalid_evidence", healthy: false, reason: derivedLedger.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };

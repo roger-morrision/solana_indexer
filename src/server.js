@@ -183,6 +183,8 @@ export function createServer(config, store) {
         } catch (error) { return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: error.message }); }
       }
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
+      const derivedLedgerConsumer = new Set(["/internal/trending", "/internal/candidates", "/api/trending"]).has(url.pathname) || ["/internal/evidence/", "/internal/tokens/", "/internal/wallets/", "/api/account/", "/api/mint/", "/api/v1/holders/", "/api/v1/token-account/"].some((prefix) => url.pathname.startsWith(prefix));
+      if (derivedLedgerConsumer) { const quality = store.derivedLedgerQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (url.pathname === "/internal/execution-policy") return json(response, 200, EXECUTION_HANDOFF_POLICY);
       if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, auditSink.failures, server.webSocketStats); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }

@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
-import { canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedSwapLog, IndexStore, isCanonicalAccountSnapshotEvidence, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension } from "./store.js";
+import { canonicalPersistedDerivedLedger, canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedSwapLog, IndexStore, isCanonicalAccountSnapshotEvidence, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension } from "./store.js";
 import { loadHolderExclusions } from "./holder-exclusions.js";
 import { POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { ORCA_WHIRLPOOL_PROGRAM } from "./orca-pool-snapshot.js";
@@ -126,6 +126,7 @@ function factBase(row) {
 export function compileWarehouseFacts(state, batch) {
   if (!canonicalPersistedInstructionLog(state?.instructions, state?.transactions, state?.blocks)) throw new Error("invalid persisted instruction evidence");
   if (!canonicalPersistedSwapLog(state?.swaps, state?.transactions, state?.blocks)) throw new Error("invalid persisted swap evidence");
+  if (!canonicalPersistedDerivedLedger({ ...state, instructions: state?.instructions })) throw new Error("invalid persisted derived ledger evidence");
   const slots = [...new Set(batch.events.map((event) => event.slot))].sort((a, b) => a - b), selected = (rows) => (rows ?? []).filter((row) => slots.includes(row.slot));
   const identities = new Set(), unique = (identity) => { if (identities.has(identity)) throw new Error(`duplicate canonical warehouse fact ${identity}`); identities.add(identity); };
   const instructions = selected(state.instructions).map((row) => { const base = factBase(row); if (!Number.isInteger(row.instructionIndex) || row.instructionIndex < 0 || (row.innerIndex != null && (!Number.isInteger(row.innerIndex) || row.innerIndex < 0)) || typeof row.eventId !== "string" || !row.eventId || typeof row.programId !== "string" || !row.programId || !Array.isArray(row.accounts) || !/^([0-9a-f]{64})$/.test(row.rawPayloadHash ?? "")) throw new Error("invalid canonical instruction fact"); unique(`instruction:${row.eventId}`); return { ...base, event_id: row.eventId, instruction_index: row.instructionIndex, inner_index: row.innerIndex, program_id: row.programId, protocol: row.protocol ?? null, registry_version: row.registryVersion, decoder_version: row.decoderVersion ?? null, parsed_type: row.parsedType ?? null, accounts: row.accounts, data: row.data ?? null, raw_payload_hash: row.rawPayloadHash, payload: JSON.stringify(row) }; });
