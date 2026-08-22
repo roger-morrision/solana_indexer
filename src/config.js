@@ -61,6 +61,10 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
 }
 
 function boundedInt(value, fallback, minimum, maximum) {
+  return parseBoundedInteger(value, fallback, minimum, maximum);
+}
+
+export function parseBoundedInteger(value, fallback, minimum, maximum) {
   if (value == null || value === "") return fallback;
   const normalized = String(value).trim();
   if (normalized !== String(value) || !/^(0|[1-9]\d*)$/.test(normalized)) throw new Error(`integer configuration must be a canonical base-10 value between ${minimum} and ${maximum}`);

@@ -2,7 +2,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { loadConfig } from "./config.js";
+import { loadConfig, parseBoundedInteger } from "./config.js";
 import { exportFinalizedBlocks, MAINNET_GENESIS_HASH, recordExporterFailure } from "./local-validator-exporter.js";
 
 const PUBLIC_MAINNET = "https://api.mainnet.solana.com/";
@@ -26,8 +26,8 @@ export function publicHealthClient(options) { return new ExternalRpcPool([{ name
 
 async function main() {
   if (process.argv.includes("--health-public")) { const client = publicHealthClient(); const genesisHash = await client.assertGenesis(), health = await client.call("getHealth"); if (genesisHash !== MAINNET_GENESIS_HASH || health !== "ok") throw new Error("Solana public mainnet health check failed"); console.log(JSON.stringify({ provider: "solana-public", genesisHash, health })); return; }
-  const config = loadConfig(), emergency = process.argv.includes("--emergency-public"), once = process.argv.includes("--once") || emergency; if (emergency && !process.argv.includes("--once")) console.warn("emergency public backfill is forced to one bounded cycle"); const client = emergency ? publicHealthClient() : providerPoolFromEnv(); const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/external-exporter.cursor"), requestedBatch = Number(process.env.EXPORTER_BATCH_SIZE) || 8, batchSize = emergency ? Math.min(4, Math.max(1, requestedBatch)) : Math.min(32, Math.max(1, requestedBatch));
-  do { try { const result = await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash: MAINNET_GENESIS_HASH }); console.log(JSON.stringify({ ...result, providers: client.telemetry() })); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: client.provenanceSource }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, Number(process.env.EXPORTER_POLL_MS) || 2000)); } while (!once);
+  const config = loadConfig(), emergency = process.argv.includes("--emergency-public"), once = process.argv.includes("--once") || emergency; if (emergency && !process.argv.includes("--once")) console.warn("emergency public backfill is forced to one bounded cycle"); const client = emergency ? publicHealthClient() : providerPoolFromEnv(); const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/external-exporter.cursor"), batchSize = parseBoundedInteger(process.env.EXPORTER_BATCH_SIZE, 8, 1, emergency ? 4 : 32), pollMs = parseBoundedInteger(process.env.EXPORTER_POLL_MS, 2_000, 100, 60_000);
+  do { try { const result = await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash: MAINNET_GENESIS_HASH }); console.log(JSON.stringify({ ...result, providers: client.telemetry() })); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: client.provenanceSource }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, pollMs)); } while (!once);
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
 if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

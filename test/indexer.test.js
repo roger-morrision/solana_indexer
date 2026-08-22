@@ -7,7 +7,7 @@ import test from "node:test";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
-import { loadConfig } from "../src/config.js";
+import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
 import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake } from "../src/websocket.js";
@@ -1554,6 +1554,9 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);
   assert.equal(loadConfig({ INDEXER_PORT: "" }, process.cwd()).port, 8787);
+  assert.equal(parseBoundedInteger(undefined, 32, 1, 256), 32);
+  assert.equal(parseBoundedInteger("256", 32, 1, 256), 256);
+  for (const value of ["0", "257", "2.5", " 32", "+32", "01"]) assert.throws(() => parseBoundedInteger(value, 32, 1, 256), /integer configuration/);
 });
 
 test("tenant registry supports hash-only key rotation and tenant quotas", async (t) => {

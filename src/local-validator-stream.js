@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { loadConfig } from "./config.js";
+import { loadConfig, parseBoundedInteger } from "./config.js";
 import { LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { durableAtomicWrite } from "./durable-file.js";
 
@@ -95,7 +95,7 @@ export class LocalValidatorStream {
 async function main() {
   const config = loadConfig(), rpcEndpoints = (process.env.LOCAL_VALIDATOR_RPCS || process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899").split(",").map((value) => value.trim()).filter(Boolean), wsEndpoints = (process.env.LOCAL_VALIDATOR_WSS || process.env.LOCAL_VALIDATOR_WS || "ws://127.0.0.1:8900").split(",").map((value) => value.trim()).filter(Boolean);
   if (wsEndpoints.length > 1 && rpcEndpoints.length !== wsEndpoints.length) throw new Error("Redundant validator streaming requires one verified RPC endpoint per WebSocket endpoint");
-  const rpcClient = rpcEndpoints.length === 1 ? new LocalValidatorClient(rpcEndpoints[0]) : new LocalValidatorPool(rpcEndpoints, { failureThreshold: Number(process.env.LOCAL_RPC_FAILURE_THRESHOLD) || 3, cooldownMs: Number(process.env.LOCAL_RPC_COOLDOWN_MS) || 30_000 });
+  const rpcClient = rpcEndpoints.length === 1 ? new LocalValidatorClient(rpcEndpoints[0]) : new LocalValidatorPool(rpcEndpoints, { failureThreshold: parseBoundedInteger(process.env.LOCAL_RPC_FAILURE_THRESHOLD, 3, 1, 100), cooldownMs: parseBoundedInteger(process.env.LOCAL_RPC_COOLDOWN_MS, 30_000, 100, 3_600_000) });
   const stream = new LocalValidatorStream({ endpoints: wsEndpoints, rpcClient, inbox: config.inbox, statusFile: config.exporterStatusFile, reconnectMinMs: config.streamReconnectMinMs, reconnectMaxMs: config.streamReconnectMaxMs, expectedGenesisHash: process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH });
   await stream.start(); const stop = async () => { await stream.stop(); process.exit(0); }; process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
