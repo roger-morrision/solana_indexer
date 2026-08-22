@@ -10,7 +10,8 @@ and PumpSwap quotes. PumpSwap mirrors the official SDK's integer buy/sell and
 fee rounding and binds finalized global disable/fee-mode evidence. Base-to-quote
 sells can be prepared and verified through deterministic unsigned, policy-bound
 local simulation, then packaged in a capped, expiring external-signer request;
-buy construction, indexer-side signing and submission remain unavailable,
+external signatures and finalized landed message identity are read-only verified.
+Buy construction, indexer-side signing and submission remain unavailable,
 and Token-2022, cashback and SOL buyback continue to fail closed.
 
 | Capability | Status | Current implementation | Next dependency |
