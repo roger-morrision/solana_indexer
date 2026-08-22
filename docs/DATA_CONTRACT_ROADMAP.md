@@ -78,6 +78,10 @@ identity, amounts, mint direction, registry/decoder binding, payload hash,
 provenance and outer slot/time must hold; reorg tombstones additionally bind the
 replacement blockhash. Declared batch counts must equal their retained arrays,
 so a valid outer envelope cannot conceal corrupt market facts during resume.
+Snapshot replay descriptors are likewise nonempty, identity-unique, type-checked,
+and bound to the exact SHA-256 suffix in their outer snapshot blockhash. Pool
+dependency slots must remain ordered beneath the emitted maximum evidence slot,
+preventing detached mint/pool refresh claims from surviving persistence.
 
 Persisted transaction maps are likewise revalidated as complete collections
 before REST/RPC delivery or readiness: map keys must equal row signatures and

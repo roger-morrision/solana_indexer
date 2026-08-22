@@ -1970,6 +1970,11 @@ test("WebSocket isolates replayable snapshot updates from block subscriptions", 
   const snapshots = await collect(`${base}&topic=snapshots&mint=snapshot-mint`, 2); assert.equal(snapshots.messages[1].type, "account_snapshot_applied"); assert.deepEqual(snapshots.messages[1].mints.map((row) => row.mint), ["snapshot-mint"]); snapshots.socket.close(); const blocks = await collect(`${base}&topic=blocks`, 1); await new Promise((resolve) => setTimeout(resolve, 20)); assert.equal(blocks.messages.length, 1); blocks.socket.close();
 });
 
+test("WebSocket replay rejects detached snapshot descriptors", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); store.applyAccountSnapshot({ schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 700, observedAt: "2026-08-22T00:00:00.000Z", mints: [{ mint: "snapshot-mint", mintInfo: { supply: "0", decimals: 6 }, accounts: [] }] }); store.state.events[0].mints[0].sourceHash = "f".repeat(64); assert.equal(store.eventQuality().canonical, false);
+  const server = createServer({ webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws?cursor=0&topic=snapshots`), messages = []; socket.onmessage = ({ data }) => messages.push(JSON.parse(data)); const event = await new Promise((resolve) => { socket.onclose = resolve; }); assert.equal(event.code, 1008); assert.deepEqual(messages, [{ type: "resync_required", reason: "retained_event_evidence_invalid", requestedCursor: 0, oldestCursor: 0, latestCursor: 1 }]);
+});
+
 test("WebSocket replays only persisted ordered events and resumes by cursor", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-websocket-")); const store = new IndexStore(path.join(root, "index.json")); await store.load();
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); await store.save();

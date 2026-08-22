@@ -35,10 +35,24 @@ function canonicalEmbeddedLifecycle(event, envelope, reverted) {
   const registration = PROGRAM_REGISTRY.get(event?.programId), identity = `solana:${event?.slot}:${event?.signature}:-1:${event?.innerIndex}:${event?.type}`;
   return ["pool_created", "pool_migrated", "curve_completed", "migration_completed"].includes(event?.type) && event.eventId === identity && event.slot === envelope.slot && event.blockTime === envelope.blockTime && event.instructionIndex === -1 && Number.isInteger(event.innerIndex) && event.innerIndex >= 0 && registration?.protocol === event.protocol && registration.eventTypes.includes(event.type) && event.registryVersion === PROGRAM_REGISTRY_VERSION && event.decoderVersion === registration.decoderVersion && /^[0-9a-f]{64}$/.test(event.rawPayloadHash ?? "") && [event.signature, event.pool, event.tokenMint0, event.tokenMint1].every((value) => typeof value === "string" && Boolean(value)) && event.tokenMint0 !== event.tokenMint1 && (reverted ? event.revertedByBlockhash === envelope.blockhash && ["confirmed", "finalized"].includes(event.provenance?.commitment) && event.provenance?.genesisHash === MAINNET_GENESIS_HASH : event.revertedByBlockhash == null && JSON.stringify(event.provenance) === JSON.stringify(envelope.provenance));
 }
+function canonicalSnapshotEventPayload(event) {
+  const rows = event.type === "account_snapshot_applied" || event.type === "offchain_metadata_snapshot_applied" ? event.mints : event.pools;
+  if (!Array.isArray(rows) || !rows.length || event.blockhash !== `snapshot:${evidenceHash(rows)}`) return false;
+  const identities = new Set(), hash = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value), slot = (value) => Number.isSafeInteger(value) && value >= 0;
+  for (const row of rows) {
+    const identity = row?.mint ?? row?.pool;
+    if (typeof identity !== "string" || !identity || identities.has(identity) || !hash(row.sourceHash ?? row.rawPayloadHash)) return false;
+    identities.add(identity);
+    if (event.type === "account_snapshot_applied" && (!Number.isSafeInteger(row.accountCount) || row.accountCount < 0 || typeof row.metadata !== "boolean" || typeof row.token2022Evidence !== "boolean" || row.complete !== true)) return false;
+    if (event.type === "offchain_metadata_snapshot_applied" && (!hash(row.onchainMetadataHash) || !hash(row.rawPayloadHash))) return false;
+    if (event.type.endsWith("pool_snapshot_applied")) { if (!slot(row.stateSlot) || !slot(row.evidenceSlot) || row.evidenceSlot > event.slot) return false; for (const field of ["mintSlot", "configSlot", "balanceSlot"]) if (row[field] != null && (!slot(row[field]) || row[field] > row.evidenceSlot)) return false; }
+  }
+  return !event.type.endsWith("pool_snapshot_applied") || Math.max(...rows.map((row) => row.evidenceSlot)) === event.slot;
+}
 export function canonicalPersistedEvent(event) {
   if (!Number.isSafeInteger(event?.sequence) || event.sequence < 1 || !Number.isSafeInteger(event.slot) || event.slot < 0 || canonicalBlockTimeMs(event.blockTime) == null || typeof event.blockhash !== "string" || !event.blockhash) return false;
-  if (event.type === "offchain_metadata_snapshot_applied") return event.provenance?.commitment === "offchain_untrusted" && event.provenance.source === "offchain_metadata_snapshot" && event.blockhash.startsWith("snapshot:");
-  const snapshotSource = SNAPSHOT_EVENT_SOURCES.get(event.type); if (snapshotSource) return event.provenance?.commitment === "finalized" && event.provenance.source === snapshotSource && event.provenance.genesisHash === MAINNET_GENESIS_HASH && event.blockhash.startsWith("snapshot:");
+  if (event.type === "offchain_metadata_snapshot_applied") return event.provenance?.commitment === "offchain_untrusted" && event.provenance.source === "offchain_metadata_snapshot" && canonicalSnapshotEventPayload(event);
+  const snapshotSource = SNAPSHOT_EVENT_SOURCES.get(event.type); if (snapshotSource) return event.provenance?.commitment === "finalized" && event.provenance.source === snapshotSource && event.provenance.genesisHash === MAINNET_GENESIS_HASH && canonicalSnapshotEventPayload(event);
   if (!BLOCK_EVENT_TYPES.has(event.type) || !["confirmed", "finalized"].includes(event.provenance?.commitment) || event.provenance.genesisHash !== MAINNET_GENESIS_HASH) return false;
   const swaps = event.swaps ?? [], lifecycle = event.lifecycleEvents ?? [], revertedSwaps = event.revertedSwaps ?? [], revertedLifecycle = event.revertedLifecycleEvents ?? [];
   if (![swaps, lifecycle, revertedSwaps, revertedLifecycle].every(Array.isArray) || !swaps.every((row) => canonicalEmbeddedSwap(row, event, false)) || !lifecycle.every((row) => canonicalEmbeddedLifecycle(row, event, false)) || !revertedSwaps.every((row) => canonicalEmbeddedSwap(row, event, true)) || !revertedLifecycle.every((row) => canonicalEmbeddedLifecycle(row, event, true))) return false;
