@@ -73,6 +73,12 @@ events mainnet-bound, finalized snapshot sources exact, and off-chain metadata
 explicitly untrusted. Invalid retained evidence receives `resync_required` and
 policy close instead of being broadcast.
 
+Embedded swap and lifecycle batches now share that replay boundary. Exact stable
+identity, amounts, mint direction, registry/decoder binding, payload hash,
+provenance and outer slot/time must hold; reorg tombstones additionally bind the
+replacement blockhash. Declared batch counts must equal their retained arrays,
+so a valid outer envelope cannot conceal corrupt market facts during resume.
+
 Persisted transaction maps are likewise revalidated as complete collections
 before REST/RPC delivery or readiness: map keys must equal row signatures and
 every transaction must bind a canonical parent block with exact slot, time,
