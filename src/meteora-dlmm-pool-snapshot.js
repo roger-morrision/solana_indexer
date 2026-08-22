@@ -1,0 +1,68 @@
+#!/usr/bin/env node
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+import { loadConfig } from "./config.js";
+import { IndexStore } from "./store.js";
+import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
+import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
+import { acquirePoolMintEvidence, bindPoolMintEvidence } from "./pool-mint-evidence.js";
+
+export const METEORA_DLMM_PROGRAM = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+const TOKEN_PROGRAMS = new Set([TOKEN_PROGRAM, TOKEN_2022_PROGRAM]);
+const LB_PAIR_DISCRIMINATOR = Buffer.from([33, 11, 49, 98, 181, 101, 177, 13]), BIN_ARRAY_DISCRIMINATOR = Buffer.from([92, 142, 92, 220, 5, 148, 70, 181]);
+const LB_PAIR_LENGTH = 920, BIN_ARRAY_LENGTH = 10_136, BIN_COUNT = 70, BIN_LENGTH = 144;
+
+function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
+function u128(buffer, offset) { return ((buffer.readBigUInt64LE(offset + 8) << 64n) | buffer.readBigUInt64LE(offset)).toString(); }
+function accountBytes(account, label) { const encoded = account?.data; if (!Array.isArray(encoded) || encoded[1] !== "base64" || typeof encoded[0] !== "string") throw new Error(`${label} account must use base64 encoding`); return Buffer.from(encoded[0], "base64"); }
+function hash(data) { return crypto.createHash("sha256").update(data).digest("hex"); }
+
+export function decodeMeteoraLbPairAccount(address, account) {
+  if (account?.owner !== METEORA_DLMM_PROGRAM) throw new Error(`Meteora DLMM pool ${address} has unexpected owner`);
+  const data = accountBytes(account, "Meteora DLMM pool"); if (data.length !== LB_PAIR_LENGTH || !data.subarray(0, 8).equals(LB_PAIR_DISCRIMINATOR)) throw new Error(`Meteora DLMM pool ${address} has invalid LbPair data`);
+  const minBinId = data.readInt32LE(24), maxBinId = data.readInt32LE(28), protocolShare = data.readUInt16LE(32), functionType = data[35], collectFeeMode = data[36], pairType = data[75], activeBinId = data.readInt32LE(76), binStep = data.readUInt16LE(80), status = data[82], requireBaseFactorSeed = data[83], activationType = data[86], creatorPoolOnOffControl = data[87], tokenMintXProgramFlag = data[896], tokenMintYProgramFlag = data[897], version = data[898];
+  if (!binStep || binStep > 400 || minBinId > activeBinId || activeBinId > maxBinId || protocolShare > 2_500 || functionType > 2 || collectFeeMode > 1 || pairType > 3 || status > 1 || requireBaseFactorSeed > 1 || activationType > 1 || creatorPoolOnOffControl > 1 || tokenMintXProgramFlag > 1 || tokenMintYProgramFlag > 1) throw new Error(`Meteora DLMM pool ${address} has invalid state flags`);
+  const initializedBinArrayIndexes = []; for (let word = 0; word < 16; word++) { const bits = data.readBigUInt64LE(600 + word * 8); for (let bit = 0; bit < 64; bit++) if (bits & (1n << BigInt(bit))) initializedBinArrayIndexes.push(word * 64 + bit - 512); }
+  return { address, programId: METEORA_DLMM_PROGRAM, baseFactor: data.readUInt16LE(8), filterPeriod: data.readUInt16LE(10), decayPeriod: data.readUInt16LE(12), reductionFactor: data.readUInt16LE(14), variableFeeControl: data.readUInt32LE(16), maxVolatilityAccumulator: data.readUInt32LE(20), minBinId, maxBinId, protocolShare, baseFeePowerFactor: data[34], functionType, collectFeeMode, volatilityAccumulator: data.readUInt32LE(40), volatilityReference: data.readUInt32LE(44), indexReference: data.readInt32LE(48), lastFeeUpdateTimestamp: data.readBigInt64LE(56).toString(), pairType, activeBinId, binStep, status, requireBaseFactorSeed: Boolean(requireBaseFactorSeed), activationType, creatorPoolOnOffControl: Boolean(creatorPoolOnOffControl), tokenMint0: base58(data.subarray(88, 120)), tokenMint1: base58(data.subarray(120, 152)), tokenVault0: base58(data.subarray(152, 184)), tokenVault1: base58(data.subarray(184, 216)), protocolFee0Raw: data.readBigUInt64LE(216).toString(), protocolFee1Raw: data.readBigUInt64LE(224).toString(), oracle: base58(data.subarray(568, 600)), defaultBinArrayBitmap: { bitCount: 1024, minBinArrayIndex: -512, maxBinArrayIndexExclusive: 512, initializedBinArrayIndexes, rawHex: data.subarray(600, 728).toString("hex") }, lastUpdatedAt: data.readBigInt64LE(728).toString(), activationPoint: data.readBigUInt64LE(832).toString(), preActivationDuration: data.readBigUInt64LE(840).toString(), creator: base58(data.subarray(864, 896)), tokenMintXProgramFlag, tokenMintYProgramFlag, tokenProgram0: tokenMintXProgramFlag ? TOKEN_2022_PROGRAM : TOKEN_PROGRAM, tokenProgram1: tokenMintYProgramFlag ? TOKEN_2022_PROGRAM : TOKEN_PROGRAM, version, rawPayloadHash: hash(data) };
+}
+
+function decodeBin(data, offset, binId) {
+  const amountXRaw = data.readBigUInt64LE(offset).toString(), amountYRaw = data.readBigUInt64LE(offset + 8).toString(), liquiditySupplyRaw = u128(data, offset + 32), openOrderAmountRaw = data.readBigUInt64LE(offset + 112).toString(), totalProcessingOrderAmountRaw = data.readBigUInt64LE(offset + 120).toString(), processedOrderRemainingAmountRaw = data.readBigUInt64LE(offset + 128).toString(), limitOrderAskSide = data[offset + 140];
+  if (limitOrderAskSide > 1) throw new Error(`Meteora DLMM bin ${binId} has invalid limit-order side`);
+  return { binId, amountXRaw, amountYRaw, priceQ64: u128(data, offset + 16), liquiditySupplyRaw, fulfilledOrderAmountXRaw: data.readBigUInt64LE(offset + 48).toString(), fulfilledOrderAmountYRaw: data.readBigUInt64LE(offset + 56).toString(), limitOrderFeeAskSideRaw: data.readBigUInt64LE(offset + 64).toString(), limitOrderFeeBidSideRaw: data.readBigUInt64LE(offset + 72).toString(), feeAmountXPerTokenStoredQ64: u128(data, offset + 80), feeAmountYPerTokenStoredQ64: u128(data, offset + 96), openOrderAmountRaw, totalProcessingOrderAmountRaw, processedOrderRemainingAmountRaw, orderAge: data.readUInt32LE(offset + 136), limitOrderAskSide: Boolean(limitOrderAskSide) };
+}
+
+export function decodeMeteoraBinArrayAccount(address, account, expectedPool) {
+  if (account?.owner !== METEORA_DLMM_PROGRAM) throw new Error(`Meteora DLMM bin array ${address} has unexpected owner`);
+  const data = accountBytes(account, "Meteora DLMM bin array"); if (data.length !== BIN_ARRAY_LENGTH || !data.subarray(0, 8).equals(BIN_ARRAY_DISCRIMINATOR)) throw new Error(`Meteora DLMM bin array ${address} has invalid data`);
+  const indexRaw = data.readBigInt64LE(8); if (indexRaw < -6_656n || indexRaw > 6_655n) throw new Error(`Meteora DLMM bin array ${address} index is out of range`); const index = Number(indexRaw), version = data[16], pool = base58(data.subarray(24, 56)); if (pool !== expectedPool) throw new Error(`Meteora DLMM bin array ${address} belongs to another pool`);
+  const bins = []; for (let offset = 0; offset < BIN_COUNT; offset++) bins.push(decodeBin(data, 56 + offset * BIN_LENGTH, index * BIN_COUNT + offset));
+  const occupiedBinCount = bins.filter((bin) => BigInt(bin.amountXRaw) !== 0n || BigInt(bin.amountYRaw) !== 0n || BigInt(bin.liquiditySupplyRaw) !== 0n).length;
+  return { address, pool, index, version, initializedBinCount: bins.length, occupiedBinCount, bins, rawPayloadHash: hash(data) };
+}
+
+async function fetchBinArrays(client, pool, minContextSlot) {
+  const response = await client.call("getProgramAccounts", [METEORA_DLMM_PROGRAM, { commitment: "finalized", encoding: "base64", withContext: true, minContextSlot, filters: [{ dataSize: BIN_ARRAY_LENGTH }, { memcmp: { offset: 0, bytes: base58(BIN_ARRAY_DISCRIMINATOR) } }, { memcmp: { offset: 24, bytes: pool } }] }]), slot = response?.context?.slot, values = response?.value;
+  if (!Number.isSafeInteger(slot) || slot < minContextSlot || !Array.isArray(values) || values.length > 13_312) throw new Error(`invalid Meteora DLMM bin-array response for ${pool}`);
+  const rows = values.map((value) => decodeMeteoraBinArrayAccount(value?.pubkey, value?.account, pool)); if (new Set(rows.map((row) => row.address)).size !== rows.length || new Set(rows.map((row) => row.index)).size !== rows.length) throw new Error(`duplicate Meteora DLMM bin arrays for ${pool}`);
+  return { slot, rows: rows.sort((a, b) => a.index - b.index) };
+}
+
+export async function createMeteoraDlmmPoolSnapshot({ client, pools, automaticMintEvidence = false, genesisHash, observedAt = new Date().toISOString() }) {
+  if (!Array.isArray(pools) || !pools.length || new Set(pools).size !== pools.length || pools.some((pool) => typeof pool !== "string" || !pool)) throw new Error("Meteora DLMM pools must be unique non-empty addresses");
+  const stateResponse = await getMultipleAccountsBatched(client, pools, { commitment: "finalized", encoding: "base64" }, { label: "Meteora DLMM pool" }), stateSlot = stateResponse?.context?.slot; if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== pools.length) throw new Error("invalid Meteora DLMM pool response");
+  const decoded = pools.map((address, index) => decodeMeteoraLbPairAccount(address, stateResponse.value[index])); let minimumBalanceSlot = stateSlot;
+  for (const row of decoded) { const arrays = await fetchBinArrays(client, row.address, stateSlot); row.binArraySlot = arrays.slot; row.binArrayCoverage = "finalized_program_account_snapshot"; row.binArrays = arrays.rows; minimumBalanceSlot = Math.max(minimumBalanceSlot, arrays.slot); }
+  const vaults = decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]), balanceResponse = await getMultipleAccountsBatched(client, vaults, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: minimumBalanceSlot }, { label: "Meteora DLMM vault" }), balanceSlot = balanceResponse?.context?.slot; if (!Number.isSafeInteger(balanceSlot) || balanceSlot < minimumBalanceSlot || balanceResponse.value?.length !== vaults.length) throw new Error("invalid Meteora DLMM vault response");
+  for (let index = 0; index < decoded.length; index++) { const row = decoded[index], firstAccount = balanceResponse.value[index * 2], secondAccount = balanceResponse.value[index * 2 + 1], first = firstAccount?.data?.parsed?.info, second = secondAccount?.data?.parsed?.info, decimals0 = first?.tokenAmount?.decimals, decimals1 = second?.tokenAmount?.decimals; if (first?.mint !== row.tokenMint0 || second?.mint !== row.tokenMint1 || firstAccount?.owner !== row.tokenProgram0 || secondAccount?.owner !== row.tokenProgram1 || !TOKEN_PROGRAMS.has(firstAccount?.owner) || !TOKEN_PROGRAMS.has(secondAccount?.owner) || !/^\d+$/.test(first?.tokenAmount?.amount ?? "") || !/^\d+$/.test(second?.tokenAmount?.amount ?? "") || !Number.isInteger(decimals0) || decimals0 < 0 || decimals0 > 255 || !Number.isInteger(decimals1) || decimals1 < 0 || decimals1 > 255) throw new Error(`Meteora DLMM pool ${row.address} vault identity mismatch`); row.vault0AmountRaw = String(first.tokenAmount.amount); row.vault1AmountRaw = String(second.tokenAmount.amount); row.mintDecimals0 = decimals0; row.mintDecimals1 = decimals1; }
+  if (automaticMintEvidence) { const evidence = await acquirePoolMintEvidence(client, decoded, balanceSlot); for (const row of decoded) bindPoolMintEvidence(row, evidence); }
+  return { schemaVersion: 1, type: "meteora_dlmm_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
+}
+
+async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
+async function main() { const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"), pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "meteora-dlmm").map(([address]) => address); if (!pools.length) throw new Error("no Meteora DLMM pools supplied or discovered"); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected), snapshot = await createMeteoraDlmmPoolSnapshot({ client, pools, automaticMintEvidence: true, genesisHash }); if (!artifactOnly) { store.applyMeteoraDlmmPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.meteoraDlmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, binArrays: snapshot.pools.reduce((sum, row) => sum + row.binArrays.length, 0), artifactOnly })); }
+const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

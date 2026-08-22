@@ -250,6 +250,7 @@ Configuration:
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `ORCA_POOL_SNAPSHOT_FILE` | `data/orca-pool-snapshot.json` | Atomic finalized Orca Whirlpool state/vault evidence |
+| `METEORA_DLMM_POOL_SNAPSHOT_FILE` | `data/meteora-dlmm-pool-snapshot.json` | Atomic finalized Meteora DLMM pair, vault, and complete bin-array evidence |
 | `CLMM_TICK_ARRAYS_JSON` | unset | Legacy compatibility input for library callers; the production snapshot command discovers every pool-bound Raydium tick array and bitmap extension at one finalized program-account context and fails if bitmap coverage is incomplete |
 | `CLMM_BITMAP_EXTENSIONS_JSON` | unset | Optional JSON map of Raydium CLMM pool addresses to unique overflow bitmap-extension addresses; captures pool-bound finalized raw segments without claiming executable coverage |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
@@ -575,9 +576,12 @@ transaction also carries the matching official instruction version, pool/user,
 ordered mint accounts, canonical token programs, program self-account, and
 conflict-free mint decimals. Partial `Swap2` input is reported as
 `amount_in - amount_left`; bin IDs, direction, fees, and fee-side flags remain
-exact. DLMM event logs do not provide spendable bin liquidity, so reserves are
-explicitly unavailable and Meteora quotes and bot execution remain disabled
-until finalized bin-array snapshots and exact route math are implemented.
+exact. DLMM event logs do not provide spendable bin liquidity. Run
+`npm run snapshot:meteora-dlmm-pools -- <POOL_ADDRESS...>` to acquire an exact
+finalized pair, vault, mint, bitmap, and complete 70-bin-per-array snapshot.
+Snapshots are persisted and automatically repaired when missing, partial, or
+stale. Quotes and bot execution remain disabled until exact DLMM route
+traversal, fee, rounding, and price math are implemented and verified.
 
 The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may

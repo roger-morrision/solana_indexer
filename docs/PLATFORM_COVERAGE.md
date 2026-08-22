@@ -26,8 +26,11 @@ Meteora DLMM now contributes trusted `Swap` and `Swap2` activity to terminal,
 history, candle, and evidence consumers. Publication requires the official
 instruction version and complete fixed-account suffix, matching pool/user,
 canonical token programs, conflict-free decimals, and valid event booleans.
-Reserves remain explicitly unavailable; DLMM snapshots, bin traversal, quotes,
-and execution are the next dependency and remain fail closed.
+Finalized DLMM pair/vault/mint/default-bitmap state and every field from every
+discovered 70-bin array are now decoded, persisted, conflict checked, and
+automatically repaired. Event-derived reserves remain explicitly unavailable;
+exact bin traversal, dynamic fees, rounding, quotes, and execution remain fail
+closed as the next dependency.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|

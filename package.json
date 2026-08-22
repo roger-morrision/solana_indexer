@@ -26,6 +26,7 @@
     "snapshot:pump-bonding-curves": "node src/pump-bonding-curve-snapshot.js",
     "snapshot:clmm-pools": "node src/clmm-pool-snapshot.js",
     "snapshot:orca-pools": "node src/orca-pool-snapshot.js",
+    "snapshot:meteora-dlmm-pools": "node src/meteora-dlmm-pool-snapshot.js",
     "snapshot:offchain-metadata": "node src/offchain-metadata-snapshot.js",
     "validate:replay-load": "node src/replay-load-validation.js --fixture test/fixtures/block.json --blocks 1000",
     "validate:backup": "node src/backup-preflight.js",

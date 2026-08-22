@@ -36,9 +36,10 @@ This matrix describes verified capabilities, not aspirational marketing claims.
 
 Meteora DLMM `Swap`/`Swap2` event coverage is now bound to the official
 instruction version and complete account suffix, reports exact consumed input
-for partial fills, and keeps reserves unavailable pending finalized pool and
-bin-array state. It is safe for activity consumers but not quote or automation
-consumers.
+for partial fills. Finalized pair, vault, mint, bitmap, and complete bin-array
+snapshots are now available with monotonic conflict detection and automated
+repair. It is safe for activity and raw-liquidity analysis consumers, but exact
+DLMM route math is not yet implemented, so quotes and automation remain blocked.
 
 ## Known limits
 
@@ -54,6 +55,7 @@ The current index is an offline local prototype. It is not yet a SolanaTracker-e
 - The same official CLMM `create_pool` instruction defines the ordered config/pool/mint/vault/observation/bitmap/token-program accounts and exact `sqrt_price_x64`/`open_time` payload used by lifecycle ingestion.
 - Orca's official Whirlpools program declares mainnet program `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc`; `PoolInitialized` defines ordered pool/config/mints, tick spacing, token programs, decimals and initial sqrt price, while `Traded` defines pool, direction, pre/post sqrt price, exact input/output and transfer fees, LP fee and protocol fee. `Traded` omits mint, decimals, user and reserves, so those identities are accepted only from the matching official swap account order plus consistent transaction token-balance evidence; reserves remain explicitly unavailable.
 - Meteora's official DLMM IDL version 0.12.0 defines mainnet program `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo`, the `Swap`/`Swap2` instruction discriminators, fixed account suffixes, and exact legacy/v2 event layouts used by the decoder. `Swap2` may leave input unconsumed, so only `amount_in - amount_left` is indexed as input.
+- Meteora's official DLMM `LbPair` and `BinArray` layouts define the finalized snapshot decoder: exact pair/vault/mint/bitmap fields, 70 complete 144-byte bins per array, pool-bound program-account filtering, and one monotonic finalized context. Exact SDK-equivalent traversal and fee math remain intentionally absent.
 - Solana's official Token Extension Program transfer-fee contract defines a 10,000 basis-point denominator, ceiling-rounded fees capped by `maximum_fee`, older/newer schedules selected by epoch, destination-account withholding, and fee updates delayed by two epochs. Route integration requires the complete finalized mint extension and epoch, not only a Token-2022 program ID.
 - Pump.fun's official PumpSwap IDL is authoritative for the `BuyEvent`, `SellEvent`, and `create_pool` instruction layouts and program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA`.
 - The same official PumpSwap IDL defines the current 261-byte Anchor `Pool` account used for finalized identity, mode, LP-supply, virtual-reserve, and vault snapshot decoding.
