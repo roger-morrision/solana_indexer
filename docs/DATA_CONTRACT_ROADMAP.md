@@ -113,6 +113,15 @@ snapshot-backed REST consumers and Redis hot-state publication fail closed when
 those bindings diverge. PostgreSQL repair-job projection remains available so a
 quarantined snapshot can still be replaced through the governed worker.
 
+Canonical Metaplex projections are revalidated after persistence for exact mint
+and program identity, bounded decoded fields, fee bounds and raw account hash.
+Optional off-chain display records must retain their HTTPS source binding,
+canonical observation time, normalized JSON media/size envelope, bounded fields,
+content hash and explicit untrusted/non-automation flags. Divergence blocks
+health, bot readiness, snapshot-backed REST and Redis publication. PostgreSQL
+omits and marks quarantined metadata while still exporting its governed repair
+job, so invalid display content cannot escape or prevent recovery.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether

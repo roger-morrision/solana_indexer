@@ -6,6 +6,8 @@ import { normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { PROGRAM_REGISTRY } from "./program-registry.js";
 import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { isCanonicalTokenMetadata } from "./token-metadata.js";
+import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
 
 function gcd(a, b) { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a || 1n; }
 function rational(numerator = 0n, denominator = 1n) { if (denominator === 0n) throw new Error("zero rational denominator"); if (denominator < 0n) { numerator = -numerator; denominator = -denominator; } const divisor = gcd(numerator, denominator); return { n: numerator / divisor, d: denominator / divisor }; }
@@ -131,6 +133,10 @@ export function canonicalSnapshotProjections(state) {
   }
   return true;
 }
+export function canonicalMetadataProjections(state) {
+  if (!state?.mints || Array.isArray(state.mints)) return false;
+  return Object.entries(state.mints).every(([mint, row]) => (row?.metadata == null || isCanonicalTokenMetadata(row.metadata, mint)) && (row?.offchainMetadata == null || row.metadata != null && isCanonicalOffchainTokenMetadata(row.offchainMetadata, row.metadata.uri)));
+}
 function pumpCurveFeePolicy(snapshot) {
   const buyback = snapshot?.global?.buybackBasisPoints;
   if (typeof snapshot?.cashbackCoin !== "boolean" || typeof buyback !== "string" || !/^\d+$/.test(buyback) || BigInt(buyback) > 10_000n) return { valid: false, supported: false };
@@ -208,7 +214,7 @@ export class IndexStore {
     if (snapshot?.schemaVersion !== 1 || snapshot.chain !== "solana" || snapshot.genesisHash !== MAINNET_GENESIS_HASH || snapshot.commitment !== "finalized" || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || !Array.isArray(snapshot.mints)) throw new Error("invalid finalized mainnet account snapshot");
     const tokenPrograms = TOKEN_PROGRAMS, seenMints = new Set(), seenAccounts = new Set();
     for (const row of snapshot.mints) {
-      if (typeof row.mint !== "string" || !row.mint || seenMints.has(row.mint) || !/^\d+$/.test(row.mintInfo?.supply ?? "") || BigInt(row.mintInfo.supply) > U64_MAX || !Number.isInteger(row.mintInfo?.decimals) || row.mintInfo.decimals < 0 || row.mintInfo.decimals > 255 || !Array.isArray(row.accounts) || (row.metadata != null && (row.metadata.mint !== row.mint || row.metadata.programId !== "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" || !/^[0-9a-f]{64}$/.test(row.metadata.rawPayloadHash ?? "")))) throw new Error("invalid mint snapshot row"); seenMints.add(row.mint);
+      if (typeof row.mint !== "string" || !row.mint || seenMints.has(row.mint) || !/^\d+$/.test(row.mintInfo?.supply ?? "") || BigInt(row.mintInfo.supply) > U64_MAX || !Number.isInteger(row.mintInfo?.decimals) || row.mintInfo.decimals < 0 || row.mintInfo.decimals > 255 || !Array.isArray(row.accounts) || row.metadata != null && !isCanonicalTokenMetadata(row.metadata, row.mint)) throw new Error("invalid mint snapshot row"); seenMints.add(row.mint);
       if (row.mintProgramId != null && !tokenPrograms.has(row.mintProgramId) || row.mintProgramId === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" && row.token2022Evidence == null || row.mintProgramId === "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" && row.token2022Evidence != null) throw new Error("invalid mint program evidence");
       if (row.token2022Evidence != null) { const evidence = row.token2022Evidence; if (evidence.schemaVersion !== 1 || evidence.programId !== "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" || evidence.commitment !== "finalized" || evidence.slot !== snapshot.slot || evidence.epoch !== snapshot.epoch || !Number.isSafeInteger(evidence.epoch) || evidence.epoch < 0) throw new Error("invalid Token-2022 mint evidence"); if (evidence.transferFeeConfig == null) { if (evidence.activeTransferFee != null) throw new Error("invalid Token-2022 mint evidence"); } else { const config = normalizeTransferFeeConfig(evidence.transferFeeConfig), active = selectEpochTransferFee(config, evidence.epoch); if (JSON.stringify(config) !== JSON.stringify(evidence.transferFeeConfig) || JSON.stringify(active) !== JSON.stringify(evidence.activeTransferFee)) throw new Error("invalid Token-2022 mint evidence"); } }
       for (const account of row.accounts) { if (!/^\d+$/.test(account.amountRaw ?? "") || BigInt(account.amountRaw) > U64_MAX || !account.tokenAccount || seenAccounts.has(account.tokenAccount) || typeof account.owner !== "string" || !account.owner || !tokenPrograms.has(account.programId) || account.decimals !== row.mintInfo.decimals) throw new Error("invalid token account snapshot row"); seenAccounts.add(account.tokenAccount); }
@@ -221,7 +227,7 @@ export class IndexStore {
   }
   applyOffchainMetadataSnapshot(snapshot) {
     if (snapshot?.schemaVersion !== 1 || snapshot.type !== "offchain_token_metadata_snapshot" || snapshot.chain !== "solana" || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Array.isArray(snapshot.entries) || snapshot.entries.length < 1 || snapshot.entries.length > 1_000) throw new Error("invalid off-chain metadata snapshot"); const seen = new Set(), applied = [];
-    for (const entry of snapshot.entries) { const metadata = entry?.metadata, mint = this.state.mints[entry?.mint]; if (!entry?.mint || seen.has(entry.mint) || !mint?.metadata || entry.onchainMetadataHash !== mint.metadata.rawPayloadHash || metadata?.schemaVersion !== 1 || metadata.sourceUri !== mint.metadata.uri || metadata.trusted !== false || metadata.automationSafe !== false || !/^[0-9a-f]{64}$/.test(metadata.rawPayloadHash ?? "") || parseCanonicalUtcTimestamp(metadata.observedAt) == null || metadata.observedAt !== snapshot.observedAt || !metadata.fields || typeof metadata.fields !== "object") throw new Error("invalid off-chain metadata snapshot entry"); seen.add(entry.mint); const prior = mint.offchainMetadata, observed = parseCanonicalUtcTimestamp(metadata.observedAt), priorObserved = parseCanonicalUtcTimestamp(prior?.observedAt); if (priorObserved != null && observed < priorObserved) continue; if (priorObserved != null && observed === priorObserved) { if (prior.rawPayloadHash !== metadata.rawPayloadHash || prior.sourceUri !== metadata.sourceUri) throw new Error("conflicting off-chain metadata at the same observation time"); continue; } mint.offchainMetadata = metadata; applied.push({ mint: entry.mint, onchainMetadataHash: entry.onchainMetadataHash, rawPayloadHash: metadata.rawPayloadHash }); }
+    for (const entry of snapshot.entries) { const metadata = entry?.metadata, mint = this.state.mints[entry?.mint]; if (!entry?.mint || seen.has(entry.mint) || !isCanonicalTokenMetadata(mint?.metadata, entry.mint) || entry.onchainMetadataHash !== mint.metadata.rawPayloadHash || !isCanonicalOffchainTokenMetadata(metadata, mint.metadata.uri) || metadata.observedAt !== snapshot.observedAt) throw new Error("invalid off-chain metadata snapshot entry"); seen.add(entry.mint); const prior = mint.offchainMetadata, observed = parseCanonicalUtcTimestamp(metadata.observedAt), priorObserved = parseCanonicalUtcTimestamp(prior?.observedAt); if (priorObserved != null && observed < priorObserved) continue; if (priorObserved != null && observed === priorObserved) { if (prior.rawPayloadHash !== metadata.rawPayloadHash || prior.sourceUri !== metadata.sourceUri) throw new Error("conflicting off-chain metadata at the same observation time"); continue; } mint.offchainMetadata = metadata; applied.push({ mint: entry.mint, onchainMetadataHash: entry.onchainMetadataHash, rawPayloadHash: metadata.rawPayloadHash }); }
     if (applied.length) { const sourceHash = evidenceHash(applied), slot = Math.max(...applied.map((row) => this.state.mints[row.mint].authoritySourceSlot ?? 0)), event = { sequence: ++this.state.eventSequence, type: "offchain_metadata_snapshot_applied", slot, blockhash: `snapshot:${sourceHash}`, blockTime: Math.floor(Date.parse(snapshot.observedAt) / 1_000), mints: applied, provenance: { commitment: "offchain_untrusted", source: "offchain_metadata_snapshot" } }; this.state.events.push(event); if (this.state.events.length > 10_000) this.state.events.splice(0, this.state.events.length - 10_000); this.pendingEvents.push(event); }
   }
   applyCpmmPoolSnapshot(snapshot) {
@@ -528,6 +534,10 @@ export class IndexStore {
     const canonical = canonicalSnapshotProjections(this.state);
     return { canonical, holderSnapshots: Object.keys(this.state.holderSnapshots).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, reason: canonical ? null : "indexed_snapshot_projection_invalid" };
   }
+  metadataQuality() {
+    const canonical = canonicalMetadataProjections(this.state);
+    return { canonical, onchainMetadata: Object.values(this.state.mints).filter((row) => row?.metadata).length, offchainMetadata: Object.values(this.state.mints).filter((row) => row?.offchainMetadata).length, reason: canonical ? null : "indexed_metadata_projection_invalid" };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -558,6 +568,7 @@ export class IndexStore {
       canonicalDerivedLedger: this.derivedLedgerQuality().canonical,
       canonicalAggregates: this.aggregateQuality().canonical,
       canonicalSnapshots: this.snapshotQuality().canonical,
+      canonicalMetadata: this.metadataQuality().canonical,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -587,7 +598,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -619,6 +630,7 @@ export class IndexStore {
     const derivedLedger = this.derivedLedgerQuality(); if (!derivedLedger.canonical) return { status: "invalid_evidence", healthy: false, reason: derivedLedger.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, ...stats };
     const aggregates = this.aggregateQuality(); if (!aggregates.canonical) return { status: "invalid_evidence", healthy: false, reason: aggregates.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, ...stats };
     const snapshots = this.snapshotQuality(); if (!snapshots.canonical) return { status: "invalid_evidence", healthy: false, reason: snapshots.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, ...stats };
+    const metadata = this.metadataQuality(); if (!metadata.canonical) return { status: "invalid_evidence", healthy: false, reason: metadata.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, aggregates, snapshots, metadata, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
