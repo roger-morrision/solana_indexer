@@ -41,6 +41,11 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations: { summary: "No valid completed self-hosted backup is inside the 24-hour restore-point objective" }
+      - alert: TerminalDexRecoveryRehearsalExpired
+        expr: terminal_dex_recovery_qualified == 0 or terminal_dex_recovery_qualification_age_seconds > 7776000
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "No canonical isolated recovery qualification is inside the quarterly rehearsal window" }
       - alert: TerminalDexHttpErrors
         expr: rate(terminal_dex_http_requests_total{status_class="5xx"}[5m]) > 0.05
         for: 10m

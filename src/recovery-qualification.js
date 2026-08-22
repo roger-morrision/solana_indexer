@@ -12,7 +12,9 @@ import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
 import { durableExclusiveWrite } from "./durable-file.js";
 
 const SHA256 = /^[0-9a-f]{64}$/;
+const BACKUP_ID = /^[0-9]{8}T[0-9]{6}Z$/;
 const BACKUP_INVARIANTS = ["completeInventory", "checksums", "manifestEvidence", "writersQuiesced", "inboxIdentity", "rpo", "safeTar", "canonicalStatePresent", "mainnetIdentity"];
+const RECOVERY_INVARIANTS = ["mainnetIdentity", "backupIntegrity", "canonicalIndexHealthy", "exactWarehouseConvergence", "finalizedExporterHealthy", "rto"];
 function exactTimestamp(value, label) { const parsed = Date.parse(value ?? ""); if (!Number.isFinite(parsed) || new Date(parsed).toISOString() !== value) throw new Error(`invalid recovery ${label}`); return parsed; }
 function stable(value) { if (Array.isArray(value)) return value.map(stable); if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])); return value; }
 
@@ -25,6 +27,17 @@ export function compileRecoveryQualification({ backup, indexHealth, warehouse, e
   if (exporter?.available !== true || exporter.healthy !== true || exporter.reason != null || exporter.cursor == null || exporter.localValidatorTip == null || exporter.cursor > exporter.localValidatorTip) throw new Error("finalized exporter recovery evidence is unhealthy");
   const evidence = { chain: backup.chain, backupId: backup.backupId, backupManifestSha256: backup.backupManifestSha256, eventSequence, index: { tip: indexHealth.tip, ageMs: indexHealth.ageMs }, warehouse: warehouse.reconciliation, exporter: { source: exporter.source, cursor: exporter.cursor, localValidatorTip: exporter.localValidatorTip, lagSlots: exporter.lagSlots } };
   return { schemaVersion: 2, kind: "isolated_recovery_qualification", chain: backup.chain, qualified: true, backupId: backup.backupId, startedAt, completedAt, durationMs, maximumRtoMs, evidenceSha256: crypto.createHash("sha256").update(JSON.stringify(stable(evidence))).digest("hex"), invariants: { mainnetIdentity: true, backupIntegrity: true, canonicalIndexHealthy: true, exactWarehouseConvergence: true, finalizedExporterHealthy: true, rto: true }, consumersMayBeEnabled: true };
+}
+
+export function assessRecoveryQualification(report, maximumAgeMs = 90 * 86_400_000, now = Date.now()) {
+  if (!Number.isSafeInteger(maximumAgeMs) || maximumAgeMs < 1 || !Number.isFinite(now)) throw new Error("invalid recovery qualification assessment parameters");
+  let startedAtMs = null, completedAtMs = null;
+  try { startedAtMs = exactTimestamp(report?.startedAt, "start time"); completedAtMs = exactTimestamp(report?.completedAt, "completion time"); } catch { /* invalid report handled below */ }
+  const canonical = report?.schemaVersion === 2 && report.kind === "isolated_recovery_qualification" && report.chain === "solana-mainnet" && report.qualified === true && report.consumersMayBeEnabled === true && BACKUP_ID.test(report.backupId ?? "") && SHA256.test(report.evidenceSha256 ?? "") && Number.isSafeInteger(report.durationMs) && report.durationMs >= 0 && Number.isSafeInteger(report.maximumRtoMs) && report.maximumRtoMs > 0 && report.durationMs <= report.maximumRtoMs && startedAtMs != null && completedAtMs != null && completedAtMs - startedAtMs === report.durationMs && report.invariants && RECOVERY_INVARIANTS.every((key) => report.invariants[key] === true);
+  if (!canonical) return { available: false, healthy: false, reason: report == null ? "recovery_qualification_unavailable" : "recovery_qualification_invalid", ageMs: null, maximumAgeMs };
+  const ageMs = now - completedAtMs, identity = { backupId: report.backupId, completedAt: report.completedAt, durationMs: report.durationMs };
+  if (ageMs < 0) return { available: true, healthy: false, reason: "recovery_qualification_future", ageMs, maximumAgeMs, ...identity };
+  return { available: true, healthy: ageMs <= maximumAgeMs, reason: ageMs <= maximumAgeMs ? null : "recovery_qualification_stale", ageMs, maximumAgeMs, ...identity };
 }
 
 async function readJson(filename) { return JSON.parse(await fs.readFile(filename, "utf8")); }

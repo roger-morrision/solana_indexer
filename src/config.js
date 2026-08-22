@@ -27,6 +27,8 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     warehouseCheckpointFile: path.resolve(cwd, env.INDEXER_WAREHOUSE_CHECKPOINT_FILE || "data/warehouse-checkpoint.json"),
     backupStatusFile: path.resolve(cwd, env.INDEXER_BACKUP_STATUS_FILE || "data/backup-status.json"),
     backupMaximumAgeMs: boundedInt(env.INDEXER_BACKUP_MAXIMUM_AGE_SECONDS, 86_400, 3_600, 604_800) * 1_000,
+    recoveryReportFile: path.resolve(cwd, env.INDEXER_RECOVERY_REPORT_FILE || "data/recovery-report.json"),
+    recoveryMaximumAgeMs: boundedInt(env.INDEXER_RECOVERY_MAXIMUM_AGE_SECONDS, 7_776_000, 86_400, 31_536_000) * 1_000,
     clickhousePasswordFile: env.CLICKHOUSE_PASSWORD_FILE ? path.resolve(cwd, env.CLICKHOUSE_PASSWORD_FILE) : null,
     redisPasswordFile: env.REDIS_PASSWORD_FILE ? path.resolve(cwd, env.REDIS_PASSWORD_FILE) : null,
     redisHotTtlSeconds: boundedInt(env.INDEXER_REDIS_HOT_TTL_SECONDS, 86_400, 300, 604_800),

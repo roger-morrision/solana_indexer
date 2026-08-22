@@ -263,6 +263,8 @@ Configuration:
 | `INDEXER_MAX_EXPORT_LAG_SLOTS` | `512` | Maximum finalized exporter lag before ingestion fails closed |
 | `INDEXER_BACKUP_STATUS_FILE` | `data/backup-status.json` | Content-bound evidence installed only after a complete self-hosted backup upload |
 | `INDEXER_BACKUP_MAXIMUM_AGE_SECONDS` | `86400` | Maximum completed-backup age before the RPO health contract fails |
+| `INDEXER_RECOVERY_REPORT_FILE` | `data/recovery-report.json` | Latest exclusively created isolated recovery qualification selected for monitoring |
+| `INDEXER_RECOVERY_MAXIMUM_AGE_SECONDS` | `7776000` | Maximum qualification age (90 days) before the quarterly rehearsal contract fails |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `USD_DEPEG_REFERENCE_FILE` | unset | Reviewed, expiring exact-rational finalized independent on-chain USDC/USD evidence |
@@ -503,6 +505,9 @@ authorizes or performs a restore. `ops/restore.sh` repeats it before mutation an
 an isolated restore, `npm run validate:recovery` exclusively writes a report only
 when the same backup manifest hash, canonical index health, zero-lag exact
 warehouse convergence, healthy finalized exporter evidence, and the four-hour RTO all validate.
+Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
+and Prometheus validate its full qualification shape, exact duration, invariants,
+and quarterly age without exposing sink credentials or report contents.
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is

@@ -41,7 +41,10 @@ The recovery validator rechecks the bound backup, requires a healthy canonical
 index and zero-lag exact ClickHouse/PostgreSQL/Redis content reconciliation, requires a healthy finalized
 exporter, enforces the four-hour RTO, and exclusively creates a hash-bound report;
 an existing report is never overwritten. Perform and retain this report for each
-quarterly isolated recovery rehearsal before promoting the environment.
+quarterly isolated recovery rehearsal before promoting the environment. Point
+`INDEXER_RECOVERY_REPORT_FILE` at the latest retained report (or archive the
+prior default-path report before the next drill); API/Prometheus health rejects
+missing, malformed, future-dated, or older-than-90-day qualification evidence.
 
 For commercial metering, configure PostgreSQL through a protected `PGPASSFILE`
 or equivalent `PG*` environment and run `npm run sync:commercial` on a supervised
