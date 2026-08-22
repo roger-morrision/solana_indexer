@@ -50,6 +50,17 @@ export function canonicalPersistedInstructionLog(instructions, transactions, blo
     return instruction?.chain === "solana" && instruction.eventId === identity && canonicalPersistedTransaction(instruction.signature, transaction, blocks) && canonicalPersistedBlock(String(instruction.slot), block) && instruction.blockTime === transaction.blockTime && Number.isInteger(instruction.instructionIndex) && instruction.instructionIndex >= 0 && (instruction.innerIndex == null || Number.isInteger(instruction.innerIndex) && instruction.innerIndex >= 0) && typeof instruction.programId === "string" && Boolean(instruction.programId) && Number.isSafeInteger(instruction.registryVersion) && instruction.registryVersion > 0 && (instruction.decoderVersion == null || Number.isSafeInteger(instruction.decoderVersion) && instruction.decoderVersion > 0) && (instruction.protocol == null || typeof instruction.protocol === "string" && Boolean(instruction.protocol)) && (instruction.parsedType == null || typeof instruction.parsedType === "string" && Boolean(instruction.parsedType)) && Array.isArray(instruction.accounts) && instruction.accounts.every((account) => typeof account === "string" && Boolean(account)) && (instruction.data == null || typeof instruction.data === "string") && (instruction.parsed == null || typeof instruction.parsed === "object" && !Array.isArray(instruction.parsed)) && /^[0-9a-f]{64}$/.test(instruction.rawPayloadHash ?? "") && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt;
   });
 }
+export function canonicalPersistedSwapLog(swaps, transactions, blocks) {
+  if (!Array.isArray(swaps)) return false;
+  const identities = new Set(), u64 = (value, positive = false) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= U64_MAX && (!positive || BigInt(value) > 0n);
+  return swaps.every((swap) => {
+    const transaction = transactions?.[swap?.signature], block = blocks?.[String(swap?.slot)], provenance = swap?.provenance;
+    const eventId = `solana:${swap?.slot}:${swap?.signature}:-1:${swap?.eventIndex}:swap`, swapId = `${swap?.signature}:${swap?.eventIndex}`;
+    if (typeof swap?.swapId !== "string" || !swap.swapId || identities.has(swap.swapId)) return false;
+    identities.add(swap.swapId);
+    return swap.swapId === swapId && swap.eventId === eventId && canonicalPersistedTransaction(swap.signature, transaction, blocks) && transaction.success === true && canonicalPersistedBlock(String(swap.slot), block) && swap.blockTime === transaction.blockTime && Number.isInteger(swap.eventIndex) && swap.eventIndex >= 0 && [swap.protocol, swap.programId, swap.pool, swap.baseMint, swap.quoteMint, swap.inputMint, swap.outputMint].every((value) => typeof value === "string" && Boolean(value)) && swap.baseMint !== swap.quoteMint && swap.inputMint !== swap.outputMint && [swap.inputMint, swap.outputMint].every((mint) => mint === swap.baseMint || mint === swap.quoteMint) && u64(swap.inputAmountRaw, true) && u64(swap.outputAmountRaw, true) && (swap.tradeFeeRaw == null || u64(swap.tradeFeeRaw) && BigInt(swap.tradeFeeRaw) <= BigInt(swap.inputAmountRaw)) && [swap.inputDecimals, swap.outputDecimals, swap.baseDecimals, swap.quoteDecimals].every((value) => Number.isInteger(value) && value >= 0 && value <= 255) && Number.isSafeInteger(swap.registryVersion) && swap.registryVersion > 0 && Number.isSafeInteger(swap.decoderVersion) && swap.decoderVersion > 0 && /^[0-9a-f]{64}$/.test(swap.rawPayloadHash ?? "") && ["raw", "source_event"].includes(swap.payloadHashKind) && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt;
+  });
+}
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
   if (snapshot?.complete !== true || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || snapshot.slot < 0 || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || !Array.isArray(snapshot.accounts) || !Number.isSafeInteger(snapshot.accountCount) || snapshot.accountCount !== snapshot.accounts.length || !/^\d+$/.test(snapshot.mintInfo?.supply ?? "") || BigInt(snapshot.mintInfo.supply) > U64_MAX || !Number.isInteger(snapshot.mintInfo?.decimals) || snapshot.mintInfo.decimals < 0 || snapshot.mintInfo.decimals > 255 || mintInfo?.supply !== snapshot.mintInfo.supply || mintInfo?.decimals !== snapshot.mintInfo.decimals) return false;
   const accounts = new Set();
@@ -440,6 +451,10 @@ export class IndexStore {
     const canonical = canonicalPersistedInstructionLog(this.state.instructions, this.state.transactions, this.state.blocks);
     return { canonical, count: this.state.instructions.length, reason: canonical ? null : "indexed_instruction_evidence_invalid" };
   }
+  indexedSwaps() {
+    if (!canonicalPersistedSwapLog(this.state.swaps, this.state.transactions, this.state.blocks)) return { available: false, reason: "indexed_swap_evidence_invalid", data: [] };
+    return { available: true, reason: null, data: [...this.state.swaps].sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature) || a.eventIndex - b.eventIndex) };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -466,6 +481,7 @@ export class IndexStore {
       canonicalBlocks: canonicalBlockTimes && canonicalBlockIdentities,
       canonicalTransactions: this.indexedTransactions().available,
       canonicalInstructions: this.instructionQuality().canonical,
+      canonicalSwaps: this.indexedSwaps().available,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -495,7 +511,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "canonicalSwaps", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -523,6 +539,7 @@ export class IndexStore {
     const events = this.eventQuality(); if (!events.canonical) return { status: "invalid_evidence", healthy: false, reason: "indexed_event_log_invalid", ageMs: null, staleAfterMs, chain, events, ...stats };
     const transactions = this.indexedTransactions(); if (!transactions.available) return { status: "invalid_evidence", healthy: false, reason: transactions.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const instructions = this.instructionQuality(); if (!instructions.canonical) return { status: "invalid_evidence", healthy: false, reason: instructions.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
+    const swaps = this.indexedSwaps(); if (!swaps.available) return { status: "invalid_evidence", healthy: false, reason: swaps.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
