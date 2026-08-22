@@ -384,6 +384,9 @@ transaction token-balance evidence. It also decodes the exact Token-2022
 `TransferCheckedWithFee` wire format: sender
 totals use the gross amount while recipient and cluster totals use the net
 amount after the instruction-declared fee. Fee values are never inferred.
+Parsed transfer facts require an exact canonical token-program ID, decimal-u64
+amount, non-empty mint identity, u8 decimals, and consistency with any
+transaction token-balance mint/decimal evidence; conflicts are discarded.
 The view is deliberately partial and
 non-automation-safe: it does not infer funding from
 balance deltas and does not claim coverage of zero-lamport allocation-only

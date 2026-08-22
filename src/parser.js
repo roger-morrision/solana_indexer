@@ -335,7 +335,7 @@ export function decodeSystemTransfers(rows) {
 function parsedTransfer(instruction, tokenAccounts = new Map()) {
   const programId = instruction.programId || instruction.program;
   const parsed = instruction.parsed;
-  if (!TOKEN_PROGRAMS.has(programId) && instruction.program !== "spl-token") return null;
+  if (!TOKEN_PROGRAMS.has(programId)) return null;
   if (!parsed && typeof instruction.data === "string") {
     let data; try { data = decodeBase58(instruction.data); } catch { return null; }
     const checkedWithFee = programId === TOKEN_2022_PROGRAM && data.length === 19 && data[0] === 26 && data[1] === 1;
@@ -351,24 +351,27 @@ function parsedTransfer(instruction, tokenAccounts = new Map()) {
   if (!["transfer", "transferChecked"].includes(parsed.type)) return null;
   const tokenAmount = parsed.info.tokenAmount;
   const amountRaw = tokenAmount?.amount ?? parsed.info.amount ?? null;
-  const sourceEvidence = tokenAccounts.get(parsed.info.source), destinationEvidence = tokenAccounts.get(parsed.info.destination);
+  const source = parsed.info.source, destination = parsed.info.destination;
+  if (typeof source !== "string" || !source || typeof destination !== "string" || !destination || typeof amountRaw !== "string" || !/^\d+$/.test(amountRaw) || BigInt(amountRaw) > 18_446_744_073_709_551_615n) return null;
+  const sourceEvidence = tokenAccounts.get(source), destinationEvidence = tokenAccounts.get(destination);
   const inferredMint = sourceEvidence?.mint && sourceEvidence.mint === destinationEvidence?.mint ? sourceEvidence.mint : null;
   const mint = parsed.info.mint ?? inferredMint;
   const inferredDecimals = Number.isInteger(sourceEvidence?.decimals) && sourceEvidence.decimals === destinationEvidence?.decimals ? sourceEvidence.decimals : null;
   const decimals = Number.isInteger(tokenAmount?.decimals) ? tokenAmount.decimals : inferredDecimals;
+  if (typeof mint !== "string" || !mint || !Number.isInteger(decimals) || decimals < 0 || decimals > 255 || (sourceEvidence?.mint && sourceEvidence.mint !== mint) || (destinationEvidence?.mint && destinationEvidence.mint !== mint) || (Number.isInteger(sourceEvidence?.decimals) && sourceEvidence.decimals !== decimals) || (Number.isInteger(destinationEvidence?.decimals) && destinationEvidence.decimals !== decimals)) return null;
   const amountUiString = tokenAmount?.uiAmountString ?? null;
   return {
-    source: parsed.info.source ?? "",
-    destination: parsed.info.destination ?? "",
-    sourceOwner: sourceEvidence?.owner ?? null,
-    destinationOwner: destinationEvidence?.owner ?? null,
+    source,
+    destination,
+    sourceOwner: sourceEvidence?.mint === mint && sourceEvidence.decimals === decimals ? sourceEvidence.owner ?? null : null,
+    destinationOwner: destinationEvidence?.mint === mint && destinationEvidence.decimals === decimals ? destinationEvidence.owner ?? null : null,
     authority: parsed.info.authority ?? parsed.info.multisigAuthority ?? "",
     mint,
     // Keep integer base units as a string. JavaScript numbers cannot safely
     // represent the full u64 range used by SPL token amounts.
-    amountRaw: amountRaw == null ? null : String(amountRaw),
+    amountRaw,
     feeAmountRaw: "0",
-    netAmountRaw: amountRaw == null ? null : String(amountRaw),
+    netAmountRaw: amountRaw,
     decimals,
     amountUiString: amountUiString == null ? null : String(amountUiString),
   };
@@ -406,7 +409,7 @@ export function parseBlock(block) {
     const tokenAccounts = new Map(); for (const balance of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) { const tokenAccount = keys[balance.accountIndex]; if (tokenAccount && balance.mint) tokenAccounts.set(tokenAccount, { mint: balance.mint, owner: balance.owner ?? null, decimals: balance.uiTokenAmount?.decimals ?? null }); }
     for (const instruction of normalized) {
       const transfer = parsedTransfer(instruction, tokenAccounts);
-      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 4, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
+      if (transfer) transfers.push({ ...transfer, transferId: instruction.eventId.replace(/:instruction$/, ":token_transfer"), programId: instruction.programId, instructionIndex: instruction.instructionIndex, innerIndex: instruction.innerIndex, decoderVersion: 5, rawPayloadHash: instruction.rawPayloadHash, signature, slot: block.slot, blockTime });
     }
   }
   const provenance = {
