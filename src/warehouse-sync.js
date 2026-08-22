@@ -295,12 +295,11 @@ export async function probeWarehouseSinks(expectedSequence, spawnProcess = spawn
 }
 
 export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null, postgresSql = checkpointSql(batch.toSequence), redisInput = null) {
-  if (!batch.events.length) return { synced: 0, sequence: batch.toSequence };
+  if (!Array.isArray(batch?.events) || !Number.isSafeInteger(batch.toSequence) || batch.toSequence < 0) throw new Error("invalid warehouse batch");
   if (facts && (!Array.isArray(facts.slots) || facts.slots.some((slot) => !Number.isSafeInteger(slot) || slot < 0) || !Array.isArray(facts.instructions) || !Array.isArray(facts.swaps) || !Array.isArray(facts.balanceChanges) || !Array.isArray(facts.nativeTransfers) || !Array.isArray(facts.deadLetters))) throw new Error("invalid warehouse facts");
   if (typeof postgresSql !== "string" || !postgresSql.trim()) throw new Error("invalid warehouse PostgreSQL transaction");
   if (redisInput != null && !Buffer.isBuffer(redisInput)) throw new Error("invalid Redis hot-state transaction");
-  const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`;
-  await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env);
+  if (batch.events.length) { const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`; await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env); }
   if (facts) {
     const suffixes = [["canonical_instructions", facts.instructions], ["canonical_swaps", facts.swaps], ["canonical_balance_changes", facts.balanceChanges], ["canonical_native_transfers", facts.nativeTransfers]];
     if (facts.slots.length) for (const [table, rows] of suffixes) { const slotList = facts.slots.join(","); await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.${table} DELETE WHERE slot IN (${slotList}) SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (rows.length) await runProcess("clickhouse-client", ["--query", `INSERT INTO terminal_dex.${table} FORMAT JSONEachRow`], `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env); }

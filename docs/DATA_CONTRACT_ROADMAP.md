@@ -62,6 +62,8 @@ account identities, bounds, pre-balances, blockhash, and optional transfer-hook
 source evidence pass through the same construction gates; the endpoint performs
 no simulation, signing, or submission.
 
+Phase 9 zero-event synchronization cycles still reconcile canonical dead letters, PostgreSQL projections/jobs/checkpoints and versioned Redis hot state, so TTL expiry or partial sink loss self-heals without waiting for unrelated chain activity.
+
 ## Known limits
 
 The current index is an offline local prototype. It is not yet a SolanaTracker-equivalent service, an RPC replacement, a price oracle, or a safe trading signal. Generic parsed transfer activity cannot faithfully supply pool liquidity, USD price/volume, holders, trader PnL, swaps, or risk scores.

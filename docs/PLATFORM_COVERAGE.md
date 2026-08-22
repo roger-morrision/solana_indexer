@@ -57,6 +57,10 @@ remain unavailable.
 | mTLS/SLO/backup | deployable | optional mTLS gateway, Prometheus endpoint, alert rules, stated SLO/RPO/RTO and checksum-gated restore; version-2 backup evidence binds one backup identity, quiesced writers, exact artifact sizes/hashes and inbox archive identity, while restore preflight enforces exact sink inventory, RPO age, safe tar structure and required canonical state before destructive tooling runs; post-restore qualification binds that manifest hash to canonical index health, zero-lag exact warehouse reconciliation, healthy finalized export and elapsed RTO in an exclusive report | production PKI, monitoring destination and an executed quarterly isolated recovery drill |
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |
 
+Multi-sink repair also runs when the canonical event batch is empty, rebuilding
+PostgreSQL projections, canonical dead letters, and expired or lost versioned
+Redis hot state before reconciliation.
+
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
 local simulation with exact instruction policy and token-effect bounds.
