@@ -6,11 +6,17 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runBoundedProcess } from "./bounded-process.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { redactDiagnostic } from "./diagnostic-redaction.js";
 
 const SHA = /^[0-9a-f]{64}$/, GIT_COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/, SEMVER = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/, REVIEWER = /^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$/;
 async function sha256(filename) { const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk); return hash.digest("hex"); }
-function capture(command, args = []) { return new Promise((resolve, reject) => { const child = spawn(command, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }); let stdout = "", stderr = ""; child.stdout.on("data", (chunk) => { if (stdout.length < 4_096) stdout += chunk; }); child.stderr.on("data", (chunk) => { if (stderr.length < 4_096) stderr += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(stdout.trim()) : reject(new Error(`Agave version probe failed (${code}): ${stderr.trim().slice(0, 256)}`))); }); }
+
+export async function runAgaveVersionProbe(command, spawnProcess = spawn, processOptions = {}) {
+  try { return await runBoundedProcess({ command, args: ["--version"], spawnProcess, timeoutMs: 10_000, stdoutBytes: 4_096, stderrBytes: 4_096, label: "Agave version probe", ...processOptions }); }
+  catch (error) { throw new Error(redactDiagnostic(error, "Agave version probe failed")); }
+}
 
 export function validateGeyserCompatibility(manifest, observed, now = Date.now()) {
   const fail = (reason) => ({ schemaVersion: 2, compatible: false, activationAllowed: false, reason });
@@ -22,11 +28,11 @@ export function validateGeyserCompatibility(manifest, observed, now = Date.now()
   return { schemaVersion: 2, compatible: true, activationAllowed: true, reason: null, agaveVersionOutput: observed.agaveVersionOutput, pluginVersion: manifest.plugin.version, testedAt: manifest.qualification.testedAt, sustainedSeconds: duration, finalizedBlocks: blocks, maxRssBytes: rss, rssSlopeBytesPerHour: slope, comparedFinalizedBlocks: reconciliation.comparedFinalizedBlocks, reconnects: transport.reconnects, maxBufferedUpdates: transport.maxBufferedUpdates, reviewedBy: manifest.reviewedBy };
 }
 
-export async function preflightGeyser({ manifestFile, agaveBinary, pluginLibrary }) {
+export async function preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe = runAgaveVersionProbe }) {
   for (const [label, filename] of Object.entries({ manifestFile, agaveBinary, pluginLibrary })) if (!path.isAbsolute(filename ?? "")) throw new Error(`${label} must be an absolute path`);
-  const manifest = JSON.parse(await fs.readFile(manifestFile, "utf8")), [agaveVersionOutput, agaveBinarySha256, pluginBinarySha256] = await Promise.all([capture(agaveBinary, ["--version"]), sha256(agaveBinary), sha256(pluginLibrary)]), result = validateGeyserCompatibility(manifest, { agaveVersionOutput, agaveBinarySha256, pluginBinarySha256 }); if (!result.activationAllowed) throw new Error(`Yellowstone activation refused: ${result.reason}`); return result;
+  const manifest = JSON.parse(await fs.readFile(manifestFile, "utf8")), [agaveVersionOutput, agaveBinarySha256, pluginBinarySha256] = await Promise.all([versionProbe(agaveBinary), sha256(agaveBinary), sha256(pluginLibrary)]), result = validateGeyserCompatibility(manifest, { agaveVersionOutput, agaveBinarySha256, pluginBinarySha256 }); if (!result.activationAllowed) throw new Error(`Yellowstone activation refused: ${result.reason}`); return result;
 }
 
 function option(name) { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : null; }
 async function main() { const result = await preflightGeyser({ manifestFile: option("--manifest"), agaveBinary: option("--agave"), pluginLibrary: option("--plugin") }); console.log(JSON.stringify(result)); }
-const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(redactDiagnostic(error, "Yellowstone preflight failed")); process.exitCode = 1; });
