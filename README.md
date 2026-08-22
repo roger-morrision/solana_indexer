@@ -396,7 +396,9 @@ instruction with an invalid program or account index is omitted in full, so a
 missing key can never shift a later address into a transfer, balance, or
 protocol account role. Inner-instruction groups must reference one unique valid
 outer instruction and contain an instruction array; ambiguous trees reject the
-block instead of producing consumer-specific interpretations.
+block instead of producing consumer-specific interpretations. Transaction
+signature vectors contain only non-empty strings, and fees are accepted only as
+non-negative safe integers; neither field is coerced into canonical state.
 Parsed transfer facts require an exact canonical token-program ID, decimal-u64
 amount, non-empty mint identity, u8 decimals, and consistency with any
 transaction token-balance mint/decimal evidence; conflicts are discarded.

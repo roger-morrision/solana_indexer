@@ -427,15 +427,17 @@ export function parseBlock(block) {
   const decodedDexEvents = [];
   const poolLifecycleEvents = [];
   for (const entry of block.transactions) {
-    const signature = entry?.transaction?.signatures?.[0];
-    if (!signature) continue;
+    const signatures = entry?.transaction?.signatures;
+    if (!Array.isArray(signatures) || signatures.length < 1 || signatures.some((value) => typeof value !== "string" || !value)) throw new Error("transaction signatures must be non-empty strings");
+    const signature = signatures[0], feeLamports = entry.meta?.fee ?? 0;
+    if (!Number.isSafeInteger(feeLamports) || feeLamports < 0) throw new Error("transaction fee must be a non-negative safe integer");
     const keys = accountKeys(entry.transaction.message, entry.meta);
     validateInstructionLayout(entry);
     const feePayer = keys[0] ?? "";
     const failed = entry.meta?.err != null;
     const record = {
       signature, slot: block.slot, blockTime, feePayer, success: !failed,
-      feeLamports: Number(entry.meta?.fee ?? 0), accounts: keys,
+      feeLamports, accounts: keys,
       logCount: entry.meta?.logMessages?.length ?? 0,
     };
     transactions.push(record);
