@@ -4,6 +4,8 @@ import test from "node:test";
 import { MAINNET_GENESIS_HASH } from "../src/local-validator-exporter.js";
 import { buildMeteoraDlmmSwapInstruction, createMeteoraDlmmSigningRequest, METEORA_DLMM_EXECUTION_CONSTANTS, prepareMeteoraDlmmSwapSimulation, simulatePreparedMeteoraDlmmSwap, verifyFinalizedMeteoraDlmmSwap, verifyMeteoraDlmmSignedRequest } from "../src/meteora-dlmm-execution.js";
 import { decodeMeteoraBinArrayBitmapExtensionAccount, deriveMeteoraBinArrayBitmapExtension, METEORA_DLMM_PROGRAM } from "../src/meteora-dlmm-pool-snapshot.js";
+import { deriveTransferHookValidationAccount } from "../src/pool-mint-evidence.js";
+import { decodeTransferHookExtraAccountMetaList } from "../src/transfer-hook-evidence.js";
 import { inspectUnsignedTransactionPrograms, validateUnsignedTransactionBase64 } from "../src/transaction-simulation.js";
 import { completeMeteoraBitmapExtension } from "../src/warehouse-sync.js";
 
@@ -11,6 +13,8 @@ const address = (fill) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZa
 const tokenProgram = METEORA_DLMM_EXECUTION_CONSTANTS.tokenProgram;
 const mintEvidence = (mint) => ({ schemaVersion: 1, mint, programId: tokenProgram, commitment: "finalized", slot: 103, epoch: 2, decimals: 6, extensionTypes: [], token2022Evidence: null });
 const token2022MintEvidence = (mint) => { const fee = { epoch: 0, transferFeeBasisPoints: 100, maximumFeeRaw: "100" }; return { schemaVersion: 1, mint, programId: METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program, commitment: "finalized", slot: 103, epoch: 2, decimals: 6, extensionTypes: ["transferFeeConfig"], token2022Evidence: { schemaVersion: 1, programId: METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program, commitment: "finalized", slot: 103, epoch: 2, transferFeeConfig: { extension: "transferFeeConfig", withheldAmountRaw: "0", olderTransferFee: fee, newerTransferFee: fee }, activeTransferFee: fee } }; };
+const rawEvidence = (owner, data) => ({ owner, dataLength: data.length, rawHex: data.toString("hex"), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+function hookedMintEvidence(mint, hookProgram, extraAccount) { const evidence = token2022MintEvidence(mint), validationAccount = deriveTransferHookValidationAccount(mint, hookProgram).address, data = Buffer.alloc(51); Buffer.from([105, 37, 101, 197, 75, 251, 102, 26]).copy(data); data.writeUInt32LE(39, 8); data.writeUInt32LE(1, 12); Buffer.from(base58Bytes(extraAccount)).copy(data, 17); data[49] = 0; data[50] = 1; evidence.extensionTypes.push("transferHook"); evidence.transferHookEvidence = { schemaVersion: 1, commitment: "finalized", slot: 103, authority: null, programId: hookProgram, programExecutable: true, program: rawEvidence(address(15), Buffer.alloc(0)), validationAccount, validation: { ...rawEvidence(hookProgram, data), extraAccountMetaList: decodeTransferHookExtraAccountMetaList(data.toString("hex")) } }; return evidence; }
 
 function fixture() {
   const pool = { address: address(1), programId: METEORA_DLMM_PROGRAM, tokenMint0: address(2), tokenMint1: address(3), tokenVault0: address(4), tokenVault1: address(5), oracle: address(6), tokenProgram0: tokenProgram, tokenProgram1: tokenProgram, mintDecimals0: 6, mintDecimals1: 6, stateSlot: 100, binArraySlot: 101, mintEvidenceSlot: 103, epoch: 2, binArrayCoverage: "finalized_program_account_snapshot", binArrays: [{ index: 0, address: address(7) }] };
@@ -43,6 +47,16 @@ test("Meteora swap2 construction encodes empty hook slices for fee-only Token-20
   assert.equal(instruction.dataHex, `${METEORA_DLMM_EXECUTION_CONSTANTS.swap2DiscriminatorHex}e803000000000000520300000000000000000000`); assert.equal(instruction.accounts[11].address, METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program); assert.equal(instruction.accounts[13].address, METEORA_DLMM_EXECUTION_CONSTANTS.memoProgram); assert.equal(instruction.evidence.instructionVersion, "swap2"); assert.deepEqual(instruction.evidence.remainingAccountSlices, []);
   const preparation = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850" }); assert.equal(preparation.instructionEvidence.instructionVersion, "swap2"); assert.deepEqual(inspectUnsignedTransactionPrograms(preparation.transaction.transactionBase64, { allowedProgramIds: [METEORA_DLMM_PROGRAM], instructionPolicies: preparation.transaction.instructionPolicies }).instructions, preparation.transaction.instructionPolicies);
   const hooked = structuredClone(args.pool); hooked.mint0Evidence.extensionTypes = ["transferFeeConfig", "transferHook"]; assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...args, pool: hooked, minimumOutputRaw: "850" }), /evidence|transfer hooks or extensions/);
+});
+
+test("Meteora swap2 resolves finalized transfer-hook slices before bin arrays", () => {
+  const args = fixture(), hookProgram = address(12), extraAccount = address(13); args.pool.tokenProgram0 = METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program; args.pool.mint0Evidence = hookedMintEvidence(args.pool.tokenMint0, hookProgram, extraAccount); args.quote.inputTransferFeeRaw = "10"; args.quote.grossOutputRaw = "900";
+  const instruction = buildMeteoraDlmmSwapInstruction({ ...args, minimumOutputRaw: "850" }), validation = args.pool.mint0Evidence.transferHookEvidence.validationAccount;
+  assert.equal(instruction.dataHex, `${METEORA_DLMM_EXECUTION_CONSTANTS.swap2DiscriminatorHex}e8030000000000005203000000000000010000000003`);
+  assert.deepEqual(instruction.evidence.remainingAccountSlices, [{ accountsType: "transferHookX", length: 3 }]);
+  assert.deepEqual(instruction.accounts.slice(-4), [{ address: extraAccount, signer: false, writable: true }, { address: validation, signer: false, writable: false }, { address: hookProgram, signer: false, writable: false }, { address: args.pool.binArrays[0].address, signer: false, writable: true }]);
+  const unresolved = structuredClone(args); unresolved.pool.mint0Evidence.transferHookEvidence.validation.extraAccountMetaList.accounts[0] = { index: 5, discriminator: 2, type: "pubkey_data", addressConfigHex: "00".repeat(32), signer: false, writable: false }; assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...unresolved, minimumOutputRaw: "850" }), /evidence|pubkey-data/);
+  const missingGross = structuredClone(args); delete missingGross.quote.grossOutputRaw; assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...missingGross, minimumOutputRaw: "850" }), /gross output/);
 });
 
 test("Meteora external approval and finalized verification bind one immutable execution chain", async () => {
