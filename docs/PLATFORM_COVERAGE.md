@@ -60,6 +60,9 @@ remain unavailable.
 Multi-sink repair also runs when the canonical event batch is empty, rebuilding
 PostgreSQL projections, canonical dead letters, and expired or lost versioned
 Redis hot state before reconciliation.
+The complete Redis delete/repopulate, stats, TTL, publication, and
+current-version pointer transition is atomic even when repairing the already
+advertised sequence.
 
 Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and

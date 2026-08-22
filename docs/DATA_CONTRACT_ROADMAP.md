@@ -62,7 +62,7 @@ account identities, bounds, pre-balances, blockhash, and optional transfer-hook
 source evidence pass through the same construction gates; the endpoint performs
 no simulation, signing, or submission.
 
-Phase 9 zero-event synchronization cycles still reconcile canonical dead letters, PostgreSQL projections/jobs/checkpoints and versioned Redis hot state, so TTL expiry or partial sink loss self-heals without waiting for unrelated chain activity.
+Phase 9 zero-event synchronization cycles still reconcile canonical dead letters, PostgreSQL projections/jobs/checkpoints and versioned Redis hot state, so TTL expiry or partial sink loss self-heals without waiting for unrelated chain activity. Redis rebuilds atomically cover deletion, complete hash population, stats/TTL updates, event publication and the current-version pointer, including same-sequence repair.
 
 ## Known limits
 
