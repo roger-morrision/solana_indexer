@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { raydiumSqrtPriceX64AtTick } from "./clmm-math.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
-import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
 
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
@@ -58,6 +58,13 @@ export function verifyRaydiumClmmSignedRequest({ signingRequest, signedTransacti
   if (signingRequest?.schemaVersion !== 1 || signingRequest.type !== "raydium_clmm_swap_v2_signing_request" || signingRequest.protocol !== "raydium-clmm" || signingRequest.approvalRequired !== true || signingRequest.signingPerformed !== false || signingRequest.submissionPerformed !== false || signingRequestHash !== expectedRequestHash || !Number.isSafeInteger(currentSlot) || currentSlot < signingRequest.currentSlot || currentSlot > signingRequest.expiresSlot) throw new Error("Raydium signing request is invalid or expired");
   const verified = verifySignedTransactionBase64({ signedTransactionBase64, unsignedTransactionBase64: signingRequest.transactionBase64, expectedMessageHash: signingRequest.messageHash }); if (verified.approvedTransactionHash !== signingRequest.transactionHash || verified.signerAddresses[0] !== signingRequest.feePayer) throw new Error("Raydium signed transaction does not match approval");
   const result = { ...verified, type: "raydium_clmm_swap_v2_signed_transaction", protocol: "raydium-clmm", signingRequestHash, verifiedSlot: currentSlot, expiresSlot: signingRequest.expiresSlot, approvalRequired: false, submissionPerformed: false }; result.signedArtifactHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;
+}
+
+export async function verifyFinalizedRaydiumClmmSwap(client, { signedArtifact, signingRequest, simulationReceipt, expectedGenesisHash, genesisHash }) {
+  const { signedArtifactHash, ...unsignedArtifact } = signedArtifact ?? {}, expectedArtifactHash = crypto.createHash("sha256").update(JSON.stringify(unsignedArtifact)).digest("hex"), { signingRequestHash, ...unsignedRequest } = signingRequest ?? {}, expectedRequestHash = crypto.createHash("sha256").update(JSON.stringify(unsignedRequest)).digest("hex"), { receiptHash, ...unsignedReceipt } = simulationReceipt ?? {}, expectedReceiptHash = crypto.createHash("sha256").update(JSON.stringify(unsignedReceipt)).digest("hex");
+  if (signedArtifact?.type !== "raydium_clmm_swap_v2_signed_transaction" || signedArtifact.protocol !== "raydium-clmm" || signedArtifact.status !== "signature_verified" || signedArtifact.submitted !== false || signedArtifact.submissionPerformed !== false || signedArtifactHash !== expectedArtifactHash || signingRequestHash !== expectedRequestHash || receiptHash !== expectedReceiptHash || signedArtifact.signingRequestHash !== signingRequestHash || signingRequest.simulationReceiptHash !== receiptHash || signedArtifact.messageHash !== signingRequest.messageHash || signedArtifact.approvedTransactionHash !== signingRequest.transactionHash || signedArtifact.firstSignature == null) throw new Error("Raydium finalized confirmation chain is invalid");
+  const landed = await verifyFinalizedLandedTransaction(client, { signature: signedArtifact.firstSignature, simulationReceipt, expectedGenesisHash, genesisHash }), result = { schemaVersion: 1, type: "raydium_clmm_swap_v2_finalized_confirmation", protocol: "raydium-clmm", status: "finalized", signedByIndexer: false, submittedByIndexer: false, signature: landed.signature, messageHash: landed.messageHash, simulationSlot: landed.simulationSlot, finalizedSlot: landed.finalizedSlot, preparationHash: signingRequest.preparationHash, simulationReceiptHash: receiptHash, signingRequestHash, signedArtifactHash };
+  result.confirmationHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;
 }
 
 export const RAYDIUM_CLMM_EXECUTION_CONSTANTS = Object.freeze({ tokenProgram: TOKEN_PROGRAM, token2022Program: TOKEN_2022_PROGRAM, memoProgram: MEMO_PROGRAM, swapV2DiscriminatorHex: SWAP_V2_DISCRIMINATOR.toString("hex") });

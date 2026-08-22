@@ -506,6 +506,9 @@ expiry. It emits a content-addressed approval request but never signs or submits
 Returned signed bytes are accepted only when the complete serialized message is
 unchanged and every required Ed25519 signature verifies against its message key;
 the resulting signed artifact remains content-addressed and unsubmitted.
+Read-only finalized confirmation revalidates and links the preparation, simulation,
+signing request, signed artifact, landed signature, message, and slots into one
+content-addressed audit record.
 Finalized confirmation is also read-only: the landed signed transaction must be
 successful at or after the simulation slot, and its serialized message hash must
 match the unsigned simulation receipt exactly. Its first serialized signature
