@@ -623,8 +623,10 @@ bin arrays. Missing, stale, oversized, or hash-mismatched source bytes and every
 other unimplemented extension fail closed; simulation advances its minimum
 context to the newest bound source-account slot. The resolver can discover
 data-derived dependencies incrementally and refetch the complete discovered set
-at one monotonic finalized context before construction. Quotes share the
-analysis-only internal pool endpoint and are never labeled as executable routes.
+at one monotonic finalized context before construction. The internal pool quote
+endpoint advertises Meteora's offline unsigned construction and read-only
+confirmation boundary while retaining mandatory simulation, external approval,
+and out-of-scope submission blockers; it never labels a quote automation-safe.
 Legacy-SPL Raydium CLMM and CPMM quotes require and propagate that same complete
 finalized mint slot/epoch binding; execution construction rejects a quote whose
 mint evidence differs from the selected pool snapshot, and warehouse repair
