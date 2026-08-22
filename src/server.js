@@ -7,6 +7,7 @@ import { attachWebSocket } from "./websocket.js";
 import { registrySnapshot } from "./program-registry.js";
 import { assessExporterStatus } from "./exporter-health.js";
 import { ApiAuditSink, auditIdentity } from "./api-audit.js";
+import { resolveApiTenant } from "./api-tenants.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 function json(response, status, value, headers = {}) { const body = JSON.stringify(value); response.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store", "x-api-version": "1", ...headers }); response.end(body); }
@@ -90,21 +91,23 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
 export function createServer(config, store) {
   const quotas = new Map(), metrics = { requests: 0, durationMs: 0, statusClasses: { "2xx": 0, "4xx": 0, "5xx": 0 } }, auditSink = new ApiAuditSink(config.auditLogFile);
   const server = http.createServer(async (request, response) => {
-    const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress); let auditPath = null;
-    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000 }); });
+    const started = process.hrtime.bigint(), presented = presentedApiKey(request), identity = auditIdentity(presented, request.socket.remoteAddress), tenant = resolveApiTenant(config.apiTenants, presented); let auditPath = null;
+    response.once("finish", () => { const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000; metrics.requests++; metrics.durationMs += durationMs; const key = `${Math.floor(response.statusCode / 100)}xx`; metrics.statusClasses[key] = (metrics.statusClasses[key] ?? 0) + 1; if (auditPath) auditSink.record({ observedAt: new Date().toISOString(), identityHash: identity, tenantId: tenant?.id ?? null, plan: tenant?.plan ?? null, method: request.method, path: auditPath, statusCode: response.statusCode, durationMs: Math.round(durationMs * 1_000) / 1_000 }); });
     try {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
       auditPath = url.pathname;
       const protectedRoute = url.pathname === "/rpc" || url.pathname === "/metrics" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/internal/");
       const apiKeys = config.apiKeys ?? [];
       if (protectedRoute && config.auditLogFile && auditSink.failures > 0) return json(response, 503, { error: "audit_sink_unavailable" });
-      if (protectedRoute && apiKeys.length && !keyMatches(presented, apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
-      if (protectedRoute && config.rateLimitPerMinute) {
-        const quotaIdentity = apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown";
+      if (protectedRoute && config.apiTenants && !tenant) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
+      if (protectedRoute && !config.apiTenants && apiKeys.length && !keyMatches(presented, apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
+      const requestLimit = tenant?.rateLimitPerMinute ?? config.rateLimitPerMinute;
+      if (protectedRoute && requestLimit) {
+        const quotaIdentity = tenant?.id ?? (apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown");
         const window = Math.floor(Date.now() / 60_000); const prior = quotas.get(quotaIdentity); const quota = prior?.window === window ? prior : { window, count: 0 }; quota.count++; quotas.set(quotaIdentity, quota);
-        const remaining = Math.max(0, config.rateLimitPerMinute - quota.count);
-        response.setHeader("x-ratelimit-limit", config.rateLimitPerMinute); response.setHeader("x-ratelimit-remaining", remaining);
-        if (quota.count > config.rateLimitPerMinute) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(60 - (Math.floor(Date.now() / 1000) % 60)) });
+        const remaining = Math.max(0, requestLimit - quota.count);
+        response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); }
+        if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(60 - (Math.floor(Date.now() / 1000) % 60)) });
       }
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpc(await readJsonBody(request), config, store));
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
@@ -156,5 +159,5 @@ export function createServer(config, store) {
     } catch (error) { const badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code); return json(response, badRequest ? 400 : 500, { error: error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", detail: error.message }); }
   });
   server.auditSink = auditSink;
-  return attachWebSocket(server, store, config, (request) => !(config.apiKeys ?? []).length || keyMatches(presentedApiKey(request), config.apiKeys));
+  return attachWebSocket(server, store, config, (request) => config.apiTenants ? Boolean(resolveApiTenant(config.apiTenants, presentedApiKey(request))) : !(config.apiKeys ?? []).length || keyMatches(presentedApiKey(request), config.apiKeys));
 }

@@ -5,8 +5,9 @@ import { indexInbox, watchInbox } from "./indexer.js";
 import { createServer } from "./server.js";
 import { IndexStore } from "./store.js";
 import { loadHolderExclusions } from "./holder-exclusions.js";
+import { loadApiTenants } from "./api-tenants.js";
 
-const config = loadConfig(), holderExclusions = await loadHolderExclusions(config.holderExclusionsFile); const store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); const command = process.argv[2] || "serve";
+const config = loadConfig(), holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), apiTenants = await loadApiTenants(config.apiTenantsFile); config.apiTenants = apiTenants; const store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); const command = process.argv[2] || "serve";
 await store.load();
 if (command === "index") { console.log(JSON.stringify(await indexInbox(config, store), null, 2)); }
 else if (command === "status") { console.log(JSON.stringify(store.stats(), null, 2)); }
