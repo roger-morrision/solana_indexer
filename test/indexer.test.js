@@ -803,6 +803,7 @@ test("persisted malformed account evidence is quarantined and scheduled for repa
 test("snapshot batches validate atomically before mutating canonical state", async () => {
   const store = new IndexStore("unused"); await store.load();
   const accountEnvelope = { schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", slot: 800, observedAt: "2026-08-21T00:00:00.000Z" };
+  for (const observedAt of ["2026-08-21", "2026-08-21T00:00:00Z", "2026-08-21T07:00:00.000+07:00", "2026-02-30T00:00:00.000Z", 1_776_729_600_000]) assert.throws(() => store.applyAccountSnapshot({ ...accountEnvelope, observedAt, mints: [] }), /invalid finalized mainnet account snapshot/);
   assert.throws(() => store.applyAccountSnapshot({ ...accountEnvelope, mints: [{ mint: "invalid-mint", mintInfo: { supply: "1.5", decimals: 6 }, accounts: [] }] }), /invalid mint snapshot row/);
   assert.throws(() => store.applyAccountSnapshot({ ...accountEnvelope, mints: [{ mint: "invalid-program", mintInfo: { supply: "1", decimals: 6 }, accounts: [{ tokenAccount: "account-program", owner: "wallet", programId: "untrusted", decimals: 6, amountRaw: "1" }] }] }), /invalid token account snapshot row/);
   assert.throws(() => store.applyAccountSnapshot({ ...accountEnvelope, mints: [{ mint: "invalid-decimals", mintInfo: { supply: "1", decimals: 6 }, accounts: [{ tokenAccount: "account-decimals", owner: "wallet", programId: SPL_TOKEN_PROGRAM, decimals: 9, amountRaw: "1" }] }] }), /invalid token account snapshot row/);
@@ -810,6 +811,7 @@ test("snapshot batches validate atomically before mutating canonical state", asy
   assert.equal(store.state.holderSnapshots.valid, undefined); assert.equal(store.state.tokenAccounts["account-a"], undefined);
   const poolRow = { address: "pool-a", programId: RAYDIUM_CLMM_PROGRAM, tokenMint0: "mint-a", tokenMint1: "mint-b", tokenVault0: "vault-a", tokenVault1: "vault-b", vault0AmountRaw: "1", vault1AmountRaw: "2", liquidityRaw: "3", sqrtPriceX64: "4", tick: 0, tickSpacing: 1 };
   const poolEnvelope = { ...accountEnvelope, type: "raydium_clmm_pool_snapshot", stateSlot: 800, balanceSlot: 801 };
+  for (const observedAt of ["2026-08-21", "2026-08-21T00:00:00Z", "2026-08-21T07:00:00.000+07:00", "2026-02-30T00:00:00.000Z"]) assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, observedAt, pools: [] }), /invalid finalized mainnet CLMM pool snapshot/);
   assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [poolRow, { ...poolRow, address: "pool-b", liquidityRaw: "invalid" }] }), /invalid CLMM pool snapshot row/);
   assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, tickArraySlot: 800, tickArrays: [{ address: "ticks-a", pool: "wrong-pool", startTickIndex: 0, initializedTickCount: 1, recentEpoch: "1", rawPayloadHash: "a".repeat(64) }] }] }), /invalid CLMM tick array snapshot row/);
   const bitmapBytes = Buffer.alloc(128); bitmapBytes.writeBigUInt64LE(1n, 64); const validBitmap = { bitCount: 1024, minStartTickIndex: -30_720, maxStartTickIndexExclusive: 30_720, initializedTickArrayStartIndexes: [0], rawHex: bitmapBytes.toString("hex") };
