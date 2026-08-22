@@ -27,10 +27,21 @@ export class LocalValidatorStream {
   get endpoint() { return this.endpoints[this.endpointIndex]; }
   get provenanceSource() { return this.endpoints.length === 1 ? "local-agave-pubsub" : `local-agave-pubsub-${this.endpointIndex + 1}`; }
   queueStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) { this.messageQueue = this.messageQueue.then(() => this.writeStatus(source, connected)).catch((error) => { this.lastError = { at: new Date().toISOString(), message: error.message }; }); return this.messageQueue; }
+  async authorizeSocket(socket, source) {
+    if (this.stopped || socket !== this.socket) return;
+    let actual;
+    try { actual = await this.rpcClient.assertGenesis(this.expectedGenesisHash); }
+    catch { throw new Error("validator stream network verification failed"); }
+    if (this.stopped || socket !== this.socket) return;
+    if (this.genesisHash != null && actual !== this.genesisHash) throw new Error("validator stream network identity changed");
+    this.genesisHash = actual; this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); this.lastError = null;
+    for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] }));
+    await this.writeStatus(source, true);
+  }
   connect() {
     if (this.stopped) return;
     const source = this.provenanceSource, socket = new this.WebSocketClass(this.endpoint); this.socket = socket;
-    socket.onopen = () => { if (this.stopped || socket !== this.socket) return; this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); this.lastError = null; for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] })); this.queueStatus(source, true); };
+    socket.onopen = () => { this.messageQueue = this.messageQueue.then(() => this.authorizeSocket(socket, source)).catch(async () => { if (this.stopped || socket !== this.socket) return; this.lastError = { at: new Date().toISOString(), message: "validator stream network verification failed" }; await this.writeStatus(source, false); socket.close(); }); };
     socket.onmessage = ({ data }) => { if (socket !== this.socket) return; this.messageQueue = this.messageQueue.then(() => this.handleMessage(data, source)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: error.message }; await this.writeStatus(source); }); };
     socket.onerror = () => {};
     socket.onclose = () => { if (this.stopped || socket !== this.socket) return; this.socket = null; this.metrics.reconnects++; this.lastError = { at: new Date().toISOString(), message: "validator stream disconnected" }; this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); this.queueStatus(source, false); this.scheduleReconnect(() => this.connect(), delay); };
