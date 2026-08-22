@@ -29,7 +29,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     redisPasswordFile: env.REDIS_PASSWORD_FILE ? path.resolve(cwd, env.REDIS_PASSWORD_FILE) : null,
     redisHotTtlSeconds: boundedInt(env.INDEXER_REDIS_HOT_TTL_SECONDS, 86_400, 300, 604_800),
     redisHotMaxBytes: boundedInt(env.INDEXER_REDIS_HOT_MAX_BYTES, 16_777_216, 65_536, 134_217_728),
-    distributedQuotaEnabled: env.INDEXER_DISTRIBUTED_QUOTA === "true",
+    distributedQuotaEnabled: strictBoolean(env.INDEXER_DISTRIBUTED_QUOTA, false),
     redisHost: env.INDEXER_REDIS_HOST || "127.0.0.1",
     redisPort: boundedInt(env.INDEXER_REDIS_PORT, 6379, 1, 65_535),
     redisQuotaTimeoutMs: boundedInt(env.INDEXER_REDIS_QUOTA_TIMEOUT_MS, 250, 10, 5_000),
@@ -61,6 +61,17 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
 }
 
 function boundedInt(value, fallback, minimum, maximum) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+  if (value == null || value === "") return fallback;
+  const normalized = String(value).trim();
+  if (normalized !== String(value) || !/^(0|[1-9]\d*)$/.test(normalized)) throw new Error(`integer configuration must be a canonical base-10 value between ${minimum} and ${maximum}`);
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) throw new Error(`integer configuration must be between ${minimum} and ${maximum}`);
+  return parsed;
+}
+
+function strictBoolean(value, fallback) {
+  if (value == null || value === "") return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error("boolean configuration must be true or false");
 }

@@ -1547,6 +1547,15 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
 });
 
+test("configuration rejects malformed and out-of-range explicit controls", () => {
+  for (const INDEXER_PORT of ["not-a-number", "1e3", "9007199254740992", "0", "65536", " 8787 "]) assert.throws(() => loadConfig({ INDEXER_PORT }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "-1" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
+  assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
+  assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);
+  assert.equal(loadConfig({ INDEXER_PORT: "" }, process.cwd()).port, 8787);
+});
+
 test("tenant registry supports hash-only key rotation and tenant quotas", async (t) => {
   const hash = (value) => crypto.createHash("sha256").update(value).digest("hex"), now = Date.parse("2026-08-22T00:00:00.000Z"), registry = compileApiTenants({ schemaVersion: 1, source: "operator-reviewed", observedAt: "2026-08-21T00:00:00.000Z", tenants: [{ id: "terminal", status: "active", plan: "pro", rateLimitPerMinute: 2, retentionDays: 30, keys: [{ hash: hash("old"), expiresAt: "2026-08-23T00:00:00.000Z" }, { hash: hash("new"), activatesAt: "2026-08-21T00:00:00.000Z" }] }] });
   assert.equal(resolveApiTenant(registry, "old", now).id, "terminal"); assert.equal(resolveApiTenant(registry, "new", now).plan, "pro"); assert.equal(resolveApiTenant(registry, "old", Date.parse("2026-08-24T00:00:00.000Z")), null); assert.equal(JSON.stringify(registry).includes('"old"'), false); assert.throws(() => compileApiTenants({ schemaVersion: 1, tenants: [{ id: "x", status: "active", plan: "x", rateLimitPerMinute: 1, retentionDays: 1, keys: [{ hash: "bad" }] }] }), /invalid API tenant key/);
