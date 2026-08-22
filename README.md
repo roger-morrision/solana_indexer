@@ -722,8 +722,11 @@ basis-point bounds. Snapshots persist the flat, market-cap and stable fee tiers
 with the exact configuration slot. Exact-input buy and sell quotes mirror the
 official SDK's integer constant-product operations, one-unit buy adjustment,
 and separately ceiling-rounded LP/protocol/creator fees. They require a fresh
-coherent finalized snapshot and canonical SPL Token accounts; Token-2022 and
-transaction execution remain fail-closed. Direction-specific GlobalConfig
+coherent finalized snapshot plus complete finalized evidence for both canonical
+SPL Token mint accounts. The quote carries that mint slot and epoch through the
+official-ABI-bound buy/sell instruction and pins local simulation to the later
+mint-evidence context. Token-2022 remains fail-closed until its multi-transfer
+fee topology is verified. Direction-specific GlobalConfig
 disable flags block quotes, as do active cashback and SOL buyback fee modes
 until their exact on-chain accounting is locally verified.
 Canonical identity is now independently derived from the official

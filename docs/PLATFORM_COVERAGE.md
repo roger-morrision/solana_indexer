@@ -9,10 +9,12 @@ Current route analysis includes fresh finalized exact-input Raydium CPMM/CLMM
 and PumpSwap quotes. PumpSwap mirrors the official SDK's integer buy/sell and
 fee rounding and binds finalized global disable/fee-mode evidence. Base-to-quote
 sells can be prepared and verified through deterministic unsigned, policy-bound
-local simulation, then packaged in a capped, expiring external-signer request;
+local simulation, with complete legacy-SPL mint evidence and its exact slot/epoch
+bound from quote through construction and simulation, then packaged in a capped,
+expiring external-signer request;
 external signatures and finalized landed message identity are read-only verified.
 Exact-quote-input buys now use the same complete read-only execution boundary:
-official volume-account construction, strict quote-spend simulation, capped and
+official volume-account construction, the same bound mint evidence, strict quote-spend simulation, capped and
 expiring external-signer requests, cryptographic signature verification, and
 finalized landed-message identity checks. Indexer-side signing and submission remain
 unavailable; Token-2022, cashback and SOL buyback continue to fail closed.
