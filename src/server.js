@@ -60,6 +60,7 @@ function dispatchRpc(payload, config, store) {
   }
   return rpcError(payload.id, -32601, "Method not found");
 }
+function dispatchRpcEnvelope(payload, config, store) { if (!Array.isArray(payload)) return dispatchRpc(payload, config, store); if (!payload.length || payload.length > 100) return rpcError(null, -32600, "Invalid Request"); return payload.map((request) => dispatchRpc(request, config, store)); }
 function presentedApiKey(request) {
   const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
   const protocols = String(request.headers["sec-websocket-protocol"] ?? "").split(",").map((value) => value.trim());
@@ -126,7 +127,7 @@ export function createServer(config, store) {
         response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); }
         if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) });
       }
-      if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpc(await readJsonBody(request), config, store));
+      if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpcEnvelope(await readJsonBody(request), config, store));
       if (request.method !== "GET") return json(response, 405, { error: "method_not_allowed" });
       if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, auditSink.failures); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }
