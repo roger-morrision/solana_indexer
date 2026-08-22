@@ -654,6 +654,13 @@ test("REST v1 paginates stably and rejects invalid cursors", async (t) => {
   assert.equal((await fetch(`${base}/api/v1/blocks?cursor=bad`)).status, 400);
 });
 
+test("REST v1 token and pool catalogs are compact, filterable, and cursor stable", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); store.state.mints = { "mint-b": { transferCount: 2, swapCount: 1, lastSlot: 9, mintInfo: { decimals: 6 } }, "mint-a": { transferCount: 1, swapCount: 0, lastSlot: 8 } }; store.state.pools = { "pool-b": { protocol: "pump-bonding-curve", destinationProtocol: "pump-swap", baseMint: "mint-b", quoteMint: "quote", lifecycleState: { status: "migrated" }, accountSnapshot: { commitment: "finalized", stateSlot: 9, balanceSlot: 10, observedAt: "2026-08-22T00:00:00.000Z", liquidityRaw: "100", tickArrays: [{ payload: "must-not-leak" }] } }, "pool-a": { protocol: "raydium-clmm", baseMint: "mint-a", quoteMint: "quote", lifecycleState: { status: "active" } } };
+  const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const first = await (await fetch(`${base}/api/v1/tokens?limit=1`)).json(), second = await (await fetch(`${base}/api/v1/tokens?limit=1&cursor=${first.nextCursor}`)).json(); assert.deepEqual(first.data.map((row) => row.address), ["mint-a"]); assert.deepEqual(second.data.map((row) => row.address), ["mint-b"]); assert.equal(second.nextCursor, null); assert.equal(second.data[0].decimals, 6);
+  const pools = await (await fetch(`${base}/api/v1/pools?protocol=pump-swap&mint=mint-b&status=migrated`)).json(); assert.deepEqual(pools.data.map((row) => row.address), ["pool-b"]); assert.equal(pools.data[0].snapshot.liquidityRaw, "100"); assert.equal(JSON.stringify(pools).includes("must-not-leak"), false); assert.equal((await fetch(`${base}/api/v1/pools?status=invalid`)).status, 400); assert.equal((await fetch(`${base}/api/v1/pools?cursor=bad`)).status, 400); assert.equal((await fetch(`${base}/api/v1/pools?cursor=${first.nextCursor}`)).status, 400);
+});
+
 test("same-transaction swaps retain unique identities and paginate without loss", async (t) => {
   const input = JSON.parse(await fs.readFile(fixture, "utf8")); input.dexEvents.push({ ...input.dexEvents[0], pool: "second-pool", inputAmountRaw: "7", outputAmountRaw: "9" });
   const block = parseBlock(input); assert.deepEqual(block.swaps.map((row) => row.swapId), ["signature-1:0", "signature-1:1"]);

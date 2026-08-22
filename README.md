@@ -295,6 +295,8 @@ automatically.
 - `GET /api/v1/blocks?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable response envelope)
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps)
+- `GET /api/v1/tokens?limit=100&cursor=...` (compact canonical token catalog)
+- `GET /api/v1/pools?protocol=&mint=&status=&limit=100&cursor=...` (compact lifecycle-aware pool catalog; `status` is `active`, `completed`, `migrated`, or `unknown`)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
 - `GET /api/v1/price/:mint` (exact nominal USD reference via fresh finalized USDC paths)
 - `GET /api/v1/volume/:mint?window=5m|1h|6h|24h` (exact finalized notional; requires a robust reference)
