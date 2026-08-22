@@ -18,7 +18,7 @@ export function validateLocalRpcUrl(value) {
 }
 
 export class LocalValidatorClient {
-  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, now = () => Date.now() } = {}) { this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.now = now; this.id = 0; this.verifiedGenesisHash = null; }
+  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, now = () => Date.now() } = {}) { if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error("Local validator RPC timeout must be a positive integer"); this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.now = now; this.id = 0; this.verifiedGenesisHash = null; }
   async call(method, params = []) {
     if (method !== "getGenesisHash" && this.verifiedGenesisHash == null) throw new Error("Local validator RPC requires genesis verification before data calls");
     const requestId = ++this.id;

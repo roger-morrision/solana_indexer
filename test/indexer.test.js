@@ -950,6 +950,7 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.equal(validateLocalRpcUrl("http://127.0.0.1:8899"), "http://127.0.0.1:8899/");
   assert.throws(() => validateLocalRpcUrl("https://api.mainnet-beta.solana.com"), /must use http/);
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
+  assert.throws(() => new LocalValidatorClient(undefined, { timeoutMs: 0 }), /timeout must be a positive integer/);
 });
 
 test("local validator client correlates concurrent JSON-RPC responses", async () => {
@@ -980,6 +981,7 @@ test("local validator pool honors Retry-After during HTTP 503 maintenance", asyn
 
 test("external RPC pool enforces providers, fails over, and never exposes credential URLs", async () => {
   assert.throws(() => providerPoolFromEnv({}), /HELIUS_RPC_URL and ALCHEMY_RPC_URL/); assert.throws(() => validateProviderUrl("helius", "https://example.com/key"), /invalid helius/);
+  const helius = { name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }; assert.throws(() => new ExternalRpcPool([helius], { timeoutMs: 0 }), /positive integers/); assert.throws(() => new ExternalRpcPool([helius, helius]), /unique names and endpoints/);
   const calls = [], fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body), host = new URL(endpoint).hostname; calls.push([host, request.method]); if (request.method === "getHealth" && endpoint.includes("helius")) throw new Error("offline"); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : "ok" }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl });
   await assert.rejects(() => pool.call("getSlot"), /current provider-complete mainnet genesis/); assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.deepEqual(calls.map(([host]) => host), ["mainnet.helius-rpc.com", "solana-mainnet.g.alchemy.com"]); assert.deepEqual(pool.telemetry().map((row) => row.verifiedGenesisHash), [MAINNET_GENESIS_HASH, MAINNET_GENESIS_HASH]); assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.equal(calls.length, 2); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(pool.provenanceSource, "external-rpc-alchemy"); assert.equal("endpoint" in pool.telemetry()[0], false); assert.equal(JSON.stringify(pool.telemetry()).includes("secret"), false);
 });
