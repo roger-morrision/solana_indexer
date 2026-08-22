@@ -10,6 +10,8 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     dataFile: path.resolve(cwd, env.INDEXER_DATA_FILE || "data/index.json"),
     exporterStatusFile: path.resolve(cwd, env.EXPORTER_STATUS_FILE || "data/exporter-status.json"),
     holderExclusionsFile: env.HOLDER_EXCLUSIONS_FILE ? path.resolve(cwd, env.HOLDER_EXCLUSIONS_FILE) : null,
+    usdDepegReferenceFile: env.USD_DEPEG_REFERENCE_FILE ? path.resolve(cwd, env.USD_DEPEG_REFERENCE_FILE) : null,
+    usdcMaxDeviationBasisPoints: boundedInt(env.USDC_MAX_DEVIATION_BASIS_POINTS, 200, 1, 5_000),
     accountSnapshotFile: path.resolve(cwd, env.ACCOUNT_SNAPSHOT_FILE || "data/account-snapshot.json"),
     clmmPoolSnapshotFile: path.resolve(cwd, env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"),
     auditLogFile: env.INDEXER_AUDIT_LOG_FILE ? path.resolve(cwd, env.INDEXER_AUDIT_LOG_FILE) : null,

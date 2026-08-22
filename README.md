@@ -250,6 +250,8 @@ Configuration:
 | `INDEXER_MAX_EXPORT_LAG_SLOTS` | `512` | Maximum finalized exporter lag before ingestion fails closed |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
+| `USD_DEPEG_REFERENCE_FILE` | unset | Reviewed, expiring exact-rational finalized independent on-chain USDC/USD evidence |
+| `USDC_MAX_DEVIATION_BASIS_POINTS` | `200` | Maximum accepted independent USDC/USD deviation before automation fails closed |
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
 | `INDEXER_AUDIT_LOG_FILE` | unset | Append-only redacted JSONL API audit sink; mandatory for non-loopback binding |
@@ -359,8 +361,14 @@ dominate; thinner edges use the mean and retain explicit manipulation-coverage
 missing signals. Paths with fewer than two venues also retain a
 `multi_venue_twap` missing signal. Amounts and decimal normalization remain
 exact rational integers. These references are suitable for display/research
-only: bot safety remains false until an independent USDC depeg reference and
-manipulation adjustment are self-hosted.
+only unless `USD_DEPEG_REFERENCE_FILE` supplies fresh finalized evidence from an
+independent on-chain oracle. The versioned contract pins mainnet identity,
+source program/account/slot, exact positive rational price, observation and
+expiry times. Missing, malformed, future, expired, non-finalized, or over-limit
+evidence fails bot readiness closed. Robust three-venue price paths plus healthy
+depeg evidence can unlock the price/volume component only; all other bot gates
+still apply. The repository does not synthesize or silently substitute this
+oracle evidence.
 
 All JSON responses include `X-API-Version: 1`. Transfer records expose exact
 `amountRaw` string values plus nullable `decimals` and `amountUiString`; consumers

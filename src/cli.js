@@ -7,9 +7,10 @@ import { IndexStore } from "./store.js";
 import { loadHolderExclusions } from "./holder-exclusions.js";
 import { loadApiTenants } from "./api-tenants.js";
 import { createRedisQuotaAdmitter } from "./redis-quota.js";
+import { loadUsdDepegReference } from "./usd-depeg-reference.js";
 import fs from "node:fs/promises";
 
-const config = loadConfig(), holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), apiTenants = await loadApiTenants(config.apiTenantsFile); config.apiTenants = apiTenants; if (config.distributedQuotaEnabled) { if (!config.redisPasswordFile) throw new Error("REDIS_PASSWORD_FILE is required for distributed quota admission"); const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); config.quotaAdmitter = createRedisQuotaAdmitter({ host: config.redisHost, port: config.redisPort, password, timeoutMs: config.redisQuotaTimeoutMs }); } const store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); const command = process.argv[2] || "serve";
+const config = loadConfig(), holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), usdDepegReference = await loadUsdDepegReference(config.usdDepegReferenceFile), apiTenants = await loadApiTenants(config.apiTenantsFile); config.apiTenants = apiTenants; if (config.distributedQuotaEnabled) { if (!config.redisPasswordFile) throw new Error("REDIS_PASSWORD_FILE is required for distributed quota admission"); const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); config.quotaAdmitter = createRedisQuotaAdmitter({ host: config.redisHost, port: config.redisPort, password, timeoutMs: config.redisQuotaTimeoutMs }); } const store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions, usdDepegReference, config.usdcMaxDeviationBasisPoints); const command = process.argv[2] || "serve";
 await store.load();
 if (command === "index") { console.log(JSON.stringify(await indexInbox(config, store), null, 2)); }
 else if (command === "status") { console.log(JSON.stringify(store.stats(), null, 2)); }
