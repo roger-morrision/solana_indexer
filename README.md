@@ -514,6 +514,9 @@ return redacted unhealthy evidence until an atomic valid replacement appears.
 Dead-letter exception text is likewise normalized and capped before persistence;
 provider URLs, credentials, token-shaped values, and private keys are never part
 of the durable dead-letter or warehouse contract.
+Dead-letter attempts also carry a bounded stage-aware retry schedule. Unchanged
+bytes survive restarts without hot-looping, while changed evidence or a changed
+parser/registry/state identity is eligible immediately.
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is

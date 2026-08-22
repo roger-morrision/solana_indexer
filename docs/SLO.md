@@ -33,6 +33,9 @@ the malformed bytes are never reflected in a response.
 Ingestion and snapshot dead-letter errors are restricted to 512-byte redacted
 diagnostics. URLs, authentication tokens, secret assignments, JWTs, private-key
 blocks, and control characters never enter durable state or warehouse facts.
+Exact-fingerprint failures use persisted exponential retry windows by failure
+stage. Parser/registry/state upgrades and changed source bytes retry immediately,
+while process restarts cannot reset or hot-loop an unchanged failure schedule.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of

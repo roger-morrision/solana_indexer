@@ -152,6 +152,12 @@ enter compatibility state, cycle results, backups, or warehouse facts. Provider
 URLs, bearer/JWT credentials, secret assignments, private-key blocks, control
 characters, and oversized exception text are removed; legacy canonical rows are
 redacted in memory on load and durably replaced on the next successful save.
+Unchanged failures no longer execute on every watch poll. Canonical retry evidence
+binds the exact file fingerprint, failure stage, parser/registry/state identity,
+attempt count, policy version, and next eligible UTC instant. Read failures use a
+short bounded backoff, decoder failures use a longer bounded backoff, and state or
+snapshot application failures use an intermediate schedule. Changed bytes or a
+new decoder identity bypass the old schedule immediately; restart preserves it.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or
