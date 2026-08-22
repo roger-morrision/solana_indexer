@@ -226,6 +226,7 @@ Configuration:
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps)
 - `GET /api/v1/pool/:pool` (exact reserve and execution-price evidence)
 - `GET /api/v1/price/:mint` (exact nominal USD reference via fresh finalized USDC paths)
+- `GET /api/v1/volume/:mint?window=5m|1h|6h|24h` (exact finalized notional; requires a robust reference)
 - `GET /api/v1/candles/:pool?interval=60&limit=300` (exact direction-stable OHLCV)
 - `GET /api/v1/token-account/:address` (latest observed on-chain token balance)
 - `GET /api/v1/holders/:mint?limit=100` (finalized snapshot coverage when available; exclusions disclosed)
