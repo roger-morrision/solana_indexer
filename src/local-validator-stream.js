@@ -33,7 +33,8 @@ export class LocalValidatorStream {
   stop() { if (this.stopped) return this.messageQueue; const source = this.provenanceSource; this.stopped = true; if (this.reconnectTimer != null) { this.cancelReconnect(this.reconnectTimer); this.reconnectTimer = null; } if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } this.socket?.close(); this.socket = null; this.lastError = { at: new Date().toISOString(), message: "validator stream stopped" }; return this.queueStatus(source, false); }
   get endpoint() { return this.endpoints[this.endpointIndex]; }
   get provenanceSource() { return this.endpoints.length === 1 ? "local-agave-pubsub" : `local-agave-pubsub-${this.endpointIndex + 1}`; }
-  queueStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) { this.messageQueue = this.messageQueue.then(() => this.writeStatus(source, connected)).catch((error) => { this.lastError = { at: new Date().toISOString(), message: redactDiagnostic(error, "validator stream status failure") }; }); return this.messageQueue; }
+  get ready() { return this.socket?.readyState === 1 && this.subscriptions.size === 2; }
+  queueStatus(source = this.provenanceSource, connected = this.ready) { this.messageQueue = this.messageQueue.then(() => this.writeStatus(source, connected)).catch((error) => { this.lastError = { at: new Date().toISOString(), message: redactDiagnostic(error, "validator stream status failure") }; }); return this.messageQueue; }
   async authorizeSocket(socket, source) {
     if (this.stopped || socket !== this.socket) return;
     let actual;
@@ -43,26 +44,26 @@ export class LocalValidatorStream {
     if (this.genesisHash != null && actual !== this.genesisHash) throw new Error("validator stream network identity changed");
     this.genesisHash = actual; this.metrics.connections++; this.reconnectMs = this.reconnectMinMs; this.subscriptions.clear(); this.lastError = null;
     for (const [id, commitment] of [[1, "confirmed"], [2, "finalized"]]) socket.send(JSON.stringify({ jsonrpc: "2.0", id, method: "blockSubscribe", params: ["all", { commitment, encoding: "jsonParsed", transactionDetails: "full", maxSupportedTransactionVersion: 0, showRewards: false }] }));
-    await this.writeStatus(source, true);
+    await this.writeStatus(source, false);
   }
   connect() {
     if (this.stopped) return;
     if (this.reconnectTimer != null) { this.cancelReconnect(this.reconnectTimer); this.reconnectTimer = null; }
     if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; }
     const source = this.provenanceSource, socket = new this.WebSocketClass(this.endpoint); this.socket = socket;
-    this.connectTimer = this.scheduleConnectTimeout(() => { this.connectTimer = null; if (this.stopped || socket !== this.socket || socket.readyState === 1) return; this.lastError = { at: new Date().toISOString(), message: "validator stream connection timed out" }; socket.close(); if (socket === this.socket) socket.onclose(); }, this.connectTimeoutMs);
+    this.connectTimer = this.scheduleConnectTimeout(() => { this.connectTimer = null; if (this.stopped || socket !== this.socket || this.ready) return; this.lastError = { at: new Date().toISOString(), message: socket.readyState === 1 ? "validator stream subscription handshake timed out" : "validator stream connection timed out" }; socket.close(); if (socket === this.socket) socket.onclose(); }, this.connectTimeoutMs);
     this.connectTimer?.unref?.();
-    socket.onopen = () => { if (socket !== this.socket) return; if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } this.messageQueue = this.messageQueue.then(() => this.authorizeSocket(socket, source)).catch(async () => { if (this.stopped || socket !== this.socket) return; this.lastError = { at: new Date().toISOString(), message: "validator stream network verification failed" }; await this.writeStatus(source, false); socket.close(); }); };
+    socket.onopen = () => { if (socket !== this.socket) return; this.messageQueue = this.messageQueue.then(() => this.authorizeSocket(socket, source)).catch(async () => { if (this.stopped || socket !== this.socket) return; this.lastError = { at: new Date().toISOString(), message: "validator stream network verification failed" }; await this.writeStatus(source, false); socket.close(); }); };
     socket.onmessage = ({ data }) => { if (socket !== this.socket) return; this.messageQueue = this.messageQueue.then(() => this.handleMessage(data, source)).catch(async (error) => { this.metrics.decodeErrors++; this.lastError = { at: new Date().toISOString(), message: redactDiagnostic(error, "validator stream decode failure") }; await this.writeStatus(source); }); };
     socket.onerror = () => {};
-    socket.onclose = () => { if (this.stopped || socket !== this.socket) return; if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } this.socket = null; this.metrics.reconnects++; if (this.lastError?.message !== "validator stream connection timed out") this.lastError = { at: new Date().toISOString(), message: "validator stream disconnected" }; this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); this.queueStatus(source, false); this.reconnectTimer = this.scheduleReconnect(() => { this.reconnectTimer = null; this.connect(); }, delay); };
+    socket.onclose = () => { if (this.stopped || socket !== this.socket) return; if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } this.socket = null; this.metrics.reconnects++; if (!["validator stream connection timed out", "validator stream subscription handshake timed out"].includes(this.lastError?.message)) this.lastError = { at: new Date().toISOString(), message: "validator stream disconnected" }; this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); this.queueStatus(source, false); this.reconnectTimer = this.scheduleReconnect(() => { this.reconnectTimer = null; this.connect(); }, delay); };
   }
   async handleMessage(data, source = this.provenanceSource) {
     const payload = JSON.parse(String(data));
     if (payload.id === 1 || payload.id === 2) {
       const commitment = payload.id === 1 ? "confirmed" : "finalized", hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
       if (payload.jsonrpc !== "2.0" || hasResult === hasError || !Number.isSafeInteger(payload.result) || payload.result < 0 || this.subscriptions.has(payload.result) || [...this.subscriptions.values()].includes(commitment)) throw new Error(`invalid ${commitment} blockSubscribe acknowledgement`);
-      this.subscriptions.set(payload.result, commitment); return;
+      this.subscriptions.set(payload.result, commitment); if (this.subscriptions.size === 2) { if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } this.lastError = null; await this.writeStatus(source, true); } return;
     }
     if (payload.method !== "blockNotification") return;
     if (payload.jsonrpc !== "2.0") throw new Error("invalid blockNotification JSON-RPC version");
@@ -94,7 +95,7 @@ export class LocalValidatorStream {
     const provenance = { source, genesisHash: this.genesisHash, commitment, observedAt: new Date().toISOString(), sourceTip, exportLagSlots: Math.max(0, sourceTip - slot) };
     await atomicWrite(path.join(this.inbox, `${slot}.${commitment}.json`), { slot, ...block, provenance });
   }
-  async writeStatus(source = this.provenanceSource, connected = this.socket?.readyState === 1) {
+  async writeStatus(source = this.provenanceSource, connected = this.ready) {
     const durableSkippedSlots = [...new Set([...this.durableSkippedSlots, ...this.metrics.skippedSlots])].sort((a, b) => a - b).slice(-10_000); this.durableSkippedSlots = durableSkippedSlots;
     const observedTip = this.lastSlots.confirmed == null ? this.lastSlots.finalized : this.lastSlots.finalized == null ? this.lastSlots.confirmed : Math.max(this.lastSlots.confirmed, this.lastSlots.finalized), finalizationLagSlots = observedTip != null && this.lastSlots.finalized != null ? observedTip - this.lastSlots.finalized : null;
     await atomicWrite(this.statusFile, { version: 2, source, genesisHash: this.genesisHash, commitment: "finalized", observedAt: new Date().toISOString(), connected, cursor: this.lastSlots.finalized, localValidatorTip: observedTip, lagSlots: finalizationLagSlots, lastConfirmedSlot: this.lastSlots.confirmed, lastFinalizedSlot: this.lastSlots.finalized, finalizationLagSlots, consecutiveFailures: this.lastError ? 1 : 0, ...this.metrics, lastError: this.lastError, durableSkippedSlots });
