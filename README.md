@@ -127,7 +127,7 @@ repairs, skipped slots, and the exact active private-node source. Keep `npm run 
 HTTP backfill/recovery process, but do not run both writers against the same
 inbox unless operationally coordinated.
 
-The exporter rejects HTTPS and every non-loopback address. It reads finalized blocks only from `http://127.0.0.1:8899`, strictly correlates each JSON-RPC version and response ID, writes blocks atomically to `inbox/`, and checkpoints its last exported slot. This is self-owned local RPC traffic, not a third-party provider.
+The exporter rejects HTTPS and every non-loopback address. Every reusable local RPC client and pool rejects data calls until its endpoint set has returned one complete consistent verified genesis identity. It reads finalized blocks only from the configured private endpoints, strictly correlates each JSON-RPC version and response ID, writes blocks atomically to `inbox/`, and checkpoints its last exported slot. This is self-owned local RPC traffic, not a third-party provider.
 Each exported block carries source, finalized commitment, observation time, validator tip, and export lag. Export-cycle diagnostics include the bounded skipped-slot list; skipped Solana slots are evidence, not treated as missing blocks.
 
 ### Minimal Docker development validator

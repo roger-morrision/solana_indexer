@@ -17,8 +17,9 @@ export function validateLocalRpcUrl(value) {
 }
 
 export class LocalValidatorClient {
-  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, now = () => Date.now() } = {}) { this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.now = now; this.id = 0; }
+  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000, now = () => Date.now() } = {}) { this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.now = now; this.id = 0; this.verifiedGenesisHash = null; }
   async call(method, params = []) {
+    if (method !== "getGenesisHash" && this.verifiedGenesisHash == null) throw new Error("Local validator RPC requires genesis verification before data calls");
     const requestId = ++this.id;
     const response = await this.fetchImpl(this.endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params }), signal: AbortSignal.timeout(this.timeoutMs) });
     if (!response.ok) { const error = new Error(`local validator ${method}: HTTP ${response.status}`); error.retryAfterMs = response.status === 429 ? retryAfterMs(response.headers?.get?.("retry-after"), this.now()) : null; throw error; }
@@ -26,7 +27,7 @@ export class LocalValidatorClient {
     if (payload?.jsonrpc !== "2.0" || payload.id !== requestId || hasResult === hasError) throw new Error(`local validator ${method}: invalid JSON-RPC response envelope`);
     if (hasError) throw new Error(`local validator ${method}: ${payload.error?.message ?? `RPC ${payload.error?.code ?? "unknown"}`}`); return payload.result;
   }
-  async assertGenesis(expected = MAINNET_GENESIS_HASH) { const actual = await this.call("getGenesisHash"); if (expected !== "any" && actual !== expected) throw new Error(`validator genesis mismatch: expected ${expected}, received ${actual}`); return actual; }
+  async assertGenesis(expected = MAINNET_GENESIS_HASH) { const actual = await this.call("getGenesisHash"); if (expected !== "any" && actual !== expected) { this.verifiedGenesisHash = null; throw new Error(`validator genesis mismatch: expected ${expected}, received ${actual}`); } this.verifiedGenesisHash = actual; return actual; }
 }
 
 export class LocalValidatorPool {
@@ -38,11 +39,18 @@ export class LocalValidatorPool {
     this.nodes = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, { ...clientOptions, now }), name = `local-agave-rpc-${index + 1}`; client.provenanceSource = name; return { name, client, failures: 0, openUntil: 0, calls: 0, errors: 0 }; }); this.failureThreshold = failureThreshold; this.cooldownMs = cooldownMs; this.now = now; this.provenanceSource = this.nodes[0].name;
   }
   async assertGenesis(expected = MAINNET_GENESIS_HASH) {
-    const hashes = await Promise.all(this.nodes.map(({ client }) => client.assertGenesis(expected)));
-    if (new Set(hashes).size !== 1) throw new Error("local validator pool genesis mismatch");
-    return hashes[0];
+    const hashes = [];
+    try {
+      for (const { client } of this.nodes) hashes.push(await client.assertGenesis(expected));
+      if (new Set(hashes).size !== 1) throw new Error("inconsistent validator genesis identities");
+      return hashes[0];
+    } catch {
+      for (const { client } of this.nodes) client.verifiedGenesisHash = null;
+      throw new Error("local validator pool genesis verification failed");
+    }
   }
   async call(method, params = []) {
+    if (this.nodes.some(({ client }) => client.verifiedGenesisHash == null) || new Set(this.nodes.map(({ client }) => client.verifiedGenesisHash)).size !== 1) throw new Error("Local validator pool requires complete consistent genesis verification before data calls");
     const errors = [];
     for (const node of this.nodes) {
       if (node.openUntil > this.now()) continue;
