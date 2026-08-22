@@ -644,9 +644,13 @@ read barrier from curve state to Global configuration. It persists the current
 115-byte `BondingCurve` serialized prefix (including the current 150-byte
 zero-padded allocation) for reserves/completion/creator/mode/quote-mint and
 the current 1,045-byte `Global` authority, fee-recipient, migration, mode and
-quote-mint policy contract without relying on trade logs. Run
+quote-mint policy contract plus the Pump-program-keyed Fees `FeeConfig` without
+relying on trade logs. Imported snapshots bind analysis-only sell quotes to
+fresh finalized reserves, completion state and market-cap fee tiers; SOL/default
+quote identity is normalized explicitly and unsupported cashback/buyback modes
+fail closed. Run
 `npm run snapshot:pump-bonding-curves -- <MINT_ADDRESS...>` against the loopback
-mainnet validator. Canonical store import and route binding remain fail-closed.
+mainnet validator.
 
 The PumpSwap snapshot decoder additionally binds the official Anchor `Pool`
 account discriminator and 261-byte field layout, including pool index, creator,

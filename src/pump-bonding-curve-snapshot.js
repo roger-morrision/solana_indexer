@@ -5,7 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
-import { derivePumpBondingCurve, derivePumpGlobal, PUMP_PROGRAM } from "./pump-swap-pool-snapshot.js";
+import { decodePumpSwapFeeConfigAccount, derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, PUMP_PROGRAM } from "./pump-swap-pool-snapshot.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { IndexStore } from "./store.js";
 
@@ -41,9 +41,9 @@ export async function createPumpBondingCurveSnapshot({ client, mints, genesisHas
   if (!Array.isArray(mints) || !mints.length || new Set(mints).size !== mints.length) throw new Error("Pump bonding-curve mints must be unique non-empty addresses");
   const addresses = mints.map((mint) => derivePumpBondingCurve(mint).address), stateResponse = await getMultipleAccountsBatched(client, addresses, { commitment: "finalized", encoding: "base64" }, { label: "Pump bonding curve" }), stateSlot = stateResponse?.context?.slot;
   if (!Number.isSafeInteger(stateSlot) || stateResponse.value?.length !== addresses.length) throw new Error("invalid Pump bonding-curve account response");
-  const curves = mints.map((mint, index) => decodePumpBondingCurveAccount(mint, addresses[index], stateResponse.value[index])), globalAddress = derivePumpGlobal().address, configResponse = await getMultipleAccountsBatched(client, [globalAddress], { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }, { label: "Pump Global" }), configSlot = configResponse?.context?.slot;
-  if (!Number.isSafeInteger(configSlot) || configSlot < stateSlot || configResponse.value?.length !== 1) throw new Error("invalid Pump Global response");
-  return { schemaVersion: 1, type: "pump_bonding_curve_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, configSlot, observedAt, global: decodePumpGlobalAccount(globalAddress, configResponse.value[0]), curves };
+  const curves = mints.map((mint, index) => decodePumpBondingCurveAccount(mint, addresses[index], stateResponse.value[index])), globalAddress = derivePumpGlobal().address, feeConfigAddress = derivePumpFeeConfig(PUMP_PROGRAM).address, configResponse = await getMultipleAccountsBatched(client, [globalAddress, feeConfigAddress], { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }, { label: "Pump configuration" }), configSlot = configResponse?.context?.slot;
+  if (!Number.isSafeInteger(configSlot) || configSlot < stateSlot || configResponse.value?.length !== 2) throw new Error("invalid Pump configuration response");
+  return { schemaVersion: 1, type: "pump_bonding_curve_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, configSlot, observedAt, global: decodePumpGlobalAccount(globalAddress, configResponse.value[0]), feeConfig: decodePumpSwapFeeConfigAccount(feeConfigAddress, configResponse.value[1]), curves };
 }
 
 async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }

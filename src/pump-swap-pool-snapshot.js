@@ -33,7 +33,8 @@ function findProgramAddress(seeds, programId) { const program = base58Bytes(prog
 export function derivePumpPoolAuthority(baseMint) { return findProgramAddress([Buffer.from("pool-authority"), base58Bytes(baseMint)], PUMP_PROGRAM); }
 export function derivePumpBondingCurve(baseMint) { return findProgramAddress([Buffer.from("bonding-curve"), base58Bytes(baseMint)], PUMP_PROGRAM); }
 export function derivePumpGlobal() { return findProgramAddress([Buffer.from("global")], PUMP_PROGRAM); }
-export function derivePumpSwapFeeConfig() { return findProgramAddress([Buffer.from("fee_config"), base58Bytes(PUMP_SWAP_PROGRAM)], PUMP_FEE_PROGRAM); }
+export function derivePumpFeeConfig(programId) { return findProgramAddress([Buffer.from("fee_config"), base58Bytes(programId)], PUMP_FEE_PROGRAM); }
+export function derivePumpSwapFeeConfig() { return derivePumpFeeConfig(PUMP_SWAP_PROGRAM); }
 export function derivePumpSwapGlobalConfig() { return findProgramAddress([Buffer.from("global_config")], PUMP_SWAP_PROGRAM); }
 export function derivePumpSwapEventAuthority() { return findProgramAddress([Buffer.from("__event_authority")], PUMP_SWAP_PROGRAM); }
 export function derivePumpSwapGlobalVolumeAccumulator() { return findProgramAddress([Buffer.from("global_volume_accumulator")], PUMP_SWAP_PROGRAM); }
