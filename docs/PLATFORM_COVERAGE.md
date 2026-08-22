@@ -61,6 +61,8 @@ Meteora execution detail: legacy-SPL quotes confined to the finalized default
 bitmap now have official-ABI-bound unsigned `swap`/`swap2` construction and
 local simulation with exact instruction policy and token-effect bounds.
 Fee-only Token-2022 routes bind their two token programs, Memo, finalized fee
-evidence, and an empty transfer-hook slice vector. Transfer hooks, other
-extensions, extension-bitmap paths, external signing, submission, and
-automation remain fail closed.
+evidence, and an empty transfer-hook slice vector. Capped expiring external
+approval, Ed25519 verification, and finalized landed-message identity complete
+the read-only execution chain. Transfer hooks, other extensions, and
+extension-bitmap paths fail closed; the indexer never signs or submits and
+automation remains disabled.

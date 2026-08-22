@@ -47,8 +47,11 @@ quoted arrays fit the finalized default bitmap now support official-ABI-bound
 unsigned `swap` construction and hash/policy/token-effect-bound local
 simulation. Fee-only Token-2022 pools use `swap2`, direction-specific token
 programs, Memo, and a canonically empty remaining-account slice vector. Transfer
-hooks, other Token-2022 extensions, extension-bitmap routes, external signing,
-submission, and automation remain fail closed.
+hooks, other Token-2022 extensions, and extension-bitmap routes remain fail
+closed. Hash-bound, capped, expiring requests can be externally signed and
+cryptographically verified, and landed transactions require finalized
+byte-identical message evidence; the indexer still never signs or submits and
+automation remains disabled.
 
 ## Known limits
 
