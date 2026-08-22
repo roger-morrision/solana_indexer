@@ -99,7 +99,7 @@ function keyMatches(presented, configured) {
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
 function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots, warehouseCheckpoint, warehouseStaleAfterMs, maxWarehouseLagEvents, auditFailures = 0, webSocketStats = {}) {
-  const health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, Date.now(), maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), stats = store.stats(), lines = [
+  const structure = store.structureQuality(), health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, Date.now(), maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), stats = store.stats(), lines = [
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
@@ -112,6 +112,12 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# HELP terminal_dex_index_healthy Whether the canonical index meets freshness and chain checks.",
     "# TYPE terminal_dex_index_healthy gauge",
     `terminal_dex_index_healthy ${health.healthy ? 1 : 0}`,
+    "# HELP terminal_dex_index_state_quarantined Whether persisted index state is isolated from serving and mutation.",
+    "# TYPE terminal_dex_index_state_quarantined gauge",
+    `terminal_dex_index_state_quarantined ${structure.canonical ? 0 : 1}`,
+    "# HELP terminal_dex_index_state_invalid_fields Number of invalid top-level persisted-state collections; zero for syntax-invalid JSON.",
+    "# TYPE terminal_dex_index_state_invalid_fields gauge",
+    `terminal_dex_index_state_invalid_fields ${structure.fields.length}`,
     "# HELP terminal_dex_index_age_seconds Age of the newest indexed block.",
     "# TYPE terminal_dex_index_age_seconds gauge",
     `terminal_dex_index_age_seconds ${health.ageMs == null ? "NaN" : health.ageMs / 1000}`,

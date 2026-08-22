@@ -183,6 +183,9 @@ dead-letter lifecycle evidence, or invalid reorg corrections block the entire
 run before a file is removed. Isolated recovery qualification also stops at the
 quarantine boundary before reading downstream sink evidence or creating a
 consumer-enablement report, so an empty diagnostic shell cannot qualify.
+Credential-free Prometheus telemetry distinguishes quarantine from ordinary
+freshness failures and reports only the invalid top-level collection count; a
+dedicated critical alert pages while all dependent operations remain suspended.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,

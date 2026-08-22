@@ -7,6 +7,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | Signal | Objective | Fail-closed action |
 |---|---:|---|
 | Canonical feed availability | 99.9% monthly | trading-bot readiness returns unavailable |
+| Persisted-state integrity | no quarantine transition | page immediately; suspend serving, writers, sink publication, retention deletion and recovery qualification while preserving source evidence |
 | Complete execution snapshot | 100% of automation-ready responses | event-only, stale, or mismatched mint evidence blocks bot readiness |
 | Newest finalized block age | <=120 seconds for 99.9% of minutes | page and bot responses disclose stale data |
 | Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
@@ -23,6 +24,10 @@ zero-lag warehouse convergence, a healthy finalized exporter, and elapsed restor
 so a prior successful rehearsal cannot be silently overwritten.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
+It exports a dedicated binary persisted-state quarantine signal and the count of
+invalid top-level collections. Syntax-invalid JSON reports quarantine with zero
+named fields, preserving the redacted diagnostic boundary. The quarantine alert
+is intentionally distinct from ordinary stale/unhealthy index alerts.
 It includes active WebSocket clients plus cumulative capacity rejections,
 slow-consumer evictions, and protocol-error closes so saturation and abusive
 or incompatible clients are observable without logging credentials.

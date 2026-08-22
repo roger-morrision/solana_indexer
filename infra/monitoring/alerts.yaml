@@ -11,6 +11,11 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations: { summary: "Canonical Solana index is stale or unhealthy" }
+      - alert: TerminalDexIndexStateQuarantined
+        expr: terminal_dex_index_state_quarantined == 1
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Persisted index state is quarantined; serving, ingestion, publication, cleanup, and recovery qualification are suspended" }
       - alert: TerminalDexDeadLetters
         expr: terminal_dex_dead_letters > 0
         for: 10m
