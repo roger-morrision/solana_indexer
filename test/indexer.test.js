@@ -25,6 +25,7 @@ import { reducedPreflight } from "../src/reduced-preflight.js";
 import { compileHolderExclusions } from "../src/holder-exclusions.js";
 import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
+import { buildCommercialSyncSql } from "../src/postgres-commercial-sync.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -761,6 +762,11 @@ test("protected API fails closed after its durable audit sink fails", async (t) 
 test("API audit retention is tenant-aware, dry-run-first, validated, and atomic", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-api-audit-retention-")), filename = path.join(root, "audit.jsonl"), now = Date.parse("2026-08-22T00:00:00.000Z"), rows = [{ schemaVersion: 1, observedAt: "2026-08-01T00:00:00.000Z", retentionDays: 7, tenantId: "short" }, { schemaVersion: 1, observedAt: "2026-08-01T00:00:00.000Z", retentionDays: 90, tenantId: "long" }, { schemaVersion: 1, observedAt: "2026-08-21T00:00:00.000Z", tenantId: null }]; await fs.writeFile(filename, `${rows.map(JSON.stringify).join("\n")}\n`);
   const preview = await retainApiAudit({ filename, defaultRetentionDays: 30, now }); assert.deepEqual(preview, { available: true, confirmRequired: true, retained: 2, eligible: 1, deleted: 0 }); assert.equal((await fs.readFile(filename, "utf8")).trim().split("\n").length, 3); const applied = await retainApiAudit({ filename, defaultRetentionDays: 30, now, confirm: true }); assert.equal(applied.deleted, 1); assert.deepEqual((await fs.readFile(filename, "utf8")).trim().split("\n").map(JSON.parse).map((row) => row.tenantId), ["long", null]); await fs.writeFile(filename, "not-json\n"); await assert.rejects(retainApiAudit({ filename, now, confirm: true }), /invalid audit JSON at line 1/); assert.equal(await fs.readFile(filename, "utf8"), "not-json\n");
+});
+
+test("commercial sync deterministically upserts hash-only tenants and hourly usage", () => {
+  const hash = crypto.createHash("sha256").update("secret").digest("hex"), registry = compileApiTenants({ schemaVersion: 1, tenants: [{ id: "tenant-a", status: "active", plan: "pro", rateLimitPerMinute: 100, retentionDays: 30, keys: [{ hash }] }] }), audit = [{ schemaVersion: 1, observedAt: "2026-08-22T01:10:00.000Z", tenantId: "tenant-a", path: "/api/v1/price/token", statusCode: 200, durationMs: 1.25 }, { schemaVersion: 1, observedAt: "2026-08-22T01:20:00.000Z", tenantId: "tenant-a", path: "/api/v1/price/token", statusCode: 201, durationMs: 2.5 }, { schemaVersion: 1, observedAt: "2026-08-22T02:00:00.000Z", tenantId: "tenant-a", path: "/api/stats?quoted='", statusCode: 429, durationMs: 3 }].map(JSON.stringify).join("\n"), sql = buildCommercialSyncSql(registry, audit);
+  assert.match(sql, /BEGIN;/); assert.match(sql, /api_tenants/); assert.match(sql, /api_key_hashes/); assert.match(sql, new RegExp(hash)); assert.match(sql, /2026-08-22T01:00:00\.000Z'.*'\/api\/v1\/price\/token'.*2, 2, 3\.75/s); assert.match(sql, /\/api\/stats\?quoted='''/); assert.match(sql, /ON CONFLICT \(tenant_id, bucket_start, route, status_class\) DO UPDATE/); assert.ok(sql.endsWith("COMMIT;\n")); assert.equal(sql.includes("secret"), false); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "unknown", path: "/", statusCode: 200, durationMs: 1 })), /invalid tenant usage audit/);
 });
 
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {

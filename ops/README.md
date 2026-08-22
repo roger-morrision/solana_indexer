@@ -23,3 +23,9 @@ state, so run it only on an isolated recovery environment with consumers and
 indexer services stopped. After restore, reconcile finalized slots against the
 local Agave node and exercise API/feed checks before promoting the environment.
 Perform and record a quarterly recovery rehearsal against the documented RTO.
+
+For commercial metering, configure PostgreSQL through a protected `PGPASSFILE`
+or equivalent `PG*` environment and run `npm run sync:commercial` on a supervised
+schedule. The worker validates the full hash-only tenant registry and retained
+redacted audit log before issuing one transaction; it never accepts a database
+URL argument or prints credentials.

@@ -2,13 +2,14 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 
 const HASH = /^[0-9a-f]{64}$/;
+const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 function iso(value) { return value == null ? null : Number.isFinite(Date.parse(value)) ? value : false; }
 
 export function compileApiTenants(document) {
   const observedAt = iso(document?.observedAt); if (document?.schemaVersion !== 1 || !Array.isArray(document.tenants) || !document.tenants.length || observedAt === false) throw new Error("invalid API tenant registry");
   const ids = new Set(), hashes = new Set(), tenants = [];
   for (const row of document.tenants) {
-    if (!row || typeof row.id !== "string" || !row.id || ids.has(row.id) || !["active", "suspended"].includes(row.status) || typeof row.plan !== "string" || !row.plan || !Number.isInteger(row.rateLimitPerMinute) || row.rateLimitPerMinute < 1 || row.rateLimitPerMinute > 100_000 || !Number.isInteger(row.retentionDays) || row.retentionDays < 1 || row.retentionDays > 3_650 || !Array.isArray(row.keys) || !row.keys.length) throw new Error("invalid API tenant row");
+    if (!row || !NAME.test(row.id ?? "") || ids.has(row.id) || !["active", "suspended"].includes(row.status) || !NAME.test(row.plan ?? "") || !Number.isInteger(row.rateLimitPerMinute) || row.rateLimitPerMinute < 1 || row.rateLimitPerMinute > 100_000 || !Number.isInteger(row.retentionDays) || row.retentionDays < 1 || row.retentionDays > 3_650 || !Array.isArray(row.keys) || !row.keys.length) throw new Error("invalid API tenant row");
     const keys = row.keys.map((key) => { const activatesAt = iso(key?.activatesAt), expiresAt = iso(key?.expiresAt); if (!HASH.test(key?.hash ?? "") || hashes.has(key.hash) || activatesAt === false || expiresAt === false || (activatesAt && expiresAt && Date.parse(activatesAt) >= Date.parse(expiresAt))) throw new Error("invalid API tenant key"); hashes.add(key.hash); return { hash: key.hash, activatesAt, expiresAt }; });
     ids.add(row.id); tenants.push({ id: row.id, status: row.status, plan: row.plan, rateLimitPerMinute: row.rateLimitPerMinute, retentionDays: row.retentionDays, keys });
   }
