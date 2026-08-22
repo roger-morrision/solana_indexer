@@ -71,6 +71,8 @@ Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 Versioned Redis hot-state stats carry the same chain and genesis identity, and
 content reconciliation rejects missing or mismatched cache identity.
+ClickHouse sequence, fact-count, and identity-digest probes are explicitly
+scoped to canonical `solana-mainnet` rows.
 
 ## Known limits
 
