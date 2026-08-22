@@ -15,7 +15,7 @@ import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, reco
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot } from "../src/account-snapshot.js";
 import { getMultipleAccountsBatched, MAX_GET_MULTIPLE_ACCOUNTS } from "../src/rpc-account-batch.js";
-import { createClmmPoolSnapshot, decodeClmmBitmapExtensionAccount, decodeClmmBitmapExtensionIndexes, decodeClmmPoolAccount, decodeClmmTickArrayAccount, fetchClmmTickCoverage, parseClmmBitmapExtensionMap, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
+import { createClmmPoolSnapshot, decodeClmmAmmConfigAccount, decodeClmmBitmapExtensionAccount, decodeClmmBitmapExtensionIndexes, decodeClmmPoolAccount, decodeClmmTickArrayAccount, fetchClmmTickCoverage, parseClmmBitmapExtensionMap, parseClmmTickArrayMap, RAYDIUM_CLMM_PROGRAM } from "../src/clmm-pool-snapshot.js";
 import { createOrcaPoolSnapshot, decodeOrcaTickArrayAccount, decodeOrcaWhirlpoolAccount, ORCA_WHIRLPOOL_PROGRAM } from "../src/orca-pool-snapshot.js";
 import { runReplayLoadValidation } from "../src/replay-load-validation.js";
 import { preflightBackup } from "../src/backup-preflight.js";
@@ -194,6 +194,12 @@ test("finalized Raydium CLMM snapshots decode canonical pool state and vault bal
   assert.throws(() => store.applyPoolSnapshot({ ...snapshot, observedAt: "invalid" }), /invalid finalized mainnet CLMM pool snapshot/);
   assert.throws(() => store.applyPoolSnapshot({ ...snapshot, genesisHash: "devnet" }), /invalid finalized mainnet CLMM pool snapshot/);
   const extensionData = Buffer.alloc(1_832); crypto.createHash("sha256").update("account:TickArrayBitmapExtension").digest().copy(extensionData, 0, 0, 8); poolBytes.copy(extensionData, 8); let reads = 0; const mixedDependency = { call: async (method, params) => { reads++; if (reads === 1) return { context: { slot: 500 }, value: [account] }; if (reads === 2) return { context: { slot: 502 }, value: [{ owner: RAYDIUM_CLMM_PROGRAM, data: [extensionData.toString("base64"), "base64"] }] }; assert.equal(params[1].minContextSlot, 502); return { context: { slot: 501 }, value: [] }; } }; await assert.rejects(createClmmPoolSnapshot({ client: mixedDependency, pools: [poolAddress], bitmapExtensions: { [poolAddress]: "extension" }, genesisHash: MAINNET_GENESIS_HASH }), /invalid CLMM vault account response/);
+});
+
+test("Raydium CLMM AmmConfig binds exact static fee policy", () => {
+  const data = Buffer.alloc(117); crypto.createHash("sha256").update("account:AmmConfig").digest().copy(data, 0, 0, 8); data[8] = 255; data.writeUInt16LE(7, 9); Buffer.alloc(32, 3).copy(data, 11); data.writeUInt32LE(120_000, 43); data.writeUInt32LE(3_000, 47); data.writeUInt16LE(64, 51); data.writeUInt32LE(40_000, 53); Buffer.alloc(32, 4).copy(data, 61); const account = { owner: RAYDIUM_CLMM_PROGRAM, data: [data.toString("base64"), "base64"] }, decoded = decodeClmmAmmConfigAccount("config-a", account);
+  assert.deepEqual({ index: decoded.index, protocolFeeRate: decoded.protocolFeeRate, tradeFeeRate: decoded.tradeFeeRate, tickSpacing: decoded.tickSpacing, fundFeeRate: decoded.fundFeeRate }, { index: 7, protocolFeeRate: 120_000, tradeFeeRate: 3_000, tickSpacing: 64, fundFeeRate: 40_000 }); assert.match(decoded.rawPayloadHash, /^[0-9a-f]{64}$/);
+  const invalid = Buffer.from(data); invalid.writeUInt32LE(1_000_000, 47); assert.throws(() => decodeClmmAmmConfigAccount("config-a", { ...account, data: [invalid.toString("base64"), "base64"] }), /invalid fee/); assert.throws(() => decodeClmmAmmConfigAccount("config-a", { ...account, owner: "untrusted" }), /unexpected owner/);
 });
 
 test("finalized Orca snapshots bind canonical Whirlpool state and vault balances", async () => {
