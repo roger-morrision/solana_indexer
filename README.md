@@ -559,11 +559,12 @@ mainnet validator; missing or stale discovered pools are also scheduled through
 the leased operational worker and imported content-addressedly by index cycles.
 Its exact-input quote subtracts accrued protocol, fund, and creator fees from
 spendable reserves and mirrors ceiling-rounded fee-on-input/output behavior.
-Token-2022 pools fail closed until mint-extension transfer-fee schedules and the
-finalized epoch are captured. The shared exact fee primitive already implements
+Account snapshots capture Token-2022 mint-extension transfer-fee schedules and
+select the active fee at the exact finalized epoch/slot. The shared exact fee primitive implements
 the program's ceiling-rounded basis-point fee, maximum cap, older/newer epoch
 selection, and inverse gross-for-net calculation with u64 overflow checks; it is
-not connected to routes without that authoritative evidence. Quotes share the
+not connected to routes until pool snapshots bind that authoritative mint evidence
+and any transfer-hook accounts. Quotes share the
 analysis-only internal pool endpoint and are never labeled as executable routes.
 
 The shared quote endpoint dispatches only snapshots whose canonical program ID
