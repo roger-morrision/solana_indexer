@@ -385,7 +385,9 @@ retention. `CreateAccountAllowPrefund` evidence can appear only after its
 cluster feature is active and a transaction succeeds.
 `/internal/wallets/:address/funding-cluster` deterministically lists other
 retained-history recipients funded by the wallet's direct native-transfer
-funders. It exposes evidence—not a sybil label—and keeps `classification: null`,
+funders and, separately per mint, owner-bound SPL/Token-2022 funders. Token raw
+amounts are never aggregated across mints. It exposes evidence—not a sybil
+label—and keeps `classification: null`,
 `complete: false`, and `safeForAutomation: false` until complete native/token
 history and reviewed entity labels exist.
 
