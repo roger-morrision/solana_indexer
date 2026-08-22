@@ -241,6 +241,7 @@ Configuration:
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
+| `ORCA_POOL_SNAPSHOT_FILE` | `data/orca-pool-snapshot.json` | Atomic finalized Orca Whirlpool state/vault evidence |
 | `CLMM_TICK_ARRAYS_JSON` | unset | Optional JSON map of requested Raydium CLMM pool addresses to unique tick-array addresses; captures pool-bound finalized headers only and does not enable routing |
 | `CLMM_BITMAP_EXTENSIONS_JSON` | unset | Optional JSON map of Raydium CLMM pool addresses to unique overflow bitmap-extension addresses; captures pool-bound finalized raw segments without claiming executable coverage |
 | `INDEXER_HOST` | `127.0.0.1` | API bind address |
@@ -465,6 +466,14 @@ Liquidity risk reports snapshot age and fails closed with
 `liquidity_state_stale` once the configured freshness threshold is exceeded.
 Future-dated block, exporter, market, and pool-snapshot timestamps are treated
 as clock-skew failures rather than being clamped to zero age.
+
+Orca Whirlpools use the same fail-closed separation between event and account
+evidence. `npm run snapshot:orca-pools -- <POOL_ADDRESS...>` decodes the official
+fixed Whirlpool layout, verifies its program owner, and reads both embedded vaults
+at a finalized context no older than the pool state. Mint mismatches, mixed order,
+duplicate targets, malformed layouts, and regressing or conflicting snapshots are
+rejected before canonical state changes. Missing tick-array evidence still blocks
+claims of executable routing depth.
 
 PumpSwap program `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` is also
 supported. Its official Anchor `BuyEvent` and `SellEvent` logs normalize into

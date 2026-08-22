@@ -14,6 +14,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     usdcMaxDeviationBasisPoints: boundedInt(env.USDC_MAX_DEVIATION_BASIS_POINTS, 200, 1, 5_000),
     accountSnapshotFile: path.resolve(cwd, env.ACCOUNT_SNAPSHOT_FILE || "data/account-snapshot.json"),
     clmmPoolSnapshotFile: path.resolve(cwd, env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"),
+    orcaPoolSnapshotFile: path.resolve(cwd, env.ORCA_POOL_SNAPSHOT_FILE || "data/orca-pool-snapshot.json"),
     auditLogFile: env.INDEXER_AUDIT_LOG_FILE ? path.resolve(cwd, env.INDEXER_AUDIT_LOG_FILE) : null,
     apiTenantsFile: env.INDEXER_API_TENANTS_FILE ? path.resolve(cwd, env.INDEXER_API_TENANTS_FILE) : null,
     warehouseCheckpointFile: path.resolve(cwd, env.INDEXER_WAREHOUSE_CHECKPOINT_FILE || "data/warehouse-checkpoint.json"),
