@@ -80,6 +80,12 @@ provenance, execution-status, fee, payer, account and log-count evidence.
 Malformed collections return an explicit unavailable contract rather than
 leaking partially trusted rows.
 
+Persisted instruction facts are revalidated against their canonical parent
+transaction and block before readiness or warehouse export. Stable event
+identity, location indexes, registry/decoder versions, payload hash, structured
+payload shape and exact provenance must all agree across the relationship;
+duplicate or detached instruction identities fail the complete collection.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether
