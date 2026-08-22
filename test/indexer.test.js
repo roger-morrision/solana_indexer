@@ -1116,6 +1116,7 @@ test("exporter health rejects invalid progress evidence", async () => {
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: "42", lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "invalid_cursor");
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 42, lagSlots: -1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "invalid_lag");
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 43, localValidatorTip: 42, lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "cursor_ahead_of_tip");
+  await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 42, localValidatorTip: 52, lagSlots: 0 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt))).reason, "inconsistent_progress");
   await fs.writeFile(statusFile, JSON.stringify({ ...base, cursor: 42, localValidatorTip: 642, lagSlots: 600 })); const lagging = await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt), 512); assert.equal(lagging.reason, "exporter_lagging"); assert.equal(lagging.maxLagSlots, 512);
 });
 
