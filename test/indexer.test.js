@@ -24,6 +24,7 @@ import { archiveInbox } from "../src/inbox-archive.js";
 import { reducedPreflight } from "../src/reduced-preflight.js";
 import { compileHolderExclusions } from "../src/holder-exclusions.js";
 import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
+import { retainApiAudit } from "../src/api-audit-retention.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -755,6 +756,11 @@ test("API authentication and quotas fail closed", async (t) => {
 test("protected API fails closed after its durable audit sink fails", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-api-audit-failure-")), blockingFile = path.join(root, "not-a-directory"); await fs.writeFile(blockingFile, "blocked"); const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000, auditLogFile: path.join(blockingFile, "audit.jsonl") }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/api/stats`;
   assert.equal((await fetch(endpoint)).status, 200); await server.auditSink.flush(); assert.equal(server.auditSink.failures, 1); const blocked = await fetch(endpoint); assert.equal(blocked.status, 503); assert.equal((await blocked.json()).error, "audit_sink_unavailable");
+});
+
+test("API audit retention is tenant-aware, dry-run-first, validated, and atomic", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-api-audit-retention-")), filename = path.join(root, "audit.jsonl"), now = Date.parse("2026-08-22T00:00:00.000Z"), rows = [{ schemaVersion: 1, observedAt: "2026-08-01T00:00:00.000Z", retentionDays: 7, tenantId: "short" }, { schemaVersion: 1, observedAt: "2026-08-01T00:00:00.000Z", retentionDays: 90, tenantId: "long" }, { schemaVersion: 1, observedAt: "2026-08-21T00:00:00.000Z", tenantId: null }]; await fs.writeFile(filename, `${rows.map(JSON.stringify).join("\n")}\n`);
+  const preview = await retainApiAudit({ filename, defaultRetentionDays: 30, now }); assert.deepEqual(preview, { available: true, confirmRequired: true, retained: 2, eligible: 1, deleted: 0 }); assert.equal((await fs.readFile(filename, "utf8")).trim().split("\n").length, 3); const applied = await retainApiAudit({ filename, defaultRetentionDays: 30, now, confirm: true }); assert.equal(applied.deleted, 1); assert.deepEqual((await fs.readFile(filename, "utf8")).trim().split("\n").map(JSON.parse).map((row) => row.tenantId), ["long", null]); await fs.writeFile(filename, "not-json\n"); await assert.rejects(retainApiAudit({ filename, now, confirm: true }), /invalid audit JSON at line 1/); assert.equal(await fs.readFile(filename, "utf8"), "not-json\n");
 });
 
 test("internal evidence API exposes missing fields and immutable provenance contract", async (t) => {

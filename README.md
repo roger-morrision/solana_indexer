@@ -204,6 +204,7 @@ Configuration:
 | `INDEXER_API_KEYS` | empty | Comma-separated API keys; mandatory for non-loopback binding |
 | `INDEXER_RATE_LIMIT_PER_MINUTE` | `600` | Per-key or per-socket-address request ceiling |
 | `INDEXER_AUDIT_LOG_FILE` | unset | Append-only redacted JSONL API audit sink; mandatory for non-loopback binding |
+| `INDEXER_AUDIT_RETENTION_DAYS` | `30` | Default validated audit retention; tenant plans may override it |
 | `INDEXER_API_TENANTS_FILE` | unset | Reviewed hash-only tenant/key registry with rotation windows and plan quotas |
 | `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |
 | `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
@@ -404,6 +405,7 @@ they are never mislabeled as PumpSwap AMM reserves.
 - `npm run reconcile:dead-letters` previews historical dead letters eligible for exact-checkpoint reconciliation. Use `-- --confirm` only after reviewing the IDs; the command never retries or rewrites raw events.
 - Health returns HTTP 503 with `empty` until a block is indexed, and HTTP 503 with `stale` when the newest canonical block timestamp is old. Importing historical fixtures cannot produce a false healthy state.
 - `npm run retention:inbox` previews old raw inbox files eligible for deletion. It only selects parser-v2 checkpointed files whose current SHA-256 matches both the checkpoint and the last successfully uploaded self-hosted archive receipt, and excludes unresolved dead letters. `ops/backup.sh` installs that receipt only after the manifest and archive uploads succeed. Rerun with `-- --confirm-delete`; deletion is never implicit.
+- `npm run retention:audit` validates every JSONL audit record and previews tenant-aware expiration. Rerun with `-- --confirm-delete` only after review; the retained log is replaced atomically and malformed input blocks all deletion.
 - Health also fails closed with `chain_conflict` when an indexed block's previous hash disagrees with its indexed parent. `/api/stats` exposes the bounded conflict evidence.
 - The bot-readiness endpoint returns HTTP 503 until canonical finalized provenance, decoded swaps, liquidity, prices, and risk signals are all available and the index is healthy.
 - Pool risk currently measures data quality only. Even mature two-way history remains blocked for automated trading until mint/freeze authority, holder concentration, and manipulation evidence are indexed.

@@ -11,6 +11,7 @@
     "health:public-rpc": "node src/external-rpc.js --health-public",
     "health:exporter": "node src/exporter-health.js",
     "retention:inbox": "node src/inbox-retention.js",
+    "retention:audit": "node src/api-audit-retention.js",
     "archive:inbox": "node src/inbox-archive.js",
     "reconcile:dead-letters": "node src/dead-letter-reconcile.js",
     "stream": "node src/local-validator-stream.js",
