@@ -241,6 +241,15 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
 });
 
+test("local validator client correlates concurrent JSON-RPC responses", async () => {
+  const fetchImpl = async (_endpoint, options) => { const request = JSON.parse(options.body); await new Promise((resolve) => setTimeout(resolve, request.method === "slow" ? 5 : 0)); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method }) }; };
+  const client = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl, timeoutMs: 1_000 }); assert.deepEqual(await Promise.all([client.call("slow"), client.call("fast")]), ["slow", "fast"]);
+  const mismatched = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl: async (_endpoint, options) => { const request = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id + 1, result: "stale" }) }; } });
+  await assert.rejects(() => mismatched.call("getSlot"), /invalid JSON-RPC response envelope/);
+  const ambiguous = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl: async (_endpoint, options) => { const request = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: null, error: null }) }; } });
+  await assert.rejects(() => ambiguous.call("getHealth"), /invalid JSON-RPC response envelope/);
+});
+
 test("external RPC pool enforces providers, fails over, and never exposes credential URLs", async () => {
   assert.throws(() => providerPoolFromEnv({}), /HELIUS_RPC_URL and ALCHEMY_RPC_URL/); assert.throws(() => validateProviderUrl("helius", "https://example.com/key"), /invalid helius/);
   const calls = [], fetchImpl = async (endpoint, options) => { calls.push(new URL(endpoint).hostname); if (endpoint.includes("helius")) throw new Error("offline"); const request = JSON.parse(options.body); return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl });

@@ -7,7 +7,7 @@ synthetically populated.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
-| Mainnet RPC | deployable, not running here | non-voting Agave unit, genesis verifier, private loopback RPC | production Ubuntu hosts and snapshots |
+| Mainnet RPC | deployable, not running here | non-voting Agave unit, genesis verifier, private loopback RPC with strict JSON-RPC version/request-ID correlation | production Ubuntu hosts and snapshots |
 | Secondary RPC/load balancing | missing | none | second host and operator network decision |
 | Reduced external RPC | deployable, credentials configured locally | supervised Linux units and bounded Docker Desktop profile/preflight, Helius primary, Alchemy failover, redacted telemetry, Retry-After circuits, strict JSON-RPC version/request-ID correlation, strict mainnet genesis, monotonic cursor/tip checks, `getBlocks`-verified skipped slots and fail-closed unavailable produced blocks, durable exporter health probe/metrics; public RPC health/emergency-only | reviewed Node image digest, non-placeholder API key, healthy Docker daemon, operator start and quota monitoring |
 | Confirmed/finalized streaming | complete for block PubSub | serialized stream, parser-preserved commitment, durable status, gap repair, inbox-level finality promotion and downgrade refusal | Yellowstone parallel lane |

@@ -15,11 +15,14 @@ export function validateLocalRpcUrl(value) {
 }
 
 export class LocalValidatorClient {
-  constructor(endpoint = "http://127.0.0.1:8899") { this.endpoint = validateLocalRpcUrl(endpoint); this.id = 0; }
+  constructor(endpoint = "http://127.0.0.1:8899", { fetchImpl = fetch, timeoutMs = 30_000 } = {}) { this.endpoint = validateLocalRpcUrl(endpoint); this.fetchImpl = fetchImpl; this.timeoutMs = timeoutMs; this.id = 0; }
   async call(method, params = []) {
-    const response = await fetch(this.endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: AbortSignal.timeout(30_000) });
+    const requestId = ++this.id;
+    const response = await this.fetchImpl(this.endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params }), signal: AbortSignal.timeout(this.timeoutMs) });
     if (!response.ok) throw new Error(`local validator ${method}: HTTP ${response.status}`);
-    const payload = await response.json(); if (payload.error) throw new Error(`local validator ${method}: ${payload.error.message}`); return payload.result;
+    const payload = await response.json(), hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
+    if (payload?.jsonrpc !== "2.0" || payload.id !== requestId || hasResult === hasError) throw new Error(`local validator ${method}: invalid JSON-RPC response envelope`);
+    if (hasError) throw new Error(`local validator ${method}: ${payload.error?.message ?? `RPC ${payload.error?.code ?? "unknown"}`}`); return payload.result;
   }
   async assertGenesis(expected = MAINNET_GENESIS_HASH) { const actual = await this.call("getGenesisHash"); if (expected !== "any" && actual !== expected) throw new Error(`validator genesis mismatch: expected ${expected}, received ${actual}`); return actual; }
 }
