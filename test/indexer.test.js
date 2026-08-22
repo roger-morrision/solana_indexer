@@ -1450,6 +1450,10 @@ test("JSON-RPC exposes only read-only indexed methods", async (t) => {
   assert.equal((await call({ jsonrpc: "2.0", id: 3, method: "getIndexedTransaction", params: [] })).error.code, -32602);
 });
 
+test("JSON-RPC rejects oversized bodies with a stable 413 contract", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({ rpcMaxBodyBytes: 128 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getIndexerHealth", padding: "x".repeat(256) }) }); assert.equal(response.status, 413); assert.deepEqual(await response.json(), { error: "payload_too_large", detail: "request body exceeds 128 bytes" });
+});
+
 test("ingestion API distinguishes unavailable from durable exporter evidence", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-ingestion-api-")); const statusFile = path.join(root, "status.json");
   const store = new IndexStore("unused"); await store.load(); const config = { staleAfterMs: 120_000, exporterStatusFile: statusFile };
@@ -1477,6 +1481,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(config.auditLogFile, path.resolve(process.cwd(), "data/audit.jsonl"));
   assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25" }, process.cwd()).webSocketMaxClients, 25);
+  assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
 });
 
 test("tenant registry supports hash-only key rotation and tenant quotas", async (t) => {

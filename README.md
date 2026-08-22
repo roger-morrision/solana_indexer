@@ -569,6 +569,11 @@ codes or text terminate with 1002 or 1007 instead of being echoed.
 `INDEXER_WS_MAX_CLIENTS` bounds admitted sockets globally (default 1000);
 additional authenticated upgrades receive `503 websocket_capacity_exceeded`
 until an existing socket closes.
+
+RPC JSON bodies are capped by `INDEXER_RPC_MAX_BODY_BYTES` (default 65536)
+and execution-preparation bodies by `INDEXER_EXECUTION_MAX_BODY_BYTES`
+(default 524288). Oversized declared or streamed payloads fail with a stable
+HTTP 413 `payload_too_large` response before JSON dispatch.
 The HTTP upgrade requires GET, canonical RFC 6455 Upgrade/Connection/version
 headers, and an exactly 16-byte canonical Base64 nonce.
 When API keys are enabled, WebSocket

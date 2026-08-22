@@ -50,8 +50,10 @@ function poolCatalogRow(address, row) { const snapshot = row.accountSnapshot; re
 function optionalFilter(url, name, maximum = 64) { const value = url.searchParams.get(name); if (value == null) return null; if (!value || value.length > maximum || /[\u0000-\u001f]/.test(value)) { const error = new Error(`${name} filter is invalid`); error.code = "BAD_REQUEST"; throw error; } return value; }
 async function readJsonFile(filename) { if (!filename) return null; try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
 async function readJsonBody(request, maximum = 65_536) {
+  const declared = request.headers["content-length"]; if (declared != null && (!/^\d+$/.test(declared) || !Number.isSafeInteger(Number(declared)))) { const error = new Error("content-length must be a non-negative safe integer"); error.code = "BAD_REQUEST"; throw error; }
+  if (declared != null && Number(declared) > maximum) { const error = new Error(`request body exceeds ${maximum} bytes`); error.code = "PAYLOAD_TOO_LARGE"; throw error; }
   const chunks = []; let size = 0;
-  for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error(`request body exceeds ${maximum} bytes`); error.code = "BAD_REQUEST"; throw error; } chunks.push(chunk); }
+  for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error(`request body exceeds ${maximum} bytes`); error.code = "PAYLOAD_TOO_LARGE"; throw error; } chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { const error = new Error("request body must be valid JSON"); error.code = "BAD_REQUEST"; throw error; }
 }
 function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result }; }
@@ -138,7 +140,7 @@ export function createServer(config, store) {
       if (protectedRoute && config.auditLogFile && auditSink.failures > 0) return json(response, 503, { error: "audit_sink_unavailable" });
       if (protectedRoute && config.apiTenants && !tenant) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
       if (protectedRoute && !config.apiTenants && apiKeys.length && !keyMatches(presented, apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
-      const preparePoolSwap = request.method === "POST" ? url.pathname.match(/^\/internal\/pools\/([^/]+)\/prepare-swap$/) : null, prepareCurveSwap = request.method === "POST" ? url.pathname.match(/^\/internal\/tokens\/([^/]+)\/prepare-swap$/) : null; let rpcPayload = null, preparePayload = null; if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request); else if (preparePoolSwap || prepareCurveSwap) preparePayload = await readJsonBody(request, 524_288); const requestWeight = Array.isArray(rpcPayload) && rpcPayload.length >= 1 && rpcPayload.length <= 100 ? rpcPayload.length : 1; auditUnits = requestWeight;
+      const preparePoolSwap = request.method === "POST" ? url.pathname.match(/^\/internal\/pools\/([^/]+)\/prepare-swap$/) : null, prepareCurveSwap = request.method === "POST" ? url.pathname.match(/^\/internal\/tokens\/([^/]+)\/prepare-swap$/) : null; let rpcPayload = null, preparePayload = null; if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request, config.rpcMaxBodyBytes ?? 65_536); else if (preparePoolSwap || prepareCurveSwap) preparePayload = await readJsonBody(request, config.executionMaxBodyBytes ?? 524_288); const requestWeight = Array.isArray(rpcPayload) && rpcPayload.length >= 1 && rpcPayload.length <= 100 ? rpcPayload.length : 1; auditUnits = requestWeight;
       const requestLimit = tenant?.rateLimitPerMinute ?? config.rateLimitPerMinute;
       if (protectedRoute && requestLimit) {
         const quotaIdentity = tenant?.id ?? (apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown");
@@ -229,7 +231,7 @@ export function createServer(config, store) {
       const risk = url.pathname.match(/^\/api\/v1\/risk\/([^/]+)$/); if (risk) return json(response, 200, store.poolRisk(decodeURIComponent(risk[1]), config.staleAfterMs));
       if (url.pathname === "/" || url.pathname === "/index.html") { const body = await fs.readFile(path.join(PUBLIC, "index.html")); response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return response.end(body); }
       return json(response, 404, { error: "not_found" });
-    } catch (error) { const badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code); return json(response, badRequest ? 400 : 500, { error: error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", detail: error.message }); }
+    } catch (error) { const tooLarge = error.code === "PAYLOAD_TOO_LARGE", badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code); return json(response, tooLarge ? 413 : badRequest ? 400 : 500, { error: tooLarge ? "payload_too_large" : error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", detail: error.message }); }
   });
   server.auditSink = auditSink;
   return attachWebSocket(server, store, config, (request) => config.apiTenants ? Boolean(resolveApiTenant(config.apiTenants, presentedApiKey(request))) : !(config.apiKeys ?? []).length || keyMatches(presentedApiKey(request), config.apiKeys));
