@@ -564,6 +564,8 @@ before the next write would exceed the cap. Inbound control frames are parsed
 across TCP boundaries, must be masked and protocol-valid, and are bounded by
 `INDEXER_WS_MAX_INBOUND_BYTES` (default 4096); unsupported data frames and
 malformed or oversized frames close with standard 1003, 1002, or 1009 codes.
+Close frames require an allowed status code and a valid UTF-8 reason; invalid
+codes or text terminate with 1002 or 1007 instead of being echoed.
 The HTTP upgrade requires GET, canonical RFC 6455 Upgrade/Connection/version
 headers, and an exactly 16-byte canonical Base64 nonce.
 When API keys are enabled, WebSocket

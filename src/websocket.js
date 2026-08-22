@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { isUtf8 } from "node:buffer";
 
 function frame(opcode, payload = Buffer.alloc(0)) {
   const body = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
@@ -8,6 +9,13 @@ function frame(opcode, payload = Buffer.alloc(0)) {
 }
 function reject(socket, status, reason) { socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: ${Buffer.byteLength(reason)}\r\n\r\n${reason}`); }
 function close(socket, code) { const payload = Buffer.alloc(2); payload.writeUInt16BE(code); socket.end(frame(0x8, payload)); }
+function closePayloadError(payload) {
+  if (payload.length === 0) return null;
+  if (payload.length === 1) return 1002;
+  const code = payload.readUInt16BE(0), validCode = code >= 1000 && code <= 1014 && ![1004, 1005, 1006].includes(code) || code >= 3000 && code <= 4999;
+  if (!validCode) return 1002;
+  return isUtf8(payload.subarray(2)) ? null : 1007;
+}
 export function createInboundFrameParser(socket, maximumBytes = 4_096) {
   let buffered = Buffer.alloc(0), closed = false;
   const protocolError = (code = 1002) => { if (!closed) { closed = true; close(socket, code); } };
@@ -22,7 +30,7 @@ export function createInboundFrameParser(socket, maximumBytes = 4_096) {
       const control = opcode >= 0x8; if (length > maximumBytes) return protocolError(1009); if (control && (!fin || length > 125) || ![0x8, 0x9, 0xa].includes(opcode)) return protocolError(control ? 1002 : 1003);
       if (buffered.length < offset + 4 + length) return;
       const mask = buffered.subarray(offset, offset + 4), payload = Buffer.from(buffered.subarray(offset + 4, offset + 4 + length)); for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4]; buffered = buffered.subarray(offset + 4 + length);
-      if (opcode === 0x8) { if (payload.length === 1) return protocolError(); closed = true; socket.end(frame(0x8, payload)); }
+      if (opcode === 0x8) { const errorCode = closePayloadError(payload); if (errorCode) return protocolError(errorCode); closed = true; socket.end(frame(0x8, payload)); }
       else if (opcode === 0x9) socket.write(frame(0x0a, payload));
     }
   };

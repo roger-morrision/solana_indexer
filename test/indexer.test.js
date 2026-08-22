@@ -1761,6 +1761,10 @@ test("WebSocket inbound parser handles TCP fragmentation and rejects invalid cli
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x1, "unsupported")); assert.equal(peer.endings[0].readUInt16BE(2), 1003);
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "fragment", { fin: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
   peer = socket(); createInboundFrameParser(peer, 4)(clientFrame(0x9, "12345")); assert.equal(peer.endings[0].readUInt16BE(2), 1009);
+  const closePayload = (code, reason = Buffer.alloc(0)) => { const value = Buffer.alloc(2 + reason.length); value.writeUInt16BE(code); Buffer.from(reason).copy(value, 2); return value; };
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x8, closePayload(1000, Buffer.from("done")))); assert.deepEqual(peer.endings[0].subarray(2), closePayload(1000, Buffer.from("done")));
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x8, closePayload(1005))); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x8, closePayload(1000, Buffer.from([0xc3, 0x28])))); assert.equal(peer.endings[0].readUInt16BE(2), 1007);
 });
 
 test("WebSocket handshake requires canonical RFC 6455 upgrade evidence", () => {
