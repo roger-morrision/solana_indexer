@@ -16,6 +16,7 @@ import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
 import { derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, derivePumpSwapFeeConfig, derivePumpSwapGlobalConfig, PUMP_PROGRAM, PUMP_SWAP_PROGRAM } from "./pump-swap-pool-snapshot.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { runBoundedProcess } from "./bounded-process.js";
 
 const CHAIN = "solana-mainnet";
 const GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -255,11 +256,11 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
 }
 
 function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
-  return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
+  return runBoundedProcess({ command, args, input, spawnProcess, env, label: `${command} warehouse sync` });
 }
 
 function captureProcess(command, args, spawnProcess = spawn, env = process.env) {
-  return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env }); let output = "", errorText = ""; child.stdout.on("data", (chunk) => { if (output.length < 1_024) output += chunk; }); child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(output.trim()) : reject(new Error(`${command} warehouse probe failed (${code}): ${errorText.trim().slice(0, 512)}`))); });
+  return runBoundedProcess({ command, args, spawnProcess, env, stdoutBytes: 1_024, label: `${command} warehouse probe` });
 }
 
 export function validateWarehouseSinkSequences(expectedSequence, values) {

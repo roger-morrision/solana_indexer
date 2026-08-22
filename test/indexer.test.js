@@ -35,6 +35,7 @@ import { validateGeyserCompatibility } from "../src/geyser-abi-preflight.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { MAX_RETRY_AFTER_MS, MIN_RETRY_AFTER_MS, parseRetryAfterMs } from "../src/provider-retry.js";
 import { readBoundedRpcJson } from "../src/rpc-response.js";
+import { runBoundedProcess } from "../src/bounded-process.js";
 import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
@@ -2044,6 +2045,13 @@ test("commercial sync deterministically upserts hash-only tenants and hourly usa
   const hash = crypto.createHash("sha256").update("secret").digest("hex"), registry = compileApiTenants({ schemaVersion: 1, tenants: [{ id: "tenant-a", status: "active", plan: "pro", rateLimitPerMinute: 100, retentionDays: 30, keys: [{ hash }] }] }), audit = [{ schemaVersion: 1, observedAt: "2026-08-22T01:10:00.000Z", tenantId: "tenant-a", path: "/api/v1/price/token", statusCode: 200, durationMs: 1.25, quotaUnits: 2 }, { schemaVersion: 1, observedAt: "2026-08-22T01:20:00.000Z", tenantId: "tenant-a", path: "/api/v1/price/token", statusCode: 201, durationMs: 2.5 }, { schemaVersion: 1, observedAt: "2026-08-22T02:00:00.000Z", tenantId: "tenant-a", path: "/api/stats?quoted='", statusCode: 429, durationMs: 3 }].map(JSON.stringify).join("\n"), sql = buildCommercialSyncSql(registry, audit);
   assert.match(sql, /BEGIN;/); assert.match(sql, /api_tenants/); assert.match(sql, /api_key_hashes/); assert.match(sql, new RegExp(hash)); assert.match(sql, /2026-08-22T01:00:00\.000Z'.*'\/api\/v1\/price\/token'.*2, 3, 3\.75/s); assert.match(sql, /\/api\/stats\?quoted='''/); assert.match(sql, /ON CONFLICT \(tenant_id, bucket_start, route, status_class\) DO UPDATE/); assert.ok(sql.endsWith("COMMIT;\n")); assert.equal(sql.includes("secret"), false); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "unknown", path: "/", statusCode: 200, durationMs: 1 })), /invalid tenant usage audit/); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "tenant-a", path: "/rpc", statusCode: 200, durationMs: 1, quotaUnits: 101 })), /invalid tenant usage audit/);
   for (const observedAt of ["2026-08-22T01:00:00Z", "2026-08-22T08:00:00.000+07:00", "2026-02-30T01:00:00.000Z", 1_776_733_200_000]) assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt, tenantId: "tenant-a", path: "/rpc", statusCode: 200, durationMs: 1 })), /invalid tenant usage audit/);
+});
+
+test("bounded subprocesses terminate stalled sink commands", async () => {
+  const listeners = {}, scheduled = [], cancelled = [], killed = []; const child = { stderr: { on() {} }, stdin: { end() {} }, on(name, handler) { listeners[name] = handler; }, kill(signal) { killed.push(signal); } };
+  const pending = runBoundedProcess({ command: "sink-cli", input: "payload", timeoutMs: 1_000, spawnProcess: () => child, schedule: (callback, delay) => { scheduled.push([callback, delay]); return "timer"; }, cancel: (timer) => cancelled.push(timer) }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0]();
+  await assert.rejects(pending, /sink-cli timed out after 1000ms/); assert.deepEqual(killed, ["SIGTERM"]); assert.deepEqual(cancelled, ["timer"]); listeners.close?.(0);
+  assert.throws(() => runBoundedProcess({ command: "sink-cli", timeoutMs: 999 }), /configuration is invalid/);
 });
 
 test("warehouse sync is ordered, retry-safe, and checkpoints only after both sinks", async () => {
