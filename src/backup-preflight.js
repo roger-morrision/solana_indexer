@@ -5,6 +5,7 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { durableAtomicWrite } from "./durable-file.js";
 
 const ARTIFACTS = new Set(["postgres.dump", "clickhouse-instructions.native", "clickhouse-swaps.native", "clickhouse-balance_changes.native", "clickhouse-dead_letters.native", "redis.rdb", "indexer-state.tar", "inbox-manifest.json"]);
 const REQUIRED = new Set([...ARTIFACTS, "manifest.json"]);
@@ -15,7 +16,7 @@ const CHAIN = "solana-mainnet";
 function safeName(value) { return typeof value === "string" && /^[a-z0-9][a-z0-9._-]{0,127}$/i.test(value) && value !== "." && value !== ".."; }
 async function sha256(filename) { const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk); return hash.digest("hex"); }
 async function artifactEvidence(root, name) { const filename = path.join(root, name), stat = await fs.lstat(filename); if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`backup artifact is not a regular file: ${name}`); return { bytes: stat.size, sha256: await sha256(filename) }; }
-async function writeAtomic(filename, value) { const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }); await fs.rename(temporary, filename); }
+async function writeAtomic(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 function parseSums(text) { const rows = new Map(); for (const [index, line] of text.trim().split(/\r?\n/).entries()) { const match = /^([0-9a-f]{64})  ([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(line); if (!match || rows.has(match[2])) throw new Error(`invalid SHA256SUMS line ${index + 1}`); rows.set(match[2], match[1]); } return rows; }
 async function tarInventory(filename) {
   const handle = await fs.open(filename, "r"), names = [], seen = new Set(); let offset = 0;

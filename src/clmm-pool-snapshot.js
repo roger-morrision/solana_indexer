@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
+import { durableAtomicWrite } from "./durable-file.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
@@ -156,7 +156,7 @@ export async function createClmmPoolSnapshot({ client, pools, tickArrays = {}, b
   return { schemaVersion: 1, type: "raydium_clmm_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
 }
 
-async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
+async function atomicWrite(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value)}\n`); }
 async function main() {
   const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"); const pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-clmm").map(([address]) => address); if (!pools.length) throw new Error("no Raydium CLMM pools supplied or discovered");
   const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createClmmPoolSnapshot({ client, pools, automaticTickCoverage: true, automaticFeeConfig: true, automaticMintEvidence: true, genesisHash }); if (!artifactOnly) { store.applyPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.clmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, bitmapExtensions: snapshot.pools.filter((row) => row.bitmapExtension).length, tickArrays: snapshot.pools.reduce((sum, row) => sum + row.tickArrays.length, 0), artifactOnly }));

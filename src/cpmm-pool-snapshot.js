@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
+import { durableAtomicWrite } from "./durable-file.js";
 import { IndexStore } from "./store.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
@@ -90,6 +90,6 @@ export function quoteCpmmSnapshotExactInput({ snapshot, poolAddress, inputMint, 
   return { schemaVersion: 1, protocol: "raydium-cpmm", status: "quoted", executable: false, safeForAutomation: false, pool: pool.address, inputMint, outputMint: zeroForOne ? pool.tokenMint1 : pool.tokenMint0, amountInRaw: amount.toString(), amountOutRaw: output.toString(), grossOutputRaw: outputTransfer.grossAmountRaw, inputTransferFeeRaw: inputTransfer.transferFeeRaw, outputTransferFeeRaw: outputTransfer.transferFeeRaw, transferFeeMode: hasToken2022 ? "finalized_epoch_mint_evidence" : "none", mintEvidenceSlot: pool.mintEvidenceSlot ?? null, epoch: pool.epoch ?? null, tradeAndInputCreatorFeeRaw: totalInputFee.toString(), outputCreatorFeeRaw: outputCreatorFee.toString(), inputReserveRaw: inputReserve.toString(), outputReserveRaw: outputReserve.toString(), stateSlot: snapshot.stateSlot, configSlot: snapshot.configSlot, balanceSlot: snapshot.balanceSlot, observedAt: snapshot.observedAt, missing: ["local_simulation", "external_signer_approval", "landed_transaction_confirmation"] };
 }
 
-async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
+async function atomicWrite(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value)}\n`); }
 async function main() { const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load(); const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only"), pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-cpmm").map(([address]) => address); if (!pools.length) throw new Error("no Raydium CPMM pools supplied or discovered"); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected), snapshot = await createCpmmPoolSnapshot({ client, pools, automaticMintEvidence: true, genesisHash }); if (!artifactOnly) { store.applyCpmmPoolSnapshot(snapshot); await store.save(); } await atomicWrite(config.cpmmPoolSnapshotFile, snapshot); console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, configSlot: snapshot.configSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly })); }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

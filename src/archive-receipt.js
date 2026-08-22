@@ -4,14 +4,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { durableAtomicWrite } from "./durable-file.js";
 
 const sha256 = (content) => crypto.createHash("sha256").update(content).digest("hex");
 
 async function writeAtomic(filename, value) {
-  await fs.mkdir(path.dirname(filename), { recursive: true });
-  const temporary = `${filename}.${process.pid}.tmp`;
-  await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  await fs.rename(temporary, filename);
+  await durableAtomicWrite(filename, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 export async function createInboxManifest({ inbox, output, archiveId }) {

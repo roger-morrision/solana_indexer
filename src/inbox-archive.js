@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { gzip, gunzip } from "node:zlib";
 import { completeArchiveReceipt, createInboxManifest } from "./archive-receipt.js";
 import { loadConfig } from "./config.js";
+import { durableAtomicWrite } from "./durable-file.js";
 
 const compress = promisify(gzip), decompress = promisify(gunzip);
 const sha256 = (content) => crypto.createHash("sha256").update(content).digest("hex");
@@ -17,15 +18,14 @@ export async function archiveInbox({ inbox, archiveRoot, receiptFile, archiveId 
   await fs.mkdir(archiveRoot, { recursive: true }); const target = path.join(archiveRoot, archiveId); await fs.mkdir(target, { recursive: false });
   const fingerprints = {}, names = (await fs.readdir(inbox)).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort();
   for (const name of names) {
-    const source = await fs.readFile(path.join(inbox, name)), fingerprint = sha256(source), destination = path.join(target, `${name}.gz`), temporary = `${destination}.${process.pid}.tmp`;
-    const encoded = await compress(source, { level: 9 }); await fs.writeFile(temporary, encoded, { mode: 0o600 });
-    if (sha256(await decompress(await fs.readFile(temporary))) !== fingerprint) throw new Error(`archive verification failed for ${name}`);
-    await fs.rename(temporary, destination); fingerprints[name] = fingerprint;
+    const source = await fs.readFile(path.join(inbox, name)), fingerprint = sha256(source), destination = path.join(target, `${name}.gz`);
+    const encoded = await compress(source, { level: 9 }); if (sha256(await decompress(encoded)) !== fingerprint) throw new Error(`archive verification failed for ${name}`);
+    await durableAtomicWrite(destination, encoded); fingerprints[name] = fingerprint;
   }
   const manifestFile = path.join(target, "inbox-manifest.json"), archiveReceipt = path.join(target, "inbox-archive-receipt.json"), manifest = await createInboxManifest({ inbox, output: manifestFile, archiveId });
   if (JSON.stringify(manifest.files) !== JSON.stringify(fingerprints)) throw new Error("inbox changed while archive was being created");
   const receipt = await completeArchiveReceipt({ manifestFile, output: archiveReceipt, status: "verified_local" });
-  await fs.mkdir(path.dirname(receiptFile), { recursive: true }); const temporaryReceipt = `${receiptFile}.${process.pid}.tmp`; await fs.copyFile(archiveReceipt, temporaryReceipt); await fs.rename(temporaryReceipt, receiptFile);
+  await durableAtomicWrite(receiptFile, await fs.readFile(archiveReceipt));
   return { archiveId, files: names.length, originalBytes: (await Promise.all(names.map((name) => fs.stat(path.join(inbox, name))))).reduce((sum, row) => sum + row.size, 0), archiveDirectory: target, receiptFile, receipt };
 }
 

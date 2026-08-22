@@ -285,6 +285,10 @@ Snapshot CLIs accept `--artifact-only`. In this mode they atomically replace
 their configured snapshot artifact without rewriting `index.json`; the
 serialized inbox cycle validates and imports each artifact fingerprint exactly
 once. Scheduled workers must use this mode to avoid cross-process lost updates.
+Every snapshot artifact uses the shared crash-durable publication boundary
+before the serialized indexer can observe it. Backup preflight evidence, inbox
+manifests/archive receipts, verified compressed inbox copies, and confirmed
+audit-retention replacements use the same boundary.
 Imported pool and curve rows preserve every component slot and also expose an
 `evidenceSlot` equal to the newest dependency context. Replacement requires
 component-wise monotonic slots and snapshot WebSocket events use the effective
