@@ -450,7 +450,7 @@ export class IndexStore {
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   replayEvents(cursor = this.state.eventSequence) {
     const oldest = this.state.events[0]?.sequence ?? this.state.eventSequence + 1;
-    return { cursor, latestCursor: this.state.eventSequence, cursorTooOld: cursor < oldest - 1, events: this.state.events.filter((event) => event.sequence > cursor) };
+    return { cursor, latestCursor: this.state.eventSequence, oldestCursor: oldest - 1, cursorTooOld: cursor < oldest - 1, cursorAhead: cursor > this.state.eventSequence, events: this.state.events.filter((event) => event.sequence > cursor) };
   }
   health(staleAfterMs = 120_000, now = Date.now()) {
     const stats = this.stats();

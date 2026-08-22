@@ -1744,6 +1744,13 @@ test("WebSocket replays only persisted ordered events and resumes by cursor", as
   await store.save(); while (messages.length < 3) await new Promise((resolve) => setTimeout(resolve, 5)); assert.equal(messages[2].sequence, 2); socket.close();
 });
 
+test("WebSocket terminates expired and future resume cursors with explicit resync", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); store.state.eventSequence = 5; store.state.events = [{ sequence: 5, type: "block_indexed", slot: 5 }]; const server = createServer({ webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `ws://127.0.0.1:${server.address().port}/ws`;
+  const connect = (cursor) => new Promise((resolve, reject) => { const socket = new WebSocket(`${base}?cursor=${cursor}`), messages = []; socket.onmessage = ({ data }) => messages.push(JSON.parse(data)); socket.onerror = reject; socket.onclose = (event) => resolve({ event, messages }); });
+  const expired = await connect(0); assert.equal(expired.event.code, 1008); assert.deepEqual(expired.messages, [{ type: "resync_required", reason: "cursor_before_retained_history", requestedCursor: 0, oldestCursor: 4, latestCursor: 5 }]);
+  const future = await connect(6); assert.equal(future.event.code, 1008); assert.deepEqual(future.messages, [{ type: "resync_required", reason: "cursor_ahead_of_server", requestedCursor: 6, oldestCursor: 4, latestCursor: 5 }]);
+});
+
 test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ apiKeys: ["secret"], webSocketHeartbeatMs: 60_000 }, store);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));

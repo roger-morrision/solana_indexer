@@ -555,7 +555,10 @@ finalized slot. Promotion atomically upgrades provenance on transactions,
 instructions, transfers, token-balance changes, token-account projections,
 swaps, and program events. Supply the last consumed
 sequence as `cursor` to replay retained events. An expired cursor produces
-`resync_required`; clients must rebuild from REST. Heartbeat pings and bounded
+`resync_required`; a cursor ahead of the server does the same. Both responses
+carry explicit reasons plus retained/latest boundaries and terminate the socket
+with policy-close code 1008, so clients cannot mix an invalid resume state with
+live updates and must rebuild from REST. Heartbeat pings and bounded
 socket buffers reject any single oversized frame and evict stalled consumers
 before the next write would exceed the cap. When API keys are enabled, WebSocket
 clients must present the key as an HTTP authorization or `X-API-Key` header.
