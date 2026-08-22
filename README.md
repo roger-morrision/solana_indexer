@@ -275,8 +275,10 @@ storage. `ops/restore.sh` verifies checksums and requires the explicit
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is
-time-weighted over its retained fresh observations, then venue rates are
-equal-weighted; paths with fewer than two venues retain an explicit
+time-weighted over its retained fresh observations. An edge with at least three
+independent venues uses their exact rational median so one venue outlier cannot
+dominate; thinner edges use the mean and retain explicit manipulation-coverage
+missing signals. Paths with fewer than two venues also retain a
 `multi_venue_twap` missing signal. Amounts and decimal normalization remain
 exact rational integers. These references are suitable for display/research
 only: bot safety remains false until an independent USDC depeg reference and
