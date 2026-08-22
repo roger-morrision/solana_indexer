@@ -38,6 +38,11 @@ function subscription(url) {
   if (!new Set(["blocks", "swaps", "lifecycle", "snapshots"]).has(topic)) return null;
   return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol"), eventType: url.searchParams.get("eventType") };
 }
+export function validWebSocketHandshake(request) {
+  const key = request.headers?.["sec-websocket-key"], connection = String(request.headers?.connection ?? "").split(",").map((value) => value.trim().toLowerCase());
+  if (request.method !== "GET" || String(request.headers?.upgrade ?? "").toLowerCase() !== "websocket" || !connection.includes("upgrade") || request.headers?.["sec-websocket-version"] !== "13" || typeof key !== "string" || !/^[A-Za-z0-9+/]{22}==$/.test(key)) return false;
+  try { return Buffer.from(key, "base64").length === 16 && Buffer.from(key, "base64").toString("base64") === key; } catch { return false; }
+}
 function project(event, filter) {
   if (filter.topic === "blocks") return event.type.startsWith("block_") ? event : null;
   if (filter.topic === "snapshots") { if (event.type === "account_snapshot_applied") { const mints = (event.mints ?? []).filter((row) => !filter.mint || row.mint === filter.mint); return mints.length ? { ...event, mints } : null; } if (event.type === "clmm_pool_snapshot_applied") { const pools = (event.pools ?? []).filter((row) => !filter.pool || row.pool === filter.pool); return pools.length ? { ...event, pools } : null; } return null; }
@@ -60,7 +65,7 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     const filter = subscription(url); if (!filter) return reject(socket, "400 Bad Request", "invalid_topic");
     if (!authorize(request)) return reject(socket, "401 Unauthorized", "unauthorized");
     const key = request.headers["sec-websocket-key"];
-    if (request.headers["sec-websocket-version"] !== "13" || typeof key !== "string") return reject(socket, "400 Bad Request", "invalid_websocket_handshake");
+    if (!validWebSocketHandshake(request)) return reject(socket, "400 Bad Request", "invalid_websocket_handshake");
     const cursorText = url.searchParams.get("cursor") ?? String(store.state.eventSequence); const cursor = Number(cursorText);
     if (!Number.isSafeInteger(cursor) || cursor < 0) return reject(socket, "400 Bad Request", "invalid_cursor");
     const accept = crypto.createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");

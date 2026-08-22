@@ -10,7 +10,7 @@ import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
 import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
-import { createInboundFrameParser } from "../src/websocket.js";
+import { createInboundFrameParser, validWebSocketHandshake } from "../src/websocket.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
@@ -1761,6 +1761,11 @@ test("WebSocket inbound parser handles TCP fragmentation and rejects invalid cli
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x1, "unsupported")); assert.equal(peer.endings[0].readUInt16BE(2), 1003);
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "fragment", { fin: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
   peer = socket(); createInboundFrameParser(peer, 4)(clientFrame(0x9, "12345")); assert.equal(peer.endings[0].readUInt16BE(2), 1009);
+});
+
+test("WebSocket handshake requires canonical RFC 6455 upgrade evidence", () => {
+  const request = { method: "GET", headers: { upgrade: "websocket", connection: "keep-alive, Upgrade", "sec-websocket-version": "13", "sec-websocket-key": Buffer.alloc(16, 7).toString("base64") } }; assert.equal(validWebSocketHandshake(request), true);
+  for (const invalid of [{ ...request, method: "POST" }, { ...request, headers: { ...request.headers, upgrade: "h2c" } }, { ...request, headers: { ...request.headers, connection: "keep-alive" } }, { ...request, headers: { ...request.headers, "sec-websocket-version": "12" } }, { ...request, headers: { ...request.headers, "sec-websocket-key": "not-a-key" } }, { ...request, headers: { ...request.headers, "sec-websocket-key": Buffer.alloc(15).toString("base64") } }]) assert.equal(validWebSocketHandshake(invalid), false);
 });
 
 test("WebSocket accepts browser-compatible bearer subprotocol auth", async (t) => {
