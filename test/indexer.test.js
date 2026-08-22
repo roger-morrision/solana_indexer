@@ -82,6 +82,11 @@ test("graceful shutdown drains HTTP before flushing durable audit work", async (
   await assert.rejects(shutdownIndexer({ server: { close(callback) { callback(new Error("close failed")); } } }), /close failed/);
 });
 
+test("graceful shutdown force-closes stalled HTTP only after its deadline", async () => {
+  const calls = [], server = { closeWebSocketClients() { calls.push("close-websockets"); }, close(callback) { calls.push("close"); this.callback = callback; }, closeIdleConnections() { calls.push("close-idle"); }, closeAllConnections() { calls.push("force-close"); this.callback(); }, auditSink: { async flush() { calls.push("audit-flushed"); } } }, result = await shutdownIndexer({ server, timeoutMs: 5 }); assert.deepEqual(result, { forced: true }); assert.deepEqual(calls, ["close-websockets", "close", "close-idle", "force-close", "audit-flushed"]);
+  await assert.rejects(shutdownIndexer({ server: { close() {} }, timeoutMs: 5 }), /cannot force-close/);
+});
+
 test("graceful shutdown cannot be held open by an active WebSocket", async () => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ webSocketHeartbeatMs: 60_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws`); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; }); const closed = new Promise((resolve) => { socket.onclose = resolve; });
   let timeout; try { await Promise.race([shutdownIndexer({ server }), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("shutdown timed out with active WebSocket")), 1_000); })]); } finally { clearTimeout(timeout); } const event = await closed; assert.equal(event.code, 1001); assert.equal(server.webSocketStats.activeClients, 0);
@@ -1487,6 +1492,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25" }, process.cwd()).webSocketMaxClients, 25);
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
+  assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
 });
 
 test("tenant registry supports hash-only key rotation and tenant quotas", async (t) => {

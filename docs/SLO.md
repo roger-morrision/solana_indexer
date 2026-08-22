@@ -29,6 +29,9 @@ or incompatible clients are observable without logging credentials.
 Shutdown closes upgraded sockets before waiting for the HTTP server drain, then
 flushes durable audit work; long-lived subscribers therefore cannot defeat the
 documented recovery and restart objectives.
+The graceful HTTP drain has a configurable 30-second default deadline; once it
+expires, remaining connections are force-closed before the audit flush so a
+stalled request cannot make restart time unbounded.
 It must not be publicly exposed without the mTLS gateway or a private monitoring
 network. `infra/monitoring/alerts.yaml` contains baseline alerts; operators must
 connect them to an approved notification system and test alert delivery.

@@ -573,6 +573,9 @@ rejections, slow-consumer evictions, and protocol closes without client keys.
 Graceful process shutdown stops subscriptions and closes upgraded sockets with
 going-away code 1001 before draining HTTP and flushing the durable audit sink,
 so a connected subscriber cannot indefinitely hold shutdown open.
+HTTP drain time is bounded by `INDEXER_SHUTDOWN_TIMEOUT_MS` (default 30000);
+after that deadline remaining connections are force-closed and audit work is
+still flushed before process exit.
 
 RPC JSON bodies are capped by `INDEXER_RPC_MAX_BODY_BYTES` (default 65536)
 and execution-preparation bodies by `INDEXER_EXECUTION_MAX_BODY_BYTES`

@@ -238,5 +238,6 @@ export function createServer(config, store) {
     } catch (error) { const tooLarge = error.code === "PAYLOAD_TOO_LARGE", badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code); return json(response, tooLarge ? 413 : badRequest ? 400 : 500, { error: tooLarge ? "payload_too_large" : error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", detail: error.message }); }
   });
   server.auditSink = auditSink;
+  server.shutdownTimeoutMs = config.shutdownTimeoutMs ?? 30_000;
   return attachWebSocket(server, store, config, (request) => config.apiTenants ? Boolean(resolveApiTenant(config.apiTenants, presentedApiKey(request))) : !(config.apiKeys ?? []).length || keyMatches(presentedApiKey(request), config.apiKeys));
 }
