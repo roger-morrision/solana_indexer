@@ -202,7 +202,11 @@ attempt, resolution, and last-observed evidence before that checkpoint moves.
 The installer also installs a hardened one-shot service and one-minute timer,
 but does not enable either. Operators must first verify both database schemas,
 client credential files, and a manual synchronization before enabling
-`solana-indexer-warehouse-sync.timer`.
+`solana-indexer-warehouse-sync.timer`. Each acknowledged batch also stages
+versioned pool/token hashes in Redis, atomically switches the current-version
+pointer, and publishes only persisted canonical events. Redis authentication is
+passed through the child environment, and any sink failure leaves the local
+checkpoint unchanged so the complete batch is replayed idempotently.
 
 Configuration:
 
@@ -214,6 +218,9 @@ Configuration:
 | `INDEXER_WAREHOUSE_STALE_AFTER_MS` | `300000` | Maximum successful warehouse checkpoint age before health fails closed |
 | `INDEXER_MAX_WAREHOUSE_LAG_EVENTS` | `1000` | Maximum canonical-event lag before warehouse health fails closed |
 | `CLICKHOUSE_PASSWORD_FILE` | unset | Protected ClickHouse password file read into the client subprocess environment without command-line exposure |
+| `REDIS_PASSWORD_FILE` | unset | Protected Redis password file read into `redis-cli` subprocess environment without command-line exposure |
+| `INDEXER_REDIS_HOT_TTL_SECONDS` | `86400` | Retention for versioned Redis pool/token hot-state hashes |
+| `INDEXER_REDIS_HOT_MAX_BYTES` | `16777216` | Hard byte cap for one staged Redis hot-state/fan-out transaction |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |

@@ -47,6 +47,19 @@ export function checkpointSql(sequence) {
 
 function jsonbLiteral(value) { return `${sqlLiteral(JSON.stringify(value))}::jsonb`; }
 
+function respCommand(parts) { const chunks = [Buffer.from(`*${parts.length}\r\n`)]; for (const part of parts) { const value = Buffer.from(String(part)); chunks.push(Buffer.from(`$${value.length}\r\n`), value, Buffer.from("\r\n")); } return Buffer.concat(chunks); }
+
+function redisJson(value, label) { let encoded; try { encoded = JSON.stringify(value); } catch { throw new Error(`invalid Redis ${label} payload`); } if (typeof encoded !== "string") throw new Error(`invalid Redis ${label} payload`); return encoded; }
+
+export function compileRedisHotSync(state, batch, ttlSeconds = 86_400, maxBytes = 16_777_216) {
+  if (!Number.isInteger(ttlSeconds) || ttlSeconds < 300 || !Number.isInteger(maxBytes) || maxBytes < 65_536 || !Number.isSafeInteger(batch?.toSequence) || batch.toSequence < 0 || !Array.isArray(batch?.events) || !state?.pools || typeof state.pools !== "object" || Array.isArray(state.pools) || !state?.mints || typeof state.mints !== "object" || Array.isArray(state.mints)) throw new Error("invalid Redis hot-state configuration");
+  const version = batch.toSequence, prefix = `terminal_dex:hot:${version}`, poolKey = `${prefix}:pools`, tokenKey = `${prefix}:tokens`, commands = [respCommand(["DEL", poolKey, tokenKey])];
+  for (const [address, row] of Object.entries(state.pools).sort(([left], [right]) => left.localeCompare(right))) { if (!address || /[\u0000-\u001f]/.test(address)) throw new Error("invalid Redis pool identity"); commands.push(respCommand(["HSET", poolKey, address, redisJson(row, "pool")])); }
+  for (const [mint, row] of Object.entries(state.mints).sort(([left], [right]) => left.localeCompare(right))) { if (!mint || /[\u0000-\u001f]/.test(mint)) throw new Error("invalid Redis mint identity"); commands.push(respCommand(["HSET", tokenKey, mint, redisJson(row, "mint")])); }
+  commands.push(respCommand(["MULTI"]), respCommand(["SET", "terminal_dex:hot:current", String(version)]), respCommand(["SET", `${prefix}:stats`, redisJson({ tip: state.tip ?? null, eventSequence: state.eventSequence, pools: Object.keys(state.pools).length, tokens: Object.keys(state.mints).length, updatedAt: state.updatedAt ?? null }, "stats")]), respCommand(["EXPIRE", poolKey, ttlSeconds]), respCommand(["EXPIRE", tokenKey, ttlSeconds]), respCommand(["EXPIRE", `${prefix}:stats`, ttlSeconds]));
+  for (const event of batch.events) { if (typeof event?.payload !== "string") throw new Error("invalid Redis event payload"); commands.push(respCommand(["PUBLISH", "terminal_dex:canonical_events", event.payload])); } commands.push(respCommand(["EXEC"])); const payload = Buffer.concat(commands); if (payload.length > maxBytes) throw new Error("Redis hot-state batch exceeds configured byte limit"); return payload;
+}
+
 export function compileWarehouseMetadataSql(state, sequence) {
   if (!state?.mints || typeof state.mints !== "object" || Array.isArray(state.mints)) throw new Error("invalid warehouse mint state"); checkpointSql(sequence);
   const rows = Object.entries(state.mints).sort(([left], [right]) => left.localeCompare(right)).map(([mint, row]) => { const info = row?.mintInfo ?? null, decimals = info?.decimals ?? null, sourceSlot = row?.authoritySourceSlot ?? row?.lastSlot ?? null, transferCount = row?.transferCount ?? 0, swapCount = row?.swapCount ?? 0, lastSlot = row?.lastSlot ?? null, lastBlockTime = row?.lastBlockTime ?? null; if (!mint || /[\u0000-\u001f]/.test(mint) || (decimals != null && (!Number.isInteger(decimals) || decimals < 0 || decimals > 255)) || (sourceSlot != null && (!Number.isSafeInteger(sourceSlot) || sourceSlot < 0)) || !Number.isSafeInteger(transferCount) || transferCount < 0 || !Number.isSafeInteger(swapCount) || swapCount < 0 || (lastSlot != null && (!Number.isSafeInteger(lastSlot) || lastSlot < 0)) || (lastBlockTime != null && (!Number.isSafeInteger(lastBlockTime) || lastBlockTime < 0))) throw new Error(`invalid warehouse mint metadata ${mint}`); const metadata = { transferCount, swapCount, lastSlot, lastBlockTime }, authorities = { mintAuthority: info?.mintAuthority ?? null, freezeAuthority: info?.freezeAuthority ?? null }, extensions = Array.isArray(info?.extensions) ? info.extensions : []; return `('solana', ${sqlLiteral(mint)}, ${decimals ?? "NULL"}, ${jsonbLiteral(metadata)}, ${jsonbLiteral(authorities)}, ${jsonbLiteral(extensions)}, ${sourceSlot ?? "NULL"})`; });
@@ -67,10 +80,11 @@ function runProcess(command, args, input, spawnProcess = spawn, env = process.en
   return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
 }
 
-export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null, postgresSql = checkpointSql(batch.toSequence)) {
+export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null, postgresSql = checkpointSql(batch.toSequence), redisInput = null) {
   if (!batch.events.length) return { synced: 0, sequence: batch.toSequence };
   if (facts && (!Array.isArray(facts.slots) || facts.slots.some((slot) => !Number.isSafeInteger(slot) || slot < 0) || !Array.isArray(facts.instructions) || !Array.isArray(facts.swaps) || !Array.isArray(facts.balanceChanges) || !Array.isArray(facts.deadLetters))) throw new Error("invalid warehouse facts");
   if (typeof postgresSql !== "string" || !postgresSql.trim()) throw new Error("invalid warehouse PostgreSQL transaction");
+  if (redisInput != null && !Buffer.isBuffer(redisInput)) throw new Error("invalid Redis hot-state transaction");
   const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`;
   await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env);
   if (facts) {
@@ -79,6 +93,7 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
     await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.canonical_dead_letters DELETE WHERE chain = '${CHAIN}' SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (facts.deadLetters.length) await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_dead_letters FORMAT JSONEachRow"], `${facts.deadLetters.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env);
   }
   await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], postgresSql, spawnProcess, env);
+  if (redisInput) await runProcess("redis-cli", ["--pipe"], redisInput, spawnProcess, env);
   return { synced: batch.events.length, sequence: batch.toSequence };
 }
 
@@ -89,8 +104,8 @@ export async function writeWarehouseCheckpoint(filename, sequence) {
 async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
   try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
-  const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; }
-  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify({ ...result, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length, deadLetters: facts.deadLetters.length, tokens: Object.keys(state.mints).length }));
+  const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; } if (config.redisPasswordFile) { const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); clientEnv.REDISCLI_AUTH = password; }
+  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify({ ...result, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length, deadLetters: facts.deadLetters.length, tokens: Object.keys(state.mints).length, pools: Object.keys(state.pools).length, redisBytes: redisInput.length }));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
