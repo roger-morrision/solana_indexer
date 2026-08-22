@@ -292,6 +292,7 @@ Configuration:
 | `INDEXER_STREAM_RECONNECT_MIN_MS` | `500` | Initial reconnect backoff |
 | `INDEXER_STREAM_RECONNECT_MAX_MS` | `30000` | Maximum reconnect backoff |
 | `INDEXER_STREAM_CONNECT_TIMEOUT_MS` | `10000` | Maximum time for a validator PubSub socket to open before failover |
+| `INDEXER_STREAM_IDLE_TIMEOUT_MS` | `90000` | Maximum interval without a valid subscribed block before node rotation |
 
 Explicit bounded integer settings, including exporter batch/poll and local-validator circuit controls, and the replay qualifier's `--blocks` argument must use canonical unsigned base-10 notation and remain within their documented bounds; invalid values stop startup instead of being clamped or replaced by defaults. `INDEXER_DISTRIBUTED_QUOTA`, when set, must be exactly `true` or `false`.
 

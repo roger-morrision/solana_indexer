@@ -1137,6 +1137,7 @@ test("validator stream rejects crossed subscriptions and ignores superseded sock
   await stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 1, result: 41 })); assert.equal(stream.subscriptions.get(41), "confirmed");
   await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 2, result: 41 })), /invalid finalized/); await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "1.0", id: 2, result: 42 })), /invalid finalized/);
   stream.connect(); const oldSocket = FakeSocket.instances.at(-1); stream.connect(); oldSocket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 42 }) }); await stream.messageQueue; assert.equal(stream.subscriptions.has(42), false);
+  let release; stream.messageQueue = new Promise((resolve) => { release = resolve; }); const current = stream.socket; current.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 43 }) }); stream.connect(); release(); await stream.messageQueue; assert.equal(stream.subscriptions.has(43), false);
 });
 
 test("validator stream rotates unique loopback endpoints and attributes active-node provenance", async () => {
@@ -1174,6 +1175,16 @@ test("validator stream stays unready until both subscriptions are acknowledged",
   socket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 1, result: 41 }) }); await stream.messageQueue; assert.equal(stream.ready, false); timers[0](); await stream.messageQueue; assert.equal(socket.closed, true); assert.equal(stream.lastError.message, "validator stream subscription handshake timed out"); assert.equal(reconnects.length, 1); await stream.stop();
 
   const readyTimers = [], cancelled = []; const ready = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, scheduleConnectTimeout: (callback) => { readyTimers.push(callback); return "ready-token"; }, cancelConnectTimeout: (token) => cancelled.push(token) }); ready.genesisHash = MAINNET_GENESIS_HASH; ready.writeStatus = async () => {}; ready.connect(); ready.socket.onopen(); await ready.messageQueue; ready.socket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 1, result: 51 }) }); ready.socket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 52 }) }); await ready.messageQueue; assert.equal(ready.ready, true); assert.deepEqual(cancelled, ["ready-token"]); assert.equal(ready.connectTimer, null); await ready.stop();
+});
+
+test("validator stream rotates a subscribed socket that stops delivering blocks", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-idle-"));
+  class FakeSocket { constructor() { this.readyState = 1; this.sent = []; this.closed = false; } send(value) { this.sent.push(value); } close() { this.closed = true; } }
+  const idleTimers = [], cancelled = [], reconnects = []; const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: FakeSocket, idleTimeoutMs: 1_500, scheduleIdleTimeout: (callback, delay) => { idleTimers.push([callback, delay]); return `idle-${idleTimers.length}`; }, cancelIdleTimeout: (token) => cancelled.push(token), scheduleReconnect: (callback) => { reconnects.push(callback); return "reconnect"; } });
+  stream.genesisHash = MAINNET_GENESIS_HASH; stream.writeStatus = async () => {}; stream.connect(); const socket = stream.socket; socket.onopen(); await stream.messageQueue; socket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 1, result: 61 }) }); socket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 62 }) }); await stream.messageQueue; assert.equal(stream.ready, true); assert.equal(idleTimers[0][1], 1_500);
+  const notification = { jsonrpc: "2.0", method: "blockNotification", params: { subscription: 62, result: { value: { slot: 7, block: { blockhash: "block-7" } } } } };
+  socket.onmessage({ data: JSON.stringify(notification) }); await stream.messageQueue; assert.deepEqual(cancelled, ["idle-1"]); assert.equal(idleTimers.length, 2);
+  idleTimers[1][0](); await stream.messageQueue; assert.equal(socket.closed, true); assert.equal(stream.lastError.message, "validator stream idle timeout"); assert.equal(stream.endpointIndex, 1); assert.equal(reconnects.length, 1); await stream.stop();
 });
 
 test("validator stream durably reports open and closed lifecycle without stale-socket mutation", async () => {
@@ -1848,6 +1859,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
   assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
+  assert.equal(loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "45000" }, process.cwd()).streamIdleTimeoutMs, 45000);
   const http = loadConfig({ INDEXER_HTTP_HEADERS_TIMEOUT_MS: "4000", INDEXER_HTTP_REQUEST_TIMEOUT_MS: "12000", INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS: "3000", INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET: "250" }, process.cwd());
   assert.deepEqual({ headers: http.httpHeadersTimeoutMs, request: http.httpRequestTimeoutMs, keepAlive: http.httpKeepAliveTimeoutMs, requests: http.httpMaxRequestsPerSocket }, { headers: 4_000, request: 12_000, keepAlive: 3_000, requests: 250 });
 });
@@ -1856,6 +1868,7 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   for (const INDEXER_PORT of ["not-a-number", "1e3", "9007199254740992", "0", "65536", " 8787 "]) assert.throws(() => loadConfig({ INDEXER_PORT }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "-1" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "99" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "999" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);
