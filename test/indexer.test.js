@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
 import { loadConfig } from "../src/config.js";
 import { decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
-import { createServer } from "../src/server.js";
+import { createServer, gateBotReadiness } from "../src/server.js";
 import { IndexStore } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
@@ -458,12 +458,14 @@ test("same-transaction swaps retain unique identities and paginate without loss"
   assert.equal(first.data.length, 1); assert.equal(second.data.length, 1); assert.notEqual(first.data[0].swapId, second.data[0].swapId); assert.equal(second.nextCursor, null);
 });
 
-test("bot readiness refuses incomplete market data", async () => {
+test("bot readiness refuses incomplete market data", async (t) => {
   const store = new IndexStore("unused"); await store.load();
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString();
   const readiness = store.botReadiness(120_000, 1_700_000_001_000);
   assert.equal(readiness.ready, false); assert.equal(readiness.reason, "missing_required_capabilities");
   assert.deepEqual(readiness.missing, ["targetPool", "riskSignals"]);
+  const gated = gateBotReadiness({ ready: true, reason: null, missing: [] }, { healthy: false, reason: "exporter_stale", ageMs: 5_000, lagSlots: 3 }, { healthy: true, reason: null, ageMs: 10, lagEvents: 0 }); assert.equal(gated.schemaVersion, 2); assert.equal(gated.ready, false); assert.equal(gated.reason, "dependency_unhealthy"); assert.deepEqual(gated.missing, ["ingestionHealth"]); assert.deepEqual(gated.dependencies.ingestion, { healthy: false, reason: "exporter_stale", ageMs: 5_000, lagSlots: 3 }); const unavailable = gateBotReadiness({ ready: false, reason: "missing_required_capabilities", missing: ["riskSignals"] }, null, null); assert.deepEqual(unavailable.missing, ["riskSignals", "ingestionHealth", "warehouseHealth"]);
+  const server = createServer({ staleAfterMs: 120_000, warehouseStaleAfterMs: 300_000, maxWarehouseLagEvents: 10 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/bot/readiness`); assert.equal(response.status, 503); const body = await response.json(); assert.equal(body.schemaVersion, 2); assert.ok(body.missing.includes("ingestionHealth")); assert.ok(body.missing.includes("warehouseHealth"));
 });
 
 test("Raydium decoder boundary rejects unsupported programs and failed signatures", async () => {
