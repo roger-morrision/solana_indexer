@@ -8,6 +8,7 @@ import { loadHolderExclusions } from "./holder-exclusions.js";
 
 const CHAIN = "solana-mainnet";
 const GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+export const CANDLE_INTERVALS = [60, 300, 900, 3_600, 14_400, 86_400];
 
 function sqlLiteral(value) { return `'${String(value).replaceAll("'", "''")}'`; }
 
@@ -39,7 +40,44 @@ export function compileWarehouseFacts(state, batch) {
   const swaps = selected(state.swaps).map((row) => { const base = factBase(row); if (typeof row.swapId !== "string" || !row.swapId || !Number.isInteger(row.eventIndex) || row.eventIndex < 0 || !row.pool || !row.protocol || !row.baseMint || !row.quoteMint || !row.inputMint || !row.outputMint || !/^\d+$/.test(row.inputAmountRaw ?? "") || !/^\d+$/.test(row.outputAmountRaw ?? "") || (row.tradeFeeRaw != null && !/^\d+$/.test(row.tradeFeeRaw)) || !/^([0-9a-f]{64})$/.test(row.rawPayloadHash ?? "")) throw new Error("invalid canonical swap fact"); unique(`swap:${row.swapId}`); return { ...base, swap_id: row.swapId, event_index: row.eventIndex, pool: row.pool, protocol: row.protocol, base_mint: row.baseMint, quote_mint: row.quoteMint, input_mint: row.inputMint, output_mint: row.outputMint, input_amount_raw: row.inputAmountRaw, output_amount_raw: row.outputAmountRaw, trade_fee_raw: row.tradeFeeRaw ?? null, decoder_version: row.decoderVersion ?? null, raw_payload_hash: row.rawPayloadHash, payload: JSON.stringify(row) }; });
   const balanceChanges = selected(state.balanceChanges).map((row) => { const base = factBase(row); if (!Number.isInteger(row.accountIndex) || row.accountIndex < 0 || !row.tokenAccount || !row.mint || !Number.isInteger(row.decimals) || row.decimals < 0 || row.decimals > 255 || !/^\d+$/.test(row.preAmountRaw ?? "") || !/^\d+$/.test(row.postAmountRaw ?? "") || typeof row.closed !== "boolean") throw new Error("invalid canonical balance fact"); unique(`balance:${row.signature}:${row.accountIndex}`); return { ...base, account_index: row.accountIndex, token_account: row.tokenAccount, owner: row.owner ?? null, program_id: row.programId ?? null, mint: row.mint, decimals: row.decimals, pre_amount_raw: row.preAmountRaw, post_amount_raw: row.postAmountRaw, closed: row.closed ? 1 : 0, payload: JSON.stringify(row) }; });
   const deadLetters = (state.deadLetters ?? []).map((row) => { const observedAt = row.lastObservedAt ?? row.firstObservedAt, observed = Date.parse(observedAt ?? ""); if (typeof row.id !== "string" || !row.id || typeof row.filename !== "string" || !row.filename || (row.fingerprint != null && !/^[0-9a-f]{64}$/.test(row.fingerprint)) || typeof row.error !== "string" || !row.error || !Number.isSafeInteger(row.attempts) || row.attempts < 1 || !Number.isFinite(observed) || typeof row.resolved !== "boolean") throw new Error("invalid canonical dead-letter fact"); unique(`dead-letter:${row.id}`); return { chain: CHAIN, observed_at: new Date(observed).toISOString(), source: row.filename, identity: row.id, payload_hash: row.fingerprint ?? null, error: row.error, attempts: row.attempts, resolved: row.resolved ? 1 : 0, resolution: row.resolution ?? null, payload: JSON.stringify(row) }; });
-  return { slots, instructions, swaps, balanceChanges, deadLetters };
+  const candleProjection = compileWarehouseCandles(state, batch);
+  return { slots, instructions, swaps, balanceChanges, deadLetters, ...candleProjection };
+}
+
+function candleAmounts(swap) {
+  const base = swap.inputMint === swap.baseMint ? swap.inputAmountRaw : swap.outputMint === swap.baseMint ? swap.outputAmountRaw : null;
+  const quote = swap.inputMint === swap.quoteMint ? swap.inputAmountRaw : swap.outputMint === swap.quoteMint ? swap.outputAmountRaw : null;
+  if (!/^\d+$/.test(base ?? "") || !/^\d+$/.test(quote ?? "") || BigInt(base) === 0n) return null;
+  return { base, quote };
+}
+
+export function compileWarehouseCandles(state, batch, intervals = CANDLE_INTERVALS) {
+  if (!Array.isArray(intervals) || !intervals.length || intervals.some((value) => !Number.isSafeInteger(value) || value < 1) || new Set(intervals).size !== intervals.length) throw new Error("invalid warehouse candle intervals");
+  const affected = new Map(), sourceSequence = (batch.events ?? []).reduce((value, event) => Math.max(value, event.sequence ?? -1), -1);
+  if ((batch.events ?? []).length && (!Number.isSafeInteger(sourceSequence) || sourceSequence < 0)) throw new Error("invalid warehouse candle source sequence");
+  for (const event of batch.events ?? []) {
+    let payload; try { payload = JSON.parse(event.payload); } catch { throw new Error(`invalid warehouse candle event ${event.sequence}`); }
+    for (const swap of [...(payload.swaps ?? []), ...(payload.revertedSwaps ?? [])]) {
+      if (!swap?.pool || !Number.isSafeInteger(swap.blockTime) || swap.blockTime < 0) throw new Error("invalid warehouse candle source");
+      for (const interval of intervals) { const bucket = Math.floor(swap.blockTime / interval) * interval, key = `${swap.pool}\u0000${interval}\u0000${bucket}`; affected.set(key, { pool: swap.pool, interval, bucket }); }
+    }
+  }
+  const compare = (left, right) => { const a = BigInt(left.n) * BigInt(right.d), b = BigInt(right.n) * BigInt(left.d); return a === b ? 0 : a < b ? -1 : 1; };
+  const candles = [];
+  for (const key of [...affected.keys()].sort()) {
+    const target = affected.get(key), candidates = (state.swaps ?? []).filter((swap) => swap.pool === target.pool && Number.isSafeInteger(swap.blockTime) && Math.floor(swap.blockTime / target.interval) * target.interval === target.bucket).sort((a, b) => a.blockTime - b.blockTime || a.slot - b.slot || a.eventIndex - b.eventIndex), row = { schema_version: 1, source_sequence: sourceSequence, chain: CHAIN, pool: target.pool, interval_seconds: target.interval, bucket_start: new Date(target.bucket * 1_000).toISOString(), base_mint: null, quote_mint: null, base_decimals: null, quote_decimals: null, open_numerator_raw: null, open_denominator_raw: null, high_numerator_raw: null, high_denominator_raw: null, low_numerator_raw: null, low_denominator_raw: null, close_numerator_raw: null, close_denominator_raw: null, base_volume_raw: 0n, quote_volume_raw: 0n, trades: 0, first_slot: null, last_slot: null, commitment: "finalized" };
+    for (const swap of candidates) {
+      const amounts = candleAmounts(swap); if (!amounts) continue;
+      const pair = `${swap.baseMint}\u0000${swap.quoteMint}`; if (row.base_mint != null && pair !== `${row.base_mint}\u0000${row.quote_mint}`) throw new Error(`conflicting canonical candle pair ${target.pool}`);
+      const price = { n: amounts.quote, d: amounts.base }; row.base_mint ??= swap.baseMint; row.quote_mint ??= swap.quoteMint; row.base_decimals ??= swap.baseDecimals ?? null; row.quote_decimals ??= swap.quoteDecimals ?? null;
+      if (row.trades === 0) { row.open_numerator_raw = row.high_numerator_raw = row.low_numerator_raw = price.n; row.open_denominator_raw = row.high_denominator_raw = row.low_denominator_raw = price.d; row.first_slot = swap.slot; }
+      if (compare(price, { n: row.high_numerator_raw, d: row.high_denominator_raw }) > 0) { row.high_numerator_raw = price.n; row.high_denominator_raw = price.d; }
+      if (compare(price, { n: row.low_numerator_raw, d: row.low_denominator_raw }) < 0) { row.low_numerator_raw = price.n; row.low_denominator_raw = price.d; }
+      row.close_numerator_raw = price.n; row.close_denominator_raw = price.d; row.base_volume_raw += BigInt(amounts.base); row.quote_volume_raw += BigInt(amounts.quote); row.trades++; row.last_slot = swap.slot; if (swap.provenance?.commitment !== "finalized") row.commitment = "confirmed";
+    }
+    if (row.trades) candles.push({ ...row, base_volume_raw: row.base_volume_raw.toString(), quote_volume_raw: row.quote_volume_raw.toString() });
+  }
+  return { candleKeys: [...affected.values()].sort((a, b) => a.pool.localeCompare(b.pool) || a.interval - b.interval || a.bucket - b.bucket), candles };
 }
 
 export function checkpointSql(sequence) {
@@ -131,6 +169,7 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
     const suffixes = [["canonical_instructions", facts.instructions], ["canonical_swaps", facts.swaps], ["canonical_balance_changes", facts.balanceChanges]];
     if (facts.slots.length) for (const [table, rows] of suffixes) { const slotList = facts.slots.join(","); await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.${table} DELETE WHERE slot IN (${slotList}) SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (rows.length) await runProcess("clickhouse-client", ["--query", `INSERT INTO terminal_dex.${table} FORMAT JSONEachRow`], `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env); }
     await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.canonical_dead_letters DELETE WHERE chain = '${CHAIN}' SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (facts.deadLetters.length) await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_dead_letters FORMAT JSONEachRow"], `${facts.deadLetters.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env);
+    if (facts.candleKeys?.length) { const predicates = facts.candleKeys.map((row) => `(pool=${sqlLiteral(row.pool)} AND interval_seconds=${row.interval} AND bucket_start=${sqlLiteral(new Date(row.bucket * 1_000).toISOString())})`).join(" OR "); await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.canonical_candles DELETE WHERE chain = '${CHAIN}' AND (${predicates}) SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (facts.candles.length) await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_candles FORMAT JSONEachRow"], `${facts.candles.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env); }
   }
   await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], postgresSql, spawnProcess, env);
   if (redisInput) await runProcess("redis-cli", ["--pipe"], redisInput, spawnProcess, env);

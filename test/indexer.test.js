@@ -27,7 +27,7 @@ import { compileHolderExclusions } from "../src/holder-exclusions.js";
 import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
 import { buildCommercialSyncSql } from "../src/postgres-commercial-sync.js";
-import { assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileWarehouseBatch, compileWarehouseFacts, compileWarehouseMetadataSql, compileWarehouseProjections, probeWarehouseSinks, syncWarehouseBatch, validateWarehouseSinkSequences, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
+import { assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileWarehouseBatch, compileWarehouseCandles, compileWarehouseFacts, compileWarehouseMetadataSql, compileWarehouseProjections, probeWarehouseSinks, syncWarehouseBatch, validateWarehouseSinkSequences, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
 import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis-quota.js";
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
 
@@ -744,7 +744,7 @@ test("tenant registry supports hash-only key rotation and tenant quotas", async 
 test("storage deployment requires reviewed images, loopback ports, secrets, and core schemas", async () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); const compose = await fs.readFile(path.join(root, "infra/compose.yaml"), "utf8"); const ignored = await fs.readFile(path.join(root, ".gitignore"), "utf8");
   assert.doesNotMatch(compose, /image:\s+\S+:latest/); assert.match(compose, /POSTGRES_IMAGE:\?Set POSTGRES_IMAGE/); assert.match(compose, /127\.0\.0\.1:5432:5432/); assert.match(compose, /postgres_password: \{ file:/); assert.match(ignored, /infra\/secrets\/\*/);
-  const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /security_snapshots_canonical_unique/); assert.match(postgres, /operational_jobs_key_unique/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /UInt256/);
+  const postgres = await fs.readFile(path.join(root, "infra/postgres/001_core.sql"), "utf8"), clickhouse = await fs.readFile(path.join(root, "infra/clickhouse/001_events.sql"), "utf8"); assert.match(postgres, /CREATE TABLE IF NOT EXISTS security_snapshots/); assert.match(postgres, /security_snapshots_canonical_unique/); assert.match(postgres, /operational_jobs_key_unique/); assert.match(postgres, /CREATE TABLE IF NOT EXISTS ingestion_checkpoints/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.instructions/); assert.match(clickhouse, /CREATE TABLE IF NOT EXISTS terminal_dex\.canonical_candles/); assert.match(clickhouse, /UInt256/);
 });
 
 test("Docker Desktop reduced mode is bounded, private, and credential-externalized", async () => {
@@ -848,6 +848,16 @@ test("warehouse materializes touched canonical slots after synchronous fork clea
   assert.throws(() => compileRedisHotSync({ ...store.state, pools: { ["x".repeat(70_000)]: {} } }, batch, 300, 65_536), /byte limit/); assert.throws(() => compileRedisHotSync({ ...store.state, mints: { "bad\nkey": {} } }, batch), /invalid Redis mint identity/);
   const quoted = compileWarehouseMetadataSql({ mints: { "mint'quoted": { transferCount: 0, swapCount: 0, lastSlot: 1 } } }, 1); assert.match(quoted, /mint''quoted/); assert.throws(() => compileWarehouseMetadataSql({ mints: { bad: { transferCount: -1 } } }, 1), /invalid warehouse mint metadata/);
   const securitySql = compileWarehouseMetadataSql({ mints: {} }, 1, { candidates: [], security: [{ mint: "mint", ruleVersion: "token-security-v1", sourceSlot: 5, severity: "high", blocksResearch: false, blocksEntry: true, blocksExit: false, observedAt: "2026-08-22T00:00:00.000Z", expiresAt: "2026-08-22T00:02:00.000Z", evidence: { finding: "authority" } }] }); assert.match(securitySql, /INSERT INTO security_snapshots/); assert.match(securitySql, /ON CONFLICT \(chain, mint, rule_version, source_slot\) WHERE source_slot IS NOT NULL/);
+});
+
+test("warehouse candle materialization rebuilds late buckets and deletes orphaned buckets", () => {
+  const provenance = { commitment: "finalized" }, swaps = [
+    { pool: "pool", blockTime: 125, slot: 12, eventIndex: 0, baseMint: "base", quoteMint: "quote", baseDecimals: 6, quoteDecimals: 6, inputMint: "base", outputMint: "quote", inputAmountRaw: "10", outputAmountRaw: "30", provenance },
+    { pool: "pool", blockTime: 121, slot: 11, eventIndex: 0, baseMint: "base", quoteMint: "quote", baseDecimals: 6, quoteDecimals: 6, inputMint: "quote", outputMint: "base", inputAmountRaw: "20", outputAmountRaw: "10", provenance }
+  ];
+  const batch = { events: [{ sequence: 7, payload: JSON.stringify({ swaps: [swaps[0]], revertedSwaps: [] }) }] }, result = compileWarehouseCandles({ swaps }, batch, [60]);
+  assert.deepEqual(result.candleKeys, [{ pool: "pool", interval: 60, bucket: 120 }]); assert.equal(result.candles.length, 1); const candle = result.candles[0]; assert.deepEqual({ schema: candle.schema_version, sequence: candle.source_sequence, open: [candle.open_numerator_raw, candle.open_denominator_raw], close: [candle.close_numerator_raw, candle.close_denominator_raw], high: [candle.high_numerator_raw, candle.high_denominator_raw], volume: [candle.base_volume_raw, candle.quote_volume_raw], trades: candle.trades, first: candle.first_slot, last: candle.last_slot }, { schema: 1, sequence: 7, open: ["20", "10"], close: ["30", "10"], high: ["30", "10"], volume: ["20", "50"], trades: 2, first: 11, last: 12 });
+  const removed = compileWarehouseCandles({ swaps: [] }, { events: [{ sequence: 8, payload: JSON.stringify({ swaps: [], revertedSwaps: [swaps[0]] }) }] }, [60]); assert.deepEqual(removed.candleKeys, [{ pool: "pool", interval: 60, bucket: 120 }]); assert.deepEqual(removed.candles, []);
 });
 
 test("warehouse health fails closed for stale, corrupt, lagged, and lost checkpoints", async (t) => {
