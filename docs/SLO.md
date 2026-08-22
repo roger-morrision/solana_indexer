@@ -28,6 +28,10 @@ It exports a dedicated binary persisted-state quarantine signal and the count of
 invalid top-level collections. Syntax-invalid JSON reports quarantine with zero
 named fields, preserving the redacted diagnostic boundary. The quarantine alert
 is intentionally distinct from ordinary stale/unhealthy index alerts.
+Backup health is derived only from the completion status installed after every
+artifact and its content-bound receipt reach self-hosted storage. Missing,
+malformed, future-dated, or older-than-24-hour evidence sets the RPO gauge to
+unhealthy and triggers the launch-blocking alert.
 It includes active WebSocket clients plus cumulative capacity rejections,
 slow-consumer evictions, and protocol-error closes so saturation and abusive
 or incompatible clients are observable without logging credentials.

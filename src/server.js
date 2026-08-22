@@ -9,6 +9,7 @@ import { assessExporterStatus } from "./exporter-health.js";
 import { ApiAuditSink, auditIdentity } from "./api-audit.js";
 import { resolveApiTenant } from "./api-tenants.js";
 import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
+import { assessBackupStatus } from "./backup-status.js";
 import { quoteRaydiumSnapshotExactInput } from "./clmm-math.js";
 import { quoteCpmmSnapshotExactInput, RAYDIUM_CPMM_PROGRAM } from "./cpmm-pool-snapshot.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
@@ -98,8 +99,8 @@ function keyMatches(presented, configured) {
   const candidate = crypto.createHash("sha256").update(presented).digest();
   return configured.some((key) => crypto.timingSafeEqual(candidate, crypto.createHash("sha256").update(key).digest()));
 }
-function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots, warehouseCheckpoint, warehouseStaleAfterMs, maxWarehouseLagEvents, auditFailures = 0, webSocketStats = {}) {
-  const structure = store.structureQuality(), health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, Date.now(), maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), stats = store.stats(), lines = [
+function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots, warehouseCheckpoint, warehouseStaleAfterMs, maxWarehouseLagEvents, backup, backupMaximumAgeMs, auditFailures = 0, webSocketStats = {}) {
+  const structure = store.structureQuality(), now = Date.now(), health = store.health(staleAfterMs), exporterStatus = assessExporterStatus(exporter, staleAfterMs, now, maxExporterLagSlots), eventSequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], warehouseStatus = assessWarehouseCheckpoint(warehouseCheckpoint, eventSequence, events[0]?.sequence ?? eventSequence + 1, warehouseStaleAfterMs, maxWarehouseLagEvents), backupStatus = assessBackupStatus(backup, backupMaximumAgeMs, now), stats = store.stats(), lines = [
     "# HELP terminal_dex_http_requests_total HTTP requests handled by status class.",
     "# TYPE terminal_dex_http_requests_total counter",
     ...Object.entries(metrics.statusClasses).map(([status, count]) => `terminal_dex_http_requests_total{status_class="${status}"} ${count}`),
@@ -128,6 +129,10 @@ function prometheus(metrics, store, staleAfterMs, exporter, maxExporterLagSlots,
     "# TYPE terminal_dex_warehouse_healthy gauge", `terminal_dex_warehouse_healthy ${warehouseStatus.healthy ? 1 : 0}`,
     "# TYPE terminal_dex_warehouse_age_seconds gauge", `terminal_dex_warehouse_age_seconds ${warehouseStatus.ageMs == null ? "NaN" : warehouseStatus.ageMs / 1000}`,
     "# TYPE terminal_dex_warehouse_lag_events gauge", `terminal_dex_warehouse_lag_events ${warehouseStatus.lagEvents ?? "NaN"}`,
+    "# HELP terminal_dex_backup_healthy Whether a content-bound completed self-hosted backup meets the configured RPO.",
+    "# TYPE terminal_dex_backup_healthy gauge", `terminal_dex_backup_healthy ${backupStatus.healthy ? 1 : 0}`,
+    "# HELP terminal_dex_backup_age_seconds Age of the last content-bound completed self-hosted backup.",
+    "# TYPE terminal_dex_backup_age_seconds gauge", `terminal_dex_backup_age_seconds ${backupStatus.ageMs == null ? "NaN" : backupStatus.ageMs / 1000}`,
     "# TYPE terminal_dex_index_tip_slot gauge", `terminal_dex_index_tip_slot ${stats.tip ?? "NaN"}`,
     "# TYPE terminal_dex_dead_letters gauge", `terminal_dex_dead_letters ${stats.unresolvedDeadLetters}`,
     "# TYPE terminal_dex_reorg_corrections_total counter", `terminal_dex_reorg_corrections_total ${stats.reorgCorrections}`,
@@ -163,7 +168,7 @@ export function createServer(config, store) {
         response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); }
         if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) });
       }
-      const structure = store.structureQuality(), diagnosticRoute = new Set(["/metrics", "/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/internal/registry", "/internal/feed/health", "/internal/execution-policy"]).has(url.pathname);
+      const structure = store.structureQuality(), diagnosticRoute = new Set(["/metrics", "/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/internal/registry", "/internal/feed/health", "/internal/execution-policy"]).has(url.pathname);
       if (protectedRoute && url.pathname !== "/rpc" && !diagnosticRoute && !structure.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: structure.reason, fields: structure.fields });
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpcEnvelope(rpcPayload, config, store));
       if (preparePoolSwap) {
@@ -202,7 +207,7 @@ export function createServer(config, store) {
       if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.metadataQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (url.pathname === "/internal/execution-policy") return json(response, 200, EXECUTION_HANDOFF_POLICY);
-      if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, auditSink.failures, server.webSocketStats); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
+      if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint, backup] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile), readJsonFile(config.backupStatusFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, backup, config.backupMaximumAgeMs, auditSink.failures, server.webSocketStats); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...store.health(config.staleAfterMs) }; return json(response, health.healthy ? 200 : 503, health); }
       if (url.pathname === "/api/stats") { const structure = store.structureQuality(), payload = { ...store.stats(), structure, chain: structure.canonical ? store.chainQuality() : { canonical: false, conflicts: [], conflictCount: 0, invalidStateStructure: true } }; return json(response, structure.canonical ? 200 : 503, payload); }
       if (url.pathname === "/api/v1/ingestion") {
@@ -211,6 +216,7 @@ export function createServer(config, store) {
         return json(response, status.healthy ? 200 : 503, payload);
       }
       if (url.pathname === "/api/v1/warehouse") { const checkpoint = await readJsonFile(config.warehouseCheckpointFile), sequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], status = assessWarehouseCheckpoint(checkpoint, sequence, events[0]?.sequence ?? sequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents); return json(response, status.healthy ? 200 : 503, status); }
+      if (url.pathname === "/api/v1/backup") { const status = assessBackupStatus(await readJsonFile(config.backupStatusFile), config.backupMaximumAgeMs); return json(response, status.healthy ? 200 : 503, status); }
       if (url.pathname === "/internal/registry") return json(response, 200, registrySnapshot());
       if (url.pathname === "/internal/feed/health") { const health = store.health(config.staleAfterMs); return json(response, health.healthy ? 200 : 503, { ...health, ingestion: await readJsonFile(config.exporterStatusFile) }); }
       if (url.pathname === "/internal/feed/gaps") { const recovery = store.recoveryQuality(); if (!recovery.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: recovery.reason }); const ingestion = await readJsonFile(config.exporterStatusFile); return json(response, ingestion ? 200 : 503, { available: Boolean(ingestion), durableSkippedSlots: ingestion?.durableSkippedSlots ?? [], reorgCorrections: store.state.reorgCorrections.slice(-100), checkpoint: store.state.checkpoints.inbox ?? null }); }

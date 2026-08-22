@@ -205,6 +205,11 @@ an operator-installed isolated-target marker before checksum validation or any
 database command. Every PostgreSQL, ClickHouse, and Redis restore operation is
 addressed through that explicit project, so a drill cannot silently reuse the
 normal deployment's Compose identity.
+Successful backup publication now read-back verifies every self-hosted object
+and installs a canonical status only after the full upload completes. It binds the backup identity to SHA-256
+digests of the version-3 manifest and uploaded inbox receipt; a versioned health
+endpoint, RPO gauges, and critical alert reject missing, malformed, future, or
+older-than-24-hour evidence without disclosing storage locations.
 Canonical index, validator exporter/stream, inbox, cursor/status, and warehouse
 receipt publication now share one collision-resistant durable-write boundary:
 same-path writes serialize, file contents are synchronized before rename, and

@@ -36,6 +36,11 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations: { summary: "Canonical warehouse synchronization is unavailable, stale, lagged, or outside retained replay history" }
+      - alert: TerminalDexBackupRpoMissed
+        expr: terminal_dex_backup_healthy == 0 or terminal_dex_backup_age_seconds > 86400
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "No valid completed self-hosted backup is inside the 24-hour restore-point objective" }
       - alert: TerminalDexHttpErrors
         expr: rate(terminal_dex_http_requests_total{status_class="5xx"}[5m]) > 0.05
         for: 10m

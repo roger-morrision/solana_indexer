@@ -261,6 +261,8 @@ Configuration:
 | `INDEXER_POLL_MS` | `1000` | Inbox scan interval |
 | `INDEXER_STALE_AFTER_MS` | `120000` | Maximum age before health fails |
 | `INDEXER_MAX_EXPORT_LAG_SLOTS` | `512` | Maximum finalized exporter lag before ingestion fails closed |
+| `INDEXER_BACKUP_STATUS_FILE` | `data/backup-status.json` | Content-bound evidence installed only after a complete self-hosted backup upload |
+| `INDEXER_BACKUP_MAXIMUM_AGE_SECONDS` | `86400` | Maximum completed-backup age before the RPO health contract fails |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `USD_DEPEG_REFERENCE_FILE` | unset | Reviewed, expiring exact-rational finalized independent on-chain USDC/USD evidence |
@@ -482,7 +484,12 @@ heap growth, state-digest, and throughput invariants. The script supplies its
 fixture and workload size explicitly so the repository-defined validation
 command is runnable without undocumented arguments.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
-and inbox archives and uploads them to the loopback SeaweedFS filer.
+and inbox archives and uploads them to the loopback SeaweedFS filer. Only after
+the complete archive and inbox receipt are uploaded and read-back SHA-256
+verified does it create, upload, verify, and
+install `data/backup-status.json`, binding the backup ID and hashes of both the
+backup manifest and archive receipt. `/api/v1/backup` and Prometheus expose its
+freshness without exposing the archive endpoint.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
 storage. `ops/restore.sh` verifies checksums and requires the explicit
 `npm run validate:backup -- /absolute/backup-directory` preflight. The preflight
