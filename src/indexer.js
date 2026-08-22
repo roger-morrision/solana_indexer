@@ -6,6 +6,7 @@ import { parseBlock, parseInput } from "./parser.js";
 function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 
 export async function applySnapshotArtifacts(config, store) {
+  store.assertWritable();
   const descriptors = [{ type: "account", filename: config.accountSnapshotFile, apply: (value) => store.applyAccountSnapshot(value) }, { type: "cpmm_pool", filename: config.cpmmPoolSnapshotFile, apply: (value) => store.applyCpmmPoolSnapshot(value) }, { type: "pump_swap_pool", filename: config.pumpSwapPoolSnapshotFile, apply: (value) => store.applyPumpSwapPoolSnapshot(value) }, { type: "pump_bonding_curve", filename: config.pumpBondingCurveSnapshotFile, apply: (value) => store.applyPumpBondingCurveSnapshot(value) }, { type: "clmm_pool", filename: config.clmmPoolSnapshotFile, apply: (value) => store.applyPoolSnapshot(value) }, { type: "orca_pool", filename: config.orcaPoolSnapshotFile, apply: (value) => store.applyOrcaPoolSnapshot(value) }, { type: "meteora_dlmm_pool", filename: config.meteoraDlmmPoolSnapshotFile, apply: (value) => store.applyMeteoraDlmmPoolSnapshot(value) }, { type: "offchain_metadata", filename: config.offchainMetadataSnapshotFile, apply: (value) => store.applyOffchainMetadataSnapshot(value) }], result = { applied: 0, skipped: 0, errors: [] }; store.state.checkpoints.snapshotArtifacts ??= {};
   for (const descriptor of descriptors) {
     if (!descriptor.filename) continue; let content; try { content = await fs.readFile(descriptor.filename); } catch (error) { if (error.code === "ENOENT") { result.skipped++; continue; } result.errors.push({ type: descriptor.type, error: error.message }); continue; } const hash = fingerprint(content); if (store.state.checkpoints.snapshotArtifacts[descriptor.type]?.fingerprint === hash) { result.skipped++; continue; } const before = structuredClone(store.state);
@@ -16,7 +17,7 @@ export async function applySnapshotArtifacts(config, store) {
 }
 
 export async function indexInbox(config, store) {
-  await store.load(); await fs.mkdir(config.inbox, { recursive: true });
+  await store.load(); store.assertWritable(); await fs.mkdir(config.inbox, { recursive: true });
   const names = (await fs.readdir(config.inbox)).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort((a, b) => { const left = Number(a.match(/^(\d+)/)?.[1]), right = Number(b.match(/^(\d+)/)?.[1]); return Number.isSafeInteger(left) && Number.isSafeInteger(right) && left !== right ? left - right : a.localeCompare(b); });
   const result = { files: 0, blocks: 0, transactions: 0, transfers: 0, balanceChanges: 0, swaps: 0, snapshots: 0, skippedFiles: 0, resolvedDeadLetters: 0, errors: [] };
   for (const name of names) {
@@ -51,7 +52,7 @@ export async function indexInbox(config, store) {
 
 export function watchInbox(config, store, onCycle = () => {}) {
   let stopped = false, running = false;
-  const cycle = async () => { if (running || stopped) return; running = true; try { onCycle(await indexInbox(config, store)); } catch (error) { onCycle({ errors: [{ error: error.message }] }); } finally { running = false; } };
-  void cycle(); const timer = setInterval(cycle, config.pollMs);
+  let timer; const cycle = async () => { if (running || stopped) return; running = true; try { onCycle(await indexInbox(config, store)); } catch (error) { if (error.code === "INDEX_STATE_QUARANTINED") { stopped = true; if (timer) clearInterval(timer); onCycle({ suspended: true, reason: error.reason, errors: [{ code: error.code, error: error.message }] }); } else onCycle({ errors: [{ error: error.message }] }); } finally { running = false; } };
+  void cycle(); timer = setInterval(cycle, config.pollMs);
   return () => { stopped = true; clearInterval(timer); };
 }

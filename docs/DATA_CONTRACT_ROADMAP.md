@@ -163,6 +163,10 @@ can operate from preserved source evidence. REST data and preparation routes,
 read-only data RPC methods, and WebSocket upgrades share the same admission
 gate; only redacted health/statistics/metrics and independent ingestion,
 warehouse, registry, and execution-policy diagnostics remain available.
+Inbox and snapshot-artifact writers check quarantine before filesystem or
+checkpoint mutation. The watch loop reports one typed suspended cycle and
+cancels further polling instead of misclassifying corruption as a payload dead
+letter or repeatedly attempting an impossible save.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,

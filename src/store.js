@@ -279,7 +279,7 @@ export class IndexStore {
     this.state.version = 21; this.rebuildTokenAccounts(); this.mergePoolSnapshots();
     this.loaded = true;
   }
-  assertWritable() { if (this.loadFailure || invalidStateCollections(this.state).length) throw new Error(`index state is quarantined: ${this.loadFailure?.reason ?? "indexed_state_structure_invalid"}`); }
+  assertWritable() { if (this.loadFailure || invalidStateCollections(this.state).length) { const error = new Error(`index state is quarantined: ${this.loadFailure?.reason ?? "indexed_state_structure_invalid"}`); error.code = "INDEX_STATE_QUARANTINED"; error.reason = this.loadFailure?.reason ?? "indexed_state_structure_invalid"; throw error; } }
   async save() {
     this.assertWritable();
     this.state.updatedAt = new Date().toISOString();

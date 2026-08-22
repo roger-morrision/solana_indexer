@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { applySnapshotArtifacts, indexInbox } from "../src/indexer.js";
+import { applySnapshotArtifacts, indexInbox, watchInbox } from "../src/indexer.js";
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
@@ -1671,8 +1671,10 @@ test("restart quarantines malformed persisted state without overwriting source e
 });
 
 test("restart quarantines invalid JSON without disclosing or replacing its contents", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-json-quarantine-")), filename = path.join(root, "index.json"), original = '{"privateProviderToken":"do-not-log"'; await fs.writeFile(filename, original); const store = new IndexStore(filename); await store.load();
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-json-quarantine-")), filename = path.join(root, "index.json"), inbox = path.join(root, "inbox"), original = '{"privateProviderToken":"do-not-log"'; await fs.writeFile(filename, original); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "1.json"), "{}"); const store = new IndexStore(filename); await store.load();
   assert.deepEqual(store.structureQuality(), { canonical: false, reason: "indexed_state_json_invalid", fields: [] }); assert.equal(store.health().reason, "indexed_state_json_invalid"); assert.throws(() => store.recordDeadLetter("input", "hash", "failure"), /index state is quarantined/); await assert.rejects(store.save(), /index state is quarantined/); assert.equal(await fs.readFile(filename, "utf8"), original); assert.doesNotMatch(JSON.stringify(store.loadFailure), /privateProviderToken|do-not-log/);
+  await assert.rejects(indexInbox({ inbox }, store), (error) => error.code === "INDEX_STATE_QUARANTINED" && error.reason === "indexed_state_json_invalid"); await assert.rejects(applySnapshotArtifacts({}, store), (error) => error.code === "INDEX_STATE_QUARANTINED"); assert.equal(await fs.readFile(filename, "utf8"), original);
+  let cycles = 0; const result = await new Promise((resolve) => { watchInbox({ inbox, pollMs: 5 }, store, (value) => { cycles++; resolve(value); }); }); assert.deepEqual({ suspended: result.suspended, reason: result.reason, code: result.errors[0].code }, { suspended: true, reason: "indexed_state_json_invalid", code: "INDEX_STATE_QUARANTINED" }); await new Promise((resolve) => setTimeout(resolve, 20)); assert.equal(cycles, 1);
 });
 
 test("JSON-RPC rejects oversized bodies with a stable 413 contract", async (t) => {
