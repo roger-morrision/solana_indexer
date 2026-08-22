@@ -79,7 +79,8 @@ function dispatchRpc(payload, config, store) {
   if (payload.method === "getIndexedTransaction") {
     const signature = Array.isArray(payload.params) ? payload.params[0] : payload.params?.signature;
     if (typeof signature !== "string" || !signature) return rpcError(payload.id, -32602, "Invalid params");
-    return rpcResult(payload.id, store.transaction(signature));
+    const view = store.indexedTransactions(); if (!view.available) return rpcError(payload.id, -32002, "Indexed transaction evidence unavailable");
+    return rpcResult(payload.id, view.data.find((transaction) => transaction.signature === signature) ?? null);
   }
   return rpcError(payload.id, -32601, "Method not found");
 }
@@ -215,8 +216,8 @@ export function createServer(config, store) {
         return json(response, 200, page(view.data, limit(url), url.searchParams.get("cursor"), (row) => String(row.slot), "blocks:v1"));
       }
       if (url.pathname === "/api/v1/transactions") {
-        const rows = Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature));
-        return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}`, "transactions:v1"));
+        const view = store.indexedTransactions(); if (!view.available) return json(response, 503, { schemaVersion: 1, available: false, reason: view.reason });
+        return json(response, 200, page(view.data, limit(url), url.searchParams.get("cursor"), (row) => `${row.slot}:${row.signature}`, "transactions:v1"));
       }
       if (url.pathname === "/api/v1/swaps") { const mint = optionalFilter(url, "mint"), pool = optionalFilter(url, "pool"), protocol = optionalFilter(url, "protocol"); const rows = store.state.swaps.filter((row) => (!mint || row.inputMint === mint || row.outputMint === mint) && (!pool || row.pool === pool) && (!protocol || row.protocol === protocol)).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature) || a.eventIndex - b.eventIndex); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => row.swapId, `swaps:v1:${mint ?? ""}:${pool ?? ""}:${protocol ?? ""}`)); }
       if (url.pathname === "/api/v1/tokens") { const rows = Object.entries(store.state.mints).sort(([left], [right]) => left.localeCompare(right)).map(([address, row]) => tokenCatalogRow(address, row)); return json(response, 200, page(rows, limit(url), url.searchParams.get("cursor"), (row) => row.address, "tokens:v1")); }
@@ -225,9 +226,9 @@ export function createServer(config, store) {
       const volume = url.pathname.match(/^\/api\/v1\/volume\/([^/]+)$/); if (volume) { const window = trendingWindow(url), result = store.usdVolume(decodeURIComponent(volume[1]), window.seconds ?? 86_400, config.staleAfterMs); return json(response, result.available ? 200 : 503, result); }
       if (url.pathname === "/api/v1/bot/readiness") { const now = Date.now(), readiness = store.botReadiness(config.staleAfterMs, now, url.searchParams.get("pool")), [exporter, checkpoint] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile)]), ingestion = assessExporterStatus(exporter, config.staleAfterMs, now, config.maxExporterLagSlots), warehouse = assessWarehouseCheckpoint(checkpoint, store.state.eventSequence, store.state.events[0]?.sequence ?? store.state.eventSequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, now), gated = gateBotReadiness(readiness, ingestion, warehouse); return json(response, gated.ready ? 200 : 503, gated); }
       if (url.pathname === "/api/blocks") { const view = store.indexedBlocks(); return json(response, view.available ? 200 : 503, view.available ? view.data.slice(0, limit(url)) : { schemaVersion: 1, available: false, reason: view.reason }); }
-      if (url.pathname === "/api/transactions") return json(response, 200, Object.values(store.state.transactions).sort((a, b) => b.slot - a.slot).slice(0, limit(url)));
+      if (url.pathname === "/api/transactions") { const view = store.indexedTransactions(); return json(response, view.available ? 200 : 503, view.available ? view.data.slice(0, limit(url)) : { schemaVersion: 1, available: false, reason: view.reason }); }
       if (url.pathname === "/api/trending") { const window = trendingWindow(url); return json(response, 200, { asOf: new Date().toISOString(), window: window.label, methodology: "ranked by verified DEX swaps, unique decoded traders, then SPL transfers; no USD volume claim", tokens: store.trending(limit(url), window.seconds) }); }
-      const transaction = url.pathname.match(/^\/api\/transaction\/([^/]+)$/); if (transaction) { const row = store.transaction(decodeURIComponent(transaction[1])); return json(response, row ? 200 : 404, row ?? { error: "not_found" }); }
+      const transaction = url.pathname.match(/^\/api\/transaction\/([^/]+)$/); if (transaction) { const view = store.indexedTransactions(); if (!view.available) return json(response, 503, { schemaVersion: 1, available: false, reason: view.reason }); const row = view.data.find((item) => item.signature === decodeURIComponent(transaction[1])); return json(response, row ? 200 : 404, row ?? { error: "not_found" }); }
       const account = url.pathname.match(/^\/api\/account\/([^/]+)$/); if (account) return json(response, 200, store.account(decodeURIComponent(account[1]), limit(url)));
       const mint = url.pathname.match(/^\/api\/mint\/([^/]+)$/); if (mint) return json(response, 200, store.mint(decodeURIComponent(mint[1]), limit(url), config.staleAfterMs));
       const holders = url.pathname.match(/^\/api\/v1\/holders\/([^/]+)$/); if (holders) return json(response, 200, store.holders(decodeURIComponent(holders[1]), limit(url), config.staleAfterMs));

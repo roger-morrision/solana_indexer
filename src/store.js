@@ -35,6 +35,10 @@ export function canonicalPersistedEventLog(events, eventSequence) {
   return Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
 }
 function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
+function canonicalPersistedTransaction(key, transaction, blocks) {
+  const block = blocks?.[String(transaction?.slot)], provenance = transaction?.provenance, blockProvenance = block?.provenance;
+  return typeof key === "string" && Boolean(key) && transaction?.signature === key && Number.isSafeInteger(transaction.slot) && transaction.slot >= 0 && canonicalPersistedBlock(String(transaction.slot), block) && canonicalBlockTimeMs(transaction.blockTime) != null && transaction.blockTime === block.blockTime && typeof transaction.success === "boolean" && Number.isSafeInteger(transaction.feeLamports) && transaction.feeLamports >= 0 && typeof transaction.feePayer === "string" && Boolean(transaction.feePayer) && Array.isArray(transaction.accounts) && transaction.accounts.every((account) => typeof account === "string" && Boolean(account)) && Number.isSafeInteger(transaction.logCount) && transaction.logCount >= 0 && ["confirmed", "finalized"].includes(provenance?.commitment) && provenance.genesisHash === MAINNET_GENESIS_HASH && typeof provenance.source === "string" && Boolean(provenance.source) && parseCanonicalUtcTimestamp(provenance.observedAt) != null && provenance.commitment === blockProvenance?.commitment && provenance.genesisHash === blockProvenance?.genesisHash && provenance.source === blockProvenance?.source && provenance.observedAt === blockProvenance?.observedAt;
+}
 export function isCanonicalAccountSnapshotEvidence(snapshot, mintInfo = snapshot?.mintInfo) {
   if (snapshot?.complete !== true || snapshot.genesisHash !== MAINNET_GENESIS_HASH || parseCanonicalUtcTimestamp(snapshot.observedAt) == null || !Number.isSafeInteger(snapshot.slot) || snapshot.slot < 0 || !/^[0-9a-f]{64}$/.test(snapshot.sourceHash ?? "") || !Array.isArray(snapshot.accounts) || !Number.isSafeInteger(snapshot.accountCount) || snapshot.accountCount !== snapshot.accounts.length || !/^\d+$/.test(snapshot.mintInfo?.supply ?? "") || BigInt(snapshot.mintInfo.supply) > U64_MAX || !Number.isInteger(snapshot.mintInfo?.decimals) || snapshot.mintInfo.decimals < 0 || snapshot.mintInfo.decimals > 255 || mintInfo?.supply !== snapshot.mintInfo.supply || mintInfo?.decimals !== snapshot.mintInfo.decimals) return false;
   const accounts = new Set();
@@ -416,6 +420,11 @@ export class IndexStore {
     }
     return { available: true, reason: null, data: entries.map(([key, row]) => ({ ...row, slot: Number(key) })).sort((a, b) => b.slot - a.slot) };
   }
+  indexedTransactions() {
+    const entries = Object.entries(this.state.transactions);
+    if (entries.some(([key, transaction]) => !canonicalPersistedTransaction(key, transaction, this.state.blocks))) return { available: false, reason: "indexed_transaction_evidence_invalid", data: [] };
+    return { available: true, reason: null, data: entries.map(([, row]) => row).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature)) };
+  }
   stats() {
     const tipBlock = this.state.tip == null ? null : this.state.blocks[String(this.state.tip)];
     return { tip: this.state.tip, blocks: Object.keys(this.state.blocks).length, transactions: Object.keys(this.state.transactions).length, instructions: this.state.instructions.length, programEvents: this.state.programEvents.length, transfers: this.state.transfers.length, nativeTransfers: this.state.nativeTransfers.length, balanceChanges: this.state.balanceChanges.length, tokenAccounts: Object.keys(this.state.tokenAccounts).length, swaps: this.state.swaps.length, pools: Object.keys(this.state.pools).length, poolSnapshots: Object.keys(this.state.poolSnapshots).length, accounts: Object.keys(this.state.accounts).length, mints: Object.keys(this.state.mints).length, deadLetters: this.state.deadLetters.length, unresolvedDeadLetters: this.state.deadLetters.filter((row) => !row.resolved).length, reorgCorrections: this.state.reorgCorrections.length, updatedAt: this.state.updatedAt, ingestion: { source: tipBlock?.provenance?.source ?? "unknown", commitment: tipBlock?.provenance?.commitment ?? "unknown", sourceTip: tipBlock?.provenance?.sourceTip ?? null, exportLagSlots: tipBlock?.provenance?.exportLagSlots ?? null } };
@@ -440,6 +449,7 @@ export class IndexStore {
     const finalizedBlocks = blocks.filter((block) => block.provenance?.commitment === "finalized").length;
     return {
       canonicalBlocks: canonicalBlockTimes && canonicalBlockIdentities,
+      canonicalTransactions: this.indexedTransactions().available,
       replayableEvents: this.eventQuality().canonical,
       mainnetIdentity: blocks.length > 0 && blocks.every((block) => block.provenance?.genesisHash === MAINNET_GENESIS_HASH),
       finalizedProvenance: blocks.length > 0 && finalizedBlocks === blocks.length,
@@ -469,7 +479,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
   }
@@ -495,6 +505,7 @@ export class IndexStore {
     if (!chain.canonical) return { status: "chain_conflict", healthy: false, reason: "indexed_parent_hash_mismatch", ageMs: null, staleAfterMs, chain, ...stats };
     if (Object.values(this.state.blocks).some((block) => block.provenance?.genesisHash !== MAINNET_GENESIS_HASH)) return { status: "wrong_network", healthy: false, reason: "indexed_block_mainnet_identity_missing_or_invalid", ageMs: null, staleAfterMs, chain, ...stats };
     const events = this.eventQuality(); if (!events.canonical) return { status: "invalid_evidence", healthy: false, reason: "indexed_event_log_invalid", ageMs: null, staleAfterMs, chain, events, ...stats };
+    const transactions = this.indexedTransactions(); if (!transactions.available) return { status: "invalid_evidence", healthy: false, reason: transactions.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const ageMs = now - newestBlockTime; if (ageMs < 0) return { status: "clock_skew", healthy: false, reason: "latest_block_time_is_in_future", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };
     const healthy = ageMs <= staleAfterMs;
     return { status: healthy ? "healthy" : "stale", healthy, reason: healthy ? null : "latest_block_is_stale", latestBlockTime: new Date(newestBlockTime).toISOString(), ageMs, staleAfterMs, chain, ...stats };

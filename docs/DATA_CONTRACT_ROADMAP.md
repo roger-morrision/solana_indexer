@@ -73,6 +73,13 @@ events mainnet-bound, finalized snapshot sources exact, and off-chain metadata
 explicitly untrusted. Invalid retained evidence receives `resync_required` and
 policy close instead of being broadcast.
 
+Persisted transaction maps are likewise revalidated as complete collections
+before REST/RPC delivery or readiness: map keys must equal row signatures and
+every transaction must bind a canonical parent block with exact slot, time,
+provenance, execution-status, fee, payer, account and log-count evidence.
+Malformed collections return an explicit unavailable contract rather than
+leaking partially trusted rows.
+
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
 warehouse synchronization and WebSocket replay from disagreeing about whether
