@@ -153,6 +153,13 @@ capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or
 warehouse-health traversal. Corrupt map/array types now produce explicit null
 counts and `indexed_state_structure_invalid` availability instead of throwing
 inside observability precisely when operators need diagnostic access.
+Startup performs that check before compatibility migrations iterate persisted
+collections. Structurally invalid or syntactically invalid JSON enters a
+read-only quarantine with only a reason and invalid field names exposed;
+ingestion mutations and durable saves are rejected, and the original file is
+never repaired or overwritten implicitly. Health remains available with
+`indexed_state_structure_invalid` or `indexed_state_json_invalid` so recovery
+can operate from preserved source evidence.
 
 The same retained-event predicate is part of index health, the
 `replayableEvents` capability and trading-bot readiness, preventing REST health,
