@@ -281,6 +281,8 @@ once. Scheduled workers must use this mode to avoid cross-process lost updates.
 `npm run work:operational` atomically claims at most one PostgreSQL snapshot job
 with `FOR UPDATE SKIP LOCKED`, recovers expired leases, validates the job type
 and canonical address, and dispatches the matching CLI in artifact-only mode.
+This includes mint-keyed Pump bonding-curve snapshot repairs, deduplicated per
+mint and refreshed when their finalized account evidence becomes stale.
 Active work renews its guarded lease every one-third of the lease duration;
 renewal and completion refuse expired or reassigned ownership. Failures are
 redacted, exponentially delayed and capped by the configured attempt limit.
