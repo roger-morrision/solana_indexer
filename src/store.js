@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import crypto from "node:crypto";
+import { durableAtomicWrite } from "./durable-file.js";
 import { assessUsdDepegReference, MAINNET_USDC_MINT } from "./usd-depeg-reference.js";
 import { normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
@@ -94,11 +94,8 @@ export class IndexStore {
     this.loaded = true;
   }
   async save() {
-    await fs.mkdir(path.dirname(this.filename), { recursive: true });
-    const temporary = `${this.filename}.${process.pid}.tmp`;
     this.state.updatedAt = new Date().toISOString();
-    await fs.writeFile(temporary, `${JSON.stringify(this.state)}\n`);
-    await fs.rename(temporary, this.filename);
+    await durableAtomicWrite(this.filename, `${JSON.stringify(this.state)}\n`);
     const committed = this.pendingEvents.splice(0);
     for (const event of committed) for (const listener of this.listeners) listener(event);
   }

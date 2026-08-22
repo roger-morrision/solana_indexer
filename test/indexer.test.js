@@ -55,9 +55,17 @@ import { buildOrcaWhirlpoolSwapInstruction, createOrcaWhirlpoolSigningRequest, d
 import { buildUnsignedLegacyTransaction, decodeSimulatedTokenAccount, inspectUnsignedTransactionPrograms, simulateUnsignedTransaction, validateUnsignedTransactionBase64, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "../src/transaction-simulation.js";
 import { buildRaydiumClmmSwapV2Instruction, createRaydiumClmmSigningRequest, prepareRaydiumClmmSwapV2Simulation, simulatePreparedRaydiumClmmSwapV2, verifyFinalizedRaydiumClmmSwap, verifyRaydiumClmmSignedRequest, RAYDIUM_CLMM_EXECUTION_CONSTANTS } from "../src/raydium-clmm-execution.js";
 import { calculateTransferFeeForNetAmount, calculateTransferFeeIncludedAmount, normalizeTransferFeeConfig, selectEpochTransferFee } from "../src/token-2022-transfer-fee.js";
+import { durableAtomicWrite } from "../src/durable-file.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, deriveTransferHookValidationAccount, POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "../src/pool-mint-evidence.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
+
+test("durable atomic writes tolerate same-process concurrency without temporary-file collisions", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-durable-write-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const filename = path.join(root, "nested", "state.json"), values = Array.from({ length: 32 }, (_, index) => `${JSON.stringify({ index })}\n`);
+  await Promise.all(values.map((value) => durableAtomicWrite(filename, value)));
+  assert.equal(await fs.readFile(filename, "utf8"), values.at(-1)); assert.deepEqual((await fs.readdir(path.dirname(filename))).filter((name) => name.endsWith(".tmp")), []);
+  await assert.rejects(durableAtomicWrite(filename, null), /invalid durable atomic write/);
+});
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const withLegacyMintEvidence = (pool, slot, epoch = 2) => ({ ...pool, mintEvidenceSlot: slot, epoch, mint0Evidence: { schemaVersion: 1, mint: pool.tokenMint0, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals0 ?? 6, extensionTypes: [], token2022Evidence: null }, mint1Evidence: { schemaVersion: 1, mint: pool.tokenMint1, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals1 ?? 6, extensionTypes: [], token2022Evidence: null } });
 const emptyClmmBitmap = (tickSpacing) => ({ bitCount: 1024, minStartTickIndex: -512 * 60 * tickSpacing, maxStartTickIndexExclusive: 512 * 60 * tickSpacing, initializedTickArrayStartIndexes: [], rawHex: "00".repeat(128) });

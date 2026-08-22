@@ -74,6 +74,10 @@ canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the
 same canonical chain and genesis hash; health, bot readiness, and recovery
 qualification reject copied, legacy, or wrong-network receipts.
+Canonical index, validator exporter/stream, inbox, cursor/status, and warehouse
+receipt publication now share one collision-resistant durable-write boundary:
+same-path writes serialize, file contents are synchronized before rename, and
+parent-directory metadata is synchronized on production filesystems.
 Versioned Redis hot-state stats carry the same chain and genesis identity, and
 content reconciliation rejects missing or mismatched cache identity.
 ClickHouse sequence, fact-count, and identity-digest probes are explicitly

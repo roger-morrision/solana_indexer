@@ -5,6 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
+import { durableAtomicWrite } from "./durable-file.js";
 
 export function validateLocalWsUrl(value) {
   const url = new URL(value);
@@ -12,7 +13,7 @@ export function validateLocalWsUrl(value) {
   if (!["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)) throw new Error("Refusing non-loopback validator WebSocket endpoint");
   return url.href;
 }
-async function atomicWrite(filename, value) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, typeof value === "string" ? value : `${JSON.stringify(value)}\n`); await fs.rename(temporary, filename); }
+async function atomicWrite(filename, value) { await durableAtomicWrite(filename, typeof value === "string" ? value : `${JSON.stringify(value)}\n`); }
 async function readJson(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
 
 export class LocalValidatorStream {

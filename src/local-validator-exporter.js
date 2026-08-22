@@ -4,6 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
+import { durableAtomicWrite } from "./durable-file.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
@@ -71,7 +72,6 @@ async function readCursor(filename) {
     return cursor;
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
-async function atomicWrite(filename, body) { await fs.mkdir(path.dirname(filename), { recursive: true }); const temporary = `${filename}.${process.pid}.tmp`; await fs.writeFile(temporary, body); await fs.rename(temporary, filename); }
 async function readStatus(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
 
 function safeError(error) {
@@ -84,7 +84,7 @@ export async function recordExporterFailure(statusFile, error, { source = "unkno
   if (!statusFile) return null;
   const previous = await readStatus(statusFile);
   const status = { ...previous, version: 2, source: previous.source ?? source, lastAttemptAt: attemptedAt, lastError: safeError(error), consecutiveFailures: (Number(previous.consecutiveFailures) || 0) + 1 };
-  await atomicWrite(statusFile, `${JSON.stringify(status)}\n`);
+  await durableAtomicWrite(statusFile, `${JSON.stringify(status)}\n`);
   return status;
 }
 
@@ -111,18 +111,18 @@ export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusF
     produced.set(slot, { block, source: client.provenanceSource ?? "local-agave-rpc" });
   }
   for (let slot = cursor + 1; slot <= end; slot++) {
-    if (!produced.has(slot)) { skippedSlots.push(slot); await atomicWrite(cursorFile, `${slot}\n`); continue; }
+    if (!produced.has(slot)) { skippedSlots.push(slot); await durableAtomicWrite(cursorFile, `${slot}\n`); continue; }
     const { block, source } = produced.get(slot);
     const provenance = { source, commitment: "finalized", observedAt: new Date().toISOString(), sourceTip: tip, exportLagSlots: tip - slot };
-    await atomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
-    await atomicWrite(cursorFile, `${slot}\n`);
+    await durableAtomicWrite(path.join(inbox, `${slot}.json`), `${JSON.stringify({ slot, ...block, provenance })}\n`); exported++;
+    await durableAtomicWrite(cursorFile, `${slot}\n`);
   }
   const result = { localValidatorTip: tip, cursor: end, lagSlots: tip - end, exported, skipped: skippedSlots.length, skippedSlots: skippedSlots.slice(0, 256) };
   if (statusFile) {
     const previous = await readStatus(statusFile);
     const durableSkippedSlots = [...new Set([...(previous.durableSkippedSlots ?? []), ...skippedSlots])].sort((a, b) => a - b).slice(-10_000);
     const observedAt = new Date().toISOString();
-    await atomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt, lastAttemptAt: observedAt, lastError: null, consecutiveFailures: 0, ...result, durableSkippedSlots })}\n`);
+    await durableAtomicWrite(statusFile, `${JSON.stringify({ version: 2, source: client.provenanceSource ?? "local-agave-rpc", genesisHash, commitment: "finalized", observedAt, lastAttemptAt: observedAt, lastError: null, consecutiveFailures: 0, ...result, durableSkippedSlots })}\n`);
   }
   return result;
 }

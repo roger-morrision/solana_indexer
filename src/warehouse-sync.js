@@ -12,6 +12,7 @@ import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
 import { RAYDIUM_CPMM_PROGRAM } from "./cpmm-pool-snapshot.js";
 import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
 import { derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, derivePumpSwapFeeConfig, derivePumpSwapGlobalConfig, PUMP_PROGRAM, PUMP_SWAP_PROGRAM } from "./pump-swap-pool-snapshot.js";
+import { durableAtomicWrite } from "./durable-file.js";
 
 const CHAIN = "solana-mainnet";
 const GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -317,7 +318,7 @@ export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = proc
 }
 
 export async function writeWarehouseCheckpoint(filename, sequence, sinks, reconciliation) {
-  if (!Number.isSafeInteger(sequence) || sequence < 0 || !sinks || [sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) throw new Error("warehouse checkpoint sink sequence mismatch"); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); const temporary = `${filename}.${process.pid}.tmp`; await fs.mkdir(path.dirname(filename), { recursive: true }); await fs.writeFile(temporary, `${JSON.stringify({ schemaVersion: 2, consumer: "warehouse-canonical-events", chain: CHAIN, genesisHash: GENESIS_HASH, lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 }); await fs.rename(temporary, filename);
+  if (!Number.isSafeInteger(sequence) || sequence < 0 || !sinks || [sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) throw new Error("warehouse checkpoint sink sequence mismatch"); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); await durableAtomicWrite(filename, `${JSON.stringify({ schemaVersion: 2, consumer: "warehouse-canonical-events", chain: CHAIN, genesisHash: GENESIS_HASH, lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`);
 }
 
 async function main() {

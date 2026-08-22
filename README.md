@@ -831,7 +831,7 @@ not live market data, and is never ingested by production commands.
 - No secrets are accepted or required.
 - Validator HTTP and WebSocket clients reject non-loopback endpoints; no
   third-party provider traffic is permitted by this build.
-- Writes use temporary-file plus atomic rename.
+- Canonical index, exporter/stream, inbox, cursor/status, and warehouse-receipt writes use collision-resistant temporary files, flush file contents before atomic rename, and synchronize parent-directory metadata on production filesystems. Same-process writes to one path are serialized while unrelated paths remain concurrent.
 - Failed transactions are indexed but never emitted as successful transfers.
 - Slot replacement removes orphaned derived records.
 - Input errors are isolated per file and returned in cycle diagnostics.
