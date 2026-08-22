@@ -502,6 +502,8 @@ fixture and workload size explicitly so the repository-defined validation
 command is runnable without undocumented arguments.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
 and inbox archives and uploads them to the loopback SeaweedFS filer. Only after
+writers are explicitly quiesced can the CLI or library create the version-3
+manifest; neither boundary manufactures that assertion. Only after
 the complete archive and inbox receipt are uploaded and read-back SHA-256
 verified does it create, upload, verify, and
 install `data/backup-status.json`, binding the backup ID and hashes of both the

@@ -219,7 +219,9 @@ durable event evidence is safe to consume.
 
 Phase 9 backup manifest and preflight evidence are version 3 and bind canonical
 `solana-mainnet` identity; wrong-network and legacy generic-chain artifacts fail
-closed before restore qualification.
+closed before restore qualification. Manifest creation refuses to assert
+`writersQuiesced` unless the library caller explicitly supplies true evidence;
+the CLI derives that evidence only from `BACKUP_WRITERS_QUIESCED=yes`.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the
