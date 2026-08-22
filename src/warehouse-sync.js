@@ -44,6 +44,14 @@ export function checkpointSql(sequence) {
   return `INSERT INTO ingestion_checkpoints (consumer, chain, genesis_hash, slot, cursor, schema_version) VALUES ('warehouse-canonical-events', 'solana', ${sqlLiteral(GENESIS_HASH)}, ${sequence}, ${sqlLiteral(String(sequence))}, 1) ON CONFLICT (consumer) DO UPDATE SET chain = EXCLUDED.chain, genesis_hash = EXCLUDED.genesis_hash, slot = EXCLUDED.slot, cursor = EXCLUDED.cursor, schema_version = EXCLUDED.schema_version, updated_at = now();\n`;
 }
 
+function jsonbLiteral(value) { return `${sqlLiteral(JSON.stringify(value))}::jsonb`; }
+
+export function compileWarehouseMetadataSql(state, sequence) {
+  if (!state?.mints || typeof state.mints !== "object" || Array.isArray(state.mints)) throw new Error("invalid warehouse mint state"); checkpointSql(sequence);
+  const rows = Object.entries(state.mints).sort(([left], [right]) => left.localeCompare(right)).map(([mint, row]) => { const info = row?.mintInfo ?? null, decimals = info?.decimals ?? null, sourceSlot = row?.authoritySourceSlot ?? row?.lastSlot ?? null, transferCount = row?.transferCount ?? 0, swapCount = row?.swapCount ?? 0, lastSlot = row?.lastSlot ?? null, lastBlockTime = row?.lastBlockTime ?? null; if (!mint || /[\u0000-\u001f]/.test(mint) || (decimals != null && (!Number.isInteger(decimals) || decimals < 0 || decimals > 255)) || (sourceSlot != null && (!Number.isSafeInteger(sourceSlot) || sourceSlot < 0)) || !Number.isSafeInteger(transferCount) || transferCount < 0 || !Number.isSafeInteger(swapCount) || swapCount < 0 || (lastSlot != null && (!Number.isSafeInteger(lastSlot) || lastSlot < 0)) || (lastBlockTime != null && (!Number.isSafeInteger(lastBlockTime) || lastBlockTime < 0))) throw new Error(`invalid warehouse mint metadata ${mint}`); const metadata = { transferCount, swapCount, lastSlot, lastBlockTime }, authorities = { mintAuthority: info?.mintAuthority ?? null, freezeAuthority: info?.freezeAuthority ?? null }, extensions = Array.isArray(info?.extensions) ? info.extensions : []; return `('solana', ${sqlLiteral(mint)}, ${decimals ?? "NULL"}, ${jsonbLiteral(metadata)}, ${jsonbLiteral(authorities)}, ${jsonbLiteral(extensions)}, ${sourceSlot ?? "NULL"})`; });
+  return `BEGIN;\n${rows.length ? `INSERT INTO tokens (chain, mint, decimals, metadata, authorities, extensions, source_slot) VALUES\n${rows.join(",\n")}\nON CONFLICT (chain, mint) DO UPDATE SET decimals = EXCLUDED.decimals, metadata = EXCLUDED.metadata, authorities = EXCLUDED.authorities, extensions = EXCLUDED.extensions, source_slot = EXCLUDED.source_slot, updated_at = now();\n` : ""}${checkpointSql(sequence)}COMMIT;\n`;
+}
+
 export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, staleAfterMs = 300_000, maxLagEvents = 1_000, now = Date.now()) {
   const unavailable = (reason) => ({ available: false, healthy: false, reason, sequence: null, eventSequence, lagEvents: null, ageMs: null, staleAfterMs, maxLagEvents });
   if (!checkpoint) return unavailable("checkpoint_unavailable");
@@ -58,16 +66,17 @@ function runProcess(command, args, input, spawnProcess = spawn, env = process.en
   return new Promise((resolve, reject) => { const child = spawnProcess(command, args, { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "pipe"], env }); let errorText = ""; child.stderr.on("data", (chunk) => { if (errorText.length < 8_192) errorText += chunk; }); child.on("error", reject); child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${command} warehouse sync failed (${code}): ${errorText.trim().slice(0, 512)}`))); child.stdin.end(input); });
 }
 
-export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null) {
+export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null, postgresSql = checkpointSql(batch.toSequence)) {
   if (!batch.events.length) return { synced: 0, sequence: batch.toSequence };
   if (facts && (!Array.isArray(facts.slots) || facts.slots.some((slot) => !Number.isSafeInteger(slot) || slot < 0) || !Array.isArray(facts.instructions) || !Array.isArray(facts.swaps) || !Array.isArray(facts.balanceChanges))) throw new Error("invalid warehouse facts");
+  if (typeof postgresSql !== "string" || !postgresSql.trim()) throw new Error("invalid warehouse PostgreSQL transaction");
   const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`;
   await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env);
   if (facts) {
     const suffixes = [["canonical_instructions", facts.instructions], ["canonical_swaps", facts.swaps], ["canonical_balance_changes", facts.balanceChanges]];
     if (facts.slots.length) for (const [table, rows] of suffixes) { const slotList = facts.slots.join(","); await runProcess("clickhouse-client", ["--multiquery", "--query", `ALTER TABLE terminal_dex.${table} DELETE WHERE slot IN (${slotList}) SETTINGS mutations_sync = 2`], "", spawnProcess, env); if (rows.length) await runProcess("clickhouse-client", ["--query", `INSERT INTO terminal_dex.${table} FORMAT JSONEachRow`], `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, spawnProcess, env); }
   }
-  await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], checkpointSql(batch.toSequence), spawnProcess, env);
+  await runProcess("psql", ["--no-psqlrc", "--set", "ON_ERROR_STOP=1"], postgresSql, spawnProcess, env);
   return { synced: batch.events.length, sequence: batch.toSequence };
 }
 
@@ -79,7 +88,7 @@ async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
   try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; }
-  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify({ ...result, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length }));
+  const state = JSON.parse(await fs.readFile(config.dataFile, "utf8")), batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql); await writeWarehouseCheckpoint(checkpointFile, result.sequence); console.log(JSON.stringify({ ...result, instructions: facts.instructions.length, swaps: facts.swaps.length, balanceChanges: facts.balanceChanges.length, tokens: Object.keys(state.mints).length }));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -195,6 +195,8 @@ For every touched slot the worker waits for synchronous ClickHouse mutations to
 remove prior instruction, swap, and token-balance facts, then inserts the
 current canonical facts before checkpointing. This makes finality promotion and
 fork replacement retry-safe instead of retaining orphaned materialized rows.
+The final PostgreSQL transaction upserts validated token summaries, exact mint
+authority/extension JSON, and the shared ingestion checkpoint together.
 The installer also installs a hardened one-shot service and one-minute timer,
 but does not enable either. Operators must first verify both database schemas,
 client credential files, and a manual synchronization before enabling
