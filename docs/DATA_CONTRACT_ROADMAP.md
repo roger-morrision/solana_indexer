@@ -214,6 +214,11 @@ The latest isolated recovery report has a separate canonical assessment and
 90-day expiry contract. API/Prometheus expose only its backup identity, age and
 duration; missing, malformed, future-dated, invariant-incomplete or expired
 reports trigger a critical alert while exclusive report creation remains intact.
+Diagnostic evidence readers isolate syntax-invalid exporter, warehouse, backup,
+and recovery JSON as redacted invalid evidence instead of throwing through the
+monitoring path. Metrics remain scrapeable with unhealthy gauges, and feed/gap
+contracts now require assessed healthy exporter evidence rather than treating
+any parsed or truthy payload as availability.
 Canonical index, validator exporter/stream, inbox, cursor/status, and warehouse
 receipt publication now share one collision-resistant durable-write boundary:
 same-path writes serialize, file contents are synchronized before rename, and

@@ -26,6 +26,10 @@ The latest retained report is continuously revalidated through
 `/api/v1/recovery` and Prometheus. All required invariants, exact elapsed RTO,
 canonical timestamps and the 90-day rehearsal window must remain valid; missing,
 malformed, future-dated or expired evidence triggers a critical alert.
+Malformed JSON in exporter, warehouse, backup, or recovery evidence is converted
+to a redacted invalid-evidence state. `/metrics` remains available with zero
+health gauges, while every dependent API, gap feed, and bot gate fails closed;
+the malformed bytes are never reflected in a response.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
 It exports a dedicated binary persisted-state quarantine signal and the count of

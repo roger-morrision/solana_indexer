@@ -508,6 +508,9 @@ warehouse convergence, healthy finalized exporter evidence, and the four-hour RT
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
 and Prometheus validate its full qualification shape, exact duration, invariants,
 and quarterly age without exposing sink credentials or report contents.
+Malformed operational evidence never takes `/metrics` down or echoes its source
+bytes: exporter, warehouse, backup, recovery, feed-health and gap contracts all
+return redacted unhealthy evidence until an atomic valid replacement appears.
 
 Nominal USD references are computed locally from fresh finalized swaps directly
 against canonical mainnet USDC or through wrapped SOL. Each venue is
