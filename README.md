@@ -638,8 +638,11 @@ The PumpSwap snapshot decoder additionally binds the official Anchor `Pool`
 account discriminator and 261-byte field layout, including pool index, creator,
 ordered mints/vaults, LP supply, coin creator, mayhem/cashback flags, and signed
 virtual quote reserves. Both parsed vault identities and exact balances are read
-at a finalized context no earlier than the pool state. Fee configuration and
-exact quote execution remain unsupported and therefore fail closed.
+at a finalized context no earlier than the pool state. The official Pump Fees
+`FeeConfig` PDA is independently derived, owner/discriminator validated,
+decoded without trailing bytes, and read at a third finalized context no
+earlier than the vault and mint evidence. Exact quote execution remains
+unsupported and therefore fails closed.
 Validated artifacts import content-addressedly into canonical `pump-swap`
 constant-product pool state, reject conflicting evidence at the same finalized
 slot, and emit the shared replayable warehouse/WebSocket sequence.
@@ -648,9 +651,10 @@ validator. Missing or stale canonical PumpSwap pools are scheduled through the
 same leased, bounded-retry artifact-only operational worker.
 The fee foundation implements the official exact market-cap formula and
 canonical/noncanonical tier selection with strict ascending thresholds and
-basis-point bounds. Quotes still fail closed until the Pump Fees and mint-supply
-accounts are fetched at the same finalized barrier and canonical pool authority
-derivation is verified.
+basis-point bounds. Snapshots persist the flat, market-cap and stable fee tiers
+with the exact configuration slot. Quotes still fail closed until the official
+integer swap rounding and fee application order are implemented and
+regression-tested.
 Canonical identity is now independently derived from the official
 `["pool-authority", baseMint]` Pump-program PDA and verified against Pump's
 published example. Base-mint supply is fetched alongside both vault accounts at
