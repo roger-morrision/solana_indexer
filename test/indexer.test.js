@@ -1157,6 +1157,15 @@ test("validator stream stop cancels a pending reconnect", async () => {
   scheduled[0][0](); assert.equal(FakeSocket.instances.length, 1);
 });
 
+test("validator stream times out a hung connection and rotates nodes", async () => {
+  class FakeSocket { constructor() { this.readyState = 0; this.closed = false; } close() { this.closed = true; } }
+  const connectionTimers = [], reconnects = [], cancelled = [];
+  const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, connectTimeoutMs: 250, scheduleConnectTimeout: (callback, delay) => { connectionTimers.push([callback, delay]); return "connect-token"; }, cancelConnectTimeout: (token) => cancelled.push(token), scheduleReconnect: (callback, delay) => { reconnects.push([callback, delay]); return "reconnect-token"; } });
+  stream.writeStatus = async () => {}; stream.connect(); const hung = stream.socket; assert.equal(connectionTimers[0][1], 250); connectionTimers[0][0](); await stream.messageQueue;
+  assert.equal(hung.closed, true); assert.equal(stream.socket, null); assert.equal(stream.endpointIndex, 1); assert.equal(stream.lastError.message, "validator stream connection timed out"); assert.equal(reconnects[0][1], 500); assert.deepEqual(cancelled, []);
+  await stream.stop();
+});
+
 test("validator stream durably reports open and closed lifecycle without stale-socket mutation", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-lifecycle-")), statusFile = path.join(root, "status.json"), scheduled = []; class FakeSocket { constructor() { this.readyState = 1; this.sent = []; } send(value) { this.sent.push(value); } close() {} }
   const stream = new LocalValidatorStream({ endpoints: ["ws://127.0.0.1:8900", "ws://127.0.0.1:8901"], rpcClient: { assertGenesis: async () => MAINNET_GENESIS_HASH }, inbox: path.join(root, "inbox"), statusFile, WebSocketClass: FakeSocket, scheduleReconnect: (callback) => scheduled.push(callback) }); stream.genesisHash = MAINNET_GENESIS_HASH; stream.lastSlots = { confirmed: 100, finalized: 98 };
@@ -1828,6 +1837,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25", INDEXER_WS_MAX_OUTSTANDING_ACKS: "50", INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketMaxClients, 25); assert.deepEqual({ outstanding: loadConfig({ INDEXER_WS_MAX_OUTSTANDING_ACKS: "50" }, process.cwd()).webSocketMaxOutstandingAcks, timeout: loadConfig({ INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketAcknowledgementTimeoutMs }, { outstanding: 50, timeout: 5_000 });
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
+  assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
   const http = loadConfig({ INDEXER_HTTP_HEADERS_TIMEOUT_MS: "4000", INDEXER_HTTP_REQUEST_TIMEOUT_MS: "12000", INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS: "3000", INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET: "250" }, process.cwd());
   assert.deepEqual({ headers: http.httpHeadersTimeoutMs, request: http.httpRequestTimeoutMs, keepAlive: http.httpKeepAliveTimeoutMs, requests: http.httpMaxRequestsPerSocket }, { headers: 4_000, request: 12_000, keepAlive: 3_000, requests: 250 });
 });
@@ -1835,6 +1845,7 @@ test("configuration refuses public binding without API keys", () => {
 test("configuration rejects malformed and out-of-range explicit controls", () => {
   for (const INDEXER_PORT of ["not-a-number", "1e3", "9007199254740992", "0", "65536", " 8787 "]) assert.throws(() => loadConfig({ INDEXER_PORT }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "-1" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "99" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);
