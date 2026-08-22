@@ -291,9 +291,9 @@ function accountKeys(message, meta = null) {
 function mintDecimalEvidence(entry) {
   const decimals = new Map(), conflicts = new Set();
   for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) {
-    const mint = row?.mint, value = row?.uiTokenAmount?.decimals;
+    const mint = row?.mint, value = row?.uiTokenAmount?.decimals, programId = row?.programId;
     if (typeof mint !== "string" || !mint) continue;
-    if (!Number.isInteger(value) || value < 0 || value > 255 || conflicts.has(mint) || (decimals.has(mint) && decimals.get(mint) !== value)) { decimals.delete(mint); conflicts.add(mint); continue; }
+    if ((programId != null && !TOKEN_PROGRAMS.has(programId)) || !Number.isInteger(value) || value < 0 || value > 255 || conflicts.has(mint) || (decimals.has(mint) && decimals.get(mint) !== value)) { decimals.delete(mint); conflicts.add(mint); continue; }
     decimals.set(mint, value);
   }
   return decimals;
@@ -302,11 +302,11 @@ function mintDecimalEvidence(entry) {
 function dexTokenAccountEvidence(entry, keys) {
   const accounts = new Map(), conflicts = new Set();
   for (const row of [...(entry.meta?.preTokenBalances ?? []), ...(entry.meta?.postTokenBalances ?? [])]) {
-    const address = Number.isSafeInteger(row?.accountIndex) && row.accountIndex >= 0 ? keys[row.accountIndex] : null, mint = row?.mint, decimals = row?.uiTokenAmount?.decimals;
+    const address = Number.isSafeInteger(row?.accountIndex) && row.accountIndex >= 0 ? keys[row.accountIndex] : null, mint = row?.mint, decimals = row?.uiTokenAmount?.decimals, programId = row?.programId ?? null;
     if (!address) continue;
-    const prior = accounts.get(address), valid = typeof mint === "string" && Boolean(mint) && Number.isInteger(decimals) && decimals >= 0 && decimals <= 255;
-    if (!valid || conflicts.has(address) || (prior && (prior.mint !== mint || prior.decimals !== decimals))) { accounts.delete(address); conflicts.add(address); continue; }
-    accounts.set(address, { mint, decimals });
+    const prior = accounts.get(address), valid = typeof mint === "string" && Boolean(mint) && Number.isInteger(decimals) && decimals >= 0 && decimals <= 255 && (programId == null || TOKEN_PROGRAMS.has(programId));
+    if (!valid || conflicts.has(address) || (prior && (prior.mint !== mint || prior.decimals !== decimals || (prior.programId && programId && prior.programId !== programId)))) { accounts.delete(address); conflicts.add(address); continue; }
+    accounts.set(address, { mint, decimals, programId: prior?.programId ?? programId });
   }
   return accounts;
 }

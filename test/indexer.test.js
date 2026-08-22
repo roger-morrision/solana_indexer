@@ -806,6 +806,7 @@ test("decodes Raydium CPMM Anchor swap events only inside its invocation", () =>
   assert.deepEqual(block.swaps.map((row) => row.pool), ["sidecar-pool", events[0].pool]);
   const duplicate = parseBlock({ slot: 899, blockhash: "block-899-duplicate", previousBlockhash: "block-898", parentSlot: 898, blockTime: 1_700_000_000, transactions: [entry], dexEvents: [{ ...events[0], inputDecimals: 6, outputDecimals: 6 }], provenance: { source: "local-rpc", commitment: "finalized" } }); assert.equal(duplicate.swaps.length, 1);
   const conflicting = structuredClone(entry); conflicting.meta.postTokenBalances = [{ accountIndex: 0, mint: events[0].inputMint, uiTokenAmount: { decimals: 7 } }]; assert.equal(parseBlock({ slot: 899, blockhash: "block-899-conflict", previousBlockhash: "block-898", parentSlot: 898, blockTime: 1_700_000_000, transactions: [conflicting], dexEvents: [], provenance: { source: "local-rpc", commitment: "finalized" } }).swaps.length, 0);
+  const wrongProgram = structuredClone(entry); wrongProgram.meta.preTokenBalances[0].programId = "untrusted-token-program"; assert.equal(parseBlock({ slot: 899, blockhash: "block-899-program", previousBlockhash: "block-898", parentSlot: 898, blockTime: 1_700_000_000, transactions: [wrongProgram], dexEvents: [], provenance: { source: "local-rpc", commitment: "finalized" } }).swaps.length, 0);
   assert.equal(decodeRaydiumSwapEvents({ meta: { err: null, logMessages: [`Program other invoke [1]`, `Program data: ${encoded}`, "Program other success"] } }, "sig").length, 0);
 });
 
