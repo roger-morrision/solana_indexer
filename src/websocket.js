@@ -16,9 +16,9 @@ function closePayloadError(payload) {
   if (!validCode) return 1002;
   return isUtf8(payload.subarray(2)) ? null : 1007;
 }
-export function createInboundFrameParser(socket, maximumBytes = 4_096) {
+export function createInboundFrameParser(socket, maximumBytes = 4_096, onProtocolClose = () => {}) {
   let buffered = Buffer.alloc(0), closed = false;
-  const protocolError = (code = 1002) => { if (!closed) { closed = true; close(socket, code); } };
+  const protocolError = (code = 1002) => { if (!closed) { closed = true; onProtocolClose(code); close(socket, code); } };
   return (chunk) => {
     if (closed || !Buffer.isBuffer(chunk) || chunk.length === 0) return;
     buffered = Buffer.concat([buffered, chunk]);
@@ -35,10 +35,10 @@ export function createInboundFrameParser(socket, maximumBytes = 4_096) {
     }
   };
 }
-function send(socket, value, maximumBufferedBytes) {
+function send(socket, value, maximumBufferedBytes, onEviction = () => {}) {
   if (socket.destroyed) return false;
   const message = frame(0x1, JSON.stringify(value));
-  if (message.length > maximumBufferedBytes || socket.writableLength + message.length > maximumBufferedBytes) { socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); return false; }
+  if (message.length > maximumBufferedBytes || socket.writableLength + message.length > maximumBufferedBytes) { onEviction(); socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); return false; }
   socket.write(message); return true;
 }
 function subscription(url) {
@@ -75,13 +75,14 @@ export function projectWebSocketEvent(event, filter) {
 
 export function attachWebSocket(server, store, config, authorize = () => true) {
   const clients = new Map(); const heartbeatMs = config.webSocketHeartbeatMs ?? 30_000; const maximumBufferedBytes = config.webSocketMaxBufferedBytes ?? 1_048_576; const maximumClients = config.webSocketMaxClients ?? 1_000;
-  const unsubscribe = store.subscribe((event) => { for (const [socket, filter] of clients) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) clients.delete(socket); } });
+  const stats = { capacityRejections: 0, slowConsumerEvictions: 0, protocolCloses: 0 }; Object.defineProperty(stats, "activeClients", { enumerable: true, get: () => clients.size }); server.webSocketStats = stats; const evicted = () => stats.slowConsumerEvictions++;
+  const unsubscribe = store.subscribe((event) => { for (const [socket, filter] of clients) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes, evicted)) clients.delete(socket); } });
   server.on("upgrade", (request, socket) => {
     const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
     if (url.pathname !== "/ws") return reject(socket, "404 Not Found", "not_found");
     const filter = subscription(url); if (!filter) return reject(socket, "400 Bad Request", "invalid_topic");
     if (!authorize(request)) return reject(socket, "401 Unauthorized", "unauthorized");
-    if (clients.size >= maximumClients) return reject(socket, "503 Service Unavailable", "websocket_capacity_exceeded");
+    if (clients.size >= maximumClients) { stats.capacityRejections++; return reject(socket, "503 Service Unavailable", "websocket_capacity_exceeded"); }
     const key = request.headers["sec-websocket-key"];
     if (!validWebSocketHandshake(request)) return reject(socket, "400 Bad Request", "invalid_websocket_handshake");
     const cursorText = url.searchParams.get("cursor") ?? String(store.state.eventSequence); const cursor = Number(cursorText);
@@ -91,13 +92,13 @@ export function attachWebSocket(server, store, config, authorize = () => true) {
     const selectedProtocol = protocols.includes("indexer.v1") ? "Sec-WebSocket-Protocol: indexer.v1\r\n" : "";
     socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${selectedProtocol}\r\n`); clients.set(socket, filter);
     const replay = store.replayEvents(cursor);
-    if (replay.cursorTooOld || replay.cursorAhead) { const delivered = send(socket, { type: "resync_required", reason: replay.cursorTooOld ? "cursor_before_retained_history" : "cursor_ahead_of_server", requestedCursor: cursor, oldestCursor: replay.oldestCursor, latestCursor: replay.latestCursor }, maximumBufferedBytes); clients.delete(socket); if (delivered) socket.end(frame(0x8, Buffer.from([0x03, 0xf0]))); }
-    else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes)) clients.delete(socket);
-    else for (const event of replay.events) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes)) { clients.delete(socket); break; } }
-    socket.on("data", createInboundFrameParser(socket, config.webSocketMaxInboundBytes ?? 4_096));
+    if (replay.cursorTooOld || replay.cursorAhead) { const delivered = send(socket, { type: "resync_required", reason: replay.cursorTooOld ? "cursor_before_retained_history" : "cursor_ahead_of_server", requestedCursor: cursor, oldestCursor: replay.oldestCursor, latestCursor: replay.latestCursor }, maximumBufferedBytes, evicted); clients.delete(socket); if (delivered) socket.end(frame(0x8, Buffer.from([0x03, 0xf0]))); }
+    else if (!send(socket, { type: "ready", cursor, latestCursor: replay.latestCursor, subscription: filter }, maximumBufferedBytes, evicted)) clients.delete(socket);
+    else for (const event of replay.events) { const value = projectWebSocketEvent(event, filter); if (value && !send(socket, value, maximumBufferedBytes, evicted)) { clients.delete(socket); break; } }
+    socket.on("data", createInboundFrameParser(socket, config.webSocketMaxInboundBytes ?? 4_096, () => stats.protocolCloses++));
     socket.on("close", () => clients.delete(socket)); socket.on("error", () => clients.delete(socket));
   });
-  const timer = setInterval(() => { for (const socket of clients.keys()) { if (socket.destroyed || socket.writableLength > maximumBufferedBytes) { socket.destroy(); clients.delete(socket); } else socket.write(frame(0x9)); } }, heartbeatMs); timer.unref();
+  const timer = setInterval(() => { for (const socket of clients.keys()) { if (socket.destroyed || socket.writableLength > maximumBufferedBytes) { if (!socket.destroyed) stats.slowConsumerEvictions++; socket.destroy(); clients.delete(socket); } else socket.write(frame(0x9)); } }, heartbeatMs); timer.unref();
   server.on("close", () => { clearInterval(timer); unsubscribe(); for (const socket of clients.keys()) socket.destroy(); clients.clear(); });
   return server;
 }

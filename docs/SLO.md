@@ -23,6 +23,9 @@ zero-lag warehouse convergence, a healthy finalized exporter, and elapsed restor
 so a prior successful rehearsal cannot be silently overwritten.
 
 `GET /metrics` exposes Prometheus counters and gauges on the loopback indexer.
+It includes active WebSocket clients plus cumulative capacity rejections,
+slow-consumer evictions, and protocol-error closes so saturation and abusive
+or incompatible clients are observable without logging credentials.
 It must not be publicly exposed without the mTLS gateway or a private monitoring
 network. `infra/monitoring/alerts.yaml` contains baseline alerts; operators must
 connect them to an approved notification system and test alert delivery.

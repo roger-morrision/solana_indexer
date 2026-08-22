@@ -1763,7 +1763,7 @@ test("WebSocket inbound parser handles TCP fragmentation and rejects invalid cli
   const socket = () => ({ writes: [], endings: [], write(value) { this.writes.push(Buffer.from(value)); }, end(value) { this.endings.push(Buffer.from(value)); } });
   let peer = socket(), parse = createInboundFrameParser(peer), ping = clientFrame(0x9, "ok"); parse(ping.subarray(0, 3)); assert.equal(peer.writes.length, 0); parse(ping.subarray(3)); assert.equal(peer.writes.length, 1); assert.equal(peer.writes[0][0] & 0x0f, 0x0a); assert.equal(peer.writes[0].subarray(2).toString(), "ok");
   peer = socket(); parse = createInboundFrameParser(peer, 4); parse(Buffer.concat(Array.from({ length: 20 }, () => clientFrame(0x9, "ping")))); assert.equal(peer.writes.length, 20);
-  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "bad", { masked: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
+  peer = socket(); let protocolCloses = 0; createInboundFrameParser(peer, 4_096, () => protocolCloses++)(clientFrame(0x9, "bad", { masked: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002); assert.equal(protocolCloses, 1);
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x1, "unsupported")); assert.equal(peer.endings[0].readUInt16BE(2), 1003);
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "fragment", { fin: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
   peer = socket(); createInboundFrameParser(peer, 4)(clientFrame(0x9, "12345")); assert.equal(peer.endings[0].readUInt16BE(2), 1009);
@@ -1795,8 +1795,9 @@ test("WebSocket admission fails closed at capacity and recovers after disconnect
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ webSocketHeartbeatMs: 60_000, webSocketMaxClients: 1 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const url = `ws://127.0.0.1:${server.address().port}/ws`;
   const first = new WebSocket(url); await new Promise((resolve, reject) => { first.onopen = resolve; first.onerror = reject; });
   const saturated = new WebSocket(url), rejected = await new Promise((resolve) => { saturated.onerror = resolve; }); assert.ok(rejected); assert.equal(first.readyState, WebSocket.OPEN);
+  let metrics = await (await fetch(`http://127.0.0.1:${server.address().port}/metrics`)).text(); assert.match(metrics, /terminal_dex_websocket_clients 1/); assert.match(metrics, /terminal_dex_websocket_capacity_rejections_total 1/);
   await new Promise((resolve) => { first.onclose = resolve; first.close(); });
-  const replacement = new WebSocket(url); await new Promise((resolve, reject) => { replacement.onopen = resolve; replacement.onerror = reject; }); assert.equal(replacement.readyState, WebSocket.OPEN); replacement.close();
+  const replacement = new WebSocket(url); await new Promise((resolve, reject) => { replacement.onopen = resolve; replacement.onerror = reject; }); assert.equal(replacement.readyState, WebSocket.OPEN); replacement.close(); metrics = await (await fetch(`http://127.0.0.1:${server.address().port}/metrics`)).text(); assert.match(metrics, /terminal_dex_websocket_capacity_rejections_total 1/);
 });
 
 test("WebSocket evicts a replay consumer before one frame exceeds its buffer cap", async (t) => {
@@ -1804,7 +1805,7 @@ test("WebSocket evicts a replay consumer before one frame exceeds its buffer cap
   const server = createServer({ webSocketHeartbeatMs: 60_000, webSocketMaxBufferedBytes: 65_536 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const socket = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws?cursor=0`), messages = []; socket.onmessage = ({ data }) => messages.push(JSON.parse(data));
   const closed = new Promise((resolve, reject) => { socket.onclose = resolve; socket.onerror = reject; }), closeEvent = await closed;
-  assert.equal(closeEvent.code, 1013); assert.equal(messages[0].type, "ready"); assert.equal(messages.length, 1);
+  assert.equal(closeEvent.code, 1013); assert.equal(messages[0].type, "ready"); assert.equal(messages.length, 1); const metrics = await (await fetch(`http://127.0.0.1:${server.address().port}/metrics`)).text(); assert.match(metrics, /terminal_dex_websocket_slow_consumer_evictions_total 1/);
 });
 
 test("WebSocket swap topic replays only matching token activity", async (t) => {

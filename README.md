@@ -568,7 +568,8 @@ Close frames require an allowed status code and a valid UTF-8 reason; invalid
 codes or text terminate with 1002 or 1007 instead of being echoed.
 `INDEXER_WS_MAX_CLIENTS` bounds admitted sockets globally (default 1000);
 additional authenticated upgrades receive `503 websocket_capacity_exceeded`
-until an existing socket closes.
+until an existing socket closes. `/metrics` reports active clients, capacity
+rejections, slow-consumer evictions, and protocol closes without client keys.
 
 RPC JSON bodies are capped by `INDEXER_RPC_MAX_BODY_BYTES` (default 65536)
 and execution-preparation bodies by `INDEXER_EXECUTION_MAX_BODY_BYTES`
