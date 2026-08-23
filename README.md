@@ -904,10 +904,13 @@ confidence, publish time, and update slot. The canonical Raydium CLMM decoder
 also supplies OpenBook's exact Q64.64 square and mint-decimal price adjustment.
 Pinned Switchboard V2 aggregators additionally enforce exact packed layout,
 round/sliding result selection, minimum successful responses, decimal scales,
-standard deviation, and round-open slot. The snapshot applies OpenBook's
+standard deviation, and round-open slot. Legacy Switchboard V1 parse-optimized
+accounts enforce the exact type byte and SBF layout, preserve the result/range
+floating-point bits and decimal representation, and use OpenBook's exact
+maximum-minus-minimum deviation. The snapshot applies OpenBook's
 confidence, freshness, mixed/dual-oracle, market-decimal, lot conversion,
-signed overflow, and side-specific peg-limit rules. Legacy Switchboard V1 and
-mutable stub sources remain unpriced and fail closed.
+signed overflow, and side-specific peg-limit rules. Other legacy Switchboard
+account forms and mutable stub sources remain unpriced and fail closed.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one

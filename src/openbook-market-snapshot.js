@@ -29,6 +29,7 @@ function u64(data, offset) { return data.readBigUInt64LE(offset).toString(); }
 function u128(data, offset) { return ((data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset)).toString(); }
 function u128Value(data, offset) { return (data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset); }
 function i128Value(data, offset) { return BigInt.asIntN(128, u128Value(data, offset)); }
+function f64BitsRaw(data, offset) { return data.readBigUInt64LE(offset).toString(); }
 function optionalPubkey(data, offset) { const value = data.subarray(offset, offset + 32); return value.every((byte) => byte === 0) ? null : base58(value); }
 
 function projectPeggedOrders(orders, side, oraclePriceLots) {
@@ -62,6 +63,11 @@ export function decodeOpenBookOracleAccount(address, account) {
     const minimumOracleResults = data.readUInt32LE(236), successfulResults = data.readUInt32LE(341), resolutionMode = data[3_712], resultMantissaRaw = i128Value(data, 366), resultScale = data.readUInt32LE(382), standardDeviationMantissaRaw = i128Value(data, 386), standardDeviationScale = data.readUInt32LE(402), lastUpdateSlotRaw = data.readBigUInt64LE(350);
     if (resolutionMode > 1 || resolutionMode === 0 && successfulResults < minimumOracleResults || resultScale > 28 || standardDeviationScale > 28 || resultMantissaRaw < 0n || standardDeviationMantissaRaw < 0n) throw new Error(`OpenBook Switchboard V2 oracle ${address} has invalid aggregator state`);
     return { ...common, provider: "switchboard_v2", coverage: "finalized_openbook_compatible_state", resolutionMode: resolutionMode === 0 ? "round" : "sliding", minimumOracleResults, successfulResults, resultMantissaRaw: resultMantissaRaw.toString(), resultScale, standardDeviationMantissaRaw: standardDeviationMantissaRaw.toString(), standardDeviationScale, lastUpdateSlotRaw: lastUpdateSlotRaw.toString() };
+  }
+  if ([SWITCHBOARD_V1_DEVNET_PROGRAM, SWITCHBOARD_V2_MAINNET_PROGRAM].includes(account.owner) && data[0] === 5 && data.length >= 105) {
+    const result = data.readDoubleLE(41), minimumResponse = data.readDoubleLE(65), maximumResponse = data.readDoubleLE(73), decimalMantissaRaw = i128Value(data, 81), decimalScaleRaw = data.readBigUInt64LE(97), lastUpdateSlotRaw = data.readBigUInt64LE(49);
+    if (!Number.isFinite(result) || result < 0 || !Number.isFinite(minimumResponse) || !Number.isFinite(maximumResponse) || maximumResponse < minimumResponse || decimalScaleRaw > 28n) throw new Error(`OpenBook Switchboard V1 oracle ${address} has invalid parse-optimized state`);
+    return { ...common, provider: "switchboard_v1", coverage: "finalized_openbook_compatible_state", parent: base58(data.subarray(1, 33)), successfulResults: data.readInt32LE(33), errorResults: data.readInt32LE(37), resultBitsRaw: f64BitsRaw(data, 41), minimumResponseBitsRaw: f64BitsRaw(data, 65), maximumResponseBitsRaw: f64BitsRaw(data, 73), decimalMantissaRaw: decimalMantissaRaw.toString(), decimalScaleRaw: decimalScaleRaw.toString(), lastUpdateSlotRaw: lastUpdateSlotRaw.toString(), roundOpenTimestampUnix: data.readBigInt64LE(57).toString() };
   }
   let provider = null;
   if ([SWITCHBOARD_V1_DEVNET_PROGRAM, SWITCHBOARD_V2_MAINNET_PROGRAM].includes(account.owner)) provider = "switchboard_v1_unverified";

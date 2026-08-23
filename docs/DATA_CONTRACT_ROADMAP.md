@@ -529,9 +529,12 @@ and update slot without altering the raw evidence. The canonical Raydium CLMM
 PoolState decoder supplies OpenBook-compatible Q64.64 square and mint-decimal
 evidence. Pinned Switchboard V2 aggregators validate exact packed identity,
 round/sliding selection, minimum results, decimal scales, standard deviation,
-and round-open slot. Validated Pyth/CLMM/Switchboard V2 and mixed-provider snapshots expose
+and round-open slot. Legacy Switchboard V1 parse-optimized accounts validate
+their exact type/SBF layout and expose OpenBook's floating result,
+maximum-minus-minimum deviation, and round-open slot. Validated
+Pyth/CLMM/Switchboard V1/V2 and mixed-provider snapshots expose
 `oraclePolicy.oraclePriceLots` and project each oracle-pegged leaf with
 `priceLots`, `oraclePegState`, and `executable` after exact confidence, freshness,
 dual-oracle composition, decimal, lot-size, signed-overflow, and peg-limit gates.
-Legacy Switchboard V1 and mutable stub providers remain explicitly unpriced and
+Other legacy Switchboard account forms and mutable stub providers remain explicitly unpriced and
 non-executable pending provider-specific validation.
