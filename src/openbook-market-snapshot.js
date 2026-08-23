@@ -10,6 +10,9 @@ import { assertSnapshotAcquisitionAllowed } from "./snapshot-cli-policy.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { createProgramAddress, decodeBase58Address } from "./solana-pda.js";
+import { decodeClmmPoolAccount } from "./clmm-pool-snapshot.js";
+import { evaluateOpenBookOraclePolicy, projectOpenBookPeggedOrder } from "./openbook-oracle-policy.js";
+export { evaluateOpenBookOraclePolicy } from "./openbook-oracle-policy.js";
 
 export const OPENBOOK_V2_PROGRAM = "opnb2LAfJYbRMAHHvqjCwQxanZn7ReEHp1k81EohpZb";
 export const SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -26,33 +29,19 @@ function u64(data, offset) { return data.readBigUInt64LE(offset).toString(); }
 function u128(data, offset) { return ((data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset)).toString(); }
 function u128Value(data, offset) { return (data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset); }
 function optionalPubkey(data, offset) { const value = data.subarray(offset, offset + 32); return value.every((byte) => byte === 0) ? null : base58(value); }
-function f64Bits(raw) { const data = Buffer.alloc(8); data.writeBigUInt64LE(BigInt(raw)); return data.readDoubleLE(); }
-function saturatingI64Add(left, right) { const value = left + right, minimum = -(1n << 63n), maximum = (1n << 63n) - 1n; return value < minimum ? minimum : value > maximum ? maximum : value; }
-
-export function evaluateOpenBookOraclePolicy(market, oracleSlot) {
-  const evidence = [market.oracleEvidenceA, market.oracleEvidenceB].filter(Boolean), unsupported = { valid: false, reason: "oracle_not_configured_or_supported", oraclePriceLots: null };
-  if (!evidence.length || evidence.some((row) => row.provider !== "pyth_legacy") || evidence.length !== (market.oracleB ? 2 : 1) || !Number.isSafeInteger(oracleSlot) || oracleSlot < 0) return unsupported;
-  const confidenceFilter = f64Bits(market.oracleConfidenceFilterBitsRaw), maximumStaleness = BigInt(market.oracleMaxStalenessSlots);
-  if (!Number.isFinite(confidenceFilter) || confidenceFilter < 0) return { ...unsupported, reason: "invalid_oracle_policy" };
-  const values = evidence.map((row) => ({ price: Number(BigInt(row.priceRaw)) * (10 ** row.exponent), deviation: Number(BigInt(row.confidenceRaw)) * (10 ** row.exponent), slot: BigInt(row.lastUpdateSlotRaw) }));
-  if (values.some(({ price, deviation }) => !Number.isFinite(price) || price <= 0 || !Number.isFinite(deviation) || deviation < 0)) return { ...unsupported, reason: "invalid_oracle_value" };
-  if (maximumStaleness >= 0n && values.some((row) => row.slot + maximumStaleness < BigInt(oracleSlot))) return { ...unsupported, reason: "stale_oracle" };
-  const confidenceValid = values.length === 1 ? values[0].deviation <= confidenceFilter * values[0].price : ((values[0].deviation / values[0].price) ** 2) + ((values[1].deviation / values[1].price) ** 2) <= confidenceFilter ** 2;
-  if (!confidenceValid) return { ...unsupported, reason: "low_confidence_oracle" };
-  const price = (values.length === 1 ? values[0].price : values[0].price / values[1].price) * (10 ** (market.mintDecimals1 - market.mintDecimals0));
-  const lots = Math.trunc(price * Number(BigInt(market.baseLotSizeRaw)) / Number(BigInt(market.quoteLotSizeRaw)));
-  if (!Number.isSafeInteger(lots) || lots < 1) return { ...unsupported, reason: "invalid_oracle_price_lots" };
-  return { valid: true, reason: null, oraclePriceLots: String(lots), provider: "pyth_legacy", source: values.length === 1 ? "oracle_a" : "oracle_a_divided_by_b" };
-}
 
 function projectPeggedOrders(orders, side, oraclePriceLots) {
-  const oracle = BigInt(oraclePriceLots), maximum = (1n << 63n) - 1n;
-  return orders.map((order) => { const price = saturatingI64Add(oracle, BigInt(order.priceOffsetLots)), limit = BigInt(order.pegLimitLots), inRange = price >= 1n && price < maximum, violatesLimit = limit !== -1n && (side === "bids" ? price > limit : price < limit); return { ...order, priceLots: price.toString(), oraclePegState: !inRange ? "skipped" : violatesLimit ? "invalid" : "valid", executable: inRange && !violatesLimit }; });
+  return orders.map((order) => projectOpenBookPeggedOrder(order, side, oraclePriceLots));
 }
 
 export function decodeOpenBookOracleAccount(address, account) {
   const data = accountBytes(account, `OpenBook oracle ${address}`); if (data.length < 8 || data.length > 65_536 || typeof account?.owner !== "string" || !account.owner) throw new Error(`OpenBook oracle ${address} has invalid account evidence`);
   const common = { address, ownerProgram: account.owner, identityPrefixHex: data.subarray(0, 8).toString("hex"), accountDataBytes: data.length, rawPayloadHash: hash(data), automationSafe: false };
+  if (account.owner === RAYDIUM_CLMM_PROGRAM) {
+    const pool = decodeClmmPoolAccount(address, account), squaredPriceX64Raw = ((BigInt(pool.sqrtPriceX64) ** 2n) >> 64n).toString(), decimalExponent = pool.mintDecimals0 - pool.mintDecimals1;
+    if (BigInt(squaredPriceX64Raw) <= 0n || decimalExponent < -12 || decimalExponent > 12) throw new Error(`OpenBook Raydium CLMM oracle ${address} has invalid price`);
+    return { ...common, provider: "raydium_clmm", coverage: "finalized_openbook_compatible_state", tokenMint0: pool.tokenMint0, tokenMint1: pool.tokenMint1, mintDecimals0: pool.mintDecimals0, mintDecimals1: pool.mintDecimals1, sqrtPriceX64Raw: pool.sqrtPriceX64, squaredPriceX64Raw, decimalExponent, lastUpdateSlotRaw: ((1n << 64n) - 1n).toString() };
+  }
   if (data.subarray(0, 8).equals(OPENBOOK_STUB_ORACLE_DISCRIMINATOR)) {
     if (account.owner !== OPENBOOK_V2_PROGRAM || data.length !== 208) throw new Error(`OpenBook stub oracle ${address} has invalid layout`);
     const price = data.readDoubleLE(72), deviation = data.readDoubleLE(96), owner = base58(data.subarray(8, 40)), mint = base58(data.subarray(40, 72));
@@ -70,7 +59,6 @@ export function decodeOpenBookOracleAccount(address, account) {
   let provider = null;
   if (data.subarray(0, 8).equals(SWITCHBOARD_V2_DISCRIMINATOR)) provider = "switchboard_v2_unverified";
   else if ([SWITCHBOARD_V1_DEVNET_PROGRAM, SWITCHBOARD_V2_MAINNET_PROGRAM].includes(account.owner)) provider = "switchboard_v1_unverified";
-  else if (account.owner === RAYDIUM_CLMM_PROGRAM) provider = "raydium_clmm_unverified";
   if (!provider) throw new Error(`OpenBook oracle ${address} provider is unsupported`);
   return { ...common, provider, coverage: "finalized_raw_unverified" };
 }
@@ -119,7 +107,7 @@ export async function createOpenBookMarketSnapshot({ client, markets, genesisHas
   if (!Number.isSafeInteger(bookSlot) || bookSlot < stateSlot || bookResponse.value?.length !== decoded.length * 2) throw new Error("invalid OpenBook book-side response");
   decoded.forEach((row, index) => { const bids = decodeOpenBookBookSideAccount(row.bids, bookResponse.value[index * 2], "bids"), asks = decodeOpenBookBookSideAccount(row.asks, bookResponse.value[index * 2 + 1], "asks"); Object.assign(row, { orderbookCoverage: bids.oraclePeggedLeafCount || asks.oraclePeggedLeafCount ? "finalized_fixed_depth_oracle_pegged_unpriced" : "finalized_full_fixed_depth", bidOrders: bids.fixedOrders, askOrders: asks.fixedOrders, oraclePeggedBidOrders: bids.oraclePeggedOrders, oraclePeggedAskOrders: asks.oraclePeggedOrders, bidsAccountDataBytes: bids.accountDataBytes, asksAccountDataBytes: asks.accountDataBytes, bidsPayloadHash: bids.rawPayloadHash, asksPayloadHash: asks.rawPayloadHash, bidsAllocator: { bumpIndex: bids.bumpIndex, freeListLength: bids.freeListLength }, asksAllocator: { bumpIndex: asks.bumpIndex, freeListLength: asks.freeListLength } }); });
   const oracleAddresses = [...new Set(decoded.flatMap((row) => [row.oracleA, row.oracleB]).filter(Boolean))]; let oracleSlot = bookSlot;
-  if (oracleAddresses.length) { const oracleResponse = await getMultipleAccountsBatched(client, oracleAddresses, { commitment: "finalized", encoding: "base64", minContextSlot: bookSlot }, { label: "OpenBook oracle" }); oracleSlot = oracleResponse?.context?.slot; if (!Number.isSafeInteger(oracleSlot) || oracleSlot < bookSlot || oracleResponse.value?.length !== oracleAddresses.length) throw new Error("invalid OpenBook oracle response"); const evidence = new Map(oracleAddresses.map((address, index) => [address, decodeOpenBookOracleAccount(address, oracleResponse.value[index])])); decoded.forEach((row) => { row.oracleEvidenceA = row.oracleA ? evidence.get(row.oracleA) : null; row.oracleEvidenceB = row.oracleB ? evidence.get(row.oracleB) : null; if (row.oracleEvidenceB && row.oracleEvidenceA.provider !== row.oracleEvidenceB.provider) throw new Error(`OpenBook market ${row.address} oracle providers mismatch`); row.oraclePolicy = evaluateOpenBookOraclePolicy(row, oracleSlot); if (row.oraclePolicy.valid) { row.oraclePeggedBidOrders = projectPeggedOrders(row.oraclePeggedBidOrders, "bids", row.oraclePolicy.oraclePriceLots); row.oraclePeggedAskOrders = projectPeggedOrders(row.oraclePeggedAskOrders, "asks", row.oraclePolicy.oraclePriceLots); row.orderbookCoverage = "finalized_full_depth_with_validated_pyth_pegs"; } }); }
+  if (oracleAddresses.length) { const oracleResponse = await getMultipleAccountsBatched(client, oracleAddresses, { commitment: "finalized", encoding: "base64", minContextSlot: bookSlot }, { label: "OpenBook oracle" }); oracleSlot = oracleResponse?.context?.slot; if (!Number.isSafeInteger(oracleSlot) || oracleSlot < bookSlot || oracleResponse.value?.length !== oracleAddresses.length) throw new Error("invalid OpenBook oracle response"); const evidence = new Map(oracleAddresses.map((address, index) => [address, decodeOpenBookOracleAccount(address, oracleResponse.value[index])])); decoded.forEach((row) => { row.oracleEvidenceA = row.oracleA ? evidence.get(row.oracleA) : null; row.oracleEvidenceB = row.oracleB ? evidence.get(row.oracleB) : null; row.oraclePolicy = evaluateOpenBookOraclePolicy(row, oracleSlot); if (row.oraclePolicy.valid) { row.oraclePeggedBidOrders = projectPeggedOrders(row.oraclePeggedBidOrders, "bids", row.oraclePolicy.oraclePriceLots); row.oraclePeggedAskOrders = projectPeggedOrders(row.oraclePeggedAskOrders, "asks", row.oraclePolicy.oraclePriceLots); if (row.oraclePeggedBidOrders.length || row.oraclePeggedAskOrders.length) row.orderbookCoverage = "finalized_full_depth_with_validated_oracle_pegs"; } }); }
   else decoded.forEach((row) => { row.oracleEvidenceA = null; row.oracleEvidenceB = null; });
   const vaultResponse = await getMultipleAccountsBatched(client, decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]), { commitment: "finalized", encoding: "jsonParsed", minContextSlot: oracleSlot }, { label: "OpenBook vault" }), balanceSlot = vaultResponse?.context?.slot;
   if (!Number.isSafeInteger(balanceSlot) || balanceSlot < oracleSlot || vaultResponse.value?.length !== decoded.length * 2) throw new Error("invalid OpenBook vault response");

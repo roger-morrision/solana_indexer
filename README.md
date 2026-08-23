@@ -889,9 +889,9 @@ counts, fixed and oracle-pegged order fields, and binds market authority,
 ordered mints and token programs, vaults, bid/ask/event-heap accounts, decimals,
 lot sizes, expiry, fee policy, deposits, accrued fees, and cumulative volumes.
 `finalized_full_fixed_depth` identifies books with completely decoded fixed
-orders and no oracle-pegged leaves. Books containing oracle-pegged leaves are
-labelled `finalized_fixed_depth_oracle_pegged_unpriced`; those leaves remain
-non-executable until their oracle accounts and confidence policy are bound.
+orders and no oracle-pegged leaves. Unvalidated pegged books use
+`finalized_fixed_depth_oracle_pegged_unpriced`; validated legacy Pyth and
+Raydium CLMM sources use `finalized_full_depth_with_validated_oracle_pegs`.
 Snapshots retain the exact optional oracle A/B identities and raw IEEE-754
 confidence-filter bits plus signed maximum-staleness-slot policy, then capture
 the referenced accounts at a monotonic finalized oracle read barrier. Provider
@@ -900,9 +900,11 @@ classification and raw account hashes are retained. The exact OpenBook
 can mutate it. Legacy Pyth PriceAccount evidence now preserves the exact
 version/type/used-size header, exponent, publisher count, aggregate status, and
 OpenBook-compatible aggregate-versus-previous selection with signed price,
-confidence, publish time, and update slot. Configured oracles remain
-`configured_unverified` and cannot price orders until confidence, freshness,
-dual-oracle composition, and remaining provider semantics are verified.
+confidence, publish time, and update slot. The canonical Raydium CLMM decoder
+also supplies OpenBook's exact Q64.64 square and mint-decimal price adjustment.
+The snapshot applies OpenBook's confidence, freshness, mixed/dual-oracle,
+market-decimal, lot conversion, signed overflow, and side-specific peg-limit
+rules. Switchboard and mutable stub sources remain unpriced and fail closed.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
