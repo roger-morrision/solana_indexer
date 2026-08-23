@@ -1,4 +1,12 @@
 import crypto from "node:crypto";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+import { loadConfig } from "./config.js";
+import { durableAtomicWrite } from "./durable-file.js";
+import { IndexStore } from "./store.js";
+import { assertSnapshotAcquisitionAllowed } from "./snapshot-cli-policy.js";
+import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 
 export const RAYDIUM_AMM_V4_PROGRAM = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -38,3 +46,17 @@ export async function createAmmV4PoolSnapshot({ client, pools, genesisHash, obse
   decoded.forEach((row, index) => { const vault0 = parsedVault(vaultResponse.value[index * 2], row.tokenMint0, `AMM v4 pool ${row.address} vault 0`), vault1 = parsedVault(vaultResponse.value[index * 2 + 1], row.tokenMint1, `AMM v4 pool ${row.address} vault 1`); if (vault0.decimals !== row.mintDecimals0 || vault1.decimals !== row.mintDecimals1 || vault0.authority !== vault1.authority) throw new Error(`AMM v4 pool ${row.address} vault evidence mismatch`); row.vault0AmountRaw = vault0.amountRaw; row.vault1AmountRaw = vault1.amountRaw; row.poolAuthority = vault0.authority; });
   return { schemaVersion: 1, type: "raydium_amm_v4_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
 }
+
+async function main() {
+  const config = loadConfig(), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load();
+  const artifactOnly = process.argv.includes("--artifact-only"), requested = process.argv.slice(2).filter((value) => value !== "--artifact-only");
+  assertSnapshotAcquisitionAllowed(store, { artifactOnly, requested });
+  const pools = requested.length ? requested : Object.entries(store.state.pools).filter(([, row]) => row.protocol === "raydium-amm-v4").map(([address]) => address);
+  if (!pools.length) throw new Error("no Raydium AMM v4 pools supplied or discovered");
+  const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected);
+  const snapshot = await createAmmV4PoolSnapshot({ client, pools, genesisHash });
+  if (!artifactOnly) { store.applyAmmV4PoolSnapshot(snapshot); await store.save(); }
+  await durableAtomicWrite(config.ammV4PoolSnapshotFile, `${JSON.stringify(snapshot)}\n`);
+  console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly }));
+}
+const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

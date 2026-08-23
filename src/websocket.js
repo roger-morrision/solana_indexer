@@ -64,7 +64,7 @@ export function validWebSocketHandshake(request) {
   try { return Buffer.from(key, "base64").length === 16 && Buffer.from(key, "base64").toString("base64") === key; } catch { return false; }
 }
 const SNAPSHOT_PROTOCOLS = new Map([
-  ["cpmm_pool_snapshot_applied", "raydium-cpmm"], ["pump_swap_pool_snapshot_applied", "pump-swap"], ["pump_bonding_curve_snapshot_applied", "pump-bonding-curve"],
+  ["cpmm_pool_snapshot_applied", "raydium-cpmm"], ["amm_v4_pool_snapshot_applied", "raydium-amm-v4"], ["pump_swap_pool_snapshot_applied", "pump-swap"], ["pump_bonding_curve_snapshot_applied", "pump-bonding-curve"],
   ["clmm_pool_snapshot_applied", "raydium-clmm"], ["orca_pool_snapshot_applied", "orca-whirlpool"], ["meteora_dlmm_pool_snapshot_applied", "meteora-dlmm"],
 ]);
 const MINT_SNAPSHOT_TYPES = new Set(["account_snapshot_applied", "offchain_metadata_snapshot_applied"]);

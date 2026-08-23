@@ -805,6 +805,10 @@ config to both vaults, and binds vault mint, token-program, and decimal identity
 Run `npm run snapshot:cpmm-pools -- <POOL_ADDRESS...>` against the loopback
 mainnet validator; missing or stale discovered pools are also scheduled through
 the leased operational worker and imported content-addressedly by index cycles.
+Run `npm run snapshot:amm-v4-pools -- <POOL_ADDRESS...>` for legacy Raydium AMM
+v4 pools. The artifact binds the official fixed pool state to both finalized SPL
+vault balances and imports idempotently into canonical pool state. AMM v4
+snapshots remain analysis-only and do not enable execution quotes.
 Its exact-input quote subtracts accrued protocol, fund, and creator fees from
 spendable reserves and mirrors ceiling-rounded fee-on-input/output behavior.
 Account snapshots capture Token-2022 mint-extension transfer-fee schedules and

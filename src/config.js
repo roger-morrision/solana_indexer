@@ -16,6 +16,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     usdcMaxDeviationBasisPoints: boundedInt(env.USDC_MAX_DEVIATION_BASIS_POINTS, 200, 1, 5_000),
     accountSnapshotFile: path.resolve(cwd, env.ACCOUNT_SNAPSHOT_FILE || "data/account-snapshot.json"),
     cpmmPoolSnapshotFile: path.resolve(cwd, env.CPMM_POOL_SNAPSHOT_FILE || "data/cpmm-pool-snapshot.json"),
+    ammV4PoolSnapshotFile: path.resolve(cwd, env.AMM_V4_POOL_SNAPSHOT_FILE || "data/amm-v4-pool-snapshot.json"),
     pumpSwapPoolSnapshotFile: path.resolve(cwd, env.PUMP_SWAP_POOL_SNAPSHOT_FILE || "data/pump-swap-pool-snapshot.json"),
     pumpBondingCurveSnapshotFile: path.resolve(cwd, env.PUMP_BONDING_CURVE_SNAPSHOT_FILE || "data/pump-bonding-curve-snapshot.json"),
     clmmPoolSnapshotFile: path.resolve(cwd, env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"),
