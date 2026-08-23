@@ -1,4 +1,4 @@
-export const PROGRAM_REGISTRY_VERSION = 17;
+export const PROGRAM_REGISTRY_VERSION = 18;
 
 const programs = [
   { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", protocol: "spl-token", deploymentVersion: "legacy", decoderVersion: 1, activationSlot: 0, eventTypes: ["instruction", "transfer", "balance_change"] },
@@ -6,6 +6,7 @@ const programs = [
   { programId: "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", protocol: "associated-token", deploymentVersion: "legacy", decoderVersion: 1, activationSlot: 0, eventTypes: ["instruction"] },
   { programId: "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s", protocol: "metaplex-token-metadata", deploymentVersion: "current", decoderVersion: 1, activationSlot: 0, eventTypes: ["instruction"] },
   { programId: "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C", protocol: "raydium-cpmm", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
+  { programId: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", protocol: "raydium-amm-v4", deploymentVersion: "mainnet", decoderVersion: 1, activationSlot: 0, eventTypes: ["swap"] },
   { programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", protocol: "raydium-clmm", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
   { programId: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc", protocol: "orca-whirlpool", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
   { programId: "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA", protocol: "pump-swap", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },

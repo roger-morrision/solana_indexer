@@ -8,6 +8,7 @@ const TOKEN_PROGRAMS = new Set([
 ]);
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const RAYDIUM_CPMM = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
+const RAYDIUM_AMM_V4 = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
 const RAYDIUM_CLMM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 const ORCA_WHIRLPOOL = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 const PUMP_AMM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
@@ -56,6 +57,7 @@ export function recognizedSwapInstructionProtocol(instruction) {
   if (typeof instruction?.data !== "string") return null;
   let data; try { data = decodeBase58(instruction.data); } catch { return null; }
   const discriminator = data.subarray(0, 8), exact = (length, expected) => data.length === length && discriminator.equals(expected);
+  if (instruction.programId === RAYDIUM_AMM_V4 && data.length === 17 && [9, 11].includes(data[0])) return "raydium-amm-v4";
   if (instruction.programId === RAYDIUM_CPMM && exact(24, RAYDIUM_CPMM_SWAP_BASE_INPUT_DISCRIMINATOR)) return "raydium-cpmm";
   if (instruction.programId === RAYDIUM_CLMM && exact(41, RAYDIUM_CLMM_SWAP_V2_DISCRIMINATOR)) return "raydium-clmm";
   if (instruction.programId === ORCA_WHIRLPOOL && exact(42, ORCA_SWAP_INSTRUCTION_DISCRIMINATOR)) return "orca-whirlpool";
@@ -71,6 +73,7 @@ export function recognizedSwapInstructionEvidence(instruction) {
   const protocol = recognizedSwapInstructionProtocol(instruction); if (!protocol || !Array.isArray(instruction.accounts) || instruction.accounts.some((account) => typeof account !== "string" || !account)) return protocol ? { protocol, valid: false } : null;
   let data; try { data = decodeBase58(instruction.data); } catch { return { protocol, valid: false }; }
   const accounts = instruction.accounts;
+  if (protocol === "raydium-amm-v4" && accounts.length === 17 && accounts[0] === "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" && accounts[4] !== accounts[5] && accounts[14] !== accounts[15]) return { protocol, valid: true, pool: accounts[1], user: accounts[16], inputTokenAccount: accounts[14], outputTokenAccount: accounts[15], mode: data[0] === 9 ? "base_in" : "base_out" };
   if (protocol === "raydium-cpmm" && accounts.length === 13 && TOKEN_PROGRAMS.has(accounts[8]) && TOKEN_PROGRAMS.has(accounts[9]) && accounts[10] !== accounts[11]) return { protocol, valid: true, pool: accounts[3], inputMint: accounts[10], outputMint: accounts[11] };
   if (protocol === "raydium-clmm" && accounts.length >= 14 && accounts[8] === "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" && accounts[9] === TOKEN_2022_PROGRAM && accounts[10] === "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr" && accounts[11] !== accounts[12]) return { protocol, valid: true, pool: accounts[2], user: accounts[0], inputMint: accounts[11], outputMint: accounts[12] };
   if (protocol === "orca-whirlpool" && accounts.length >= 7 && TOKEN_PROGRAMS.has(accounts[0])) return { protocol, valid: true, pool: accounts[2], user: accounts[1], direction: data[41] === 1 ? "a_to_b" : "b_to_a" };
@@ -219,6 +222,37 @@ export function decodeRaydiumSwapEvents(entry, signature) {
     const pool = base58(data.subarray(8, 40)), inputMint = base58(data.subarray(89, 121)), outputMint = base58(data.subarray(121, 153)), contextIndex = contexts.findIndex((context) => context.pool === pool && context.inputMint === inputMint && context.outputMint === outputMint); if (contextIndex < 0) continue; contexts.splice(contextIndex, 1);
     const baseInput = data[88] !== 0;
     events.push({ protocol: "raydium-cpmm", programId: RAYDIUM_CPMM, type: "swap", signature, pool, inputVaultBeforeRaw: readU64(data, 40), outputVaultBeforeRaw: readU64(data, 48), inputAmountRaw: readU64(data, 56), outputAmountRaw: readU64(data, 64), inputTransferFeeRaw: readU64(data, 72), outputTransferFeeRaw: readU64(data, 80), baseInput, baseMint: baseInput ? inputMint : outputMint, quoteMint: baseInput ? outputMint : inputMint, inputMint, outputMint, tradeFeeRaw: readU64(data, 153), creatorFeeRaw: readU64(data, 161), creatorFeeOnInput: data[169] !== 0, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint) });
+  }
+  return events;
+}
+export function decodeRaydiumAmmV4SwapEvents(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = dexTokenAccountEvidence(entry, keys), contexts = [];
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== RAYDIUM_AMM_V4 || accounts.length !== 17 || accounts.some((account) => typeof account !== "string" || !account) || accounts[0] !== "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" || accounts[4] === accounts[5] || accounts[14] === accounts[15] || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    if (data.length !== 17 || ![9, 11].includes(data[0])) continue;
+    const input = tokenAccounts.get(accounts[14]), output = tokenAccounts.get(accounts[15]), coin = tokenAccounts.get(accounts[4]), pc = tokenAccounts.get(accounts[5]);
+    if (!input || !output || !coin || !pc || input.programId !== accounts[0] || output.programId !== accounts[0] || coin.programId !== accounts[0] || pc.programId !== accounts[0] || input.mint === output.mint || coin.mint === pc.mint || ![coin.mint, pc.mint].includes(input.mint) || ![coin.mint, pc.mint].includes(output.mint)) continue;
+    contexts.push({ mode: data[0] === 9 ? "base_in" : "base_out", pool: accounts[1], user: accounts[16], input, output, coin, pc, firstBoundRaw: readU64(data, 1), secondBoundRaw: readU64(data, 9) });
+  }
+  const events = [], stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== RAYDIUM_AMM_V4 || !line.startsWith("Program log: ray_log: ")) continue;
+    const encoded = line.slice(22); if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length % 4 !== 0) continue;
+    let data; try { data = Buffer.from(encoded, "base64"); } catch { continue; }
+    if (data.toString("base64") !== encoded || data.length !== 57 || ![3, 4].includes(data[0])) continue;
+    const mode = data[0] === 3 ? "base_in" : "base_out", firstBoundRaw = readU64(data, 1), secondBoundRaw = readU64(data, 9), directionRaw = readU64(data, 17), userSourceBeforeRaw = readU64(data, 25), poolCoinBeforeRaw = readU64(data, 33), poolPcBeforeRaw = readU64(data, 41), actualRaw = readU64(data, 49);
+    if (!["0", "1"].includes(directionRaw)) continue;
+    const contextIndex = contexts.findIndex((candidate) => candidate.mode === mode && candidate.firstBoundRaw === firstBoundRaw && candidate.secondBoundRaw === secondBoundRaw); if (contextIndex < 0) continue;
+    const context = contexts.splice(contextIndex, 1)[0], expectedDirectionRaw = context.input.mint === context.coin.mint ? "0" : "1"; if (directionRaw !== expectedDirectionRaw) continue;
+    const inputAmountRaw = mode === "base_in" ? firstBoundRaw : actualRaw, outputAmountRaw = mode === "base_in" ? actualRaw : secondBoundRaw;
+    if (BigInt(inputAmountRaw) === 0n || BigInt(outputAmountRaw) === 0n || (mode === "base_in" && BigInt(outputAmountRaw) < BigInt(secondBoundRaw)) || (mode === "base_out" && BigInt(inputAmountRaw) > BigInt(firstBoundRaw))) continue;
+    const inputVaultBeforeRaw = context.input.mint === context.coin.mint ? poolCoinBeforeRaw : poolPcBeforeRaw, outputVaultBeforeRaw = context.output.mint === context.coin.mint ? poolCoinBeforeRaw : poolPcBeforeRaw;
+    events.push({ protocol: "raydium-amm-v4", programId: RAYDIUM_AMM_V4, venueType: "constant_product_orderbook", type: "swap", signature, pool: context.pool, user: context.user, inputMint: context.input.mint, outputMint: context.output.mint, inputAmountRaw, outputAmountRaw, inputVaultBeforeRaw, outputVaultBeforeRaw, reserveTiming: "reported_pre_swap", tradeFeeRaw: null, feeEvidence: "unavailable_in_program_log", inputDecimals: context.input.decimals, outputDecimals: context.output.decimals, mode, directionRaw, userSourceBeforeRaw, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -438,7 +472,7 @@ function dexSwaps(block, transactions, decodedEvents) {
   const events = [...sidecar, ...uncoveredDecoded]; const indices = new Map();
   return events.map((event, index) => {
     const field = (name) => { const value = event[name]; if (typeof value !== "string" || !value) throw new Error(`dexEvents[${index}].${name} is required`); return value; };
-    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "orca-whirlpool" && event.programId === ORCA_WHIRLPOOL) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM) || (event.protocol === "meteora-dlmm" && event.programId === METEORA_DLMM);
+    const supported = (event.protocol === "raydium-cpmm" && event.programId === RAYDIUM_CPMM) || (event.protocol === "raydium-amm-v4" && event.programId === RAYDIUM_AMM_V4) || (event.protocol === "raydium-clmm" && event.programId === RAYDIUM_CLMM) || (event.protocol === "orca-whirlpool" && event.programId === ORCA_WHIRLPOOL) || (event.protocol === "pump-swap" && event.programId === PUMP_AMM) || (event.protocol === "pump-bonding-curve" && event.programId === PUMP_PROGRAM) || (event.protocol === "meteora-dlmm" && event.programId === METEORA_DLMM);
     if (!supported || event.type !== "swap") throw new Error(`dexEvents[${index}] is not a supported DEX swap`);
     const signature = field("signature"); if (!successful.has(signature)) throw new Error(`dexEvents[${index}].signature must reference a successful transaction`);
     const inputDecimals = event.inputDecimals; const outputDecimals = event.outputDecimals;
@@ -459,7 +493,8 @@ function dexSwaps(block, transactions, decodedEvents) {
       }
       else { clmmEvidence = { user: event.user, zeroForOne: event.zeroForOne, sqrtPriceX64: u128(event.sqrtPriceX64, "sqrtPriceX64"), inputTransferFeeRaw: u64(event.inputTransferFeeRaw, "inputTransferFeeRaw"), outputTransferFeeRaw: u64(event.outputTransferFeeRaw, "outputTransferFeeRaw") }; if (event.protocol === "raydium-clmm") Object.assign(clmmEvidence, { liquidityRaw: u128(event.liquidityRaw, "liquidityRaw"), tick: event.tick }); else Object.assign(clmmEvidence, { preSqrtPriceX64: u128(event.preSqrtPriceX64, "preSqrtPriceX64"), lpFeeRaw: u64(event.lpFeeRaw, "lpFeeRaw"), protocolFeeRaw: u64(event.protocolFeeRaw, "protocolFeeRaw") }); }
     }
-    const normalized = { swapId: `${signature}:${eventIndex}`, eventIndex, protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), baseMint, quoteMint, pairIdentitySource: authoritativeBase && event.quoteMint ? "protocol_event" : "canonical_lexical", inputMint, outputMint, inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: nullableReserves && event.inputVaultBeforeRaw == null ? null : u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: nullableReserves && event.outputVaultBeforeRaw == null ? null : u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: u64(event.tradeFeeRaw, "tradeFeeRaw"), reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, baseDecimals: baseMint === inputMint ? inputDecimals : outputDecimals, quoteDecimals: quoteMint === inputMint ? inputDecimals : outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
+    const nullableTradeFee = event.protocol === "raydium-amm-v4" && event.feeEvidence === "unavailable_in_program_log" && event.tradeFeeRaw == null;
+    const normalized = { swapId: `${signature}:${eventIndex}`, eventIndex, protocol: event.protocol, programId: event.programId, venueType: event.venueType ?? "amm", side: event.side ?? null, signature, pool: field("pool"), baseMint, quoteMint, pairIdentitySource: authoritativeBase && event.quoteMint ? "protocol_event" : "canonical_lexical", inputMint, outputMint, inputAmountRaw: u64(event.inputAmountRaw, "inputAmountRaw"), outputAmountRaw: u64(event.outputAmountRaw, "outputAmountRaw"), inputVaultBeforeRaw: nullableReserves && event.inputVaultBeforeRaw == null ? null : u64(event.inputVaultBeforeRaw, "inputVaultBeforeRaw"), outputVaultBeforeRaw: nullableReserves && event.outputVaultBeforeRaw == null ? null : u64(event.outputVaultBeforeRaw, "outputVaultBeforeRaw"), tradeFeeRaw: nullableTradeFee ? null : u64(event.tradeFeeRaw, "tradeFeeRaw"), feeEvidence: nullableTradeFee ? event.feeEvidence : "protocol_event", reserveTiming: event.reserveTiming ?? "before", inputDecimals, outputDecimals, baseDecimals: baseMint === inputMint ? inputDecimals : outputDecimals, quoteDecimals: quoteMint === inputMint ? inputDecimals : outputDecimals, slot: block.slot, blockTime: Number.isInteger(block.blockTime) ? block.blockTime : null, provenance: block.provenance };
     if (clmmEvidence) Object.assign(normalized, clmmEvidence);
     if (event.protocol === "pump-bonding-curve") for (const name of ["mint", "quoteMint", "user", "creator", "feeRecipient", "creatorFeeRaw", "cashbackRaw", "buybackRaw", "feeBasisPoints", "creatorFeeBasisPoints", "cashbackFeeBasisPoints", "buybackFeeBasisPoints", "virtualSolReservesRaw", "virtualTokenReservesRaw", "realSolReservesRaw", "realTokenReservesRaw", "virtualQuoteReservesRaw", "realQuoteReservesRaw", "ixName", "mayhemMode", "shareholderCount"]) normalized[name] = event[name];
     const registration = programRegistration(event.programId, block.slot); normalized.eventId = `solana:${block.slot}:${signature}:-1:${eventIndex}:swap`; normalized.registryVersion = PROGRAM_REGISTRY_VERSION; normalized.decoderVersion = registration?.decoderVersion ?? null; normalized.rawPayloadHash = event.rawPayloadHash ?? crypto.createHash("sha256").update(JSON.stringify(event)).digest("hex"); normalized.payloadHashKind = event.rawPayloadHash ? "raw" : "source_event";
@@ -666,7 +701,7 @@ export function parseBlock(block) {
     if (failed) continue;
     nativeTransfers.push(...decodeSystemTransfers(normalized));
     poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeRaydiumClmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodeMeteoraDlmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
-    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodeMeteoraDlmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
+    decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumAmmV4SwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodeMeteoraDlmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     const tokenAccounts = tokenAccountEvidence(entry, keys);
     for (const instruction of normalized) {
