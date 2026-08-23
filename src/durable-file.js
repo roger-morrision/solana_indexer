@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { readBoundedFile } from "./bounded-json-file.js";
 
 const WINDOWS_DIRECTORY_SYNC_ERRORS = new Set(["EBADF", "EINVAL", "EISDIR", "EPERM"]);
+const MAX_DURABLE_REWRITE_BYTES = 64 * 1_024 * 1_024;
 const pendingWrites = new Map();
 
 function enqueue(filename, operation) {
@@ -47,10 +49,11 @@ export function durableAtomicWrite(filename, data, { mode = 0o600 } = {}) {
   return enqueue(filename, () => writeDurably(filename, data, mode));
 }
 
-export function durableAtomicRewriteIfUnchanged(filename, expectedSha256, data, { mode = 0o600 } = {}) {
-  if (typeof filename !== "string" || !filename || !/^[0-9a-f]{64}$/.test(expectedSha256 ?? "") || (!Buffer.isBuffer(data) && typeof data !== "string") || !Number.isInteger(mode) || mode < 0 || mode > 0o777) return Promise.reject(new Error("invalid content-bound atomic rewrite"));
+export function durableAtomicRewriteIfUnchanged(filename, expectedSha256, data, { mode = 0o600, maximumBytes = MAX_DURABLE_REWRITE_BYTES } = {}) {
+  if (typeof filename !== "string" || !filename || !/^[0-9a-f]{64}$/.test(expectedSha256 ?? "") || (!Buffer.isBuffer(data) && typeof data !== "string") || !Number.isInteger(mode) || mode < 0 || mode > 0o777 || !Number.isSafeInteger(maximumBytes) || maximumBytes < 1) return Promise.reject(new Error("invalid content-bound atomic rewrite"));
   return enqueue(filename, async () => {
-    const current = await fs.readFile(filename), actualSha256 = crypto.createHash("sha256").update(current).digest("hex");
+    const current = await readBoundedFile(filename, { maximumBytes }), actualSha256 = Buffer.isBuffer(current) ? crypto.createHash("sha256").update(current).digest("hex") : null;
+    if (!Buffer.isBuffer(current)) throw new Error(`durable rewrite source is unavailable: ${current?.evidenceReadError ?? "missing"}`);
     if (actualSha256 !== expectedSha256) throw new Error("durable rewrite source changed");
     await writeDurably(filename, data, mode);
   });

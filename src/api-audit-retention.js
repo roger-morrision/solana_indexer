@@ -20,7 +20,7 @@ export async function retainApiAudit({ filename, defaultRetentionDays = 30, now 
   if (lines.length > maximumRecords) throw new Error("audit retention record limit exceeded");
   for (let index = 0; index < lines.length; index++) { let row; try { row = JSON.parse(lines[index]); } catch { throw new Error(`invalid audit JSON at line ${index + 1}`); } const observed = parseCanonicalUtcTimestamp(row?.observedAt), retentionDays = row?.retentionDays ?? defaultRetentionDays; if (row?.schemaVersion !== 1 || observed == null || !Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 3_650) throw new Error(`invalid audit record at line ${index + 1}`); if (observed + retentionDays * 86_400_000 <= now) eligible.push(lines[index]); else retained.push(lines[index]); }
   if (confirm && (!writerQuiesced || expectedSha256 !== contentSha256)) throw new Error(!writerQuiesced ? "audit writer must be quiesced before deletion" : "audit retention source digest changed");
-  if (confirm && eligible.length) await durableAtomicRewriteIfUnchanged(filename, expectedSha256, retained.length ? `${retained.join("\n")}\n` : "");
+  if (confirm && eligible.length) await durableAtomicRewriteIfUnchanged(filename, expectedSha256, retained.length ? `${retained.join("\n")}\n` : "", { maximumBytes });
   return { available: true, confirmRequired: !confirm, contentSha256, retained: retained.length, eligible: eligible.length, deleted: confirm ? eligible.length : 0 };
 }
 

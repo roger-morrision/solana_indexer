@@ -87,6 +87,7 @@ test("durable appends preserve same-process submission order", async (t) => {
 
 test("content-bound durable rewrites serialize behind appends and reject changed sources", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-durable-rewrite-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const filename = path.join(root, "audit.jsonl"), original = "original\n", digest = crypto.createHash("sha256").update(original).digest("hex"); await fs.writeFile(filename, original); await Promise.all([durableAppendFile(filename, "appended\n"), assert.rejects(durableAtomicRewriteIfUnchanged(filename, digest, "replacement\n"), /source changed/)]); assert.equal(await fs.readFile(filename, "utf8"), "original\nappended\n");
+  const current = await fs.readFile(filename); await assert.rejects(durableAtomicRewriteIfUnchanged(filename, crypto.createHash("sha256").update(current).digest("hex"), "replacement\n", { maximumBytes: current.length - 1 }), /source is unavailable: invalid_file/); assert.deepEqual(await fs.readFile(filename), current);
 });
 
 test("graceful shutdown drains HTTP before flushing durable audit work", async () => {
