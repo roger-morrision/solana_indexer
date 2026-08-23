@@ -52,7 +52,7 @@ import { buildCommercialSyncSql, runCommercialSync } from "../src/postgres-comme
 import { assertWarehousePublicationState, assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileWarehouseBatch, compileWarehouseCandles, compileWarehouseFacts, compileWarehouseMetadataSql, compileWarehouseProjections, expectedWarehouseReconciliation, probeWarehouseReconciliation, probeWarehouseSinks, syncWarehouseBatch, validateWarehouseReconciliation, validateWarehouseSinkSequences, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
 import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis-quota.js";
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalCommand, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
-import { assessUsdDepegReference, compileUsdDepegReference, MAINNET_USDC_MINT, watchUsdDepegReference } from "../src/usd-depeg-reference.js";
+import { assessUsdDepegReference, compileUsdDepegReference, loadUsdDepegReference, MAINNET_USDC_MINT, watchUsdDepegReference } from "../src/usd-depeg-reference.js";
 import { createUsdDepegReference, decodePythPriceUpdateV2 } from "../src/usdc-oracle-snapshot.js";
 import { assertSnapshotAcquisitionAllowed } from "../src/snapshot-cli-policy.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "../src/token-metadata.js";
@@ -322,6 +322,16 @@ test("live USDC evidence reload accepts valid replacements and fails closed", as
   const accepted = [], errors = [], reference = compileUsdDepegReference({ schemaVersion: 1, chain: "solana-mainnet", genesisHash: MAINNET_GENESIS_HASH, assetMint: MAINNET_USDC_MINT, quote: "USD", commitment: "finalized", sourceType: "independent_onchain_oracle", sourceProgram: "11111111111111111111111111111111", sourceAccount: "SysvarC1ock11111111111111111111111111111111", sourceSlot: 500, price: { numeratorRaw: "1", denominatorRaw: "1" }, observedAt: "2026-08-22T00:00:00.000Z", expiresAt: "2026-08-22T00:02:00.000Z" });
   let attempt = 0; const watcher = watchUsdDepegReference("oracle.json", (value) => accepted.push(value), 60_000, { load: async () => { if (attempt++ === 0) return reference; throw new Error("invalid independent USD depeg reference file"); }, onError: (error) => errors.push(error.message) });
   await watcher.refresh(); await watcher.refresh(); watcher.stop(); assert.equal(accepted[0], reference); assert.equal(accepted[1], null); assert.deepEqual(errors, ["invalid independent USD depeg reference file"]);
+});
+
+test("independent USD evidence uses bounded regular-file snapshots", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-usdc-evidence-boundary-")), filename = path.join(root, "usdc.json");
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  assert.equal(await loadUsdDepegReference(filename), null);
+  for (const invalid of ["{", "x".repeat(1_048_577)]) {
+    await fs.writeFile(filename, invalid);
+    await assert.rejects(() => loadUsdDepegReference(filename), /invalid independent USD depeg reference file/);
+  }
 });
 
 test("Metaplex metadata decoding binds finalized on-chain identity and exact fields", () => {

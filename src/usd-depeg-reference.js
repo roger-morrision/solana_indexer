@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 export const MAINNET_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -22,7 +22,13 @@ export function assessUsdDepegReference(reference, now = Date.now(), maxDeviatio
   return { healthy: withinPeg, reason: withinPeg ? null : "usdc_depeg_limit_exceeded", price: compiled.price, deviation: { numeratorRaw: deviation.toString(), denominatorRaw: denominator.toString(), maxBasisPoints: maxDeviationBasisPoints }, evidence: compiled };
 }
 
-export async function loadUsdDepegReference(filename) { if (!filename) return null; let value; try { value = JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw new Error("invalid independent USD depeg reference file"); } return compileUsdDepegReference(value); }
+export async function loadUsdDepegReference(filename) {
+  if (!filename) return null;
+  const value = await readBoundedJsonFile(filename);
+  if (value == null) return null;
+  if (value.evidenceReadError) throw new Error(`invalid independent USD depeg reference file: ${value.evidenceReadError}`);
+  return compileUsdDepegReference(value);
+}
 
 export function watchUsdDepegReference(filename, onReference, intervalMs = 5_000, { load = loadUsdDepegReference, onError = () => {} } = {}) {
   if (typeof onReference !== "function" || !Number.isInteger(intervalMs) || intervalMs < 1_000 || intervalMs > 60_000) throw new Error("invalid USD depeg reference watcher");
