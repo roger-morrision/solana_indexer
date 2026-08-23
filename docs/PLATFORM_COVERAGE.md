@@ -71,8 +71,8 @@ refuse overflowed state; controlled replay into replacement state is required to
 Every decision-bearing HTTP projection, analysis quote, and unsigned preparation route
 shares the same recovery gate, preventing incomplete recovery state from bypassing bot
 readiness through a lower-level endpoint.
-Decision-bearing GET projections also share every canonical derived, aggregate, lifecycle,
-snapshot, and metadata gate before reading their route-specific evidence.
+Decision-bearing GET projections and unsigned preparations also share every canonical
+derived, aggregate, lifecycle, snapshot, and metadata gate before reading route evidence.
 Derived WebSocket subscriptions are rejected or evicted under the same condition, while
 the independently validated raw block stream remains available for recovery consumers.
 
