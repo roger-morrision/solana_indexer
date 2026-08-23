@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
-import { extractToken2022MintEvidence, normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
+import { decodeRawToken2022MintEvidence, normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
 import { decodeBase58Address, findProgramAddress } from "./solana-pda.js";
 import { decodeTransferHookExtraAccountMetaList } from "./transfer-hook-evidence.js";
 
@@ -39,15 +39,18 @@ export async function acquirePoolMintEvidence(client, pools, minContextSlot) {
   if (!Number.isSafeInteger(slot) || slot < minContextSlot || !Number.isSafeInteger(epoch) || epoch < 0) throw new Error("pool mint epoch context is invalid");
   const mints = [...new Set(pools.flatMap((pool) => [pool.tokenMint0, pool.tokenMint1]))];
   if (mints.some((mint) => typeof mint !== "string" || !mint)) throw new Error("pool mint identity is invalid");
-  const response = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "pool mint" }), byMint = new Map(), hooks = [];
+  const response = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "pool mint" }), token2022Mints = mints.filter((_, index) => response.value[index]?.owner === TOKEN_2022_PROGRAM);
+  for (const mint of token2022Mints) { const info = response.value[mints.indexOf(mint)]?.data?.parsed?.info; if (!Array.isArray(info?.extensions)) throw new Error(`pool mint ${mint} extension inventory is invalid`); }
+  const rawResponse = token2022Mints.length ? await getMultipleAccountsBatched(client, token2022Mints, { commitment: "finalized", encoding: "base64", minContextSlot: slot }, { expectedSlot: slot, label: "raw pool Token-2022 mint" }) : { value: [] }, rawMints = new Map(token2022Mints.map((mint, index) => [mint, decodeRawToken2022MintEvidence(rawResponse.value[index], epoch, slot)])), byMint = new Map(), hooks = [];
   for (let index = 0; index < mints.length; index++) {
     const mint = mints[index], account = response.value[index], info = account?.data?.parsed?.info;
     if (!TOKEN_PROGRAMS.has(account?.owner) || !Number.isInteger(info?.decimals) || info.decimals < 0 || info.decimals > 255 || !/^\d+$/.test(info?.supply ?? "")) throw new Error(`pool mint ${mint} evidence is invalid`);
     if (account.owner === TOKEN_2022_PROGRAM && !Array.isArray(info.extensions)) throw new Error(`pool mint ${mint} extension inventory is invalid`);
-    const extensionTypes = account.owner === TOKEN_2022_PROGRAM ? info.extensions.map((extension) => extension?.extension) : [];
-    if (extensionTypes.some((type) => typeof type !== "string" || !type) || new Set(extensionTypes).size !== extensionTypes.length) throw new Error(`pool mint ${mint} extension inventory is invalid`);
+    const parsedExtensionTypes = account.owner === TOKEN_2022_PROGRAM ? info.extensions.map((extension) => extension?.extension) : [], rawMint = rawMints.get(mint), extensionTypes = rawMint ? rawMint.mintInfo.extensions.map((extension) => extension.extension) : [];
+    if (parsedExtensionTypes.some((type) => typeof type !== "string" || !type) || new Set(parsedExtensionTypes).size !== parsedExtensionTypes.length) throw new Error(`pool mint ${mint} extension inventory is invalid`);
+    if (rawMint && (info.supply !== rawMint.mintInfo.supply || info.decimals !== rawMint.mintInfo.decimals || (info.mintAuthority ?? null) !== rawMint.mintInfo.mintAuthority || (info.freezeAuthority ?? null) !== rawMint.mintInfo.freezeAuthority || JSON.stringify([...parsedExtensionTypes].sort()) !== JSON.stringify([...extensionTypes].sort()))) throw new Error(`pool mint ${mint} parsed and raw evidence differ`);
     const hook = account.owner === TOKEN_2022_PROGRAM ? transferHookState(info, mint) : null; if (hook) hooks.push({ mint, ...hook });
-    byMint.set(mint, { schemaVersion: 1, mint, programId: account.owner, commitment: "finalized", slot, epoch, decimals: info.decimals, extensionTypes: extensionTypes.sort(), token2022Evidence: extractToken2022MintEvidence(account, epoch, slot), transferHookEvidence: null });
+    byMint.set(mint, { schemaVersion: 1, mint, programId: account.owner, commitment: "finalized", slot, epoch, decimals: info.decimals, extensionTypes: extensionTypes.sort(), token2022Evidence: rawMint?.token2022Evidence ?? null, transferHookEvidence: null });
   }
   if (hooks.length) { const addresses = [...new Set(hooks.flatMap((hook) => [hook.validationAccount, hook.programId]))], hookResponse = await getMultipleAccountsBatched(client, addresses, { commitment: "finalized", encoding: "base64", minContextSlot: slot }, { expectedSlot: slot, label: "pool mint transfer hook" }), accounts = new Map(addresses.map((address, index) => [address, hookResponse.value[index]])); for (const hook of hooks) { const program = accounts.get(hook.programId), validation = accounts.get(hook.validationAccount); if (!program?.executable || typeof program.owner !== "string" || !program.owner) throw new Error(`pool mint ${hook.mint} transfer hook program is unavailable`); const programEvidence = rawAccountEvidence(program, program.owner, `pool mint ${hook.mint} transfer hook program`), validationEvidence = validation == null ? null : rawAccountEvidence(validation, hook.programId, `pool mint ${hook.mint} transfer hook validation account`); if (validationEvidence) validationEvidence.extraAccountMetaList = decodeTransferHookExtraAccountMetaList(validationEvidence.rawHex); byMint.get(hook.mint).transferHookEvidence = { schemaVersion: 1, commitment: "finalized", slot, authority: hook.authority, programId: hook.programId, programExecutable: true, program: programEvidence, validationAccount: hook.validationAccount, validation: validationEvidence }; } }
   return { slot, epoch, byMint };
