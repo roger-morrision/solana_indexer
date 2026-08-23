@@ -570,6 +570,8 @@ invalid resume status before any network request or inbox mutation.
 Commercial authorization and holder-risk registries cross the same bounded
 regular-file boundary before they can affect tenant admission or automation risk;
 the independent USD/depeg artifact does likewise before influencing price confidence.
+Commercial usage synchronization also admits only a stable regular audit file,
+bounded to 64 MiB and 250,000 records per idempotent synchronization cycle.
 Dead-letter exception text is likewise normalized and capped before persistence;
 provider URLs, credentials, token-shaped values, and private keys are never part
 of the durable dead-letter or warehouse contract.
@@ -979,7 +981,8 @@ requires the exact Yellowstone plugin identity, canonical versions/commits, and
 a bounded reviewer identity. A one-MiB regular-file manifest plus stable non-link
 binary hashing capped at one GiB is required before activation can be considered.
 Qualification status, structure, recency, and sustained-run invariants are checked
-before either installed binary is read or executed.
+before either installed binary is read or executed. Both binaries are rehashed
+after the version probe so a concurrent replacement invalidates the preflight.
 The checked-in example documents every required
 field but remains `blocked`; it is not an approval to load the currently
 incompatible plugin.

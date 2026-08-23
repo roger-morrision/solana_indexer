@@ -9,8 +9,17 @@ import { runBoundedProcess } from "./bounded-process.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { normalizeAuditRoute } from "./api-audit.js";
 
+export const MAX_COMMERCIAL_AUDIT_BYTES = 67_108_864;
+export const MAX_COMMERCIAL_AUDIT_RECORDS = 250_000;
 function literal(value) { return value == null ? "NULL" : `'${String(value).replaceAll("'", "''")}'`; }
 function values(rows) { return rows.map((row) => `(${row.join(", ")})`).join(",\n"); }
+
+export async function readCommercialAuditFile(filename, { maximumBytes = MAX_COMMERCIAL_AUDIT_BYTES, maximumRecords = MAX_COMMERCIAL_AUDIT_RECORDS } = {}) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || !Number.isSafeInteger(maximumRecords) || maximumRecords < 1) throw new Error("commercial audit bounds are invalid");
+  const before = await fs.lstat(filename); if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size > maximumBytes) throw new Error("commercial audit file is unavailable");
+  const bytes = await fs.readFile(filename); if (bytes.length !== before.size) throw new Error("commercial audit file changed during read"); const after = await fs.lstat(filename); if (!after.isFile() || after.isSymbolicLink() || after.size !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.mtimeMs !== before.mtimeMs) throw new Error("commercial audit file changed during read");
+  const text = bytes.toString("utf8"), records = text.split(/\r?\n/).filter(Boolean).length; if (records > maximumRecords) throw new Error("commercial audit record limit exceeded"); return { text, records };
+}
 
 export function buildCommercialSyncSql(registry, auditText) {
   if (!registry?.tenants?.length) throw new Error("API tenant registry is required"); const tenantIds = new Set(registry.tenants.map((row) => row.id)), usage = new Map();
@@ -24,5 +33,5 @@ export async function runCommercialSync(sql, spawnProcess = spawn, processOption
   catch (error) { throw new Error(redactDiagnostic(error, "commercial sync failed")); }
 }
 
-async function main() { const config = loadConfig(), registry = await loadApiTenants(config.apiTenantsFile); if (!config.auditLogFile) throw new Error("INDEXER_AUDIT_LOG_FILE is required"); const auditText = await fs.readFile(config.auditLogFile, "utf8"), sql = buildCommercialSyncSql(registry, auditText); await runCommercialSync(sql); console.log(JSON.stringify({ tenants: registry.tenants.length, auditRecords: auditText.split(/\r?\n/).filter(Boolean).length, synced: true })); }
+async function main() { const config = loadConfig(), registry = await loadApiTenants(config.apiTenantsFile); if (!config.auditLogFile) throw new Error("INDEXER_AUDIT_LOG_FILE is required"); const audit = await readCommercialAuditFile(config.auditLogFile), sql = buildCommercialSyncSql(registry, audit.text); await runCommercialSync(sql); console.log(JSON.stringify({ tenants: registry.tenants.length, auditRecords: audit.records, synced: true })); }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

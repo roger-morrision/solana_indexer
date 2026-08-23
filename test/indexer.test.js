@@ -48,7 +48,7 @@ import { compileHolderExclusions, holderExclusionContentSha256, loadHolderExclus
 import { compileApiTenants, loadApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
 import { normalizeAuditRoute } from "../src/api-audit.js";
-import { buildCommercialSyncSql, runCommercialSync } from "../src/postgres-commercial-sync.js";
+import { buildCommercialSyncSql, readCommercialAuditFile, runCommercialSync } from "../src/postgres-commercial-sync.js";
 import { assertWarehousePublicationState, assessWarehouseCheckpoint, checkpointSql, compileRedisHotSync, compileWarehouseBatch, compileWarehouseCandles, compileWarehouseFacts, compileWarehouseMetadataSql, compileWarehouseProjections, expectedWarehouseReconciliation, probeWarehouseReconciliation, probeWarehouseSinks, syncWarehouseBatch, validateWarehouseReconciliation, validateWarehouseSinkSequences, writeWarehouseCheckpoint } from "../src/warehouse-sync.js";
 import { compileRedisQuotaRequest, createRedisQuotaAdmitter } from "../src/redis-quota.js";
 import { claimOperationalJobSql, finishOperationalJobSql, renewOperationalJobLeaseSql, runOperationalCommand, runOperationalJobCycle, validateOperationalJob } from "../src/operational-job-worker.js";
@@ -410,6 +410,7 @@ test("Yellowstone preflight binds qualified evidence to stable installed binarie
   const replay = { schemaVersion: 1, digest: "e".repeat(64), canonicalCounts: true, duplicateIdempotency: true, replacementCorrections: true, boundedHeapDelta: true, throughput: true }, blocks = 100_000;
   const manifest = { schemaVersion: 2, chain: "solana-mainnet", status: "qualified", agave: { versionOutput, sourceCommit: "a".repeat(40), binarySha256: digest(agave) }, plugin: { name: "yellowstone-grpc-geyser", version: "14.2.2", sourceCommit: "b".repeat(40), binarySha256: digest(plugin) }, qualification: { testedAt: new Date(Date.now() - 1_000).toISOString(), sustainedSeconds: 86_400, finalizedBlocks: blocks, maxRssBytes: 1_000_000, rssSlopeBytesPerHour: 0, replay, reconciliation: { schemaVersion: 1, comparedFinalizedBlocks: blocks, mismatchedBlocks: 0, missingGeyserBlocks: 0, missingPubsubBlocks: 0 }, transport: { schemaVersion: 1, droppedUpdates: 0, reconnects: 0, maxBufferedUpdates: 1 } }, reviewedBy: "platform-review" };
   await fs.writeFile(manifestFile, JSON.stringify(manifest)); let probes = 0; const result = await preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return versionOutput; } }); assert.equal(result.activationAllowed, true); assert.equal(probes, 1);
+  await assert.rejects(() => preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { await fs.writeFile(pluginLibrary, "changed-plugin"); return versionOutput; } }), /activation binaries changed during version verification/);
 });
 
 test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {
@@ -2143,6 +2144,13 @@ test("commercial sync deterministically upserts hash-only tenants and hourly usa
   assert.match(sql, /BEGIN;/); assert.match(sql, /api_tenants/); assert.match(sql, /api_key_hashes/); assert.match(sql, new RegExp(hash)); assert.match(sql, new RegExp(`DELETE FROM api_key_hashes WHERE key_hash NOT IN \\('${hash}'\\)`)); assert.match(sql, /2026-08-22T01:00:00\.000Z'.*'\/api\/v1\/price\/:id'.*2, 4, 3\.753/s); assert.match(sql, /'\/api\/stats'/); assert.equal(sql.includes("'\/ws', 4, 1"), false); assert.equal(sql.includes("token-a"), false); assert.match(sql, /ON CONFLICT \(tenant_id, bucket_start, route, status_class\) DO UPDATE/); assert.ok(sql.endsWith("COMMIT;\n")); assert.equal(sql.includes("secret"), false); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "unknown", path: "/", statusCode: 200, durationMs: 1 })), /invalid tenant usage audit/); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", path: "/", statusCode: 200, durationMs: 1 })), /invalid tenant usage audit/); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "tenant-a", path: "/rpc", statusCode: 200, durationMs: 1, quotaUnits: 101 })), /invalid tenant usage audit/); assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "tenant-a", path: "/rpc", statusCode: 200, durationMs: 86_400_001 })), /invalid tenant usage audit/);
   assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt: "2026-08-22T01:00:00.000Z", tenantId: "tenant-a", path: "/rpc", statusCode: "200", durationMs: 1 })), /invalid tenant usage audit/);
   for (const observedAt of ["2026-08-22T01:00:00Z", "2026-08-22T08:00:00.000+07:00", "2026-02-30T01:00:00.000Z", 1_776_733_200_000]) assert.throws(() => buildCommercialSyncSql(registry, JSON.stringify({ schemaVersion: 1, observedAt, tenantId: "tenant-a", path: "/rpc", statusCode: 200, durationMs: 1 })), /invalid tenant usage audit/);
+});
+
+test("commercial audit synchronization uses a stable bounded file snapshot", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-commercial-audit-")), filename = path.join(root, "audit.jsonl"); t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.writeFile(filename, "{}\n{}\n"); assert.deepEqual(await readCommercialAuditFile(filename, { maximumBytes: 32, maximumRecords: 2 }), { text: "{}\n{}\n", records: 2 });
+  await assert.rejects(() => readCommercialAuditFile(filename, { maximumBytes: 32, maximumRecords: 1 }), /record limit/);
+  await fs.writeFile(filename, "x".repeat(33)); await assert.rejects(() => readCommercialAuditFile(filename, { maximumBytes: 32 }), /file is unavailable/);
 });
 
 test("commercial audit routes remove resource identity and bound unmatched cardinality", () => {
