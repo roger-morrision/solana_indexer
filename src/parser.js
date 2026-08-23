@@ -171,7 +171,14 @@ export function decodePumpCompletionEvents(entry, signature) {
 }
 export function decodeRaydiumSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const decimals = mintDecimalEvidence(entry);
+  const keys = accountKeys(entry.transaction?.message, entry.meta), decimals = mintDecimalEvidence(entry), contexts = [];
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== RAYDIUM_CPMM || accounts.length !== 13 || accounts.some((account) => typeof account !== "string" || !account) || !TOKEN_PROGRAMS.has(accounts[8]) || !TOKEN_PROGRAMS.has(accounts[9]) || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    if (data.length !== 24 || !data.subarray(0, 8).equals(RAYDIUM_CPMM_SWAP_BASE_INPUT_DISCRIMINATOR) || BigInt(readU64(data, 8)) === 0n) continue;
+    contexts.push({ pool: accounts[3], inputMint: accounts[10], outputMint: accounts[11] });
+  }
   const events = []; const stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -179,9 +186,9 @@ export function decodeRaydiumSwapEvents(entry, signature) {
     if (stack.at(-1) !== RAYDIUM_CPMM || !line.startsWith("Program data: ")) continue;
     let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
     if (data.length !== 170 || !data.subarray(0, 8).equals(SWAP_EVENT_DISCRIMINATOR)) continue;
-    const inputMint = base58(data.subarray(89, 121)); const outputMint = base58(data.subarray(121, 153));
+    const pool = base58(data.subarray(8, 40)), inputMint = base58(data.subarray(89, 121)), outputMint = base58(data.subarray(121, 153)), contextIndex = contexts.findIndex((context) => context.pool === pool && context.inputMint === inputMint && context.outputMint === outputMint); if (contextIndex < 0) continue; contexts.splice(contextIndex, 1);
     const baseInput = data[88] !== 0;
-    events.push({ protocol: "raydium-cpmm", programId: RAYDIUM_CPMM, type: "swap", signature, pool: base58(data.subarray(8, 40)), inputVaultBeforeRaw: readU64(data, 40), outputVaultBeforeRaw: readU64(data, 48), inputAmountRaw: readU64(data, 56), outputAmountRaw: readU64(data, 64), inputTransferFeeRaw: readU64(data, 72), outputTransferFeeRaw: readU64(data, 80), baseInput, baseMint: baseInput ? inputMint : outputMint, quoteMint: baseInput ? outputMint : inputMint, inputMint, outputMint, tradeFeeRaw: readU64(data, 153), creatorFeeRaw: readU64(data, 161), creatorFeeOnInput: data[169] !== 0, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint) });
+    events.push({ protocol: "raydium-cpmm", programId: RAYDIUM_CPMM, type: "swap", signature, pool, inputVaultBeforeRaw: readU64(data, 40), outputVaultBeforeRaw: readU64(data, 48), inputAmountRaw: readU64(data, 56), outputAmountRaw: readU64(data, 64), inputTransferFeeRaw: readU64(data, 72), outputTransferFeeRaw: readU64(data, 80), baseInput, baseMint: baseInput ? inputMint : outputMint, quoteMint: baseInput ? outputMint : inputMint, inputMint, outputMint, tradeFeeRaw: readU64(data, 153), creatorFeeRaw: readU64(data, 161), creatorFeeOnInput: data[169] !== 0, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint) });
   }
   return events;
 }
