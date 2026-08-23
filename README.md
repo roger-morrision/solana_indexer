@@ -363,7 +363,7 @@ automatically.
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence; malformed cursor/lag/tip progress fails closed)
 - `GET /api/v1/warehouse` (durable sink checkpoint age, event lag and retained-replay coverage; unavailable/corrupt/ahead checkpoints fail closed)
-- `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedBlock`, `getIndexedBlocks`, `getIndexedTransaction`, `getIndexedSignaturesForAddress`, `getIndexedTokenAccount`, `getIndexedTokenSupply`, `getIndexedTokenLargestAccounts`, and `getIndexedTokenAccountsByOwner` only; bounded batches of 100 calls, charged per logical call)
+- `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedBlock`, `getIndexedBlocks`, `getIndexedTransaction`, `getIndexedSignaturesForAddress`, `getIndexedTokenAccount`, `getIndexedTokenSupply`, `getIndexedTokenLargestAccounts`, `getIndexedTokenHolders`, and `getIndexedTokenAccountsByOwner` only; bounded batches of 100 calls, charged per logical call)
 - `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle|snapshots&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume; account/off-chain metadata and every supported finalized pool/curve snapshot family use the isolated `snapshots` topic with strict filter-domain isolation)
 
 REST `limit` parameters are strict base-10 integers from 1 through 500;
@@ -674,6 +674,12 @@ accounts ordered by exact raw amount descending then account address. Its cursor
 is mint-, snapshot-, and projection-bound, balances and withheld fees remain
 separate raw strings, and the envelope declares complete finalized snapshot
 coverage. A replaced snapshot invalidates prior continuation cursors.
+`getIndexedTokenHolders` accepts `{ mint, limit?, cursor? }` or positional
+equivalents and aggregates complete snapshot accounts by owner using exact raw
+balances. It exposes snapshot freshness, withheld funds, exclusion-registry
+governance, concentration assessability, and explicit missing gates. Cursors
+bind the owner projection, snapshot identity, and exclusion evidence; the view
+is always marked unsafe for automation.
 Each decoded swap has a deterministic `swapId` of `<signature>:<eventIndex>`.
 This preserves legitimate multi-hop/multi-event transactions while giving REST
 cursors and downstream consumers a stable deduplication key. When a trusted

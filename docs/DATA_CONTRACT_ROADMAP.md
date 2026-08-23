@@ -41,6 +41,11 @@ withheld-fee evidence, and is available only from the same complete finalized
 snapshot. Owner and largest-account cursors bind a digest of their exact ordered
 projection; largest-account cursors additionally bind the snapshot slot, so a
 replacement cannot silently mix pages from different account states.
+The `getIndexedTokenHolders` RPC view provides exact owner aggregation from the
+canonical account projection and carries snapshot freshness, Token-2022
+withheld funds, reviewed exclusion evidence, concentration assessability, and
+explicit missing gates. Its cursor binds the ordered owners, snapshot identity,
+and exclusion governance state; it never claims automation safety.
 
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
