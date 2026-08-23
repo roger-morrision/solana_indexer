@@ -24,6 +24,9 @@ function readU128(buffer, offset) { return (buffer.readBigUInt64LE(offset + 8) <
 const SWAP_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:SwapEvent").digest().subarray(0, 8);
 const ORCA_TRADED_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:Traded").digest().subarray(0, 8);
 const ORCA_POOL_INITIALIZED_EVENT_DISCRIMINATOR = crypto.createHash("sha256").update("event:PoolInitialized").digest().subarray(0, 8);
+const ORCA_INITIALIZE_POOL_DISCRIMINATOR = Buffer.from([95, 180, 10, 172, 84, 174, 232, 40]);
+const ORCA_INITIALIZE_POOL_V2_DISCRIMINATOR = Buffer.from([207, 45, 87, 242, 27, 63, 204, 67]);
+const ORCA_INITIALIZE_ADAPTIVE_POOL_DISCRIMINATOR = Buffer.from([143, 94, 96, 76, 172, 124, 119, 199]);
 const RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR = crypto.createHash("sha256").update("global:initialize").digest().subarray(0, 8);
 const RAYDIUM_CLMM_CREATE_POOL_DISCRIMINATOR = crypto.createHash("sha256").update("global:create_pool").digest().subarray(0, 8);
 const PUMP_AMM_CREATE_POOL_DISCRIMINATOR = Buffer.from([233, 146, 209, 142, 207, 104, 64, 188]);
@@ -74,6 +77,9 @@ export function recognizedLifecycleInstructionOutput(instruction) {
   }
   if (instruction.programId === PUMP_PROGRAM && (exact(8, PUMP_MIGRATE_DISCRIMINATOR) || exact(8, PUMP_MIGRATE_V2_DISCRIMINATOR))) return { protocol: "pump-bonding-curve", type: "pool_migrated" };
   if (instruction.programId === METEORA_DLMM && (exact(14, METEORA_INITIALIZE_LB_PAIR_DISCRIMINATOR) || exact(14, METEORA_INITIALIZE_LB_PAIR2_DISCRIMINATOR)) && data.readUInt16LE(12) > 0) return { protocol: "meteora-dlmm", type: "pool_created" };
+  if (instruction.programId === ORCA_WHIRLPOOL && exact(27, ORCA_INITIALIZE_POOL_DISCRIMINATOR) && data.readUInt16LE(9) > 0 && BigInt(readU128(data, 11)) > 0n) return { protocol: "orca-whirlpool", type: "pool_created" };
+  if (instruction.programId === ORCA_WHIRLPOOL && exact(26, ORCA_INITIALIZE_POOL_V2_DISCRIMINATOR) && data.readUInt16LE(8) > 0 && BigInt(readU128(data, 10)) > 0n) return { protocol: "orca-whirlpool", type: "pool_created" };
+  if (instruction.programId === ORCA_WHIRLPOOL && discriminator.equals(ORCA_INITIALIZE_ADAPTIVE_POOL_DISCRIMINATOR) && data.length >= 25 && BigInt(readU128(data, 8)) > 0n && ((data.length === 25 && data[24] === 0) || (data.length === 33 && data[24] === 1))) return { protocol: "orca-whirlpool", type: "pool_created" };
   return null;
 }
 function readBorshString(buffer, offset, maxCharacters) {
@@ -250,6 +256,15 @@ export function decodeMeteoraDlmmSwapEvents(entry, signature) {
 }
 export function decodeOrcaWhirlpoolPoolInitializations(entry, signature) {
   if (entry.meta?.err != null) return [];
+  const keys = accountKeys(entry.transaction?.message, entry.meta), contexts = [];
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== ORCA_WHIRLPOOL || typeof instruction.data !== "string" || accounts.some((account) => typeof account !== "string" || !account)) continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    if (data.length === 27 && data.subarray(0, 8).equals(ORCA_INITIALIZE_POOL_DISCRIMINATOR) && accounts.length >= 11) contexts.push({ whirlpoolsConfig: accounts[0], tokenMint0: accounts[1], tokenMint1: accounts[2], pool: accounts[4], tokenProgram0: accounts[8], tokenProgram1: accounts[8], tickSpacing: data.readUInt16LE(9), initialSqrtPriceX64: readU128(data, 11) });
+    else if (data.length === 26 && data.subarray(0, 8).equals(ORCA_INITIALIZE_POOL_V2_DISCRIMINATOR) && accounts.length >= 14) contexts.push({ whirlpoolsConfig: accounts[0], tokenMint0: accounts[1], tokenMint1: accounts[2], pool: accounts[6], tokenProgram0: accounts[10], tokenProgram1: accounts[11], tickSpacing: data.readUInt16LE(8), initialSqrtPriceX64: readU128(data, 10) });
+    else if (data.length >= 25 && data.subarray(0, 8).equals(ORCA_INITIALIZE_ADAPTIVE_POOL_DISCRIMINATOR) && accounts.length >= 16 && ((data.length === 25 && data[24] === 0) || (data.length === 33 && data[24] === 1))) contexts.push({ whirlpoolsConfig: accounts[0], tokenMint0: accounts[1], tokenMint1: accounts[2], pool: accounts[7], tokenProgram0: accounts[12], tokenProgram1: accounts[13], tickSpacing: null, initialSqrtPriceX64: readU128(data, 8) });
+  }
   const events = [], stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -257,8 +272,9 @@ export function decodeOrcaWhirlpoolPoolInitializations(entry, signature) {
     if (stack.at(-1) !== ORCA_WHIRLPOOL || !line.startsWith("Program data: ")) continue;
     let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
     if (data.length !== 220 || !data.subarray(0, 8).equals(ORCA_POOL_INITIALIZED_EVENT_DISCRIMINATOR)) continue;
-    const tickSpacing = data.readUInt16LE(136); if (!tickSpacing) continue;
-    events.push({ type: "pool_created", protocol: "orca-whirlpool", programId: ORCA_WHIRLPOOL, venueType: "clmm", signature, pool: base58(data.subarray(8, 40)), whirlpoolsConfig: base58(data.subarray(40, 72)), tokenMint0: base58(data.subarray(72, 104)), tokenMint1: base58(data.subarray(104, 136)), tickSpacing, baseTokenProgram: base58(data.subarray(138, 170)), quoteTokenProgram: base58(data.subarray(170, 202)), mintDecimals0: data[202], mintDecimals1: data[203], initialSqrtPriceX64: readU128(data, 204), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+    const tickSpacing = data.readUInt16LE(136), decoded = { pool: base58(data.subarray(8, 40)), whirlpoolsConfig: base58(data.subarray(40, 72)), tokenMint0: base58(data.subarray(72, 104)), tokenMint1: base58(data.subarray(104, 136)), tokenProgram0: base58(data.subarray(138, 170)), tokenProgram1: base58(data.subarray(170, 202)), initialSqrtPriceX64: readU128(data, 204) }; if (!tickSpacing) continue;
+    const contextIndex = contexts.findIndex((context) => context.pool === decoded.pool && context.whirlpoolsConfig === decoded.whirlpoolsConfig && context.tokenMint0 === decoded.tokenMint0 && context.tokenMint1 === decoded.tokenMint1 && context.tokenProgram0 === decoded.tokenProgram0 && context.tokenProgram1 === decoded.tokenProgram1 && (context.tickSpacing == null || context.tickSpacing === tickSpacing) && context.initialSqrtPriceX64 === decoded.initialSqrtPriceX64); if (contextIndex < 0) continue; contexts.splice(contextIndex, 1);
+    events.push({ type: "pool_created", protocol: "orca-whirlpool", programId: ORCA_WHIRLPOOL, venueType: "clmm", signature, pool: decoded.pool, whirlpoolsConfig: decoded.whirlpoolsConfig, tokenMint0: decoded.tokenMint0, tokenMint1: decoded.tokenMint1, tickSpacing, baseTokenProgram: decoded.tokenProgram0, quoteTokenProgram: decoded.tokenProgram1, mintDecimals0: data[202], mintDecimals1: data[203], initialSqrtPriceX64: decoded.initialSqrtPriceX64, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }

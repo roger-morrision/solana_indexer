@@ -745,6 +745,10 @@ source curves become `migrated` with the exact destination pool/protocol link.
 The transition slot/index and commitment are rebuilt from canonical events, so
 fork replacement removes stale source and destination state together.
 
+Orca `PoolInitialized` lifecycle output is cardinality-gated against exact
+official legacy, Token-2022-capable v2, and adaptive-fee initialization payloads;
+missing decoded output therefore fails health and bot readiness closed.
+
 “Trending” defaults to a rolling one-hour window and ranks verified DEX swap
 count, decoded unique traders, then locally indexed transfer count. It exposes
 buy/sell activity and contributing protocols. It does not claim USD volume,
