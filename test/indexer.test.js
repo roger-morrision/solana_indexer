@@ -1230,17 +1230,17 @@ test("validator stream accepts only loopback WebSocket endpoints", () => {
 
 test("validator stream rejects oversized, binary, and malformed messages before dispatch", async () => {
   const stream = new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: class {}, maxMessageBytes: 65_536 });
-  for (const payload of ["x".repeat(65_537), Buffer.from("{}"), "{"]) await assert.rejects(() => stream.handleMessage(payload), (error) => error.code === "STREAM_MESSAGE_INVALID" && /validator stream message/.test(error.message));
+  for (const payload of ["x".repeat(65_537), Buffer.from("{}"), "{", "null", "[]", JSON.stringify({ jsonrpc: "1.0", id: 1, result: 41 }), JSON.stringify({ jsonrpc: "2.0", method: "blockNotification", params: { subscription: 999, result: { value: { slot: 1, block: {} } } } })]) await assert.rejects(() => stream.handleMessage(payload), (error) => error.code === "STREAM_MESSAGE_INVALID" && /validator stream|blockSubscribe|blockNotification/.test(error.message));
   assert.equal(stream.subscriptions.size, 0); assert.equal(stream.metrics.notifications, 0);
   class FakeSocket { constructor() { this.readyState = 1; this.closed = false; } close() { this.closed = true; } }
-  const connected = new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, maxMessageBytes: 65_536 }); connected.writeStatus = async () => {}; connected.connect(); const socket = connected.socket; socket.onmessage({ data: "x".repeat(65_537) }); await connected.messageQueue; assert.equal(socket.closed, true); assert.equal(connected.metrics.decodeErrors, 1); assert.match(connected.lastError.message, /not bounded UTF-8 text/);
+  const connected = new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, maxMessageBytes: 65_536 }); connected.writeStatus = async () => {}; connected.connect(); const socket = connected.socket; socket.onmessage({ data: JSON.stringify({ jsonrpc: "1.0", id: 1, result: 41 }) }); await connected.messageQueue; assert.equal(socket.closed, true); assert.equal(connected.metrics.decodeErrors, 1); assert.match(connected.lastError.message, /invalid confirmed blockSubscribe acknowledgement/);
 });
 
 test("validator stream rejects crossed subscriptions and ignores superseded sockets", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stream-subscriptions-")); class FakeSocket { static instances = []; constructor() { this.readyState = 1; FakeSocket.instances.push(this); } send() {} close() {} }
   const stream = new LocalValidatorStream({ rpcClient: {}, inbox: path.join(root, "inbox"), statusFile: path.join(root, "status.json"), WebSocketClass: FakeSocket });
   await stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 1, result: 41 })); assert.equal(stream.subscriptions.get(41), "confirmed");
-  await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 2, result: 41 })), /invalid finalized/); await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "1.0", id: 2, result: 42 })), /invalid finalized/);
+  await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "2.0", id: 2, result: 41 })), (error) => error.code === "STREAM_MESSAGE_INVALID" && /invalid finalized/.test(error.message)); await assert.rejects(() => stream.handleMessage(JSON.stringify({ jsonrpc: "1.0", id: 2, result: 42 })), (error) => error.code === "STREAM_MESSAGE_INVALID" && /invalid finalized/.test(error.message));
   stream.connect(); const oldSocket = FakeSocket.instances.at(-1); stream.connect(); oldSocket.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 42 }) }); await stream.messageQueue; assert.equal(stream.subscriptions.has(42), false);
   let release; stream.messageQueue = new Promise((resolve) => { release = resolve; }); const current = stream.socket; current.onmessage({ data: JSON.stringify({ jsonrpc: "2.0", id: 2, result: 43 }) }); stream.connect(); release(); await stream.messageQueue; assert.equal(stream.subscriptions.has(43), false);
 });

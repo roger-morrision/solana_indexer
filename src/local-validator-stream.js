@@ -23,6 +23,7 @@ async function readStatus(filename) {
 }
 function priorSkippedSlots(status) { if (!Object.hasOwn(status, "durableSkippedSlots")) return []; const slots = status.durableSkippedSlots; if (!Array.isArray(slots) || slots.length > 10_000 || slots.some((slot, index) => !Number.isSafeInteger(slot) || slot < 0 || (index > 0 && slots[index - 1] >= slot))) throw new Error("prior stream skipped-slot evidence is invalid"); return slots; }
 function priorSlot(status, field) { const value = status[field]; if (value == null) return null; if (!Number.isSafeInteger(value) || value < 0) throw new Error(`prior stream ${field} is invalid`); return value; }
+function invalidStreamMessage(message) { const error = new Error(message); error.code = "STREAM_MESSAGE_INVALID"; return error; }
 
 export class LocalValidatorStream {
   constructor({ endpoint = "ws://127.0.0.1:8900", endpoints = null, rpcClient, inbox, statusFile, WebSocketClass = globalThis.WebSocket, reconnectMinMs = 500, reconnectMaxMs = 30_000, connectTimeoutMs = 10_000, idleTimeoutMs = 90_000, maxMessageBytes = 67_108_864, expectedGenesisHash = MAINNET_GENESIS_HASH, scheduleReconnect = setTimeout, cancelReconnect = scheduleReconnect === setTimeout ? clearTimeout : () => {}, scheduleConnectTimeout = setTimeout, cancelConnectTimeout = scheduleConnectTimeout === setTimeout ? clearTimeout : () => {}, scheduleIdleTimeout = setTimeout, cancelIdleTimeout = scheduleIdleTimeout === setTimeout ? clearTimeout : () => {} }) {
@@ -68,17 +69,20 @@ export class LocalValidatorStream {
     socket.onclose = () => { if (this.stopped || socket !== this.socket) return; if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } if (this.idleTimer != null) { this.cancelIdleTimeout(this.idleTimer); this.idleTimer = null; } this.socket = null; this.metrics.reconnects++; if (!["validator stream connection timed out", "validator stream subscription handshake timed out", "validator stream idle timeout", "validator stream transport error"].includes(this.lastError?.message)) this.lastError = { at: new Date().toISOString(), message: "validator stream disconnected" }; this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length; const delay = this.reconnectMs; this.reconnectMs = Math.min(this.reconnectMaxMs, this.reconnectMs * 2); this.queueStatus(source, false); this.reconnectTimer = this.scheduleReconnect(() => { this.reconnectTimer = null; this.connect(); }, delay); };
   }
   async handleMessage(data, source = this.provenanceSource) {
-    if (typeof data !== "string" || Buffer.byteLength(data, "utf8") > this.maxMessageBytes) { const error = new Error("validator stream message is not bounded UTF-8 text"); error.code = "STREAM_MESSAGE_INVALID"; throw error; }
-    let payload; try { payload = JSON.parse(data); } catch { const error = new Error("validator stream message is invalid JSON"); error.code = "STREAM_MESSAGE_INVALID"; throw error; }
+    if (typeof data !== "string" || Buffer.byteLength(data, "utf8") > this.maxMessageBytes) throw invalidStreamMessage("validator stream message is not bounded UTF-8 text");
+    let payload; try { payload = JSON.parse(data); } catch { throw invalidStreamMessage("validator stream message is invalid JSON"); }
+    if (!payload || Array.isArray(payload) || typeof payload !== "object") throw invalidStreamMessage("validator stream message must be a JSON-RPC object");
     if (payload.id === 1 || payload.id === 2) {
       const commitment = payload.id === 1 ? "confirmed" : "finalized", hasResult = Object.hasOwn(payload ?? {}, "result"), hasError = Object.hasOwn(payload ?? {}, "error");
-      if (payload.jsonrpc !== "2.0" || hasResult === hasError || !Number.isSafeInteger(payload.result) || payload.result < 0 || this.subscriptions.has(payload.result) || [...this.subscriptions.values()].includes(commitment)) throw new Error(`invalid ${commitment} blockSubscribe acknowledgement`);
+      if (payload.jsonrpc !== "2.0" || hasResult === hasError || !Number.isSafeInteger(payload.result) || payload.result < 0 || this.subscriptions.has(payload.result) || [...this.subscriptions.values()].includes(commitment)) throw invalidStreamMessage(`invalid ${commitment} blockSubscribe acknowledgement`);
       this.subscriptions.set(payload.result, commitment); if (this.subscriptions.size === 2) { if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } this.lastError = null; this.armIdleTimeout(this.socket); await this.writeStatus(source, true); } return;
     }
     if (payload.method !== "blockNotification") return;
-    if (payload.jsonrpc !== "2.0") throw new Error("invalid blockNotification JSON-RPC version");
+    if (payload.jsonrpc !== "2.0") throw invalidStreamMessage("invalid blockNotification JSON-RPC version");
     const commitment = this.subscriptions.get(payload.params?.subscription); const value = payload.params?.result?.value;
-    if (!commitment || value?.err || !Number.isSafeInteger(value?.slot) || !value.block) return;
+    if (!commitment || !value || typeof value !== "object" || Array.isArray(value)) throw invalidStreamMessage("invalid blockNotification payload");
+    if (value.err) return;
+    if (!Number.isSafeInteger(value.slot) || value.slot < 0 || !value.block || typeof value.block !== "object" || Array.isArray(value.block)) throw invalidStreamMessage("invalid blockNotification payload");
     this.armIdleTimeout(this.socket);
     await this.ingestBlock(commitment, value.slot, value.block, source);
   }
