@@ -14,6 +14,8 @@ const PUMP_AMM = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
 const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const METEORA_DLMM = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
+const ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+const PUMP_FEE_PROGRAM = "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ";
 const STAKE_PROGRAM = "Stake11111111111111111111111111111111111111";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
 function u128(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 340_282_366_920_938_463_463_374_607_431_768_211_455n) throw new Error(`${field} must be a decimal u128 string`); return value; }
@@ -57,7 +59,7 @@ export function recognizedSwapInstructionProtocol(instruction) {
   if (instruction.programId === RAYDIUM_CPMM && exact(24, RAYDIUM_CPMM_SWAP_BASE_INPUT_DISCRIMINATOR)) return "raydium-cpmm";
   if (instruction.programId === RAYDIUM_CLMM && exact(41, RAYDIUM_CLMM_SWAP_V2_DISCRIMINATOR)) return "raydium-clmm";
   if (instruction.programId === ORCA_WHIRLPOOL && exact(42, ORCA_SWAP_INSTRUCTION_DISCRIMINATOR)) return "orca-whirlpool";
-  if (instruction.programId === PUMP_AMM && (exact(24, PUMP_SWAP_SELL_DISCRIMINATOR) || exact(25, PUMP_SWAP_BUY_EXACT_QUOTE_IN_DISCRIMINATOR))) return "pump-swap";
+  if (instruction.programId === PUMP_AMM && (exact(24, PUMP_SWAP_SELL_DISCRIMINATOR) || (exact(25, PUMP_SWAP_BUY_EXACT_QUOTE_IN_DISCRIMINATOR) && data[24] <= 1))) return "pump-swap";
   if (instruction.programId === PUMP_PROGRAM && (exact(24, PUMP_SELL_V2_DISCRIMINATOR) || exact(24, PUMP_BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR))) return "pump-bonding-curve";
   if (instruction.programId === METEORA_DLMM && exact(24, METEORA_SWAP_INSTRUCTION_DISCRIMINATOR)) return "meteora-dlmm";
   if (instruction.programId === METEORA_DLMM && data.length >= 28 && discriminator.equals(METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR)) {
@@ -318,16 +320,22 @@ export function decodeMeteoraDlmmPoolInitializations(entry, signature) {
   }
   return events;
 }
-function pumpPoolContext(entry) {
+function pumpSwapContexts(entry) {
+  const contexts = [];
   for (const instruction of instructionRows(entry)) {
-    if ((instruction.programId ?? instruction.program) !== PUMP_AMM || !Array.isArray(instruction.accounts) || instruction.accounts.length < 5) continue;
-    return { pool: instruction.accounts[0], baseMint: instruction.accounts[3], quoteMint: instruction.accounts[4] };
+    const accounts = instruction.accounts;
+    if ((instruction.programId ?? instruction.program) !== PUMP_AMM || !Array.isArray(accounts) || accounts.some((account) => typeof account !== "string" || !account) || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    const sell = data.length === 24 && data.subarray(0, 8).equals(PUMP_SWAP_SELL_DISCRIMINATOR) && [23, 24].includes(accounts.length) && accounts[20] === PUMP_FEE_PROGRAM;
+    const buy = data.length === 25 && data.subarray(0, 8).equals(PUMP_SWAP_BUY_EXACT_QUOTE_IN_DISCRIMINATOR) && data[24] <= 1 && [25, 26].includes(accounts.length) && accounts[22] === PUMP_FEE_PROGRAM;
+    if ((!sell && !buy) || !TOKEN_PROGRAMS.has(accounts[11]) || !TOKEN_PROGRAMS.has(accounts[12]) || accounts[13] !== SYSTEM_PROGRAM || accounts[14] !== ASSOCIATED_TOKEN_PROGRAM || accounts[16] !== PUMP_AMM || accounts[3] === accounts[4]) continue;
+    contexts.push({ side: buy ? "buy" : "sell", pool: accounts[0], baseMint: accounts[3], quoteMint: accounts[4] });
   }
-  return null;
+  return contexts;
 }
 export function decodePumpSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const context = pumpPoolContext(entry); if (!context) return [];
+  const contexts = pumpSwapContexts(entry); if (!contexts.length) return [];
   const decimals = mintDecimalEvidence(entry);
   const buyDiscriminator = crypto.createHash("sha256").update("event:BuyEvent").digest().subarray(0, 8); const sellDiscriminator = crypto.createHash("sha256").update("event:SellEvent").digest().subarray(0, 8);
   const events = []; const stack = [];
@@ -338,10 +346,11 @@ export function decodePumpSwapEvents(entry, signature) {
     const data = Buffer.from(line.slice(14), "base64"); const buy = data.subarray(0, 8).equals(buyDiscriminator); const sell = data.subarray(0, 8).equals(sellDiscriminator);
     if (!buy && !sell) continue;
     const minimum = buy ? 442 : 417; if (data.length < minimum) continue;
+    const side = buy ? "buy" : "sell", contextIndex = contexts.findIndex((context) => context.side === side); if (contextIndex < 0) continue; const [context] = contexts.splice(contextIndex, 1);
     const amountBase = readU64(data, 16); const poolBaseReserve = readU64(data, 48); const poolQuoteReserve = readU64(data, 56); const actualQuote = readU64(data, 64);
     const inputMint = buy ? context.quoteMint : context.baseMint; const outputMint = buy ? context.baseMint : context.quoteMint;
     const tradeFeeRaw = (BigInt(readU64(data, 80)) + BigInt(readU64(data, 96))).toString();
-    events.push({ protocol: "pump-swap", programId: PUMP_AMM, type: "swap", side: buy ? "buy" : "sell", signature, pool: context.pool, baseMint: context.baseMint, quoteMint: context.quoteMint, inputMint, outputMint, inputAmountRaw: buy ? actualQuote : amountBase, outputAmountRaw: buy ? amountBase : actualQuote, inputVaultBeforeRaw: buy ? poolQuoteReserve : poolBaseReserve, outputVaultBeforeRaw: buy ? poolBaseReserve : poolQuoteReserve, tradeFeeRaw, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint), reserveTiming: "after" });
+    events.push({ protocol: "pump-swap", programId: PUMP_AMM, type: "swap", side, signature, pool: context.pool, baseMint: context.baseMint, quoteMint: context.quoteMint, inputMint, outputMint, inputAmountRaw: buy ? actualQuote : amountBase, outputAmountRaw: buy ? amountBase : actualQuote, inputVaultBeforeRaw: buy ? poolQuoteReserve : poolBaseReserve, outputVaultBeforeRaw: buy ? poolBaseReserve : poolQuoteReserve, tradeFeeRaw, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint), reserveTiming: "after" });
   }
   return events;
 }
