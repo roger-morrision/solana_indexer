@@ -22,6 +22,7 @@ import { prepareOrcaWhirlpoolSwapSimulation } from "./orca-whirlpool-execution.j
 import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
 import { prepareMeteoraDlmmSwapSimulation } from "./meteora-dlmm-execution.js";
+import { canonicalTokenAccountProjections } from "./store.js";
 import { prepareRaydiumClmmSwapV2Simulation } from "./raydium-clmm-execution.js";
 import { prepareRaydiumCpmmSwapBaseInputSimulation } from "./raydium-cpmm-execution.js";
 import { preparePumpSwapBuyExactQuoteInSimulation, preparePumpSwapSellSimulation } from "./pump-swap-execution.js";
@@ -112,7 +113,7 @@ function dispatchRpc(payload, config, store) {
     const params = Array.isArray(payload.params) ? { owner: payload.params[0], mint: payload.params[1], limit: payload.params[2], cursor: payload.params[3] } : payload.params;
     if (!params || typeof params !== "object" || Array.isArray(params) || !SOLANA_ADDRESS.test(params.owner ?? "") || params.mint != null && !SOLANA_ADDRESS.test(params.mint)) return rpcError(payload.id, -32602, "Invalid params");
     const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || cursor !== null && typeof cursor !== "string") return rpcError(payload.id, -32602, "Invalid params");
-    if (!store.aggregateQuality().canonical || !store.snapshotQuality().canonical) return rpcError(payload.id, -32003, "Indexed token-account evidence unavailable");
+    const selectedMints = new Set(Object.values(store.state.tokenAccounts).filter((row) => row.owner === params.owner && (params.mint == null || row.mint === params.mint)).map((row) => row.mint)); if (!canonicalTokenAccountProjections(store.state, selectedMints)) return rpcError(payload.id, -32003, "Indexed token-account evidence unavailable");
     const rows = Object.entries(store.state.tokenAccounts).filter(([, row]) => row.owner === params.owner && (params.mint == null || row.mint === params.mint)).sort(([left], [right]) => left.localeCompare(right)).map(([tokenAccount, row]) => { const snapshot = store.state.holderSnapshots[row.mint], snapshotRow = snapshot?.accounts?.find((account) => account.tokenAccount === tokenAccount); return { tokenAccount, mint: row.mint, owner: row.owner, programId: row.programId, decimals: row.decimals, amountRaw: row.amountRaw, withheldAmountRaw: snapshotRow?.withheldAmountRaw ?? null, lastSlot: row.lastSlot, closed: row.closed, snapshotComplete: Boolean(snapshotRow && snapshot?.complete === true) }; });
     const scope = `rpc:getIndexedTokenAccountsByOwner:v1:${params.owner}:${params.mint ?? "*"}`; try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, scope), coverage: "latest_canonical_observed_accounts", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }

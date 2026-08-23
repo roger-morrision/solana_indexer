@@ -25,7 +25,9 @@ Owner token-account inventory is available through the fail-closed
 `getIndexedTokenAccountsByOwner` RPC method. It uses owner/mint-bound cursors,
 keeps exact raw balances separate from snapshot-backed Token-2022 withheld
 amounts, discloses per-account snapshot completeness, and never claims global
-wallet completeness from the tracked mint set.
+wallet completeness from the tracked mint set. Its canonical projection check
+is scoped to the selected mints: relevant account or snapshot-hash corruption
+fails closed without coupling wallet availability to unrelated pool snapshots.
 
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
