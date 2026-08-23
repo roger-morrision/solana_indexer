@@ -18,6 +18,7 @@ export async function retainInbox({ inbox, dataFile, archiveReceiptFile = path.r
   if (!Number.isSafeInteger(retentionSeconds) || retentionSeconds < 1 || !Number.isSafeInteger(now) || now < 0) throw new Error("invalid inbox retention parameters");
   const state = await readBoundedJsonFile(dataFile, { maximumBytes: maximumStateBytes, missing: null });
   if (!canonicalPersistedRecoveryState(state)) throw new Error("indexed recovery evidence invalid; inbox retention refused");
+  if (state.checkpoints.deadLetterOverflow != null) throw new Error("dead-letter capacity exceeded; inbox retention refused");
   const cutoff = now - retentionSeconds * 1_000, dead = new Set(state.deadLetters.filter((row) => !row.resolved).map((row) => row.filename));
   const receipt = await readBoundedJsonFile(archiveReceiptFile, { maximumBytes: maximumReceiptBytes, missing: null });
   const receiptValid = receipt?.schemaVersion === 1 && receipt?.storage === "self-hosted" && ["uploaded", "verified_local"].includes(receipt?.status) && parseCanonicalUtcTimestamp(receipt?.completedAt ?? receipt?.uploadCompletedAt) != null;

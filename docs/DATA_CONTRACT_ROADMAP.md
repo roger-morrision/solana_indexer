@@ -242,6 +242,9 @@ overflow checkpoint records the omitted count, index health and automation readi
 fail closed with `dead_letter_capacity_exceeded`, and Prometheus exposes only the
 aggregate dropped total. Clearing that condition requires an operator-controlled replay
 or replacement of the compatibility state because omitted identities cannot be inferred.
+The same durable overflow marker refuses raw-inbox retention, dead-letter reconciliation,
+warehouse fact publication, and gap-feed availability; none may claim complete evidence
+after an identity was omitted.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or

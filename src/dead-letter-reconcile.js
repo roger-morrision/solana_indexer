@@ -7,6 +7,7 @@ import { IndexStore } from "./store.js";
 
 export async function reconcileDeadLetters({ dataFile, confirm = false }) {
   const store = new IndexStore(dataFile); await store.load(); store.assertWritable();
+  if (store.state.checkpoints.deadLetterOverflow != null) throw new Error("dead-letter capacity exceeded; omitted evidence requires controlled replay");
   const eligible = store.state.deadLetters.flatMap((row) => {
     const snapshotType = row.filename.startsWith("snapshot:") ? row.filename.slice(9) : null, checkpoint = snapshotType == null ? store.state.processedFiles[row.filename] : store.state.checkpoints.snapshotArtifacts?.[snapshotType], fingerprint = checkpoint?.fingerprint, checkpointValid = snapshotType == null ? checkpoint?.parserVersion === 2 : Boolean(checkpoint);
     return !row.resolved && checkpointValid && typeof fingerprint === "string" && (row.fingerprint == null || row.fingerprint === fingerprint) ? [{ row, fingerprint }] : [];

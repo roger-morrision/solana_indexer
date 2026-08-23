@@ -124,6 +124,7 @@ function factBase(row) {
 }
 
 export function compileWarehouseFacts(state, batch) {
+  if (state?.checkpoints?.deadLetterOverflow != null) throw new Error("dead-letter capacity exceeded; warehouse publication refused");
   if (!canonicalPersistedInstructionLog(state?.instructions, state?.transactions, state?.blocks)) throw new Error("invalid persisted instruction evidence");
   if (!canonicalPersistedSwapLog(state?.swaps, state?.transactions, state?.blocks)) throw new Error("invalid persisted swap evidence");
   if (!canonicalPersistedDerivedLedger({ ...state, instructions: state?.instructions })) throw new Error("invalid persisted derived ledger evidence");
@@ -332,7 +333,7 @@ export async function writeWarehouseCheckpoint(filename, sequence, sinks, reconc
   if (!Number.isSafeInteger(sequence) || sequence < 0 || !sinks || [sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) throw new Error("warehouse checkpoint sink sequence mismatch"); if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) throw new Error("verified warehouse reconciliation is required"); await durableAtomicWrite(filename, `${JSON.stringify({ schemaVersion: 2, consumer: "warehouse-canonical-events", chain: CHAIN, genesisHash: GENESIS_HASH, lastSequence: sequence, sinks, reconciliation, updatedAt: new Date().toISOString() })}\n`);
 }
 
-export function assertWarehousePublicationState(store) { store.assertWritable(); return true; }
+export function assertWarehousePublicationState(store) { store.assertWritable(); const recovery = store.recoveryQuality(); if (!recovery.canonical || recovery.capacityExceeded) { const error = new Error(`warehouse publication refused: ${recovery.reason}`); error.code = "INDEX_RECOVERY_INVALID"; error.reason = recovery.reason; throw error; } return true; }
 
 async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile, checkpoint = await readBoundedJsonFile(checkpointFile, { missing: { lastSequence: 0 } });

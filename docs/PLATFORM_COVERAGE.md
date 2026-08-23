@@ -66,7 +66,8 @@ Dead-letter compatibility storage is additionally capacity-safe: resolved histor
 evicted first at the 10,000-row bound, while all-unresolved saturation records a durable
 aggregate overflow checkpoint and fails index/bot readiness closed instead of silently
 discarding the oldest unresolved identity. Metrics and alerting expose only the aggregate
-dropped count; controlled replay into replacement state is required to clear it.
+dropped count. Raw retention, reconciliation, warehouse publication, and gap feeds all
+refuse overflowed state; controlled replay into replacement state is required to clear it.
 
 For every retained canonical slot, the latest canonical-block replay envelope is
 content-reconciled against both the complete lifecycle ledger and the complete swap
