@@ -67,6 +67,21 @@ export function recognizedSwapInstructionProtocol(instruction) {
   }
   return null;
 }
+export function recognizedSwapInstructionEvidence(instruction) {
+  const protocol = recognizedSwapInstructionProtocol(instruction); if (!protocol || !Array.isArray(instruction.accounts) || instruction.accounts.some((account) => typeof account !== "string" || !account)) return protocol ? { protocol, valid: false } : null;
+  let data; try { data = decodeBase58(instruction.data); } catch { return { protocol, valid: false }; }
+  const accounts = instruction.accounts;
+  if (protocol === "raydium-cpmm" && accounts.length === 13 && TOKEN_PROGRAMS.has(accounts[8]) && TOKEN_PROGRAMS.has(accounts[9]) && accounts[10] !== accounts[11]) return { protocol, valid: true, pool: accounts[3], inputMint: accounts[10], outputMint: accounts[11] };
+  if (protocol === "raydium-clmm" && accounts.length >= 14 && accounts[8] === "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" && accounts[9] === TOKEN_2022_PROGRAM && accounts[10] === "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr" && accounts[11] !== accounts[12]) return { protocol, valid: true, pool: accounts[2], user: accounts[0], inputMint: accounts[11], outputMint: accounts[12] };
+  if (protocol === "orca-whirlpool" && accounts.length >= 7 && TOKEN_PROGRAMS.has(accounts[0])) return { protocol, valid: true, pool: accounts[2], user: accounts[1], direction: data[41] === 1 ? "a_to_b" : "b_to_a" };
+  const pumpSwapBuy = protocol === "pump-swap" && data.subarray(0, 8).equals(PUMP_SWAP_BUY_EXACT_QUOTE_IN_DISCRIMINATOR), pumpSwapFeeIndex = pumpSwapBuy ? 22 : 20;
+  if (protocol === "pump-swap" && (pumpSwapBuy ? [25, 26] : [23, 24]).includes(accounts.length) && TOKEN_PROGRAMS.has(accounts[11]) && TOKEN_PROGRAMS.has(accounts[12]) && accounts[13] === SYSTEM_PROGRAM && accounts[14] === ASSOCIATED_TOKEN_PROGRAM && accounts[16] === PUMP_AMM && accounts[pumpSwapFeeIndex] === PUMP_FEE_PROGRAM && accounts[3] !== accounts[4]) return { protocol, valid: true, pool: accounts[0], baseMint: accounts[3], quoteMint: accounts[4], side: pumpSwapBuy ? "buy" : "sell" };
+  const pumpBuy = protocol === "pump-bonding-curve" && data.subarray(0, 8).equals(PUMP_BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR), pumpFeeIndex = pumpBuy ? 23 : 22, pumpSystemIndex = pumpBuy ? 24 : 23, pumpProgramIndex = pumpBuy ? 26 : 25;
+  if (protocol === "pump-bonding-curve" && accounts.length === (pumpBuy ? 27 : 26) && TOKEN_PROGRAMS.has(accounts[3]) && TOKEN_PROGRAMS.has(accounts[4]) && accounts[5] === ASSOCIATED_TOKEN_PROGRAM && accounts[pumpFeeIndex] === PUMP_FEE_PROGRAM && accounts[pumpSystemIndex] === SYSTEM_PROGRAM && accounts[pumpProgramIndex] === PUMP_PROGRAM && accounts[1] !== accounts[2]) return { protocol, valid: true, pool: accounts[10], mint: accounts[1], quoteMint: accounts[2], user: accounts[13], side: pumpBuy ? "buy" : "sell" };
+  const meteoraV2 = protocol === "meteora-dlmm" && data.subarray(0, 8).equals(METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR), meteoraProgramIndex = meteoraV2 ? 15 : 14;
+  if (protocol === "meteora-dlmm" && accounts.length > meteoraProgramIndex && TOKEN_PROGRAMS.has(accounts[11]) && TOKEN_PROGRAMS.has(accounts[12]) && accounts[meteoraProgramIndex] === METEORA_DLMM && accounts[6] !== accounts[7]) return { protocol, valid: true, pool: accounts[0], user: accounts[10], baseMint: accounts[6], quoteMint: accounts[7] };
+  return { protocol, valid: false };
+}
 export function recognizedLifecycleInstructionOutput(instruction) {
   if (typeof instruction?.data !== "string") return null;
   let data; try { data = decodeBase58(instruction.data); } catch { return null; }

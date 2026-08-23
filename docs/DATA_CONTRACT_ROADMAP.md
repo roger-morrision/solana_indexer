@@ -9,12 +9,14 @@ facts survive a decoder upgrade, making a verified replay/backfill mandatory
 instead of silently treating legacy coverage as current.
 
 Decoder-output coverage additionally binds every successful, exactly recognized
-swap instruction to a normalized swap fact of the same transaction and protocol.
+swap instruction to a normalized swap fact with the same transaction and protocol-specific
+pool, direction, mint and user identity fields available in that instruction ABI.
 The current scope covers the execution ABIs for Raydium CPMM/CLMM, Orca
 Whirlpools, PumpSwap, Pump bonding curve, and Meteora DLMM. Recognition requires
 the exact program, discriminator, and instruction layout (including bounded,
 unique Meteora `Swap2` remaining-account slices), and preserves invocation cardinality when one
-transaction contains multiple same-protocol swaps. The capability is explicit as
+transaction contains multiple identical same-protocol swaps. A detached event with only the
+same protocol can no longer hide dropped decoder output. The capability is explicit as
 `completeDecoderOutput`; health and bot readiness fail closed with
 `indexed_decoder_output_incomplete` when retained instruction output is missing.
 The protocol enumeration expands only with discriminator-backed instruction tests.
