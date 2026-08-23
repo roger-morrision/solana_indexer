@@ -23,7 +23,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | Restore time objective | <=4 hours | rehearse quarterly on an isolated host |
 
 Quarterly recovery evidence is accepted only from `npm run validate:recovery`.
-The version-3 report embeds and digest-binds the backup manifest hash to a healthy canonical index, exact
+The version-4 report embeds and digest-binds the backup manifest hash to a healthy canonical index, exact
 zero-lag warehouse convergence, a healthy finalized exporter, and elapsed restore time. It is created exclusively
 so a prior successful rehearsal cannot be silently overwritten.
 The latest retained report is continuously revalidated through

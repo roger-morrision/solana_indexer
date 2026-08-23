@@ -35,17 +35,21 @@ not enumerate remote paths or accept arbitrary URLs.
 `--confirm-empty-target`. It destructively replaces database tables and local
 state, so run it only on an isolated recovery environment with consumers and
 indexer services stopped. It additionally requires `RECOVERY_ENVIRONMENT=yes`,
-an absolute `RECOVERY_TARGET_MARKER` outside the backup containing exactly
-`terminal-dex-isolated-recovery-v1`, and a unique
-`RECOVERY_COMPOSE_PROJECT=terminal-dex-recovery-*`. Every destructive Compose
-command uses that explicit recovery-only project, preventing the drill from
-falling back to the repository's normal deployment project. It records the UTC restore start and prints the exact
-`npm run validate:recovery` command. After restore, keep consumers disabled,
+a unique `RECOVERY_COMPOSE_PROJECT=terminal-dex-recovery-*`, and an existing
+non-link `RECOVERY_STATE_ROOT` outside both the repository and backup. Its
+`RECOVERY_TARGET_MARKER` must be the root's regular
+`.terminal-dex-isolated-recovery` file containing exactly
+`terminal-dex-isolated-recovery-v1`; `data/` and `inbox/` must be absent or
+empty. Every destructive Compose command uses that explicit recovery-only
+project and local state is extracted only under the separate root, preventing
+the drill from falling back to the normal deployment or overwriting the active
+index. It records the UTC restore start and prints exact recovery-path-bound
+`npm run sync:warehouse` and `npm run validate:recovery` commands. After restore, keep consumers disabled,
 reconcile the warehouse, resume finalized export, and exercise API/feed checks.
 The recovery validator rechecks the bound backup, requires a healthy canonical
 index and zero-lag exact ClickHouse/PostgreSQL/Redis content reconciliation, requires a healthy finalized
 exporter, enforces the four-hour RTO, and exclusively creates a hash-bound report;
-the version-3 report embeds the bounded canonical evidence summary so monitoring
+the version-4 report embeds the bounded canonical evidence summary so monitoring
 can recompute its digest and reject copied, edited, legacy, or self-asserted evidence;
 an existing report is never overwritten. Perform and retain this report for each
 quarterly isolated recovery rehearsal before promoting the environment. Point

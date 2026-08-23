@@ -564,7 +564,9 @@ malformed, oversized, replaced, or unreadable evidence becomes an unavailable
 dependency while metrics remain responsive and automation stays fail closed.
 The isolated restore copies the fixed artifact inventory without dereferencing
 links into a private temporary staging directory, validates that staged copy,
-and consumes only staged files to remove source-directory mutation races. Failed
+and consumes only staged files to remove source-directory mutation races. It
+requires a separately marked, empty state root outside both the repository and
+backup and extracts local index/inbox evidence only there. Failed
 restores remove staging automatically; successful restores retain it until the
 operator completes recovery qualification against those exact bytes.
 Status creation revalidates the complete version-4 artifact inventory—including
