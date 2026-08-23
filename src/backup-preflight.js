@@ -5,6 +5,7 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { readBoundedFile } from "./bounded-json-file.js";
 import { durableAtomicWrite } from "./durable-file.js";
 
 const ARTIFACTS = new Set(["postgres.dump", "clickhouse-instructions.native", "clickhouse-swaps.native", "clickhouse-balance_changes.native", "clickhouse-dead_letters.native", "redis.rdb", "indexer-state.tar", "inbox-manifest.json"]);
@@ -16,7 +17,7 @@ const CHAIN = "solana-mainnet";
 function safeName(value) { return typeof value === "string" && /^[a-z0-9][a-z0-9._-]{0,127}$/i.test(value) && value !== "." && value !== ".."; }
 async function sha256(filename) { const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk); return hash.digest("hex"); }
 async function artifactEvidence(root, name) { const filename = path.join(root, name), stat = await fs.lstat(filename); if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`backup artifact is not a regular file: ${name}`); return { bytes: stat.size, sha256: await sha256(filename) }; }
-async function readBoundedRegularFile(filename, maximumBytes, label) { const stat = await fs.lstat(filename); if (!stat.isFile() || stat.isSymbolicLink() || !Number.isSafeInteger(stat.size) || stat.size < 1 || stat.size > maximumBytes) throw new Error(`${label} is not a bounded regular file`); const content = await fs.readFile(filename); if (content.length !== stat.size) throw new Error(`${label} changed while being read`); return content; }
+async function readBoundedRegularFile(filename, maximumBytes, label) { const content = await readBoundedFile(filename, { maximumBytes }); if (Buffer.isBuffer(content)) return content; if (content?.evidenceReadError === "invalid_file") throw new Error(`${label} is not a bounded regular file`); if (content?.evidenceReadError === "changed_during_read") throw new Error(`${label} changed while being read`); throw new Error(`${label} is unavailable: ${content?.evidenceReadError ?? "missing"}`); }
 async function writeAtomic(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 function parseSums(text) { const rows = new Map(); for (const [index, line] of text.trim().split(/\r?\n/).entries()) { const match = /^([0-9a-f]{64})  ([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(line); if (!match || rows.has(match[2])) throw new Error(`invalid SHA256SUMS line ${index + 1}`); rows.set(match[2], match[1]); } return rows; }
 async function tarInventory(filename) {

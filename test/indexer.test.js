@@ -2111,6 +2111,7 @@ test("backup preflight proves complete fresh checksummed artifacts without autho
   await fs.writeFile(path.join(root, "inbox-manifest.json"), JSON.stringify({ schemaVersion: 1, archiveId: "20260822T000001Z", files: {} })); await createBackupManifest(root, { backupId: "20260822T000000Z", createdAt: "2026-08-22T00:00:00.000Z", writersQuiesced: true }); await writeSums(); await assert.rejects(preflightBackup(root, { now: Date.parse("2026-08-22T01:00:00.000Z") }), /inbox manifest/);
   await fs.writeFile(path.join(root, "inbox-manifest.json"), files["inbox-manifest.json"]); await createBackupManifest(root, { backupId: "20260822T000000Z", createdAt: "2026-08-22T00:00:00.000Z", writersQuiesced: true }); await writeSums(); await fs.writeFile(path.join(root, "redis.rdb"), "corrupt"); await assert.rejects(preflightBackup(root, { now: Date.parse("2026-08-22T01:00:00.000Z") }), /checksum mismatch/);
   await fs.writeFile(path.join(root, "redis.rdb"), files["redis.rdb"]); await fs.writeFile(path.join(root, "SHA256SUMS"), "x".repeat(65_537)); await assert.rejects(preflightBackup(root, { now: Date.parse("2026-08-22T01:00:00.000Z") }), /bounded regular file/);
+  await fs.unlink(path.join(root, "SHA256SUMS")); await fs.mkdir(path.join(root, "SHA256SUMS")); await assert.rejects(preflightBackup(root, { now: Date.parse("2026-08-22T01:00:00.000Z") }), /bounded regular file/);
 });
 
 test("isolated recovery qualification binds backup, exact sinks, finalized export and RTO", () => {
