@@ -33,7 +33,9 @@ export async function createInboxManifest({ inbox, output, archiveId }) {
 }
 
 export async function completeArchiveReceipt({ manifestFile, output, completedAt = new Date().toISOString(), status = "uploaded" }) {
-  const manifestStat = await fs.lstat(manifestFile); if (!manifestStat.isFile() || manifestStat.isSymbolicLink() || !Number.isSafeInteger(manifestStat.size) || manifestStat.size < 1 || manifestStat.size > 16_777_216 || parseCanonicalUtcTimestamp(completedAt) == null) throw new Error("invalid inbox archive manifest or completion time"); const manifestBytes = await fs.readFile(manifestFile); if (manifestBytes.length !== manifestStat.size) throw new Error("inbox archive manifest changed while being read");
+  if (parseCanonicalUtcTimestamp(completedAt) == null) throw new Error("invalid inbox archive manifest or completion time");
+  const manifestBytes = await readBoundedFile(manifestFile, { maximumBytes: 16_777_216 });
+  if (!Buffer.isBuffer(manifestBytes)) throw new Error(`inbox archive manifest is unavailable: ${manifestBytes?.evidenceReadError ?? "missing"}`);
   const manifest = JSON.parse(manifestBytes.toString("utf8"));
   const entries = Object.entries(manifest.files ?? {}); if (manifest.schemaVersion !== 1 || !ARCHIVE_ID.test(manifest.archiveId ?? "") || !manifest.files || Array.isArray(manifest.files) || typeof manifest.files !== "object" || entries.some(([name, hash]) => !canonicalInboxName(name) || !SHA256.test(hash))) throw new Error("invalid inbox archive manifest");
   if (!["uploaded", "verified_local"].includes(status)) throw new Error("invalid archive receipt status");
