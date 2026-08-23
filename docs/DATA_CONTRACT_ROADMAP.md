@@ -249,6 +249,9 @@ Recovery canonicality is also a shared decision-consumer prerequisite. Trending,
 candidate, evidence, wallet, token, holder, pool, price, volume, candle, risk, quote,
 bot-readiness, and unsigned-preparation HTTP surfaces return 503 before evaluating or
 constructing decision inputs when recovery evidence is invalid or capacity-exceeded.
+Derived WebSocket topics apply the same rule at upgrade, replay, and live-delivery time;
+existing derived subscriptions close with retry-later semantics if recovery evidence
+becomes unsafe. The raw canonical-block topic remains independently available.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or

@@ -71,6 +71,8 @@ refuse overflowed state; controlled replay into replacement state is required to
 Every decision-bearing HTTP projection, analysis quote, and unsigned preparation route
 shares the same recovery gate, preventing incomplete recovery state from bypassing bot
 readiness through a lower-level endpoint.
+Derived WebSocket subscriptions are rejected or evicted under the same condition, while
+the independently validated raw block stream remains available for recovery consumers.
 
 For every retained canonical slot, the latest canonical-block replay envelope is
 content-reconciled against both the complete lifecycle ledger and the complete swap
