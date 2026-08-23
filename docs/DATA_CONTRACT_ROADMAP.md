@@ -492,6 +492,8 @@ The read-only `getIndexedTokenMetadata` JSON-RPC contract exposes this boundary
 directly: canonical metadata and optional untrusted enrichment are returned only
 with content-bound finalized search provenance, and a successful empty search is
 reported as authoritative absence rather than being conflated with missing data.
+Token catalog and detail REST contracts reuse the identical content-bound
+coverage projection, including nullable presence for legacy unattested rows.
 
 Read-only block and address-signature RPC pagination now binds each continuation
 cursor to a deterministic digest of the complete ordered result projection.

@@ -141,6 +141,8 @@ are reported as incomplete metadata coverage and queued for snapshot repair.
 The read-only indexed metadata RPC now exposes canonical presence or authoritative
 absence with finalized slot, observation time, source hash, and search-completion
 evidence; legacy or corrupt evidence fails closed.
+Token catalog and detail responses carry the same metadata-evidence projection,
+preventing Terminal pages from rendering missing acquisition as verified absence.
 Block-list and address-signature RPC cursors are projection-versioned; any
 indexed-history mutation invalidates continuation before mixed-snapshot rows can
 be returned.
