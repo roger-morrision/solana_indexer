@@ -52,8 +52,9 @@ exact lot-aware, expiry-filtered analytical depth quotes with ceiling taker-fee
 rounding. Official nine-account IOC construction binds exact market/vault/token
 identity, lot-aligned input/output limits, an aggressive terminal price, bounded
 slot expiry, abort-on-self-trade policy, unsigned message identity and exact
-mint-bound simulation effects. Signing and submission remain external, so
-Phoenix cannot satisfy executable-route readiness without those later gates.
+mint-bound simulation effects. Capped expiring signer requests, Ed25519 message
+verification, and finalized byte-identical landed confirmation complete the
+read-only evidence chain. Signing and submission remain external.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|

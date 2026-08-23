@@ -876,7 +876,9 @@ expiry fields. The internal pool quote endpoint traverses this finalized depth
 with exact lot and ceiling-fee arithmetic. The preparation endpoint binds that
 quote to the official nine-account `Swap` ABI, an IOC packet with bounded slot
 expiry, exact lot-aligned limits, a deterministic unsigned legacy transaction,
-and mint-bound local-simulation effects. Signing and submission remain external.
+and mint-bound local-simulation effects. Capped, expiring external approvals,
+cryptographic signature verification, and finalized byte-identical landed
+confirmation complete the read-only chain; signing and submission stay external.
 Market economics, identity, depth, and balances are persisted and repaired.
 Historical swap fees remain explicitly unavailable unless market evidence is
 bound to that transaction's slot, and Phoenix activity cannot unlock execution
