@@ -99,6 +99,19 @@ export function recognizedLifecycleInstructionOutput(instruction) {
   if (instruction.programId === ORCA_WHIRLPOOL && discriminator.equals(ORCA_INITIALIZE_ADAPTIVE_POOL_DISCRIMINATOR) && data.length >= 25 && BigInt(readU128(data, 8)) > 0n && ((data.length === 25 && data[24] === 0) || (data.length === 33 && data[24] === 1))) return { protocol: "orca-whirlpool", type: "pool_created" };
   return null;
 }
+export function recognizedLifecycleInstructionEvidence(instruction) {
+  const lifecycle = recognizedLifecycleInstructionOutput(instruction); if (!lifecycle || !Array.isArray(instruction.accounts) || instruction.accounts.some((account) => typeof account !== "string" || !account)) return lifecycle ? { ...lifecycle, valid: false } : null;
+  let data; try { data = decodeBase58(instruction.data); } catch { return { ...lifecycle, valid: false }; } const accounts = instruction.accounts;
+  if (lifecycle.protocol === "raydium-cpmm" && accounts.length >= 14 && accounts[4] !== accounts[5]) return { ...lifecycle, valid: true, pool: accounts[3], tokenMint0: accounts[4], tokenMint1: accounts[5] };
+  if (lifecycle.protocol === "raydium-clmm" && accounts.length >= 13 && accounts.length <= 15 && TOKEN_PROGRAMS.has(accounts[9]) && TOKEN_PROGRAMS.has(accounts[10]) && accounts[11] === SYSTEM_PROGRAM && accounts[12] === "SysvarRent111111111111111111111111111111111" && accounts[3] !== accounts[4]) return { ...lifecycle, valid: true, pool: accounts[2], tokenMint0: accounts[3], tokenMint1: accounts[4] };
+  if (lifecycle.protocol === "pump-swap" && accounts.length >= 11 && accounts[3] !== accounts[4]) return { ...lifecycle, valid: true, pool: accounts[0], tokenMint0: accounts[3], tokenMint1: accounts[4] };
+  if (lifecycle.protocol === "pump-bonding-curve" && lifecycle.type === "pool_created" && [16, 19].includes(accounts.length)) return { ...lifecycle, valid: true, pool: accounts[2], tokenMint0: accounts[0], tokenMint1: accounts[16] ?? WRAPPED_SOL };
+  if (lifecycle.protocol === "pump-bonding-curve" && lifecycle.type === "pool_migrated") { const legacy = data.equals(PUMP_MIGRATE_DISCRIMINATOR); if (accounts.length === (legacy ? 25 : 27)) return { ...lifecycle, valid: true, pool: accounts[legacy ? 9 : 10], sourcePool: accounts[legacy ? 3 : 4], tokenMint0: accounts[2], tokenMint1: legacy ? accounts[14] : accounts[3] }; }
+  const meteoraV2 = lifecycle.protocol === "meteora-dlmm" && data.subarray(0, 8).equals(METEORA_INITIALIZE_LB_PAIR2_DISCRIMINATOR), meteoraProgramIndex = meteoraV2 ? 15 : 13;
+  if (lifecycle.protocol === "meteora-dlmm" && accounts.length > meteoraProgramIndex && accounts[meteoraProgramIndex] === METEORA_DLMM && accounts[2] !== accounts[3]) return { ...lifecycle, valid: true, pool: accounts[0], tokenMint0: accounts[2], tokenMint1: accounts[3], binStep: data.readUInt16LE(12) };
+  if (lifecycle.protocol === "orca-whirlpool") { const legacy = data.subarray(0, 8).equals(ORCA_INITIALIZE_POOL_DISCRIMINATOR), v2 = data.subarray(0, 8).equals(ORCA_INITIALIZE_POOL_V2_DISCRIMINATOR), poolIndex = legacy ? 4 : v2 ? 6 : 7, minimum = legacy ? 11 : v2 ? 14 : 16; if (accounts.length >= minimum && accounts[1] !== accounts[2]) return { ...lifecycle, valid: true, pool: accounts[poolIndex], tokenMint0: accounts[1], tokenMint1: accounts[2] }; }
+  return { ...lifecycle, valid: false };
+}
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");
   const byteLength = buffer.readUInt32LE(offset); offset += 4;

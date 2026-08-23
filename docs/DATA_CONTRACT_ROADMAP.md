@@ -22,8 +22,10 @@ same protocol can no longer hide dropped decoder output. The capability is expli
 The protocol enumeration expands only with discriminator-backed instruction tests.
 The same gate covers instruction-backed lifecycle output for Raydium CPMM/CLMM
 pool creation, Orca legacy/v2/adaptive pool creation, Meteora DLMM legacy/current pair creation, PumpSwap pool creation, and Pump bonding-curve creation plus
-legacy/current migrations. Exact output-type cardinality is required, while
-Pump completion remains a log-event contract because its normalized evidence is
+legacy/current migrations. Exact output-type cardinality and instruction-derived pool,
+ordered-mint, source-pool and bin-step identity must match the normalized lifecycle fact,
+so an unrelated same-type transition cannot mask loss. Pump completion remains a log-event
+contract because its normalized evidence is
 not derived from a corresponding retained instruction ABI.
 
 Reviewed holder exclusions use a version-2 canonical-content hash and explicit
