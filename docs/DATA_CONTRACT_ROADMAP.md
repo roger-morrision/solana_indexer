@@ -89,7 +89,10 @@ closed. The hash and expiry are disclosed with applied exclusion totals.
 REST and RPC pagination cursors are opaque, canonical Base64URL version-1
 objects with exact key/scope fields. Missing, extra, noncanonical, cross-filter,
 cross-collection, and cross-protocol scopes fail with stable invalid-parameter
-contracts instead of restarting or drifting pagination.
+contracts instead of restarting or drifting pagination. Mutable token and pool
+catalogs additionally bind the exact ordered projection digest, invalidating
+continuation after insertions, removals, metadata refreshes, lifecycle
+transitions, or snapshot-field changes.
 
 | Consumer | Required data | Current source | Normalized contract | Freshness / safety | Exposure | Coverage |
 |---|---|---|---|---|---|---|
