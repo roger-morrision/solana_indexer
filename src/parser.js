@@ -195,6 +195,13 @@ export function decodeRaydiumSwapEvents(entry, signature) {
 export function decodeRaydiumClmmSwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
   const keys = accountKeys(entry.transaction?.message, entry.meta), tokenAccounts = dexTokenAccountEvidence(entry, keys);
+  const contexts = instructionRows(entry).flatMap((instruction) => {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== RAYDIUM_CLMM || accounts.length < 14 || accounts.some((account) => typeof account !== "string" || !account) || accounts[8] !== "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" || accounts[9] !== TOKEN_2022_PROGRAM || accounts[10] !== "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr" || typeof instruction.data !== "string") return [];
+    let data; try { data = decodeBase58(instruction.data); } catch { return []; }
+    if (data.length !== 41 || !data.subarray(0, 8).equals(RAYDIUM_CLMM_SWAP_V2_DISCRIMINATOR) || data[40] > 1 || BigInt(readU64(data, 8)) === 0n) return [];
+    return [{ user: accounts[0], pool: accounts[2], inputVault: accounts[5], outputVault: accounts[6], inputMint: accounts[11], outputMint: accounts[12] }];
+  });
   const events = [], stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -202,9 +209,9 @@ export function decodeRaydiumClmmSwapEvents(entry, signature) {
     if (stack.at(-1) !== RAYDIUM_CLMM || !line.startsWith("Program data: ")) continue;
     let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
     if (data.length !== 221 || !data.subarray(0, 8).equals(SWAP_EVENT_DISCRIMINATOR)) continue;
-    const account0 = base58(data.subarray(72, 104)), account1 = base58(data.subarray(104, 136)), token0 = tokenAccounts.get(account0), token1 = tokenAccounts.get(account1);
-    if (!token0 || !token1 || data[168] > 1) continue; const zeroForOne = data[168] === 1;
-    events.push({ protocol: "raydium-clmm", programId: RAYDIUM_CLMM, venueType: "clmm", type: "swap", signature, pool: base58(data.subarray(8, 40)), user: base58(data.subarray(40, 72)), baseMint: token0.mint, quoteMint: token1.mint, inputMint: zeroForOne ? token0.mint : token1.mint, outputMint: zeroForOne ? token1.mint : token0.mint, inputAmountRaw: readU64(data, zeroForOne ? 136 : 152), outputAmountRaw: readU64(data, zeroForOne ? 152 : 136), inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable", inputDecimals: zeroForOne ? token0.decimals : token1.decimals, outputDecimals: zeroForOne ? token1.decimals : token0.decimals, inputTransferFeeRaw: readU64(data, zeroForOne ? 144 : 160), outputTransferFeeRaw: readU64(data, zeroForOne ? 160 : 144), tradeFeeRaw: readU64(data, zeroForOne ? 205 : 213), zeroForOne, sqrtPriceX64: readU128(data, 169), liquidityRaw: readU128(data, 185), tick: data.readInt32LE(201), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+    const pool = base58(data.subarray(8, 40)), user = base58(data.subarray(40, 72)), account0 = base58(data.subarray(72, 104)), account1 = base58(data.subarray(104, 136)), token0 = tokenAccounts.get(account0), token1 = tokenAccounts.get(account1);
+    if (!token0 || !token1 || data[168] > 1) continue; const zeroForOne = data[168] === 1, inputMint = zeroForOne ? token0.mint : token1.mint, outputMint = zeroForOne ? token1.mint : token0.mint, inputVault = zeroForOne ? account0 : account1, outputVault = zeroForOne ? account1 : account0, contextIndex = contexts.findIndex((context) => context.user === user && context.pool === pool && context.inputVault === inputVault && context.outputVault === outputVault && context.inputMint === inputMint && context.outputMint === outputMint); if (contextIndex < 0) continue; contexts.splice(contextIndex, 1);
+    events.push({ protocol: "raydium-clmm", programId: RAYDIUM_CLMM, venueType: "clmm", type: "swap", signature, pool, user, baseMint: token0.mint, quoteMint: token1.mint, inputMint, outputMint, inputAmountRaw: readU64(data, zeroForOne ? 136 : 152), outputAmountRaw: readU64(data, zeroForOne ? 152 : 136), inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable", inputDecimals: zeroForOne ? token0.decimals : token1.decimals, outputDecimals: zeroForOne ? token1.decimals : token0.decimals, inputTransferFeeRaw: readU64(data, zeroForOne ? 144 : 160), outputTransferFeeRaw: readU64(data, zeroForOne ? 160 : 144), tradeFeeRaw: readU64(data, zeroForOne ? 205 : 213), zeroForOne, sqrtPriceX64: readU128(data, 169), liquidityRaw: readU128(data, 185), tick: data.readInt32LE(201), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
