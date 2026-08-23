@@ -205,7 +205,9 @@ evidence without reading identities from, or writing to, the corrupt index.
 Raw inbox retention validates the complete persisted recovery graph before it
 uses any checkpoint as deletion authorization; detached checkpoints, malformed
 dead-letter lifecycle evidence, or invalid reorg corrections block the entire
-run before a file is removed. Isolated recovery qualification also stops at the
+run before a file is removed. State, archive-receipt and canonical inbox inputs
+must be bounded stable non-link regular files, and an eligible file is read and
+content-hash checked again immediately before confirmed deletion. Isolated recovery qualification also stops at the
 quarantine boundary before reading downstream sink evidence or creating a
 consumer-enablement report, so an empty diagnostic shell cannot qualify.
 Credential-free Prometheus telemetry distinguishes quarantine from ordinary
