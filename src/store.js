@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { durableAtomicWrite } from "./durable-file.js";
 import { assessUsdDepegReference, MAINNET_USDC_MINT } from "./usd-depeg-reference.js";
@@ -9,6 +8,9 @@ import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "
 import { isCanonicalTokenMetadata } from "./token-metadata.js";
 import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
+import { readBoundedFile } from "./bounded-json-file.js";
+
+export const MAX_INDEX_STATE_BYTES = 536_870_912;
 
 function gcd(a, b) { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a || 1n; }
 function rational(numerator = 0n, denominator = 1n) { if (denominator === 0n) throw new Error("zero rational denominator"); if (denominator < 0n) { numerator = -numerator; denominator = -denominator; } const divisor = gcd(numerator, denominator); return { n: numerator / divisor, d: denominator / divisor }; }
@@ -259,15 +261,17 @@ function invalidStateCollections(state) {
 }
 
 export class IndexStore {
-  constructor(filename, maxTransactions = 250_000, retentionSeconds = null, holderExclusions = null, usdDepegReference = null, usdcMaxDeviationBasisPoints = 200) { this.filename = filename; this.maxTransactions = maxTransactions; this.retentionSeconds = retentionSeconds; this.holderExclusions = holderExclusions; this.usdDepegReference = usdDepegReference; this.usdcMaxDeviationBasisPoints = usdcMaxDeviationBasisPoints; this.state = emptyState(); this.loaded = false; this.loadFailure = null; this.listeners = new Set(); this.pendingEvents = []; }
+  constructor(filename, maxTransactions = 250_000, retentionSeconds = null, holderExclusions = null, usdDepegReference = null, usdcMaxDeviationBasisPoints = 200, maximumStateBytes = MAX_INDEX_STATE_BYTES) { if (!Number.isSafeInteger(maximumStateBytes) || maximumStateBytes < 1) throw new Error("maximum index state size must be a positive safe integer"); this.filename = filename; this.maxTransactions = maxTransactions; this.retentionSeconds = retentionSeconds; this.holderExclusions = holderExclusions; this.usdDepegReference = usdDepegReference; this.usdcMaxDeviationBasisPoints = usdcMaxDeviationBasisPoints; this.maximumStateBytes = maximumStateBytes; this.state = emptyState(); this.loaded = false; this.loadFailure = null; this.listeners = new Set(); this.pendingEvents = []; }
   async load() {
     if (this.loaded) return;
     try {
-      const persisted = JSON.parse(await fs.readFile(this.filename, "utf8"));
+      const content = await readBoundedFile(this.filename, { maximumBytes: this.maximumStateBytes, missing: null });
+      if (content == null) { this.loaded = true; return; }
+      if (!Buffer.isBuffer(content)) { this.loadFailure = { reason: "indexed_state_file_invalid", fields: [] }; this.loaded = true; return; }
+      const persisted = JSON.parse(content.toString("utf8"));
       if (!persisted || typeof persisted !== "object" || Array.isArray(persisted)) { this.loadFailure = { reason: "indexed_state_structure_invalid", fields: ["root"] }; this.loaded = true; return; }
       this.state = persisted;
     } catch (error) {
-      if (error.code === "ENOENT") { this.loaded = true; return; }
       if (error instanceof SyntaxError) { this.loadFailure = { reason: "indexed_state_json_invalid", fields: [] }; this.loaded = true; return; }
       throw error;
     }

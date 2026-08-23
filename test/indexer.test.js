@@ -1931,6 +1931,10 @@ test("restart quarantines invalid JSON without disclosing or replacing its conte
   let cycles = 0; const result = await new Promise((resolve) => { watchInbox({ inbox, pollMs: 5 }, store, (value) => { cycles++; resolve(value); }); }); assert.deepEqual({ suspended: result.suspended, reason: result.reason, code: result.errors[0].code }, { suspended: true, reason: "indexed_state_json_invalid", code: "INDEX_STATE_QUARANTINED" }); await new Promise((resolve) => setTimeout(resolve, 20)); assert.equal(cycles, 1);
 });
 
+test("restart quarantines unsafe or oversized state files before parsing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-state-file-boundary-")), filename = path.join(root, "index.json"), original = " {}\n"; await fs.writeFile(filename, original); const store = new IndexStore(filename, 1_000, null, null, null, 200, 2); await store.load(); assert.deepEqual(store.structureQuality(), { canonical: false, reason: "indexed_state_file_invalid", fields: [] }); assert.throws(() => store.assertWritable(), (error) => error.code === "INDEX_STATE_QUARANTINED" && error.reason === "indexed_state_file_invalid"); await assert.rejects(store.save(), /index state is quarantined/); assert.equal(await fs.readFile(filename, "utf8"), original); assert.throws(() => new IndexStore(filename, 1_000, null, null, null, 200, 0), /maximum index state size/);
+});
+
 test("JSON-RPC rejects oversized bodies with a stable 413 contract", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ rpcMaxBodyBytes: 128 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getIndexerHealth", padding: "x".repeat(256) }) }); assert.equal(response.status, 413); assert.deepEqual(await response.json(), { error: "payload_too_large", detail: "request body exceeds 128 bytes" });
 });
@@ -1977,6 +1981,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25", INDEXER_WS_MAX_OUTSTANDING_ACKS: "50", INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketMaxClients, 25); assert.deepEqual({ outstanding: loadConfig({ INDEXER_WS_MAX_OUTSTANDING_ACKS: "50" }, process.cwd()).webSocketMaxOutstandingAcks, timeout: loadConfig({ INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketAcknowledgementTimeoutMs }, { outstanding: 50, timeout: 5_000 });
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
   assert.equal(loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "1048576" }, process.cwd()).maxIngestionFileBytes, 1_048_576);
+  assert.equal(loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048576" }, process.cwd()).maxStateFileBytes, 1_048_576);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
   assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
   assert.equal(loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "45000" }, process.cwd()).streamIdleTimeoutMs, 45000);
@@ -1990,6 +1995,7 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.throws(() => loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "99" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "999" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "65535" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048575" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);

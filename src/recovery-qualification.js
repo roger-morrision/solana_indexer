@@ -52,7 +52,7 @@ export async function writeRecoveryReport(filename, value) { await durableExclus
 
 export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig() } = {}) {
   if (!path.isAbsolute(reportFile)) throw new Error("recovery report path must be absolute");
-  const backup = await preflightBackup(backupDirectory, { now }), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load();
+  const backup = await preflightBackup(backupDirectory, { now }), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, null, null, 200, config.maxStateFileBytes); await store.load();
   store.assertWritable();
   const eventSequence = store.state.eventSequence, indexHealth = store.health(config.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readBoundedJsonFile(config.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, config.warehouseStaleAfterMs, 0, now), exporter = await exporterHealthCheck(config.exporterStatusFile, config.staleAfterMs, now, config.maxExporterLagSlots), completedAt = new Date(now).toISOString();
   const result = compileRecoveryQualification({ backup, indexHealth, warehouse, exporter, eventSequence, startedAt, completedAt }); await writeRecoveryReport(reportFile, result); return result;

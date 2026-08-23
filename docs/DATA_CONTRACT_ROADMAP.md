@@ -202,6 +202,9 @@ before discovery or RPC acquisition: automatic discovery and any run that would
 mutate local index state are blocked while quarantined. An explicit target with
 `--artifact-only` remains available to acquire independently validated recovery
 evidence without reading identities from, or writing to, the corrupt index.
+Canonical compatibility state is loaded only from a stable non-link regular-file
+snapshot under a startup-validated byte ceiling; unsafe or oversized state is
+quarantined before JSON parsing and is never overwritten by recovery workflows.
 Raw inbox retention validates the complete persisted recovery graph before it
 uses any checkpoint as deletion authorization; detached checkpoints, malformed
 dead-letter lifecycle evidence, or invalid reorg corrections block the entire
