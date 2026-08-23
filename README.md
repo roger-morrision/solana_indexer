@@ -667,7 +667,7 @@ and returns the canonical Metaplex prefix, explicitly untrusted optional display
 enrichment, and exact finalized search provenance. A completed search with no
 account returns `authoritativeAbsence: true`; missing legacy search attestation
 or corrupt metadata fails closed. Token catalog and detail REST responses expose
-the same `metadataEvidence` boundary; unattested rows use `metadataPresent: null`
+the same `metadataEvidence` boundary; PostgreSQL token metadata and versioned Redis hot-token rows reuse that projection, and unattested rows use `metadataPresent: null`
 and never masquerade as an authoritative empty result. `getIndexedTokenAccountsByOwner` accepts
 `{ owner, mint?, limit?, cursor? }`
 or positional equivalents. It returns exact raw balances, separately preserves
