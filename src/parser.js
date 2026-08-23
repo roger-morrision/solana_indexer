@@ -280,6 +280,16 @@ export function decodeOrcaWhirlpoolPoolInitializations(entry, signature) {
 }
 export function decodeMeteoraDlmmPoolInitializations(entry, signature) {
   if (entry.meta?.err != null) return [];
+  const keys = accountKeys(entry.transaction?.message, entry.meta), contexts = [];
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== METEORA_DLMM || typeof instruction.data !== "string" || accounts.some((account) => typeof account !== "string" || !account)) continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    const legacy = data.length === 14 && data.subarray(0, 8).equals(METEORA_INITIALIZE_LB_PAIR_DISCRIMINATOR), v2 = data.length === 14 && data.subarray(0, 8).equals(METEORA_INITIALIZE_LB_PAIR2_DISCRIMINATOR); if (!legacy && !v2) continue;
+    const requiredAccounts = v2 ? 16 : 14, programAccountIndex = v2 ? 15 : 13, binStep = data.readUInt16LE(12);
+    if (!binStep || accounts.length < requiredAccounts || accounts[programAccountIndex] !== METEORA_DLMM || accounts[2] === accounts[3] || (v2 ? !TOKEN_PROGRAMS.has(accounts[11]) || !TOKEN_PROGRAMS.has(accounts[12]) : !TOKEN_PROGRAMS.has(accounts[9]))) continue;
+    contexts.push({ pool: accounts[0], tokenMint0: accounts[2], tokenMint1: accounts[3], binStep });
+  }
   const events = [], stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -289,6 +299,7 @@ export function decodeMeteoraDlmmPoolInitializations(entry, signature) {
     if (data.length !== 106 || !data.subarray(0, 8).equals(METEORA_LB_PAIR_CREATE_EVENT_DISCRIMINATOR)) continue;
     const binStep = data.readUInt16LE(40), pool = base58(data.subarray(8, 40)), tokenMint0 = base58(data.subarray(42, 74)), tokenMint1 = base58(data.subarray(74, 106));
     if (!binStep || tokenMint0 === tokenMint1) continue;
+    const contextIndex = contexts.findIndex((context) => context.pool === pool && context.tokenMint0 === tokenMint0 && context.tokenMint1 === tokenMint1 && context.binStep === binStep); if (contextIndex < 0) continue; contexts.splice(contextIndex, 1);
     events.push({ type: "pool_created", protocol: "meteora-dlmm", programId: METEORA_DLMM, venueType: "dlmm", signature, pool, tokenMint0, tokenMint1, binStep, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
