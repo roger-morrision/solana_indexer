@@ -919,7 +919,7 @@ accounts provide conflict-free exact balance deltas. Filled lot totals are
 retained as audit evidence. The immutable swap retains its quote-lot fee and
 explicit unavailable atom-fee marker; once a same-market finalized header at or
 after the swap supplies the quote lot size, REST and token/pool views add an
-exact quote-mint `feeResolution` without rewriting the canonical fact. Run
+exact quote-mint `feeResolution` in token, pool, trade, and AI evidence views without rewriting the canonical fact. Run
 `npm run snapshot:phoenix-markets --
 <MARKET_ADDRESS...>` to acquire the official fixed market header, complete
 bounded bid/ask allocators, and both vaults behind monotonic finalized read
