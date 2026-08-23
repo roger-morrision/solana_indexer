@@ -56,14 +56,17 @@ instead of silently treating legacy coverage as current.
 Decoder-output coverage additionally binds every successful, exactly recognized
 swap instruction to a normalized swap fact with the same transaction and protocol-specific
 pool, direction, mint and user identity fields available in that instruction ABI.
-The current scope covers the execution ABIs for Raydium CPMM/CLMM, Orca
-Whirlpools, PumpSwap, Pump bonding curve, and Meteora DLMM. Recognition requires
+The current scope covers the execution ABIs for Raydium AMM v4/CPMM/CLMM, Orca
+Whirlpools, PumpSwap, Pump bonding curve, Meteora DLMM, Phoenix, and OpenBook V2.
+Recognition requires
 the exact program, discriminator, and instruction layout (including bounded,
 unique Meteora `Swap2` remaining-account slices), and preserves invocation cardinality when one
 transaction contains multiple identical same-protocol swaps. A detached event with only the
 same protocol can no longer hide dropped decoder output. The capability is explicit as
 `completeDecoderOutput`; health and bot readiness fail closed with
 `indexed_decoder_output_incomplete` when retained instruction output is missing.
+OpenBook is included in both the published scope and affected-protocol evidence,
+so a recognized fill without its normalized swap fails health/readiness closed.
 The protocol enumeration expands only with discriminator-backed instruction tests.
 The same gate covers instruction-backed lifecycle output for Raydium CPMM/CLMM
 pool creation, Orca legacy/v2/adaptive pool creation, Meteora DLMM legacy/current pair creation, PumpSwap pool creation, and Pump bonding-curve creation plus
