@@ -236,6 +236,12 @@ Credential-free API and Prometheus projections expose only due/deferred/legacy
 counts, the next delay, and six bounded stage labels. No file identity, hash,
 error, or source payload crosses that telemetry boundary; a ten-minute due-work
 alert detects a stopped or wedged index loop.
+The 10,000-row evidence bound evicts resolved history first. If unresolved evidence
+alone exhausts the bound, no unresolved row is silently displaced: a durable monotonic
+overflow checkpoint records the omitted count, index health and automation readiness
+fail closed with `dead_letter_capacity_exceeded`, and Prometheus exposes only the
+aggregate dropped total. Clearing that condition requires an operator-controlled replay
+or replacement of the compatibility state because omitted identities cannot be inferred.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or

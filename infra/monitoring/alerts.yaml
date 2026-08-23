@@ -26,6 +26,11 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "Due or legacy dead-letter work is not being consumed by the index loop" }
+      - alert: TerminalDexDeadLetterCapacityExceeded
+        expr: terminal_dex_dead_letters_dropped_total > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Unresolved dead-letter evidence exhausted the bounded store; controlled replay is required" }
       - alert: TerminalDexExporterStale
         expr: terminal_dex_exporter_healthy == 0 or terminal_dex_exporter_age_seconds > 120
         for: 5m

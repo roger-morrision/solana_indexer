@@ -62,6 +62,12 @@ remain unavailable.
 | mTLS/SLO/backup | deployable | optional mTLS gateway, Prometheus endpoint, fixed route-free latency histogram and p99 alert, alert rules covering index/export/warehouse/backup/recovery, durable audit failure and WebSocket saturation/backpressure/protocol abuse, stated SLO/RPO/RTO and checksum-gated restore; version-3 backup evidence binds canonical `solana-mainnet` identity, one backup identity, quiesced writers, exact artifact sizes/hashes and inbox archive identity, version-2 completion status revalidates the full inventory plus exact uploaded-receipt/inbox-manifest hash and time relationship then embeds those identities under a monitoring-recomputed digest, while restore preflight enforces exact sink inventory, RPO age, safe tar structure and required canonical state before destructive tooling runs; version-3 post-restore qualification embeds and digest-binds that manifest hash and chain identity to canonical index health, zero-lag exact warehouse reconciliation, healthy finalized export and elapsed RTO in an exclusive report, and monitoring recomputes the digest before accepting it | production PKI, monitoring destination and an executed quarterly isolated recovery drill |
 | Social/news/CEX context | out of scope | never presented as on-chain evidence | approved external research sources |
 
+Dead-letter compatibility storage is additionally capacity-safe: resolved history is
+evicted first at the 10,000-row bound, while all-unresolved saturation records a durable
+aggregate overflow checkpoint and fails index/bot readiness closed instead of silently
+discarding the oldest unresolved identity. Metrics and alerting expose only the aggregate
+dropped count; controlled replay into replacement state is required to clear it.
+
 For every retained canonical slot, the latest canonical-block replay envelope is
 content-reconciled against both the complete lifecycle ledger and the complete swap
 ledger. A valid but detached replay copy therefore fails health, warehouse export,

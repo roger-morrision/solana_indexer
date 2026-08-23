@@ -18,6 +18,7 @@ maintenance is reported separately and is not silently removed from raw data.
 | WebSocket protocol errors | <=100 closes per five minutes | alert on sustained abuse or client incompatibility while preserving bounded parser limits |
 | Durable API audit | zero write failures | protected routes fail closed immediately and page operators |
 | Unresolved decoder dead letters | zero older than 10 minutes | affected protocol coverage becomes incomplete |
+| Dead-letter evidence overflow | zero | index health and automation readiness fail closed; replay into replacement compatibility state before promotion |
 | Restore point objective | <=24 hours | block commercial launch if last verified backup is older |
 | Restore time objective | <=4 hours | rehearse quarterly on an isolated host |
 
