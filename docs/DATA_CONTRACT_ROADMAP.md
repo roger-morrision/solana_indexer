@@ -67,7 +67,9 @@ same protocol can no longer hide dropped decoder output. The capability is expli
 `indexed_decoder_output_incomplete` when retained instruction output is missing.
 OpenBook is included in both the published scope and affected-protocol evidence,
 so a recognized fill without its normalized swap fails health/readiness closed.
-The protocol enumeration expands only with discriminator-backed instruction tests.
+Swap and lifecycle scope enumerations are derived from the versioned program
+registry, eliminating manually duplicated lists while discriminator-backed
+instruction tests remain mandatory for registry expansion.
 The same gate covers instruction-backed lifecycle output for Raydium CPMM/CLMM
 pool creation, Orca legacy/v2/adaptive pool creation, Meteora DLMM legacy/current pair creation, PumpSwap pool creation, and Pump bonding-curve creation plus
 legacy/current migrations. Exact output-type cardinality and every instruction-derived
