@@ -19,15 +19,17 @@ export async function archiveInbox({ inbox, archiveRoot, receiptFile, archiveId 
   const names = await canonicalInboxNames(inbox, maximumEntries);
   const root = path.resolve(archiveRoot); await fs.mkdir(root, { recursive: true }); const target = path.join(root, archiveId); let staging = await fs.mkdtemp(path.join(root, `.${archiveId}.`));
   try {
-    const fingerprints = {};
+    const fingerprints = {}; let originalBytes = 0;
     for (const name of names) {
       const source = await readCanonicalInboxFile(inbox, name), fingerprint = sha256(source), destination = path.join(staging, `${name}.gz`);
+      if (!Number.isSafeInteger(originalBytes + source.length)) throw new Error("archive source byte total exceeds the safe integer range");
+      originalBytes += source.length;
       const encoded = await compress(source, { level: 9 }); if (sha256(await decompress(encoded)) !== fingerprint) throw new Error(`archive verification failed for ${name}`);
       await durableAtomicWrite(destination, encoded); fingerprints[name] = fingerprint;
     }
     const manifestFile = path.join(staging, "inbox-manifest.json"), archiveReceipt = path.join(staging, "inbox-archive-receipt.json"), manifest = await createInboxManifest({ inbox, output: manifestFile, archiveId, maximumEntries });
     if (JSON.stringify(manifest.files) !== JSON.stringify(fingerprints)) throw new Error("inbox changed while archive was being created");
-    const receipt = await completeArchiveReceipt({ manifestFile, output: archiveReceipt, status: "verified_local" }), receiptBytes = await readBoundedFile(archiveReceipt, { maximumBytes: 16_777_216 }), expectedReceiptBytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`), originalBytes = (await Promise.all(names.map(async (name) => (await readCanonicalInboxFile(inbox, name)).length))).reduce((sum, size) => sum + size, 0);
+    const receipt = await completeArchiveReceipt({ manifestFile, output: archiveReceipt, status: "verified_local" }), receiptBytes = await readBoundedFile(archiveReceipt, { maximumBytes: 16_777_216 }), expectedReceiptBytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
     if (!Buffer.isBuffer(receiptBytes)) throw new Error(`generated archive receipt is unavailable: ${receiptBytes?.evidenceReadError ?? "missing"}`);
     if (!receiptBytes.equals(expectedReceiptBytes)) throw new Error("generated archive receipt does not match completion evidence");
     await fs.rename(staging, target); staging = null; await durableAtomicWrite(receiptFile, receiptBytes);

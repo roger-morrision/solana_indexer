@@ -242,9 +242,11 @@ the producer cannot qualify a host-format-dependent or knowingly partial tar.
 The shared inbox archive boundary rejects links, non-files, oversized payloads,
 non-USTAR names, malformed hashes, identities, timestamps, and control files
 before producing a manifest or installing a completion receipt.
-Compressed inbox archives are staged privately and published by one atomic
-directory rename; failed attempts remove their validated staging directory and
-cannot leave a partial final archive that blocks an identity-safe retry.
+Compressed inbox archives are processed one bounded file at a time; reported
+source bytes are accumulated during that verified pass rather than rereading
+the entire inbox concurrently. Archives are staged privately and published by
+one atomic directory rename; failed attempts remove their validated staging
+directory and cannot leave a partial final archive that blocks an identity-safe retry.
 HTTP health, readiness, metrics, backup, recovery qualification, exporter health,
 and warehouse publication use one bounded regular-file snapshot reader for
 operational evidence. Link, size, read, replacement, and JSON failures become
