@@ -1435,6 +1435,10 @@ test("operational JSON reads are bounded and fail closed", async (t) => {
   assert.deepEqual(await readBoundedJsonFile(filename), { evidenceReadError: "invalid_json" });
   await fs.writeFile(filename, "x".repeat(1_048_577));
   assert.deepEqual(await readBoundedJsonFile(filename), { evidenceReadError: "invalid_file" });
+  await fs.writeFile(filename, "");
+  assert.deepEqual(await readBoundedJsonFile(filename), { evidenceReadError: "invalid_file" });
+  await fs.unlink(filename); await fs.mkdir(filename);
+  assert.deepEqual(await readBoundedJsonFile(filename), { evidenceReadError: "invalid_file" });
   const health = await exporterHealthCheck(filename, 120_000);
   assert.equal(health.healthy, false);
   assert.equal(health.reason, "invalid_source");
