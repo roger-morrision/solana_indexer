@@ -25,7 +25,9 @@ maintenance is reported separately and is not silently removed from raw data.
 Quarterly recovery evidence is accepted only from `npm run validate:recovery`.
 The validator resolves the recovery root, marker, backup and repository and accepts
 only the standard index, exporter-status and warehouse-checkpoint files beneath the
-marked isolated root; deployment-state or symlink substitution fails closed.
+marked isolated root; deployment-state or symlink substitution fails closed. Its
+exclusive report must be written through an existing canonical parent outside both
+the recovery state and backup evidence.
 The version-5 report embeds and digest-binds the backup manifest hash to a healthy canonical index, exact
 zero-lag warehouse convergence, a healthy finalized exporter observation produced
 inside the recovery window, and elapsed restore time. It is created exclusively

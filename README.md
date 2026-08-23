@@ -593,7 +593,9 @@ warehouse convergence, a healthy finalized exporter observation produced inside
 the recovery window, and the four-hour RTO all validate. Qualification independently
 resolves the marker and the three evidence files and requires their canonical paths
 to be the standard files under the isolated recovery root; normal deployment state,
-symlink substitution, and state nested in the repository or backup fail closed.
+symlink substitution, and state nested in the repository or backup fail closed. The
+exclusive report must use an existing canonical parent outside both the recovered
+state and backup so qualification cannot mutate the evidence it certifies.
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
 and Prometheus validate its version-5 qualification shape, exact duration,
 canonical embedded backup/index/warehouse/exporter summary, recomputed evidence

@@ -56,7 +56,7 @@ export async function writeRecoveryReport(filename, value) { await durableExclus
 
 function containsPath(parent, candidate) { const relative = path.relative(parent, candidate); return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)); }
 
-export async function validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory, repository = process.cwd()) {
+export async function validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory, repository = process.cwd(), reportFile = null) {
   if (!path.isAbsolute(recoveryStateRoot ?? "") || !path.isAbsolute(recoveryTargetMarker ?? "") || !path.isAbsolute(backupDirectory ?? "")) throw new Error("recovery state, marker, and backup paths must be absolute");
   const [rootStat, root, backup, repo] = await Promise.all([fs.lstat(recoveryStateRoot).catch(() => null), fs.realpath(recoveryStateRoot).catch(() => null), fs.realpath(backupDirectory).catch(() => null), fs.realpath(repository).catch(() => null)]);
   if (!rootStat || !root || !backup || !repo) throw new Error("recovery state root, backup, and repository must exist");
@@ -65,16 +65,23 @@ export async function validateRecoveryStatePaths(config, recoveryStateRoot, reco
   if (!Buffer.isBuffer(markerBytes) || !new RegExp(`^${RECOVERY_MARKER}(?:\\r?\\n)?$`).test(decodeUtf8(markerBytes))) throw new Error("recovery state marker is invalid");
   const expected = { dataFile: path.join(root, "data", "index.json"), exporterStatusFile: path.join(root, "data", "exporter-status.json"), warehouseCheckpointFile: path.join(root, "data", "warehouse-checkpoint.json") };
   for (const [key, filename] of Object.entries(expected)) { const actual = await fs.realpath(config?.[key] ?? "").catch(() => null); if (actual !== filename) throw new Error(`recovery ${key} is outside the isolated state root`); }
-  return { stateRoot: root, marker: expectedMarker, ...expected };
+  let report = null;
+  if (reportFile != null) {
+    if (!path.isAbsolute(reportFile)) throw new Error("recovery report path must be absolute");
+    const reportParent = await fs.realpath(path.dirname(reportFile)).catch(() => null);
+    if (!reportParent) throw new Error("recovery report parent must exist");
+    report = path.join(reportParent, path.basename(reportFile));
+    if (containsPath(root, report) || containsPath(backup, report)) throw new Error("recovery report must be outside recovery state and backup evidence");
+  }
+  return { stateRoot: root, marker: expectedMarker, report, ...expected };
 }
 
 export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig(), recoveryStateRoot = process.env.RECOVERY_STATE_ROOT, recoveryTargetMarker = process.env.RECOVERY_TARGET_MARKER } = {}) {
-  if (!path.isAbsolute(reportFile)) throw new Error("recovery report path must be absolute");
-  await validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory);
+  const recoveryPaths = await validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory, process.cwd(), reportFile);
   const backup = await preflightBackup(backupDirectory, { now }), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, null, null, 200, config.maxStateFileBytes); await store.load();
   store.assertWritable();
   const eventSequence = store.state.eventSequence, indexHealth = store.health(config.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readBoundedJsonFile(config.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, config.warehouseStaleAfterMs, 0, now), exporterStatus = await readBoundedJsonFile(config.exporterStatusFile), exporter = { ...assessExporterStatus(exporterStatus, config.staleAfterMs, now, config.maxExporterLagSlots), observedAt: exporterStatus?.observedAt }, completedAt = new Date(now).toISOString();
-  const result = compileRecoveryQualification({ backup, indexHealth, warehouse, exporter, eventSequence, startedAt, completedAt }); await writeRecoveryReport(reportFile, result); return result;
+  const result = compileRecoveryQualification({ backup, indexHealth, warehouse, exporter, eventSequence, startedAt, completedAt }); await writeRecoveryReport(recoveryPaths.report, result); return result;
 }
 
 async function main() { if (process.argv.length !== 5) throw new Error("usage: recovery-qualification.js /absolute/backup-directory STARTED_AT_ISO /absolute/report.json"); console.log(JSON.stringify(await qualifyRecoveryEnvironment(process.argv[2], process.argv[3], process.argv[4]))); }

@@ -51,7 +51,9 @@ index and zero-lag exact ClickHouse/PostgreSQL/Redis content reconciliation, req
 exporter observation produced after recovery started, enforces the four-hour RTO,
 and exclusively creates a hash-bound report. It independently resolves the marker,
 index, exporter status and warehouse checkpoint and accepts only their standard
-paths under the isolated recovery root, preventing environment-path substitution;
+paths under the isolated recovery root, preventing environment-path substitution.
+The report parent must already exist outside the state root and backup, preventing
+qualification from contaminating either evidence set;
 the version-5 report embeds the bounded canonical evidence summary so monitoring
 can recompute its digest and reject copied, edited, legacy, or self-asserted evidence;
 an existing report is never overwritten. Perform and retain this report for each
