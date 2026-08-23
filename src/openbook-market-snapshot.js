@@ -36,9 +36,16 @@ export function decodeOpenBookOracleAccount(address, account) {
     if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(deviation) || deviation < 0 || data.subarray(104).some(Boolean)) throw new Error(`OpenBook stub oracle ${address} has invalid state`);
     return { ...common, provider: "openbook_stub", coverage: "finalized_unsafe_mutable_stub", authority: owner, mint, priceBitsRaw: u64(data, 72), deviationBitsRaw: u64(data, 96), lastUpdateUnix: data.readBigInt64LE(80).toString(), lastUpdateSlotRaw: u64(data, 88) };
   }
+  if (data.readUInt32LE(0) === PYTH_MAGIC) {
+    if (data.length < 3_312 || data.readUInt32LE(4) !== 2 || data.readUInt32LE(8) !== 3) throw new Error(`OpenBook Pyth oracle ${address} has invalid PriceAccount layout`);
+    const declaredAccountBytes = data.readUInt32LE(12), priceType = data[16], exponent = data.readInt32LE(20), publisherComponentCount = data.readUInt32LE(24), aggregateQuoterCount = data.readUInt32LE(28), aggregateStatus = data[224], corporateAction = data[225];
+    if (![240 + publisherComponentCount * 96, data.length].includes(declaredAccountBytes) || priceType !== 1 || exponent < -12 || exponent > 12 || publisherComponentCount > 32 || aggregateQuoterCount > publisherComponentCount || aggregateStatus > 4 || corporateAction !== 0) throw new Error(`OpenBook Pyth oracle ${address} has invalid PriceAccount state`);
+    const trading = aggregateStatus === 1, priceRaw = data.readBigInt64LE(trading ? 208 : 184), confidenceRaw = data.readBigUInt64LE(trading ? 216 : 192), publishTimeUnix = data.readBigInt64LE(trading ? 96 : 200), lastUpdateSlotRaw = data.readBigUInt64LE(trading ? 232 : 176);
+    if (priceRaw < 0n) throw new Error(`OpenBook Pyth oracle ${address} has negative selected price`);
+    return { ...common, provider: "pyth_legacy", coverage: "finalized_state_unpriced", version: 2, declaredAccountBytes, priceType: "price", exponent, publisherComponentCount, aggregateQuoterCount, aggregateStatus: ["unknown", "trading", "halted", "auction", "ignored"][aggregateStatus], selectedPriceSource: trading ? "aggregate" : "previous_trading", priceRaw: priceRaw.toString(), confidenceRaw: confidenceRaw.toString(), publishTimeUnix: publishTimeUnix.toString(), lastUpdateSlotRaw: lastUpdateSlotRaw.toString() };
+  }
   let provider = null;
-  if (data.readUInt32LE(0) === PYTH_MAGIC) provider = "pyth_legacy_unverified";
-  else if (data.subarray(0, 8).equals(SWITCHBOARD_V2_DISCRIMINATOR)) provider = "switchboard_v2_unverified";
+  if (data.subarray(0, 8).equals(SWITCHBOARD_V2_DISCRIMINATOR)) provider = "switchboard_v2_unverified";
   else if ([SWITCHBOARD_V1_DEVNET_PROGRAM, SWITCHBOARD_V2_MAINNET_PROGRAM].includes(account.owner)) provider = "switchboard_v1_unverified";
   else if (account.owner === RAYDIUM_CLMM_PROGRAM) provider = "raydium_clmm_unverified";
   if (!provider) throw new Error(`OpenBook oracle ${address} provider is unsupported`);

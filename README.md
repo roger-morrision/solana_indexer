@@ -897,9 +897,12 @@ confidence-filter bits plus signed maximum-staleness-slot policy, then capture
 the referenced accounts at a monotonic finalized oracle read barrier. Provider
 classification and raw account hashes are retained. The exact OpenBook
 `StubOracle` layout is decoded, but explicitly marked unsafe because its owner
-can mutate it. Configured oracles remain `configured_unverified` and cannot
-price orders until provider-specific confidence, freshness, and composition
-semantics are independently verified.
+can mutate it. Legacy Pyth PriceAccount evidence now preserves the exact
+version/type/used-size header, exponent, publisher count, aggregate status, and
+OpenBook-compatible aggregate-versus-previous selection with signed price,
+confidence, publish time, and update slot. Configured oracles remain
+`configured_unverified` and cannot price orders until confidence, freshness,
+dual-oracle composition, and remaining provider semantics are verified.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one

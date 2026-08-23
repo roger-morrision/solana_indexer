@@ -522,6 +522,9 @@ confidence-filter bits, and signed maximum-staleness-slot policy are retained.
 Referenced accounts are captured behind a monotonic finalized oracle barrier,
 classified by the official provider rules, and content hashed. The exact
 OpenBook `StubOracle` layout is decoded but marked automation-unsafe because its
-authority can mutate it. Oracle-pegged leaves remain explicitly unpriced and
-non-executable pending exact Pyth, Switchboard, and Raydium state decoding plus
-confidence, freshness, and oracle-composition policy reproduction.
+authority can mutate it. The pinned Pyth SDK v0.10.1 legacy PriceAccount layout
+now retains exact header/used-size identity, exponent, publisher/status,
+aggregate-versus-previous selection, signed price, confidence, publish time,
+and update slot without floating-point normalization. Oracle-pegged leaves
+remain explicitly unpriced and non-executable pending exact confidence and
+freshness gates, dual-oracle composition, and Switchboard/Raydium state decoding.
