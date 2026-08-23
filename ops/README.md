@@ -53,7 +53,9 @@ and exclusively creates a hash-bound report. It independently resolves the marke
 index, exporter status and warehouse checkpoint and accepts only their standard
 paths under the isolated recovery root, preventing environment-path substitution.
 The report parent must already exist outside the state root and backup, preventing
-qualification from contaminating either evidence set;
+qualification from contaminating either evidence set. Backup preflight and all
+index/exporter/checkpoint reads use the resolved canonical paths rather than the
+original aliases;
 the version-5 report embeds the bounded canonical evidence summary so monitoring
 can recompute its digest and reject copied, edited, legacy, or self-asserted evidence;
 an existing report is never overwritten. Perform and retain this report for each

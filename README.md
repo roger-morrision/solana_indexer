@@ -595,7 +595,9 @@ resolves the marker and the three evidence files and requires their canonical pa
 to be the standard files under the isolated recovery root; normal deployment state,
 symlink substitution, and state nested in the repository or backup fail closed. The
 exclusive report must use an existing canonical parent outside both the recovered
-state and backup so qualification cannot mutate the evidence it certifies.
+state and backup so qualification cannot mutate the evidence it certifies. Backup
+preflight and all recovered-state reads then use only those resolved paths, never
+the original environment aliases.
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
 and Prometheus validate its version-5 qualification shape, exact duration,
 canonical embedded backup/index/warehouse/exporter summary, recomputed evidence

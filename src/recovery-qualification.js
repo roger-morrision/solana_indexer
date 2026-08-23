@@ -73,14 +73,15 @@ export async function validateRecoveryStatePaths(config, recoveryStateRoot, reco
     report = path.join(reportParent, path.basename(reportFile));
     if (containsPath(root, report) || containsPath(backup, report)) throw new Error("recovery report must be outside recovery state and backup evidence");
   }
-  return { stateRoot: root, marker: expectedMarker, report, ...expected };
+  return { stateRoot: root, backupDirectory: backup, marker: expectedMarker, report, ...expected };
 }
 
 export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig(), recoveryStateRoot = process.env.RECOVERY_STATE_ROOT, recoveryTargetMarker = process.env.RECOVERY_TARGET_MARKER } = {}) {
   const recoveryPaths = await validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory, process.cwd(), reportFile);
-  const backup = await preflightBackup(backupDirectory, { now }), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, null, null, 200, config.maxStateFileBytes); await store.load();
+  const recoveredConfig = { ...config, dataFile: recoveryPaths.dataFile, exporterStatusFile: recoveryPaths.exporterStatusFile, warehouseCheckpointFile: recoveryPaths.warehouseCheckpointFile };
+  const backup = await preflightBackup(recoveryPaths.backupDirectory, { now }), store = new IndexStore(recoveredConfig.dataFile, recoveredConfig.maxTransactions, recoveredConfig.retentionSeconds, null, null, 200, recoveredConfig.maxStateFileBytes); await store.load();
   store.assertWritable();
-  const eventSequence = store.state.eventSequence, indexHealth = store.health(config.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readBoundedJsonFile(config.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, config.warehouseStaleAfterMs, 0, now), exporterStatus = await readBoundedJsonFile(config.exporterStatusFile), exporter = { ...assessExporterStatus(exporterStatus, config.staleAfterMs, now, config.maxExporterLagSlots), observedAt: exporterStatus?.observedAt }, completedAt = new Date(now).toISOString();
+  const eventSequence = store.state.eventSequence, indexHealth = store.health(recoveredConfig.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readBoundedJsonFile(recoveredConfig.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, recoveredConfig.warehouseStaleAfterMs, 0, now), exporterStatus = await readBoundedJsonFile(recoveredConfig.exporterStatusFile), exporter = { ...assessExporterStatus(exporterStatus, recoveredConfig.staleAfterMs, now, recoveredConfig.maxExporterLagSlots), observedAt: exporterStatus?.observedAt }, completedAt = new Date(now).toISOString();
   const result = compileRecoveryQualification({ backup, indexHealth, warehouse, exporter, eventSequence, startedAt, completedAt }); await writeRecoveryReport(recoveryPaths.report, result); return result;
 }
 
