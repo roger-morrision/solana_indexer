@@ -10,8 +10,10 @@ or transaction history cannot unlock a future order.
 
 Operational snapshot workers bind every claimed PostgreSQL job type and exact
 deduplication key to its validated pool or mint target before starting a child
-process. Attempt counters must be positive safe integers, so malformed or
-cross-target repair rows fail before provider access.
+process. Attempt counters must be positive safe integers, and each claim must
+carry its job-type-specific reason, canonical UTC scheduling timestamp, and
+nullable nonnegative safe-integer source slot, so malformed or cross-target
+repair rows fail before provider access.
 
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
