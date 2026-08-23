@@ -236,7 +236,7 @@ Configuration:
 |---|---:|---|
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
-| `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic mainnet/genesis-bound checkpoint with version-6 reconciliation evidence, advanced only after exact PostgreSQL token/candidate projection hashes and Redis hot-token, hot-pool, and stats-sentinel content digests reconcile |
+| `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic mainnet/genesis-bound checkpoint with version-7 reconciliation evidence, advanced only after exact ClickHouse derived-fact, PostgreSQL token/candidate, and Redis hot-state content digests reconcile |
 | `INDEXER_WAREHOUSE_STALE_AFTER_MS` | `300000` | Maximum successful warehouse checkpoint age before health fails closed |
 | `INDEXER_MAX_WAREHOUSE_LAG_EVENTS` | `1000` | Maximum canonical-event lag before warehouse health fails closed |
 | `CLICKHOUSE_PASSWORD_FILE` | unset | Protected stable non-link ClickHouse password file (maximum 4 KiB, one credential) read into the client subprocess environment without command-line exposure |

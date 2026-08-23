@@ -14,4 +14,9 @@ ALTER TABLE terminal_dex.canonical_native_transfers ADD COLUMN IF NOT EXISTS own
 ALTER TABLE terminal_dex.canonical_native_transfers ADD COLUMN IF NOT EXISTS base_address Nullable(String) AFTER owner_program;
 ALTER TABLE terminal_dex.canonical_native_transfers ADD COLUMN IF NOT EXISTS seed Nullable(String) AFTER base_address;
 CREATE TABLE IF NOT EXISTS terminal_dex.canonical_dead_letters (chain LowCardinality(String), observed_at DateTime64(3, 'UTC'), source String, identity String, payload_hash Nullable(FixedString(64)), error String, attempts UInt32, resolved Bool, resolution Nullable(String), payload String) ENGINE = MergeTree ORDER BY (chain, source, identity);
+ALTER TABLE terminal_dex.canonical_instructions ADD COLUMN IF NOT EXISTS content_hash FixedString(64);
+ALTER TABLE terminal_dex.canonical_swaps ADD COLUMN IF NOT EXISTS content_hash FixedString(64);
+ALTER TABLE terminal_dex.canonical_balance_changes ADD COLUMN IF NOT EXISTS content_hash FixedString(64);
+ALTER TABLE terminal_dex.canonical_native_transfers ADD COLUMN IF NOT EXISTS content_hash FixedString(64);
+ALTER TABLE terminal_dex.canonical_dead_letters ADD COLUMN IF NOT EXISTS content_hash FixedString(64);
 CREATE TABLE IF NOT EXISTS terminal_dex.canonical_candles (schema_version UInt16, source_sequence UInt64, chain LowCardinality(String), pool String, interval_seconds UInt32, bucket_start DateTime64(3, 'UTC'), base_mint String, quote_mint String, base_decimals Nullable(UInt8), quote_decimals Nullable(UInt8), open_numerator_raw UInt256, open_denominator_raw UInt256, high_numerator_raw UInt256, high_denominator_raw UInt256, low_numerator_raw UInt256, low_denominator_raw UInt256, close_numerator_raw UInt256, close_denominator_raw UInt256, base_volume_raw UInt256, quote_volume_raw UInt256, trades UInt64, first_slot UInt64, last_slot UInt64, commitment LowCardinality(String)) ENGINE = MergeTree ORDER BY (chain, pool, interval_seconds, bucket_start);
