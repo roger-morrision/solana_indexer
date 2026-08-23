@@ -30,6 +30,11 @@ cannot mask loss. Pump `create_v2` recognition shares the decoder's complete 13-
 symbol boundary. Pump completion remains a log-event
 contract because its normalized evidence is
 not derived from a corresponding retained instruction ABI.
+Persisted and replay-embedded lifecycle transitions independently enforce the complete
+protocol/type-specific normalized shape before health, warehouse, Redis, REST, or WebSocket
+publication. Required configuration, vault, program, mode, amount, migration, and metadata
+fields cannot disappear after decoding. CLMM and Whirlpool initial square-root prices retain
+their full unsigned 128-bit domain; they are not narrowed to u64 during persistence checks.
 
 Reviewed holder exclusions use a version-2 canonical-content hash and explicit
 expiry. Their governance lifetime is independent of market-data freshness, while
