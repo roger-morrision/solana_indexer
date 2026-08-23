@@ -514,6 +514,10 @@ files and rechecks their exact bytes after artifact hashing to reject concurrent
 replacement or mutation. Tar inventory rejects control/backslash paths,
 empty/dot/traversal segments, type/name mismatches, duplicate logical paths,
 excessive member counts, missing terminators, and nonzero trailing archives.
+Preflight also hashes every regular `inbox/` tar member and requires its exact
+name/hash set to equal the content-bound inbox manifest, preventing a qualified
+backup from silently omitting or adding replay inputs. The tar is rehashed after
+inventory inspection to reject concurrent replacement.
 The isolated restore copies the fixed artifact inventory without dereferencing
 links into a private temporary staging directory, validates that staged copy,
 and consumes only staged files to remove source-directory mutation races. Failed

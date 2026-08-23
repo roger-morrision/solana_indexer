@@ -13,7 +13,7 @@ import { durableExclusiveWrite } from "./durable-file.js";
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const BACKUP_ID = /^[0-9]{8}T[0-9]{6}Z$/;
-const BACKUP_INVARIANTS = ["completeInventory", "checksums", "manifestEvidence", "writersQuiesced", "inboxIdentity", "rpo", "safeTar", "canonicalStatePresent", "mainnetIdentity"];
+const BACKUP_INVARIANTS = ["completeInventory", "checksums", "manifestEvidence", "writersQuiesced", "inboxIdentity", "inboxArchiveComplete", "rpo", "safeTar", "canonicalStatePresent", "mainnetIdentity"];
 const RECOVERY_INVARIANTS = ["mainnetIdentity", "backupIntegrity", "canonicalIndexHealthy", "exactWarehouseConvergence", "finalizedExporterHealthy", "rto"];
 const RECONCILIATION_COUNTS = ["events", "instructions", "swaps", "balanceChanges", "nativeTransfers", "deadLetters", "tokens", "candidates", "pools"];
 const EXPORTER_SOURCE = /^(?:local-agave-(?:rpc|pubsub)(?:-[1-4])?|external-rpc-(?:helius|alchemy))$/;
