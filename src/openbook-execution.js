@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { OPENBOOK_V2_PROGRAM, SPL_TOKEN_PROGRAM } from "./openbook-market-snapshot.js";
-import { buildUnsignedLegacyTransaction } from "./transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction } from "./transaction-simulation.js";
 
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const PLACE_TAKE_ORDER_DISCRIMINATOR = Buffer.from([3, 44, 71, 3, 26, 199, 203, 85]);
@@ -27,6 +27,14 @@ export function prepareOpenBookPlaceTakeOrderSimulation({ quote, market, signer,
   if (!minimum || minimum > quoted || inputPre < consumed || outputPre + quoted > U64_MAX) throw new Error("OpenBook simulation balance bounds are invalid");
   const prepared = { schemaVersion: 1, type: "openbook_place_take_order_simulation", protocol: "openbook-v2", commitment: "finalized", minContextSlot: Math.max(quote.stateSlot, quote.bookSlot, quote.oracleSlot, quote.balanceSlot, quote.currentSlot), transaction, instructionEvidence: instruction.evidence, simulationPolicy: { allowedProgramIds: [OPENBOOK_V2_PROGRAM], requiredProgramIds: [OPENBOOK_V2_PROGRAM], instructionPolicies: transaction.instructionPolicies, accountExpectations: [{ address: inputAccount, mint: quote.inputMint, preAmountRaw: inputPre.toString(), minDeltaRaw: (-consumed).toString(), maxDeltaRaw: (-1n).toString() }, { address: outputAccount, mint: quote.outputMint, preAmountRaw: outputPre.toString(), minDeltaRaw: minimum.toString(), maxDeltaRaw: quoted.toString() }] } };
   prepared.preparationHash = crypto.createHash("sha256").update(JSON.stringify(prepared)).digest("hex"); return prepared;
+}
+
+export async function simulatePreparedOpenBookPlaceTakeOrder(client, { preparation, expectedGenesisHash, genesisHash }) {
+  const { preparationHash, ...unsignedPreparation } = preparation ?? {}, expectedHash = crypto.createHash("sha256").update(JSON.stringify(unsignedPreparation)).digest("hex");
+  if (preparation?.schemaVersion !== 1 || preparation.type !== "openbook_place_take_order_simulation" || preparation.protocol !== "openbook-v2" || preparation.commitment !== "finalized" || preparation.transaction?.signed !== false || preparation.transaction?.submitted !== false || !Number.isSafeInteger(preparation.minContextSlot) || preparation.minContextSlot < 0 || !preparation.simulationPolicy || preparationHash !== expectedHash) throw new Error("OpenBook simulation preparation is invalid");
+  const policy = preparation.simulationPolicy, receipt = await simulateUnsignedTransaction(client, { transactionBase64: preparation.transaction.transactionBase64, minContextSlot: preparation.minContextSlot, expectedGenesisHash, genesisHash, allowedProgramIds: policy.allowedProgramIds, requiredProgramIds: policy.requiredProgramIds, instructionPolicies: policy.instructionPolicies, accountExpectations: policy.accountExpectations });
+  if (receipt.transactionHash !== preparation.transaction.transactionHash || receipt.messageHash !== preparation.transaction.messageHash || receipt.simulationSlot < preparation.minContextSlot || receipt.messageVersion !== "legacy" || receipt.programIds?.length !== 1 || receipt.programIds[0] !== OPENBOOK_V2_PROGRAM) throw new Error("OpenBook simulation receipt does not match preparation");
+  const result = { ...receipt, type: "openbook_place_take_order_simulation_receipt", protocol: "openbook-v2", preparationHash, preparationMessageHash: preparation.transaction.messageHash, instructionEvidence: preparation.instructionEvidence }; result.receiptHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;
 }
 
 export const OPENBOOK_EXECUTION_CONSTANTS = Object.freeze({ placeTakeOrderDiscriminatorHex: PLACE_TAKE_ORDER_DISCRIMINATOR.toString("hex"), systemProgram: SYSTEM_PROGRAM });

@@ -52,8 +52,10 @@ OpenBook exact-input depth quotes now feed deterministic unsigned
 `placeTakeOrder` IOC construction. The official 16-account layout binds the
 decoded authority, optional admin/oracles, books, heap, vaults, legacy token
 program, worst traversed price, lot caps and match limit; preparation is
-content-hashed with exact mint-bound simulation effects. Local simulation,
-signer approval, and landed confirmation remain out of scope and fail closed.
+content-hashed with exact mint-bound simulation effects. Loopback-only
+finalized simulation verifies the immutable message, exact instruction policy,
+minimum context, program allowlist and token effects. Signer approval and
+landed confirmation remain out of scope and fail closed.
 Finalized acquisition strictly decodes the official fixed 848-byte `Market`,
 both 90,952-byte `BookSide` accounts, and both vaults at monotonic shared
 finalized contexts. It validates allocator/free-list/tree reachability and exact

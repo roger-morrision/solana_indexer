@@ -917,8 +917,10 @@ oracle-pegged orders in price-time priority, discard expired orders, preserve
 whole-lot input dust, and apply the aggregate ceiling-rounded taker fee. The
 preparation endpoint now emits the exact unsigned 16-account `placeTakeOrder`
 IOC instruction and a hash-bound simulation policy with mint-specific balance
-bounds. Local simulation, external signer approval, and landed-message
-confirmation remain unavailable, so OpenBook execution still fails closed.
+bounds. Loopback-only finalized simulation verifies the immutable prepared
+message, program/account policy, dependency slot, and exact mint-bound token
+effects. External signer approval and landed-message confirmation remain
+unavailable, so OpenBook execution still fails closed.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
