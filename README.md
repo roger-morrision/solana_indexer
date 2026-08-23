@@ -871,8 +871,10 @@ bin order; applies Q64 rounding, dynamic/base fees, fee-on-input/output modes,
 protocol/limit-order splits, and finalized Token-2022 transfer fees. The two
 official reward mints resolve `Undetermined` pools exactly: only pools with both
 reward mints unset receive limit-order behavior. Missing reward evidence fails
-closed. Transaction construction, simulation, signing, submission, and bot
-execution remain unavailable.
+closed. Eligible routes support official-ABI unsigned construction, hash-bound
+local simulation, bounded external approval, external signature verification,
+and read-only finalized landed-message confirmation. The indexer never signs or
+submits, and unsupported evidence keeps the route unavailable.
 
 OpenBook V2 `placeTakeOrder` swaps are published only for the official 35-byte
 Anchor payload and 16-account ABI. The decoder requires positive order bounds,
