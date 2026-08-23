@@ -8,12 +8,16 @@ readiness fail closed with `indexed_decoder_registry_stale` when old indexed
 facts survive a decoder upgrade, making a verified replay/backfill mandatory
 instead of silently treating legacy coverage as current.
 
-Decoder-output coverage additionally binds every successful transaction carrying
-a recognized Meteora `Swap`/`Swap2` discriminator to at least one normalized
-Meteora swap fact. The capability is explicit as `completeDecoderOutput`; health
-and bot readiness fail closed with `indexed_decoder_output_incomplete` when a
-recognized invocation was retained without its event output. The scope is
-protocol-enumerated and expands only with discriminator-backed instruction tests.
+Decoder-output coverage additionally binds every successful, exactly recognized
+swap instruction to a normalized swap fact of the same transaction and protocol.
+The current scope covers the execution ABIs for Raydium CPMM/CLMM, Orca
+Whirlpools, PumpSwap, Pump bonding curve, and Meteora DLMM. Recognition requires
+the exact program, discriminator, and instruction layout (including bounded,
+unique Meteora `Swap2` remaining-account slices), and preserves invocation cardinality when one
+transaction contains multiple same-protocol swaps. The capability is explicit as
+`completeDecoderOutput`; health and bot readiness fail closed with
+`indexed_decoder_output_incomplete` when retained instruction output is missing.
+The protocol enumeration expands only with discriminator-backed instruction tests.
 
 Reviewed holder exclusions use a version-2 canonical-content hash and explicit
 expiry. Their governance lifetime is independent of market-data freshness, while

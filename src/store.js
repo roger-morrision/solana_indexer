@@ -637,10 +637,11 @@ export class IndexStore {
     return { current: stale.length === 0, recognizedInstructionCount: recognized.length, staleInstructionCount: stale.length, affectedProtocols: [...new Set(stale.map((instruction) => PROGRAM_REGISTRY.get(instruction.programId).protocol))].sort(), reason: stale.length ? "indexed_decoder_registry_stale" : null };
   }
   decoderOutputCoverageQuality() {
-    const expected = new Set();
-    for (const instruction of this.state.instructions) { const protocol = recognizedSwapInstructionProtocol(instruction), transaction = this.state.transactions[instruction.signature]; if (protocol && transaction?.success === true) expected.add(`${instruction.signature}\u0000${protocol}`); }
-    const observed = new Set(this.state.swaps.map((swap) => `${swap.signature}\u0000${swap.protocol}`)), missing = [...expected].filter((key) => !observed.has(key)), protocols = [...new Set([...expected].map((key) => key.slice(key.indexOf("\u0000") + 1)))].sort();
-    return { complete: missing.length === 0, scopeProtocols: ["meteora-dlmm"], observedProtocols: protocols, recognizedTransactionCount: expected.size, decodedTransactionCount: expected.size - missing.length, missingTransactionCount: missing.length, affectedProtocols: [...new Set(missing.map((key) => key.slice(key.indexOf("\u0000") + 1)))].sort(), reason: missing.length ? "indexed_decoder_output_incomplete" : null };
+    const expected = new Map(), observed = new Map();
+    for (const instruction of this.state.instructions) { const protocol = recognizedSwapInstructionProtocol(instruction), transaction = this.state.transactions[instruction.signature]; if (protocol && transaction?.success === true) { const key = `${instruction.signature}\u0000${protocol}`; expected.set(key, (expected.get(key) ?? 0) + 1); } }
+    for (const swap of this.state.swaps) { const key = `${swap.signature}\u0000${swap.protocol}`; observed.set(key, (observed.get(key) ?? 0) + 1); }
+    const missing = [...expected].filter(([key, count]) => (observed.get(key) ?? 0) < count), recognizedInstructionCount = [...expected.values()].reduce((sum, count) => sum + count, 0), matchedInstructionCount = [...expected].reduce((sum, [key, count]) => sum + Math.min(count, observed.get(key) ?? 0), 0), protocols = [...new Set([...expected.keys()].map((key) => key.slice(key.indexOf("\u0000") + 1)))].sort();
+    return { complete: missing.length === 0, scopeProtocols: ["meteora-dlmm", "orca-whirlpool", "pump-bonding-curve", "pump-swap", "raydium-clmm", "raydium-cpmm"], observedProtocols: protocols, recognizedInstructionCount, matchedInstructionCount, missingInstructionCount: recognizedInstructionCount - matchedInstructionCount, recognizedTransactionCount: expected.size, decodedTransactionCount: expected.size - missing.length, missingTransactionCount: missing.length, affectedProtocols: [...new Set(missing.map(([key]) => key.slice(key.indexOf("\u0000") + 1)))].sort(), reason: missing.length ? "indexed_decoder_output_incomplete" : null };
   }
   programEventQuality() {
     const canonical = canonicalPersistedProgramEventLog(this.state.programEvents, this.state.swaps, this.state.transactions, this.state.blocks);

@@ -34,13 +34,30 @@ const PUMP_COMPLETE_EVENT_DISCRIMINATOR = Buffer.from([95, 114, 97, 156, 212, 46
 const PUMP_COMPLETE_MIGRATION_EVENT_DISCRIMINATOR = Buffer.from([189, 233, 93, 185, 92, 148, 234, 148]);
 const METEORA_SWAP_INSTRUCTION_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
 const METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR = Buffer.from([65, 75, 63, 76, 235, 91, 91, 136]);
+const RAYDIUM_CPMM_SWAP_BASE_INPUT_DISCRIMINATOR = crypto.createHash("sha256").update("global:swap_base_input").digest().subarray(0, 8);
+const RAYDIUM_CLMM_SWAP_V2_DISCRIMINATOR = crypto.createHash("sha256").update("global:swap_v2").digest().subarray(0, 8);
+const ORCA_SWAP_INSTRUCTION_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
+const PUMP_SWAP_SELL_DISCRIMINATOR = Buffer.from([51, 230, 133, 164, 1, 127, 131, 173]);
+const PUMP_SWAP_BUY_EXACT_QUOTE_IN_DISCRIMINATOR = Buffer.from([198, 46, 21, 82, 180, 217, 232, 112]);
+const PUMP_SELL_V2_DISCRIMINATOR = Buffer.from([51, 230, 133, 164, 1, 127, 131, 173]);
+const PUMP_BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR = Buffer.from([194, 171, 28, 70, 104, 77, 91, 47]);
 const METEORA_SWAP_EVENT_DISCRIMINATOR = Buffer.from([81, 108, 227, 190, 205, 208, 10, 196]);
 const METEORA_SWAP2_EVENT_DISCRIMINATOR = Buffer.from([46, 116, 82, 215, 148, 27, 84, 77]);
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
 export function recognizedSwapInstructionProtocol(instruction) {
-  if (instruction?.programId !== METEORA_DLMM || typeof instruction.data !== "string") return null;
+  if (typeof instruction?.data !== "string") return null;
   let data; try { data = decodeBase58(instruction.data); } catch { return null; }
-  return data.length === 24 && data.subarray(0, 8).equals(METEORA_SWAP_INSTRUCTION_DISCRIMINATOR) || data.length >= 25 && data.subarray(0, 8).equals(METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR) ? "meteora-dlmm" : null;
+  const discriminator = data.subarray(0, 8), exact = (length, expected) => data.length === length && discriminator.equals(expected);
+  if (instruction.programId === RAYDIUM_CPMM && exact(24, RAYDIUM_CPMM_SWAP_BASE_INPUT_DISCRIMINATOR)) return "raydium-cpmm";
+  if (instruction.programId === RAYDIUM_CLMM && exact(41, RAYDIUM_CLMM_SWAP_V2_DISCRIMINATOR)) return "raydium-clmm";
+  if (instruction.programId === ORCA_WHIRLPOOL && exact(42, ORCA_SWAP_INSTRUCTION_DISCRIMINATOR)) return "orca-whirlpool";
+  if (instruction.programId === PUMP_AMM && (exact(24, PUMP_SWAP_SELL_DISCRIMINATOR) || exact(25, PUMP_SWAP_BUY_EXACT_QUOTE_IN_DISCRIMINATOR))) return "pump-swap";
+  if (instruction.programId === PUMP_PROGRAM && (exact(24, PUMP_SELL_V2_DISCRIMINATOR) || exact(24, PUMP_BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR))) return "pump-bonding-curve";
+  if (instruction.programId === METEORA_DLMM && exact(24, METEORA_SWAP_INSTRUCTION_DISCRIMINATOR)) return "meteora-dlmm";
+  if (instruction.programId === METEORA_DLMM && data.length >= 28 && discriminator.equals(METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR)) {
+    const count = data.readUInt32LE(24), slices = data.subarray(28); if (count <= 2 && slices.length === count * 2 && new Set(Array.from({ length: count }, (_, index) => slices[index * 2])).size === count && Array.from({ length: count }, (_, index) => slices[index * 2]).every((type) => type <= 1)) return "meteora-dlmm";
+  }
+  return null;
 }
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");

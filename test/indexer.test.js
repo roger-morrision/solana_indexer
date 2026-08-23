@@ -9,7 +9,7 @@ import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { applySnapshotArtifacts, indexInbox, watchInbox } from "../src/indexer.js";
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
-import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock } from "../src/parser.js";
+import { decodeMeteoraDlmmSwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedSwapInstructionProtocol } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
 import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
 import { IndexStore, isCanonicalAccountSnapshotEvidence } from "../src/store.js";
@@ -27,6 +27,7 @@ import { buildPumpBuyExactQuoteInV2Instruction, buildPumpSellV2Instruction, crea
 import { bindExecutionHandoff, EXECUTION_HANDOFF_POLICY } from "../src/execution-handoff-policy.js";
 import { createOrcaPoolSnapshot, decodeOrcaTickArrayAccount, decodeOrcaWhirlpoolAccount, ORCA_WHIRLPOOL_PROGRAM } from "../src/orca-pool-snapshot.js";
 import { createMeteoraDlmmPoolSnapshot, decodeMeteoraBinArrayAccount, decodeMeteoraLbPairAccount, METEORA_DLMM_PROGRAM } from "../src/meteora-dlmm-pool-snapshot.js";
+import { METEORA_DLMM_EXECUTION_CONSTANTS } from "../src/meteora-dlmm-execution.js";
 import { quoteMeteoraDlmmSnapshotExactInput } from "../src/meteora-dlmm-math.js";
 import { runReplayLoadValidation } from "../src/replay-load-validation.js";
 import { createBackupManifest, preflightBackup } from "../src/backup-preflight.js";
@@ -1910,12 +1911,37 @@ test("bot readiness rejects DEX instructions produced by an obsolete decoder reg
 test("health rejects successful recognized swap instructions without decoder output", async () => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString();
   Object.assign(store.state.instructions[0], { programId: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo", protocol: "meteora-dlmm", registryVersion: 10, decoderVersion: 1, data: "fx9RHbGFfZ9nvoQ7a9m2HSQdbiS6AEVjmaqFoD" });
-  assert.deepEqual(store.decoderOutputCoverageQuality(), { complete: false, scopeProtocols: ["meteora-dlmm"], observedProtocols: ["meteora-dlmm"], recognizedTransactionCount: 1, decodedTransactionCount: 0, missingTransactionCount: 1, affectedProtocols: ["meteora-dlmm"], reason: "indexed_decoder_output_incomplete" });
+  assert.deepEqual(store.decoderOutputCoverageQuality(), { complete: false, scopeProtocols: ["meteora-dlmm", "orca-whirlpool", "pump-bonding-curve", "pump-swap", "raydium-clmm", "raydium-cpmm"], observedProtocols: ["meteora-dlmm"], recognizedInstructionCount: 1, matchedInstructionCount: 0, missingInstructionCount: 1, recognizedTransactionCount: 1, decodedTransactionCount: 0, missingTransactionCount: 1, affectedProtocols: ["meteora-dlmm"], reason: "indexed_decoder_output_incomplete" });
   assert.equal(store.dataCapabilities(120_000, block.blockTime * 1_000).completeDecoderOutput, false);
   const health = store.health(120_000, block.blockTime * 1_000); assert.deepEqual({ status: health.status, healthy: health.healthy, reason: health.reason }, { status: "invalid_evidence", healthy: false, reason: "indexed_decoder_output_incomplete" });
   assert.ok(store.botReadiness(120_000, block.blockTime * 1_000, "pool-address").missing.includes("completeDecoderOutput"));
   store.state.swaps[0].protocol = "meteora-dlmm";
   assert.equal(store.decoderOutputCoverageQuality().complete, true);
+  store.state.instructions.push({ ...store.state.instructions[0], eventId: `${store.state.instructions[0].eventId}:second` });
+  assert.deepEqual({ complete: store.decoderOutputCoverageQuality().complete, recognizedInstructionCount: store.decoderOutputCoverageQuality().recognizedInstructionCount, matchedInstructionCount: store.decoderOutputCoverageQuality().matchedInstructionCount, missingInstructionCount: store.decoderOutputCoverageQuality().missingInstructionCount }, { complete: false, recognizedInstructionCount: 2, matchedInstructionCount: 1, missingInstructionCount: 1 });
+});
+
+test("decoder output coverage recognizes every executable swap ABI exactly", () => {
+  const encode58 = (bytes) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; };
+  const instruction = (programId, discriminatorHex, length) => { const data = Buffer.alloc(length); Buffer.from(discriminatorHex, "hex").copy(data); return { programId, data: encode58(data) }; };
+  const recognized = [
+    [RAYDIUM_CPMM_PROGRAM, RAYDIUM_CPMM_EXECUTION_CONSTANTS.swapBaseInputDiscriminatorHex, 24, "raydium-cpmm"],
+    [RAYDIUM_CLMM_PROGRAM, RAYDIUM_CLMM_EXECUTION_CONSTANTS.swapV2DiscriminatorHex, 41, "raydium-clmm"],
+    [ORCA_WHIRLPOOL_PROGRAM, ORCA_WHIRLPOOL_EXECUTION_CONSTANTS.swapDiscriminatorHex, 42, "orca-whirlpool"],
+    [PUMP_SWAP_PROGRAM, PUMP_SWAP_EXECUTION_CONSTANTS.sellDiscriminatorHex, 24, "pump-swap"],
+    [PUMP_SWAP_PROGRAM, PUMP_SWAP_EXECUTION_CONSTANTS.buyExactQuoteInDiscriminatorHex, 25, "pump-swap"],
+    [PUMP_PROGRAM, PUMP_BONDING_CURVE_EXECUTION_CONSTANTS.sellV2DiscriminatorHex, 24, "pump-bonding-curve"],
+    [PUMP_PROGRAM, PUMP_BONDING_CURVE_EXECUTION_CONSTANTS.buyExactQuoteInV2DiscriminatorHex, 24, "pump-bonding-curve"],
+    [METEORA_DLMM_PROGRAM, METEORA_DLMM_EXECUTION_CONSTANTS.swapDiscriminatorHex, 24, "meteora-dlmm"],
+    [METEORA_DLMM_PROGRAM, METEORA_DLMM_EXECUTION_CONSTANTS.swap2DiscriminatorHex, 28, "meteora-dlmm"],
+  ];
+  for (const [programId, discriminator, length, protocol] of recognized) {
+    assert.equal(recognizedSwapInstructionProtocol(instruction(programId, discriminator, length)), protocol);
+    assert.equal(recognizedSwapInstructionProtocol(instruction(programId, discriminator, length - 1)), null);
+  }
+  assert.equal(recognizedSwapInstructionProtocol({ programId: RAYDIUM_CPMM_PROGRAM, data: "not-base58!" }), null);
+  assert.equal(recognizedSwapInstructionProtocol(instruction(ORCA_WHIRLPOOL_PROGRAM, RAYDIUM_CPMM_EXECUTION_CONSTANTS.swapBaseInputDiscriminatorHex, 24)), null);
+  const malformedSlices = Buffer.alloc(30); Buffer.from(METEORA_DLMM_EXECUTION_CONSTANTS.swap2DiscriminatorHex, "hex").copy(malformedSlices); malformedSlices.writeUInt32LE(1, 24); malformedSlices[28] = 2; assert.equal(recognizedSwapInstructionProtocol({ programId: METEORA_DLMM_PROGRAM, data: encode58(malformedSlices) }), null);
 });
 
 test("swap readiness, REST, and warehouse export fail closed on invalid persisted evidence", async (t) => {
