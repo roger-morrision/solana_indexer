@@ -459,8 +459,11 @@ canonical sorted registry content (use `holderExclusionContentSha256` when
 producing the reviewed artifact).
 Each entry identifies one `mint`, exactly one `owner` or `tokenAccount`, a
 `category` (`burn`, `exchange`, `locker`, `pool`, `protocol`, or `vault`), and
-an `evidenceSource`. Invalid, hash-mismatched, expired, or future-dated registries do
-not unlock concentration or bot safety. Applied exclusion provenance and totals
+an `evidenceSource`. Every mint, owner, and token-account identity must be a
+canonical 32-byte Solana base58 address; malformed or noncanonical identities
+are rejected before completeness can be asserted. Invalid, hash-mismatched,
+expired, or future-dated registries do not unlock concentration or bot safety.
+Applied exclusion provenance and totals
 are shared by holder, token-security, and pool-risk projections so consumers do
 not receive contradictory completeness claims.
 `/internal/tokens/:mint/security` reports snapshot-backed authority/extension

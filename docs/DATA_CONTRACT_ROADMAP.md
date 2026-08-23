@@ -99,6 +99,10 @@ catalogs additionally bind the exact ordered projection digest, invalidating
 continuation after insertions, removals, metadata refreshes, lifecycle
 transitions, or snapshot-field changes.
 
+Holder exclusion registries now bind every mint, owner and token-account
+selector to a canonical 32-byte Solana base58 address before their reviewed
+completeness can affect concentration, security or bot-safety projections.
+
 | Consumer | Required data | Current source | Normalized contract | Freshness / safety | Exposure | Coverage |
 |---|---|---|---|---|---|---|
 | Terminal DEX activity | provisional and canonical blocks, transactions, transfers and swaps | local Agave confirmed/finalized PubSub plus HTTP gap repair; reduced mode uses Helius/Alchemy finalized polling | exact slots, hashes, signatures, per-fact provider provenance and parser-preserved confirmed/finalized commitment, per-transaction event index/swap ID, string base-unit amounts | every configured local/external failover node independently passes mainnet genesis verification before any data call (external evidence refreshes on a bounded TTL), correlated JSON-RPC responses, commitment-bound unique PubSub subscriptions, stale-socket isolation, provider failover, bounded Retry-After circuits, atomic multi-record inbox application and all-fact finalized promotion, downgrade refusal, source deduplication, exact static/loaded account-index preservation with malformed-key and out-of-range-instruction rejection, non-coercing signature/fee validation, stale/conflict health | REST/RPC/WebSocket | stream subscription integrity, local/provider response-correlation, failover/rate-limit, inbox batch atomicity/finality, transaction/account-index integrity, gap, retention, multi-event pagination and decoder tests |
