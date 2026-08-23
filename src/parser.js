@@ -59,6 +59,19 @@ export function recognizedSwapInstructionProtocol(instruction) {
   }
   return null;
 }
+export function recognizedLifecycleInstructionOutput(instruction) {
+  if (typeof instruction?.data !== "string") return null;
+  let data; try { data = decodeBase58(instruction.data); } catch { return null; }
+  const discriminator = data.subarray(0, 8), exact = (length, expected) => data.length === length && discriminator.equals(expected);
+  if (instruction.programId === RAYDIUM_CPMM && exact(32, RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR)) return { protocol: "raydium-cpmm", type: "pool_created" };
+  if (instruction.programId === RAYDIUM_CLMM && exact(32, RAYDIUM_CLMM_CREATE_POOL_DISCRIMINATOR)) return { protocol: "raydium-clmm", type: "pool_created" };
+  if (instruction.programId === PUMP_AMM && exact(60, PUMP_AMM_CREATE_POOL_DISCRIMINATOR) && data[58] <= 1 && data[59] <= 1) return { protocol: "pump-swap", type: "pool_created" };
+  if (instruction.programId === PUMP_PROGRAM && data.length >= 55 && discriminator.equals(PUMP_CREATE_V2_DISCRIMINATOR)) {
+    try { let cursor = 8; cursor = readBorshString(data, cursor, 32).offset; cursor = readBorshString(data, cursor, 10).offset; cursor = readBorshString(data, cursor, 200).offset; if (cursor + 34 === data.length && data[cursor + 32] <= 1 && data[cursor + 33] <= 1) return { protocol: "pump-bonding-curve", type: "pool_created" }; } catch {}
+  }
+  if (instruction.programId === PUMP_PROGRAM && (exact(8, PUMP_MIGRATE_DISCRIMINATOR) || exact(8, PUMP_MIGRATE_V2_DISCRIMINATOR))) return { protocol: "pump-bonding-curve", type: "pool_migrated" };
+  return null;
+}
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");
   const byteLength = buffer.readUInt32LE(offset); offset += 4;
