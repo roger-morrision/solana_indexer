@@ -42,6 +42,7 @@ import { completeArchiveReceipt, createInboxManifest } from "../src/archive-rece
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-health.js";
 import { readBoundedJsonFile } from "../src/bounded-json-file.js";
+import { readSecretFile } from "../src/secret-file.js";
 import { archiveInbox } from "../src/inbox-archive.js";
 import { reducedPreflight } from "../src/reduced-preflight.js";
 import { compileHolderExclusions, holderExclusionContentSha256, loadHolderExclusions } from "../src/holder-exclusions.js";
@@ -979,6 +980,10 @@ test("persists bounded dead-letter evidence for invalid inbox payloads", async (
 test("ingestion rejects oversized inbox and snapshot files before parsing", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-ingestion-boundary-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"), snapshotFile = path.join(root, "snapshot.json"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "oversized.json"), "x".repeat(65_537)); await fs.writeFile(snapshotFile, "x".repeat(65_537));
   const store = new IndexStore(dataFile); const result = await indexInbox({ inbox, dataFile, maxIngestionFileBytes: 65_536, accountSnapshotFile: snapshotFile }, store); assert.equal(result.files, 0); assert.equal(result.snapshots, 0); assert.equal(result.errors.length, 2); assert.equal(store.state.deadLetters.length, 1); assert.equal(store.state.deadLetters[0].failureStage, "inbox_read"); assert.equal(store.state.deadLetters[0].fingerprint, null); assert.match(result.errors[0].error, /ingestion file is unsafe/); assert.deepEqual(result.errors[1], { file: "snapshot:account", error: "ingestion file is unsafe: invalid_file" });
+});
+
+test("credential files are stable bounded regular files with one value", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-secret-file-")), filename = path.join(root, "password"); await fs.writeFile(filename, "correct horse battery staple\n"); assert.equal(await readSecretFile(filename, "TEST_PASSWORD"), "correct horse battery staple"); await fs.writeFile(filename, "first\nsecond\n"); await assert.rejects(readSecretFile(filename, "TEST_PASSWORD"), /one credential/); await fs.writeFile(filename, "x".repeat(4_097)); await assert.rejects(readSecretFile(filename, "TEST_PASSWORD"), /unsafe: invalid_file/); await fs.writeFile(filename, " \r\n"); await assert.rejects(readSecretFile(filename, "TEST_PASSWORD"), /empty/); await assert.rejects(readSecretFile(path.join(root, "missing"), "TEST_PASSWORD"), /unavailable/);
 });
 
 test("rejects multi-record inbox files atomically before checkpointing", async () => {

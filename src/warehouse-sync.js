@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
@@ -16,6 +15,7 @@ import { RAYDIUM_CLMM_PROGRAM } from "./clmm-pool-snapshot.js";
 import { derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, derivePumpSwapFeeConfig, derivePumpSwapGlobalConfig, PUMP_PROGRAM, PUMP_SWAP_PROGRAM } from "./pump-swap-pool-snapshot.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { readSecretFile } from "./secret-file.js";
 import { runBoundedProcess } from "./bounded-process.js";
 import { readBoundedJsonFile } from "./bounded-json-file.js";
 
@@ -338,7 +338,7 @@ async function main() {
   const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile, checkpoint = await readBoundedJsonFile(checkpointFile, { missing: { lastSequence: 0 } });
   if (checkpoint?.evidenceReadError) throw new Error(`warehouse checkpoint is unavailable: ${checkpoint.evidenceReadError}`);
   const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); await store.load(); assertWarehousePublicationState(store);
-  const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; } if (config.redisPasswordFile) { const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); clientEnv.REDISCLI_AUTH = password; }
+  const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) clientEnv.CLICKHOUSE_PASSWORD = await readSecretFile(config.clickhousePasswordFile, "CLICKHOUSE_PASSWORD_FILE"); if (config.redisPasswordFile) clientEnv.REDISCLI_AUTH = await readSecretFile(config.redisPasswordFile, "REDIS_PASSWORD_FILE");
   const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv), reconciliation = await probeWarehouseReconciliation(expectedWarehouseReconciliation(state, result.sequence, projections, facts), spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks, reconciliation); console.log(JSON.stringify({ ...result, sinks, reconciliation, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));
 }
 

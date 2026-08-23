@@ -237,8 +237,8 @@ Configuration:
 | `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic version-2 mainnet/genesis-bound checkpoint advanced only after ClickHouse, PostgreSQL, and Redis reconcile canonical state |
 | `INDEXER_WAREHOUSE_STALE_AFTER_MS` | `300000` | Maximum successful warehouse checkpoint age before health fails closed |
 | `INDEXER_MAX_WAREHOUSE_LAG_EVENTS` | `1000` | Maximum canonical-event lag before warehouse health fails closed |
-| `CLICKHOUSE_PASSWORD_FILE` | unset | Protected ClickHouse password file read into the client subprocess environment without command-line exposure |
-| `REDIS_PASSWORD_FILE` | unset | Protected Redis password file read into `redis-cli` subprocess environment without command-line exposure |
+| `CLICKHOUSE_PASSWORD_FILE` | unset | Protected stable non-link ClickHouse password file (maximum 4 KiB, one credential) read into the client subprocess environment without command-line exposure |
+| `REDIS_PASSWORD_FILE` | unset | Protected stable non-link Redis password file (maximum 4 KiB, one credential) read into the client subprocess environment without command-line exposure |
 | `INDEXER_REDIS_HOT_TTL_SECONDS` | `86400` | Retention for versioned Redis pool/token hot-state hashes |
 | `INDEXER_REDIS_HOT_MAX_BYTES` | `16777216` | Hard byte cap for one staged Redis hot-state/fan-out transaction |
 | `INDEXER_DISTRIBUTED_QUOTA` | `false` | Use atomic Redis fixed-window admission; configured admission failures return 503 instead of falling back locally |
