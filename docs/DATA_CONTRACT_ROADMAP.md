@@ -290,7 +290,9 @@ dead letters require stable identity, canonical ordered observation/resolution
 times, bounded errors, and resolution backed by the exact processed-file or typed
 snapshot-artifact checkpoint fingerprint. Snapshot checkpoints have allowlisted types,
 including Phoenix and OpenBook market artifacts emitted by the shared ingestion path,
-canonical source/application timestamps, and valid source slots; successful retries
+and ingestion plus recovery validation derive that allowlist from one immutable
+artifact registry. Checkpoints require canonical source/application timestamps and
+valid source slots; successful retries
 resolve matching snapshot dead letters. Reorg corrections retain ordered replacement
 chains ending at the currently canonical slot. Repair and reconciliation
 commands remain outside this serving gate so quarantined state can be corrected.

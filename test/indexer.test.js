@@ -8,6 +8,7 @@ import test from "node:test";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { applySnapshotArtifacts, indexInbox, watchInbox } from "../src/indexer.js";
+import { SNAPSHOT_ARTIFACT_REGISTRY, SNAPSHOT_ARTIFACT_TYPES } from "../src/snapshot-artifact-registry.js";
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmPoolInitializations, decodeMeteoraDlmmSwapEvents, decodeOpenBookV2SwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePhoenixSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumAmmV4PoolInitializations, decodeRaydiumAmmV4SwapEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedLifecycleInstructionEvidence, recognizedLifecycleInstructionOutput, recognizedSwapInstructionEvidence, recognizedSwapInstructionProtocol } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
@@ -969,6 +970,19 @@ test("snapshot batches validate atomically before mutating canonical state", asy
   const falseBitmap = { bitCount: 1024, minStartTickIndex: -30_720, maxStartTickIndexExclusive: 30_720, initializedTickArrayStartIndexes: [0], rawHex: "00".repeat(128) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, defaultTickArrayBitmap: falseBitmap }] }), /invalid CLMM pool snapshot row/);
   const falseExtension = { address: "extension-a", pool: "wrong-pool", segmentBits: 512, positiveBitmapSegments: Array(14).fill("00".repeat(64)), negativeBitmapSegments: Array(14).fill("00".repeat(64)), rawPayloadHash: "a".repeat(64) }; assert.throws(() => store.applyPoolSnapshot({ ...poolEnvelope, pools: [{ ...poolRow, bitmapExtension: falseExtension, bitmapExtensionSlot: 800 }] }), /invalid CLMM pool snapshot row/);
   assert.equal(store.state.poolSnapshots["pool-a"], undefined); assert.equal(store.state.pools["pool-a"], undefined);
+});
+
+test("snapshot artifact registry uniquely binds every configured family to recovery", () => {
+  assert.equal(Object.isFrozen(SNAPSHOT_ARTIFACT_REGISTRY), true);
+  assert.equal(Object.isFrozen(SNAPSHOT_ARTIFACT_TYPES), true);
+  assert.equal(new Set(SNAPSHOT_ARTIFACT_TYPES).size, SNAPSHOT_ARTIFACT_REGISTRY.length);
+  assert.deepEqual(SNAPSHOT_ARTIFACT_TYPES, SNAPSHOT_ARTIFACT_REGISTRY.map(({ type }) => type));
+  for (const descriptor of SNAPSHOT_ARTIFACT_REGISTRY) {
+    assert.equal(Object.isFrozen(descriptor), true);
+    assert.match(descriptor.type, /^[a-z][a-z0-9_]*$/);
+    assert.equal(typeof loadConfig({}, process.cwd())[descriptor.configKey], "string");
+    assert.equal(typeof IndexStore.prototype[descriptor.applyMethod], "function");
+  }
 });
 
 test("serialized index cycles ingest snapshot artifacts exactly once", async () => {

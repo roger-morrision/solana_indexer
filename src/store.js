@@ -12,6 +12,7 @@ import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
 import { recognizedLifecycleInstructionEvidence, recognizedSwapInstructionEvidence } from "./parser.js";
 import { createProgramAddress, decodeBase58Address } from "./solana-pda.js";
 import { evaluateOpenBookOraclePolicy, projectOpenBookPeggedOrder } from "./openbook-oracle-policy.js";
+import { SNAPSHOT_ARTIFACT_TYPES } from "./snapshot-artifact-registry.js";
 
 export const MAX_INDEX_STATE_BYTES = 536_870_912;
 
@@ -128,9 +129,9 @@ export function canonicalPersistedRecoveryState(state) {
   for (const [name, row] of Object.entries(state.processedFiles)) if (!file(name) || !hash(row?.fingerprint) || row.parserVersion !== 2) return false;
   const inbox = state.checkpoints.inbox;
   if (inbox != null && (!file(inbox.filename) || !hash(inbox.fingerprint) || inbox.parserVersion !== 2 || parseCanonicalUtcTimestamp(inbox.updatedAt) == null || state.processedFiles[inbox.filename]?.fingerprint !== inbox.fingerprint)) return false;
-  const snapshotTypes = new Set(["account", "cpmm_pool", "amm_v4_pool", "pump_swap_pool", "pump_bonding_curve", "clmm_pool", "orca_pool", "meteora_dlmm_pool", "phoenix_market", "openbook_market", "offchain_metadata"]), snapshotArtifacts = state.checkpoints.snapshotArtifacts;
+  const snapshotArtifacts = state.checkpoints.snapshotArtifacts;
   if (snapshotArtifacts != null && (!snapshotArtifacts || typeof snapshotArtifacts !== "object" || Array.isArray(snapshotArtifacts))) return false;
-  for (const [type, row] of Object.entries(snapshotArtifacts ?? {})) { const observed = parseCanonicalUtcTimestamp(row?.observedAt), applied = parseCanonicalUtcTimestamp(row?.appliedAt); if (!snapshotTypes.has(type) || !hash(row?.fingerprint) || observed == null || applied == null || applied < observed || (type === "offchain_metadata" ? row?.sourceSlot != null : !Number.isSafeInteger(row?.sourceSlot) || row.sourceSlot < 0)) return false; }
+  for (const [type, row] of Object.entries(snapshotArtifacts ?? {})) { const observed = parseCanonicalUtcTimestamp(row?.observedAt), applied = parseCanonicalUtcTimestamp(row?.appliedAt); if (!SNAPSHOT_ARTIFACT_TYPES.includes(type) || !hash(row?.fingerprint) || observed == null || applied == null || applied < observed || (type === "offchain_metadata" ? row?.sourceSlot != null : !Number.isSafeInteger(row?.sourceSlot) || row.sourceSlot < 0)) return false; }
   const overflow = state.checkpoints.deadLetterOverflow, overflowFirst = parseCanonicalUtcTimestamp(overflow?.firstObservedAt), overflowLast = parseCanonicalUtcTimestamp(overflow?.lastObservedAt);
   if (state.deadLetters.length > MAX_DEAD_LETTERS || overflow != null && (overflow.schemaVersion !== 1 || !Number.isSafeInteger(overflow.droppedCount) || overflow.droppedCount < 1 || overflowFirst == null || overflowLast == null || overflowLast < overflowFirst)) return false;
   const identities = new Set();
