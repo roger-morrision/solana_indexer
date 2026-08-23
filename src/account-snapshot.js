@@ -9,7 +9,7 @@ import { assertSnapshotAcquisitionAllowed } from "./snapshot-cli-policy.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { decodeTokenMetadataAccount, TOKEN_METADATA_PROGRAM } from "./token-metadata.js";
-import { extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
+import { decodeRawToken2022MintEvidence, extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
 import { encodeBase58 } from "./solana-pda.js";
 export { extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
 
@@ -46,11 +46,13 @@ export function decodeRawToken2022Account(account, expectedMint, decimals, trans
 export async function createAccountSnapshot({ client, mints, genesisHash, observedAt = new Date().toISOString() }) {
   if (!Array.isArray(mints) || !mints.length || new Set(mints).size !== mints.length || mints.some((mint) => typeof mint !== "string" || !mint)) throw new Error("snapshot mints must be unique non-empty addresses");
   const epochInfo = await client.call("getEpochInfo", [{ commitment: "finalized" }]), slot = epochInfo?.absoluteSlot, epoch = epochInfo?.epoch; if (!Number.isSafeInteger(slot) || slot < 0 || !Number.isSafeInteger(epoch) || epoch < 0) throw new Error("invalid finalized account snapshot epoch context");
-  const mintAccounts = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "mint" }); const rows = [];
+  const mintAccounts = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "mint" }), token2022Mints = mints.filter((_, index) => mintAccounts.value[index]?.owner === TOKEN_PROGRAMS[1]), rawToken2022 = token2022Mints.length ? await getMultipleAccountsBatched(client, token2022Mints, { commitment: "finalized", encoding: "base64", minContextSlot: slot }, { expectedSlot: slot, label: "raw Token-2022 mint" }) : { value: [] }, rawMintAccounts = new Map(token2022Mints.map((mint, index) => [mint, rawToken2022.value[index]])); const rows = [];
   for (let index = 0; index < mints.length; index++) {
-    const mint = mints[index], mintAccount = mintAccounts.value[index], mintInfo = mintAccount?.data?.parsed?.info; const accounts = new Map(); let totalAmount = 0n;
-    if (!TOKEN_PROGRAMS.includes(mintAccount?.owner) || !mintInfo || !validU64(mintInfo.supply) || !validDecimals(mintInfo.decimals)) throw new Error(`invalid canonical mint account ${mint}`);
-    const token2022Evidence = extractToken2022MintEvidence(mintAccount, epoch, slot), transferFeeConfig = token2022Evidence?.transferFeeConfig ?? null;
+    const mint = mints[index], mintAccount = mintAccounts.value[index], parsedMintInfo = mintAccount?.data?.parsed?.info; const accounts = new Map(); let totalAmount = 0n;
+    if (!TOKEN_PROGRAMS.includes(mintAccount?.owner) || !parsedMintInfo || !validU64(parsedMintInfo.supply) || !validDecimals(parsedMintInfo.decimals)) throw new Error(`invalid canonical mint account ${mint}`);
+    const rawMint = mintAccount.owner === TOKEN_PROGRAMS[1] ? decodeRawToken2022MintEvidence(rawMintAccounts.get(mint), epoch, slot) : null, parsedExtensionTypes = Array.isArray(parsedMintInfo.extensions) ? parsedMintInfo.extensions.map((extension) => extension?.extension) : null;
+    if (rawMint && (parsedMintInfo.supply !== rawMint.mintInfo.supply || parsedMintInfo.decimals !== rawMint.mintInfo.decimals || (parsedMintInfo.mintAuthority ?? null) !== rawMint.mintInfo.mintAuthority || (parsedMintInfo.freezeAuthority ?? null) !== rawMint.mintInfo.freezeAuthority || !parsedExtensionTypes || JSON.stringify([...parsedExtensionTypes].sort()) !== JSON.stringify(rawMint.mintInfo.extensions.map((extension) => extension.extension).sort()))) throw new Error(`parsed and raw Token-2022 mint evidence differ for ${mint}`);
+    const mintInfo = rawMint?.mintInfo ?? parsedMintInfo, token2022Evidence = rawMint?.token2022Evidence ?? extractToken2022MintEvidence(mintAccount, epoch, slot), transferFeeConfig = token2022Evidence?.transferFeeConfig ?? null;
     for (const programId of TOKEN_PROGRAMS) {
       const encoding = programId === TOKEN_PROGRAMS[1] ? "base64" : "jsonParsed", found = await client.call("getProgramAccounts", [programId, { commitment: "finalized", encoding, minContextSlot: slot, withContext: true, filters: [{ memcmp: { offset: 0, bytes: mint } }] }]);
       if (found?.context?.slot !== slot || !Array.isArray(found.value)) throw new Error(`token accounts for ${mint} did not share the exact finalized snapshot context`);

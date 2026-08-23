@@ -1,6 +1,9 @@
+import { encodeBase58 } from "./solana-pda.js";
+
 const U64_MAX = (1n << 64n) - 1n;
 const BASIS_POINTS_DENOMINATOR = 10_000n;
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+const MINT_EXTENSION_NAMES = new Map([[1, "transferFeeConfig"], [3, "mintCloseAuthority"], [4, "confidentialTransferMint"], [6, "defaultAccountState"], [9, "nonTransferable"], [10, "interestBearingConfig"], [12, "permanentDelegate"], [14, "transferHook"], [16, "confidentialTransferFeeConfig"], [18, "metadataPointer"], [19, "tokenMetadata"], [20, "groupPointer"], [21, "tokenGroup"], [22, "groupMemberPointer"], [23, "tokenGroupMember"], [24, "confidentialMintBurn"], [25, "scaledUiAmount"], [26, "pausable"], [28, "permissionedBurn"]]);
 
 function u64(value, label) {
   let parsed;
@@ -43,6 +46,19 @@ export function extractToken2022MintEvidence(mintAccount, currentEpoch, slot) {
   if (feeExtensions.length > 1) throw new Error("Token-2022 transfer fee extension is ambiguous");
   const transferFeeConfig = feeExtensions.length ? normalizeTransferFeeConfig(feeExtensions[0].state) : null;
   return { schemaVersion: 1, programId: TOKEN_2022_PROGRAM, commitment: "finalized", slot, epoch: currentEpoch, transferFeeConfig, activeTransferFee: transferFeeConfig ? selectEpochTransferFee(transferFeeConfig, currentEpoch) : null };
+}
+
+function rawBase64(account, label) { if (account?.owner !== TOKEN_2022_PROGRAM || !Array.isArray(account.data) || account.data.length !== 2 || account.data[1] !== "base64" || typeof account.data[0] !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(account.data[0])) throw new Error(`${label} encoding is invalid`); const bytes = Buffer.from(account.data[0], "base64"); if (bytes.length > 65_536 || bytes.toString("base64").replace(/=+$/, "") !== account.data[0].replace(/=+$/, "")) throw new Error(`${label} encoding is invalid`); return bytes; }
+function coptionAddress(bytes, offset, label) { const tag = bytes.readUInt32LE(offset); if (tag === 0) return null; if (tag !== 1) throw new Error(`${label} is invalid`); return encodeBase58(bytes.subarray(offset + 4, offset + 36)); }
+function rawFee(bytes, offset) { return { epoch: epoch(bytes.readBigUInt64LE(offset), "transfer fee epoch"), maximumFeeRaw: bytes.readBigUInt64LE(offset + 8).toString(), transferFeeBasisPoints: bytes.readUInt16LE(offset + 16) }; }
+
+export function decodeRawToken2022MintEvidence(account, currentEpoch, slot) {
+  if (!Number.isSafeInteger(currentEpoch) || currentEpoch < 0 || !Number.isSafeInteger(slot) || slot < 0) throw new Error("Token-2022 epoch evidence is invalid");
+  const bytes = rawBase64(account, "raw Token-2022 mint"); if (bytes.length < 82 || bytes[45] !== 1) throw new Error("raw Token-2022 mint base is invalid");
+  const mintInfo = { mintAuthority: coptionAddress(bytes, 0, "mint authority"), supply: bytes.readBigUInt64LE(36).toString(), decimals: bytes[44], freezeAuthority: coptionAddress(bytes, 46, "freeze authority") }, extensionTypes = [], seen = new Set(); let transferFeeConfig = null;
+  if (bytes.length > 82) { if (bytes.length < 170 || bytes.subarray(82, 165).some((byte) => byte !== 0) || bytes[165] !== 1) throw new Error("raw Token-2022 mint extension envelope is invalid"); let offset = 166; while (offset < bytes.length) { if (offset + 4 > bytes.length) throw new Error("truncated raw Token-2022 mint extension"); const type = bytes.readUInt16LE(offset), length = bytes.readUInt16LE(offset + 2); offset += 4; if (type === 0 && length === 0) { if (bytes.subarray(offset).some((byte) => byte !== 0)) throw new Error("raw Token-2022 mint extension padding is invalid"); break; } const name = MINT_EXTENSION_NAMES.get(type); if (!name || seen.has(type) || offset + length > bytes.length) throw new Error("raw Token-2022 mint extension is invalid"); seen.add(type); extensionTypes.push(name); if (type === 1) { if (length !== 108) throw new Error("raw Token-2022 transfer fee config is invalid"); transferFeeConfig = normalizeTransferFeeConfig({ withheldAmountRaw: bytes.readBigUInt64LE(offset + 64), olderTransferFee: rawFee(bytes, offset + 72), newerTransferFee: rawFee(bytes, offset + 90) }); } offset += length; } }
+  mintInfo.extensions = extensionTypes.map((extension) => extension === "transferFeeConfig" ? { extension, state: transferFeeConfig } : { extension });
+  return { mintInfo, token2022Evidence: { schemaVersion: 1, programId: TOKEN_2022_PROGRAM, commitment: "finalized", slot, epoch: currentEpoch, transferFeeConfig, activeTransferFee: transferFeeConfig ? selectEpochTransferFee(transferFeeConfig, currentEpoch) : null } };
 }
 
 export function calculateTransferFeeIncludedAmount(amountRaw, fee) {
