@@ -13,6 +13,7 @@ const programs = [
   { programId: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P", protocol: "pump-bonding-curve", deploymentVersion: "mainnet", decoderVersion: 5, activationSlot: 0, eventTypes: ["swap", "pool_created", "curve_completed", "pool_migrated", "migration_completed"] },
   { programId: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo", protocol: "meteora-dlmm", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
   { programId: "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY", protocol: "phoenix-orderbook", deploymentVersion: "legacy-mainnet", decoderVersion: 1, activationSlot: 0, eventTypes: ["swap"] },
+  { programId: "opnb2LAfJYbRMAHHvqjCwQxanZn7ReEHp1k81EohpZb", protocol: "openbook-v2", deploymentVersion: "mainnet-v1.7", decoderVersion: 1, activationSlot: 0, eventTypes: ["swap"] },
 ];
 
 export const PROGRAM_REGISTRY = new Map(programs.map((row) => [row.programId, Object.freeze(row)]));

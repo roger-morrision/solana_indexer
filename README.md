@@ -844,7 +844,7 @@ before holder concentration can unlock trading-bot decisions.
 Pool candles support 60, 300, 900, 3600, 14400, and 86400-second intervals.
 Prices remain exact `quote_raw/base_raw` fractions and volumes remain separate
 base/quote raw integer strings. Protocol events provide pair orientation for
-Raydium CPMM/CLMM, Orca Whirlpools, Meteora DLMM, Phoenix orderbook, PumpSwap, and Pump bonding curves; sidecars without authoritative
+Raydium CPMM/CLMM, Orca Whirlpools, Meteora DLMM, Phoenix orderbook, OpenBook V2, PumpSwap, and Pump bonding curves; sidecars without authoritative
 pair fields use a visibly labeled deterministic lexical fallback. No USD value
 is inferred.
 
@@ -869,6 +869,13 @@ official reward mints resolve `Undetermined` pools exactly: only pools with both
 reward mints unset receive limit-order behavior. Missing reward evidence fails
 closed. Transaction construction, simulation, signing, submission, and bot
 execution remain unavailable.
+
+OpenBook V2 `placeTakeOrder` swaps are published only for the official 35-byte
+Anchor payload and 16-account ABI. The decoder requires positive order bounds,
+canonical legacy SPL and System program accounts, and opposing exact deltas on
+the signer's designated base and quote token accounts. It retains side,
+price/quantity bounds, order type, and match limit; zero-fill, owner-conflicted,
+malformed, and unsupported-account transactions fail closed.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
