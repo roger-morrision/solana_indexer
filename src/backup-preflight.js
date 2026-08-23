@@ -9,11 +9,11 @@ import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { canonicalInboxName } from "./archive-receipt.js";
 
-const ARTIFACTS = new Set(["postgres.dump", "clickhouse-instructions.native", "clickhouse-swaps.native", "clickhouse-balance_changes.native", "clickhouse-dead_letters.native", "redis.rdb", "indexer-state.tar", "inbox-manifest.json"]);
+const ARTIFACTS = new Set(["postgres.dump", "clickhouse-canonical_events.native", "clickhouse-canonical_instructions.native", "clickhouse-canonical_swaps.native", "clickhouse-canonical_balance_changes.native", "clickhouse-canonical_native_transfers.native", "clickhouse-canonical_dead_letters.native", "clickhouse-canonical_candles.native", "redis.rdb", "indexer-state.tar", "inbox-manifest.json"]);
 const REQUIRED = new Set([...ARTIFACTS, "manifest.json"]);
 const BACKUP_ID = /^[0-9]{8}T[0-9]{6}Z$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const BACKUP_SCHEMA_VERSION = 3;
+const BACKUP_SCHEMA_VERSION = 4;
 const CHAIN = "solana-mainnet";
 const RESTORE_STATE_FILES = new Set(["data/index.json", "data/exporter-status.json", "data/account-snapshot.json"]);
 const RESTORE_DIRECTORIES = new Set(["data", "inbox"]);

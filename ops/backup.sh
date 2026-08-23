@@ -10,7 +10,7 @@ compose="$repo/infra/compose.yaml"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"; target="$backup_root/$stamp"; install -d -m 0700 "$target"
 cd "$repo"
 docker compose -f "$compose" exec -T postgres pg_dump -U terminal_dex -d terminal_dex --format=custom --no-owner > "$target/postgres.dump"
-for table in instructions swaps balance_changes dead_letters; do docker compose -f "$compose" exec -T clickhouse clickhouse-client --database terminal_dex --query "SELECT * FROM $table FORMAT Native" > "$target/clickhouse-$table.native"; done
+for table in canonical_events canonical_instructions canonical_swaps canonical_balance_changes canonical_native_transfers canonical_dead_letters canonical_candles; do docker compose -f "$compose" exec -T clickhouse clickhouse-client --database terminal_dex --query "SELECT * FROM $table FORMAT Native" > "$target/clickhouse-$table.native"; done
 docker compose -f "$compose" exec -T redis sh -c 'redis-cli -a "$(cat /run/secrets/redis_password)" --no-auth-warning SAVE >/dev/null'
 docker compose -f "$compose" cp redis:/data/dump.rdb "$target/redis.rdb" >/dev/null
 tar --create --format=ustar --file "$target/indexer-state.tar" data/index.json data/exporter-status.json data/account-snapshot.json inbox

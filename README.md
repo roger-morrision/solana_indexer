@@ -533,7 +533,7 @@ core projections. It always sets `promotionAuthorized: false`; promotion is a
 separate operator-reviewed action outside this command.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
 and inbox archives and uploads them to the loopback SeaweedFS filer. Only after
-writers are explicitly quiesced can the CLI or library create the version-3
+writers are explicitly quiesced can the CLI or library create the version-4
 manifest; neither boundary manufactures that assertion. Only after
 the complete archive and inbox receipt are uploaded and read-back SHA-256
 verified does it create, upload, verify, and
@@ -567,7 +567,9 @@ links into a private temporary staging directory, validates that staged copy,
 and consumes only staged files to remove source-directory mutation races. Failed
 restores remove staging automatically; successful restores retain it until the
 operator completes recovery qualification against those exact bytes.
-Status creation revalidates the complete version-3 artifact inventory and proves
+Status creation revalidates the complete version-4 artifact inventory—including
+canonical events, instructions, swaps, balance changes, native transfers, dead
+letters, and candles—and proves
 the uploaded receipt's manifest hash equals the exact `inbox-manifest.json`
 artifact hash. Missing or divergent upload-completion timestamps fail closed.
 The installed version-2 status embeds those completion identities under a
@@ -576,7 +578,7 @@ legacy, edited, or internally divergent status files.
 `ops/fetch-backup.sh` retrieves and verifies a known archive without enumerating
 storage. `ops/restore.sh` verifies checksums and requires the explicit
 `npm run validate:backup -- /absolute/backup-directory` preflight. The preflight
-requires the complete fixed sink inventory, a version-3 `solana-mainnet`
+requires the complete fixed sink inventory, a version-4 `solana-mainnet`
 manifest binding the
 quiesced-writer assertion and exact byte length/SHA-256 of every artifact, an
 inbox manifest bound to the same backup identity, a backup inside the 24-hour RPO,
@@ -587,7 +589,7 @@ an isolated restore, `npm run validate:recovery` exclusively writes a report onl
 when the same backup manifest hash, canonical index health, zero-lag exact
 warehouse convergence, healthy finalized exporter evidence, and the four-hour RTO all validate.
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
-and Prometheus validate its version-3 qualification shape, exact duration,
+and Prometheus validate its version-4 qualification shape, exact duration,
 canonical embedded backup/index/warehouse/exporter summary, recomputed evidence
 digest, invariants,
 and quarterly age without exposing sink credentials or report contents.

@@ -25,7 +25,7 @@ version-2 status embeds and digest-binds its chain, storage, backup, completion,
 manifest, and receipt identities so monitoring rejects edited or legacy status.
 
 `fetch-backup.sh <UTC-stamp>` downloads a known archive from that same loopback
-filer and verifies its checksum inventory and version-3 manifest before it can
+filer and verifies its checksum inventory and version-4 manifest before it can
 be passed to `restore.sh`. The manifest binds the backup identity, quiesced-writer
 assertion, exact byte length and SHA-256 of every cross-store artifact, and the
 inbox manifest archive identity. It does

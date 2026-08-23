@@ -16,14 +16,14 @@ staging="$(mktemp -d "${TMPDIR:-/tmp}/terminal-dex-recovery.XXXXXX")"
 restore_complete=no
 cleanup_staging() { if [[ "$restore_complete" != yes ]]; then rm -rf -- "$staging"; fi; }
 trap cleanup_staging EXIT
-for artifact in SHA256SUMS manifest.json postgres.dump clickhouse-instructions.native clickhouse-swaps.native clickhouse-balance_changes.native clickhouse-dead_letters.native redis.rdb indexer-state.tar inbox-manifest.json; do cp --no-dereference --reflink=auto -- "$source_dir/$artifact" "$staging/$artifact"; done
+for artifact in SHA256SUMS manifest.json postgres.dump clickhouse-canonical_events.native clickhouse-canonical_instructions.native clickhouse-canonical_swaps.native clickhouse-canonical_balance_changes.native clickhouse-canonical_native_transfers.native clickhouse-canonical_dead_letters.native clickhouse-canonical_candles.native redis.rdb indexer-state.tar inbox-manifest.json; do cp --no-dereference --reflink=auto -- "$source_dir/$artifact" "$staging/$artifact"; done
 source_dir="$staging"
 compose_cmd=(docker compose --project-name "$project" -f "$compose")
 (cd "$source_dir" && sha256sum --check SHA256SUMS)
 node "$repo/src/backup-preflight.js" "$source_dir"
 cd "$repo"
 "${compose_cmd[@]}" exec -T postgres pg_restore --clean --if-exists --no-owner -U terminal_dex -d terminal_dex < "$source_dir/postgres.dump"
-for table in instructions swaps balance_changes dead_letters; do "${compose_cmd[@]}" exec -T clickhouse clickhouse-client --database terminal_dex --query "TRUNCATE TABLE $table"; "${compose_cmd[@]}" exec -T clickhouse clickhouse-client --database terminal_dex --query "INSERT INTO $table FORMAT Native" < "$source_dir/clickhouse-$table.native"; done
+for table in canonical_events canonical_instructions canonical_swaps canonical_balance_changes canonical_native_transfers canonical_dead_letters canonical_candles; do "${compose_cmd[@]}" exec -T clickhouse clickhouse-client --database terminal_dex --query "TRUNCATE TABLE $table"; "${compose_cmd[@]}" exec -T clickhouse clickhouse-client --database terminal_dex --query "INSERT INTO $table FORMAT Native" < "$source_dir/clickhouse-$table.native"; done
 "${compose_cmd[@]}" stop redis
 "${compose_cmd[@]}" cp "$source_dir/redis.rdb" redis:/data/dump.rdb
 "${compose_cmd[@]}" run --rm --no-deps --user root redis sh -c 'chown redis:redis /data/dump.rdb && chmod 600 /data/dump.rdb'
