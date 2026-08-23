@@ -211,8 +211,11 @@ Persisted recovery evidence is revalidated as one collection before health,
 bot readiness, or gap API delivery. Parser-v2 file identities retain exact
 SHA-256 fingerprints; the inbox high-water mark binds one of those identities;
 dead letters require stable identity, canonical ordered observation/resolution
-times, bounded errors, and coherent resolution state; reorg corrections bind
-their replacement hash to the currently canonical slot. Repair and reconciliation
+times, bounded errors, and resolution backed by the exact processed-file or typed
+snapshot-artifact checkpoint fingerprint. Snapshot checkpoints have allowlisted types,
+canonical source/application timestamps, and valid source slots; successful retries
+resolve matching snapshot dead letters. Reorg corrections retain ordered replacement
+chains ending at the currently canonical slot. Repair and reconciliation
 commands remain outside this serving gate so quarantined state can be corrected.
 Dead-letter diagnostics cross one shared bounded redaction boundary before they
 enter compatibility state, cycle results, backups, or warehouse facts. Provider
