@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { durableAtomicWrite } from "./durable-file.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { readBoundedFile } from "./bounded-json-file.js";
+import { readBoundedDirectoryNames } from "./bounded-directory.js";
 
 const sha256 = (content) => crypto.createHash("sha256").update(content).digest("hex");
 const ARCHIVE_ID = /^[0-9]{8}T[0-9]{6}Z$/;
@@ -15,16 +16,16 @@ const MAX_INBOX_FILE_BYTES = 256 * 1_024 * 1_024;
 export function canonicalInboxName(name) { return typeof name === "string" && Buffer.byteLength(name) <= 100 && /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:json|ndjson)$/.test(name); }
 async function inspectCanonicalInboxFile(inbox, name) { if (!canonicalInboxName(name)) throw new Error(`invalid inbox filename: ${name}`); const filename = path.join(inbox, name), stat = await fs.lstat(filename); if (!stat.isFile() || stat.isSymbolicLink() || !Number.isSafeInteger(stat.size) || stat.size < 1 || stat.size > MAX_INBOX_FILE_BYTES) throw new Error(`inbox entry is not a bounded regular file: ${name}`); return { filename, size: stat.size }; }
 export async function readCanonicalInboxFile(inbox, name) { const inspected = await inspectCanonicalInboxFile(inbox, name), content = await readBoundedFile(inspected.filename, { maximumBytes: MAX_INBOX_FILE_BYTES }); if (!Buffer.isBuffer(content) || content.length !== inspected.size) throw new Error(`inbox entry changed while being read: ${name}`); return content; }
-export async function canonicalInboxNames(inbox) { const names = (await fs.readdir(inbox)).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort(); for (const name of names) await inspectCanonicalInboxFile(inbox, name); return names; }
+export async function canonicalInboxNames(inbox, maximumEntries = 100_000) { const names = (await readBoundedDirectoryNames(inbox, { maximumEntries })).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort(); for (const name of names) await inspectCanonicalInboxFile(inbox, name); return names; }
 
 async function writeAtomic(filename, value) {
   await durableAtomicWrite(filename, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-export async function createInboxManifest({ inbox, output, archiveId }) {
+export async function createInboxManifest({ inbox, output, archiveId, maximumEntries = 100_000 }) {
   if (!ARCHIVE_ID.test(archiveId ?? "")) throw new Error("invalid inbox archive identity");
   const files = {};
-  for (const name of await canonicalInboxNames(inbox)) {
+  for (const name of await canonicalInboxNames(inbox, maximumEntries)) {
     files[name] = sha256(await readCanonicalInboxFile(inbox, name));
   }
   const manifest = { schemaVersion: 1, archiveId, files };

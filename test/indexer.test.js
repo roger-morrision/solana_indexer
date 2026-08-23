@@ -42,6 +42,7 @@ import { completeArchiveReceipt, createInboxManifest } from "../src/archive-rece
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-health.js";
 import { readBoundedJsonFile } from "../src/bounded-json-file.js";
+import { readBoundedDirectoryNames } from "../src/bounded-directory.js";
 import { readSecretFile } from "../src/secret-file.js";
 import { archiveInbox } from "../src/inbox-archive.js";
 import { reducedPreflight } from "../src/reduced-preflight.js";
@@ -1453,6 +1454,15 @@ test("operational JSON reads are bounded and fail closed", async (t) => {
   assert.equal(health.reason, "invalid_source");
 });
 
+test("inbox directory enumeration is bounded before ingestion or network attachment", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-bounded-directory-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); t.after(() => fs.rm(root, { recursive: true, force: true })); await fs.mkdir(inbox); for (const name of ["1.json", "2.json", "unrelated.tmp"]) await fs.writeFile(path.join(inbox, name), "{}\n");
+  await assert.rejects(() => readBoundedDirectoryNames(inbox, { maximumEntries: 2 }), /directory exceeds 2 entries/); assert.deepEqual(await readBoundedDirectoryNames(path.join(root, "missing")), []);
+  await assert.rejects(() => createInboxManifest({ inbox, output: path.join(root, "manifest.json"), archiveId: "20260823T000000Z", maximumEntries: 2 }), /directory exceeds 2 entries/); await assert.rejects(fs.access(path.join(root, "manifest.json")));
+  const store = new IndexStore(dataFile); await assert.rejects(() => indexInbox({ inbox, dataFile, maxInboxEntries: 2 }, store), /directory exceeds 2 entries/); assert.equal(store.state.events.length, 0); await assert.rejects(fs.access(dataFile));
+  let genesisChecks = 0; const stream = new LocalValidatorStream({ rpcClient: { assertGenesis: async () => { genesisChecks++; return MAINNET_GENESIS_HASH; } }, inbox, statusFile: path.join(root, "status.json"), WebSocketClass: class {}, maxInboxEntries: 2 }); await assert.rejects(() => stream.initializeAndConnect(), /directory exceeds 2 entries/); assert.equal(genesisChecks, 1); await assert.rejects(fs.access(path.join(root, "status.json")));
+  let exporterCalls = 0; await assert.rejects(() => exportFinalizedBlocks({ client: { assertGenesis: async () => { exporterCalls++; return MAINNET_GENESIS_HASH; }, call: async () => { exporterCalls++; return 0; } }, inbox, cursorFile: path.join(root, "cursor"), expectedGenesisHash: MAINNET_GENESIS_HASH, maxInboxEntries: 2 }), /directory exceeds 2 entries/); assert.equal(exporterCalls, 1); await assert.rejects(fs.access(path.join(root, "cursor")));
+});
+
 test("exporter health rejects invalid progress evidence", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-progress-")), statusFile = path.join(root, "status.json"), base = { source: "external-rpc-helius", commitment: "finalized", observedAt: "2026-08-21T00:00:00.000Z", consecutiveFailures: 0, durableSkippedSlots: [] };
   for (const consecutiveFailures of ["0", -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) { await fs.writeFile(statusFile, JSON.stringify({ ...base, version: 2, genesisHash: MAINNET_GENESIS_HASH, cursor: 42, lagSlots: 0, consecutiveFailures })); const invalid = await exporterHealthCheck(statusFile, 120_000, Date.parse(base.observedAt)); assert.equal(invalid.reason, "invalid_failure_count"); assert.equal(invalid.consecutiveFailures, null); }
@@ -1997,6 +2007,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25", INDEXER_WS_MAX_OUTSTANDING_ACKS: "50", INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketMaxClients, 25); assert.deepEqual({ outstanding: loadConfig({ INDEXER_WS_MAX_OUTSTANDING_ACKS: "50" }, process.cwd()).webSocketMaxOutstandingAcks, timeout: loadConfig({ INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketAcknowledgementTimeoutMs }, { outstanding: 50, timeout: 5_000 });
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
   assert.equal(loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "1048576" }, process.cwd()).maxIngestionFileBytes, 1_048_576);
+  assert.equal(loadConfig({ INDEXER_MAX_INBOX_ENTRIES: "250000" }, process.cwd()).maxInboxEntries, 250_000);
   assert.equal(loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048576" }, process.cwd()).maxStateFileBytes, 1_048_576);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
   assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
@@ -2013,6 +2024,7 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.throws(() => loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "999" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_MAX_MESSAGE_BYTES: "65535" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "65535" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_MAX_INBOX_ENTRIES: "99" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048575" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);

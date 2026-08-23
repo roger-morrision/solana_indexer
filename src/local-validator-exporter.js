@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -8,6 +7,7 @@ import { durableAtomicWrite } from "./durable-file.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { parseRetryAfterMs } from "./provider-retry.js";
 import { readBoundedRpcJson } from "./rpc-response.js";
+import { readBoundedDirectoryNames } from "./bounded-directory.js";
 import { readBoundedFile, readBoundedJsonFile } from "./bounded-json-file.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -101,14 +101,15 @@ export async function recordExporterFailure(statusFile, error, { source = "unkno
   return status;
 }
 
-export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null }) {
+export async function exportFinalizedBlocks({ client, inbox, cursorFile, statusFile = null, batchSize = 32, expectedGenesisHash = null, maxInboxEntries = 100_000 }) {
   if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 256) throw new Error("exporter batch size must be an integer from 1 through 256");
+  if (!Number.isSafeInteger(maxInboxEntries) || maxInboxEntries < 1 || maxInboxEntries > 1_000_000) throw new Error("exporter inbox entry limit must be an integer from 1 through 1000000");
   if (expectedGenesisHash != null && (typeof expectedGenesisHash !== "string" || !expectedGenesisHash)) throw new Error("expected genesis hash must be a non-empty string");
   const previous = statusFile ? await readStatus(statusFile) : {}; let previousSkippedSlots = priorSkippedSlots(previous);
   let genesisHash = null;
   if (expectedGenesisHash) {
     genesisHash = await client.assertGenesis(expectedGenesisHash);
-    let names = []; try { names = await fs.readdir(inbox); } catch (error) { if (error.code !== "ENOENT") throw error; }
+    const names = await readBoundedDirectoryNames(inbox, { maximumEntries: maxInboxEntries });
     if (!previous.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox");
     if (previous.genesisHash && previous.genesisHash !== genesisHash) throw new Error(`refusing to reuse exporter state from genesis ${previous.genesisHash}`);
   }
@@ -154,7 +155,7 @@ async function main() {
   const config = loadConfig(), endpoints = (process.env.LOCAL_VALIDATOR_RPCS || process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899").split(",").map((value) => value.trim()).filter(Boolean), poolOptions = { failureThreshold: parseBoundedInteger(process.env.LOCAL_RPC_FAILURE_THRESHOLD, 3, 1, 100), cooldownMs: parseBoundedInteger(process.env.LOCAL_RPC_COOLDOWN_MS, 30_000, 100, 3_600_000) }, client = endpoints.length === 1 ? new LocalValidatorClient(endpoints[0]) : new LocalValidatorPool(endpoints, poolOptions);
   const cursorFile = path.resolve(process.cwd(), process.env.EXPORTER_CURSOR_FILE || "data/exporter.cursor"); const batchSize = parseBoundedInteger(process.env.EXPORTER_BATCH_SIZE, 32, 1, 256), pollMs = parseBoundedInteger(process.env.EXPORTER_POLL_MS, 2_000, 100, 60_000); const once = process.argv.includes("--once");
   const expectedGenesisHash = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH;
-  do { try { const result = await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash }); console.log(JSON.stringify({ ...result, ...(client instanceof LocalValidatorPool ? { validators: client.telemetry() } : {}) })); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: client.provenanceSource ?? "local-agave-rpc" }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, pollMs)); } while (!once);
+  do { try { const result = await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash, maxInboxEntries: config.maxInboxEntries }); console.log(JSON.stringify({ ...result, ...(client instanceof LocalValidatorPool ? { validators: client.telemetry() } : {}) })); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: client.provenanceSource ?? "local-agave-rpc" }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, pollMs)); } while (!once);
 }
 
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";

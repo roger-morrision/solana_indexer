@@ -5,6 +5,7 @@ import { parseBlock, parseInput } from "./parser.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { PROGRAM_REGISTRY_VERSION } from "./program-registry.js";
 import { readBoundedFile } from "./bounded-json-file.js";
+import { readBoundedDirectoryNames } from "./bounded-directory.js";
 
 function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 export const INGESTION_RETRY_IDENTITY = `parser-v2:registry-v${PROGRAM_REGISTRY_VERSION}:state-v21`;
@@ -30,7 +31,7 @@ export async function applySnapshotArtifacts(config, store, { now = Date.now(), 
 
 export async function indexInbox(config, store, { now = Date.now(), retryIdentity = INGESTION_RETRY_IDENTITY } = {}) {
   await store.load(); store.assertWritable(); await fs.mkdir(config.inbox, { recursive: true });
-  const names = (await fs.readdir(config.inbox)).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort((a, b) => { const left = Number(a.match(/^(\d+)/)?.[1]), right = Number(b.match(/^(\d+)/)?.[1]); return Number.isSafeInteger(left) && Number.isSafeInteger(right) && left !== right ? left - right : a.localeCompare(b); });
+  const names = (await readBoundedDirectoryNames(config.inbox, { maximumEntries: config.maxInboxEntries ?? 100_000 })).filter((name) => /\.(?:json|ndjson)$/i.test(name)).sort((a, b) => { const left = Number(a.match(/^(\d+)/)?.[1]), right = Number(b.match(/^(\d+)/)?.[1]); return Number.isSafeInteger(left) && Number.isSafeInteger(right) && left !== right ? left - right : a.localeCompare(b); });
   const result = { files: 0, blocks: 0, transactions: 0, transfers: 0, balanceChanges: 0, swaps: 0, snapshots: 0, skippedFiles: 0, deferredFiles: 0, deferredSnapshots: 0, resolvedDeadLetters: 0, errors: [] };
   for (const name of names) {
     const filename = path.join(config.inbox, name); let hash = null, failureStage = "inbox_read";
