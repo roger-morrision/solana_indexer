@@ -368,9 +368,10 @@ automatically.
 
 REST `limit` parameters are strict base-10 integers from 1 through 500;
 malformed, fractional, zero, negative, or oversized values return `400` rather
-than being silently coerced. Mutable token and pool catalog cursors bind the
-digest of the exact ordered projection; any insertion, removal, or projected
-field change requires a fresh first page instead of mixing catalog versions.
+than being silently coerced. Mutable block, transaction, swap, token, and pool
+collection cursors bind the digest of the exact ordered filtered projection; any
+insertion, removal, reorg replacement, or projected field change requires a
+fresh first page instead of mixing collection versions.
 
 Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
