@@ -150,7 +150,11 @@ snapshots are now available with monotonic conflict detection and automated
 repair. Fresh finalized snapshots with explicit function mode now expose
 analysis-only exact-input quotes using canonical bin and limit-order traversal,
 Q64 rounding, dynamic/base fee updates, fee-side modes, protocol/owner splits,
-and epoch-bound transfer fees. Undetermined function mode is resolved from both
+and epoch-bound transfer fees. Enabled snapshots qualify as execution-state
+evidence for liquidity/risk only when finalized account contexts, default and
+optional extension bitmaps, complete 70-bin arrays, token programs, and required
+mint evidence agree; this never satisfies the separate per-order execution gates.
+Undetermined function mode is resolved from both
 finalized reward mints exactly as the official SDK. Legacy-SPL routes whose
 quoted arrays fit the finalized default bitmap now support official-ABI-bound
 unsigned `swap` construction and hash/policy/token-effect-bound local
