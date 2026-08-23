@@ -36,10 +36,10 @@ publication. Required configuration, vault, program, mode, amount, migration, an
 fields cannot disappear after decoding. CLMM and Whirlpool initial square-root prices retain
 their full unsigned 128-bit domain; they are not narrowed to u64 during persistence checks.
 For every retained canonical block slot, the latest replay envelope's complete lifecycle
-multiset must equal the canonical `programEvents` multiset byte-for-byte after canonical
-serialization. Finality promotion and fork replacement select the latest matching blockhash;
+and swap multisets must equal the canonical `programEvents` and `swaps` ledgers byte-for-byte
+after canonical serialization. Finality promotion and fork replacement select the latest matching blockhash;
 expired slots outside compatibility-state retention are not incorrectly resurrected. This
-prevents independently valid but divergent REST/warehouse and WebSocket transition histories.
+prevents independently valid but divergent REST/warehouse and WebSocket market histories.
 
 Reviewed holder exclusions use a version-2 canonical-content hash and explicit
 expiry. Their governance lifetime is independent of market-data freshness, while

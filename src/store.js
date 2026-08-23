@@ -80,15 +80,15 @@ export function canonicalPersistedEvent(event) {
   if (![swaps, lifecycle, revertedSwaps, revertedLifecycle].every(Array.isArray) || !swaps.every((row) => canonicalEmbeddedSwap(row, event, false)) || !lifecycle.every((row) => canonicalEmbeddedLifecycle(row, event, false)) || !revertedSwaps.every((row) => canonicalEmbeddedSwap(row, event, true)) || !revertedLifecycle.every((row) => canonicalEmbeddedLifecycle(row, event, true))) return false;
   return (event.swapCount == null || event.swapCount === swaps.length) && (event.lifecycleEventCount == null || event.lifecycleEventCount === lifecycle.length) && (event.revertedSwapCount == null || event.revertedSwapCount === revertedSwaps.length) && (event.revertedLifecycleEventCount == null || event.revertedLifecycleEventCount === revertedLifecycle.length);
 }
-export function canonicalPersistedEventLog(events, eventSequence, { programEvents = null, blocks = null } = {}) {
+export function canonicalPersistedEventLog(events, eventSequence, { programEvents = null, swaps = null, blocks = null } = {}) {
   const canonical = Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
-  if (!canonical || programEvents == null && blocks == null) return canonical;
-  if (!Array.isArray(programEvents) || !blocks || typeof blocks !== "object" || Array.isArray(blocks)) return false;
+  if (!canonical || programEvents == null && swaps == null && blocks == null) return canonical;
+  if (programEvents != null && !Array.isArray(programEvents) || swaps != null && !Array.isArray(swaps) || !blocks || typeof blocks !== "object" || Array.isArray(blocks)) return false;
   const latestBySlot = new Map(); for (const event of events) if (BLOCK_EVENT_TYPES.has(event.type) && blocks[String(event.slot)]?.blockhash === event.blockhash) latestBySlot.set(event.slot, event);
   const identity = (event) => event.eventId, rows = (values) => [...values].sort((left, right) => identity(left).localeCompare(identity(right))).map(canonicalJson);
   for (const [slot, envelope] of latestBySlot) {
-    const expected = rows(envelope.lifecycleEvents ?? []), retained = rows(programEvents.filter((event) => event?.type !== "swap" && event.slot === slot));
-    if (expected.length !== retained.length || expected.some((value, index) => value !== retained[index])) return false;
+    if (programEvents != null) { const expected = rows(envelope.lifecycleEvents ?? []), retained = rows(programEvents.filter((event) => event?.type !== "swap" && event.slot === slot)); if (expected.length !== retained.length || expected.some((value, index) => value !== retained[index])) return false; }
+    if (swaps != null) { const expected = rows(envelope.swaps ?? []), retained = rows(swaps.filter((swap) => swap?.slot === slot)); if (expected.length !== retained.length || expected.some((value, index) => value !== retained[index])) return false; }
   }
   return true;
 }
@@ -783,8 +783,8 @@ export class IndexStore {
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   eventQuality() {
     const events = this.state.events, eventSequence = this.state.eventSequence;
-    const canonical = canonicalPersistedEventLog(events, eventSequence, { programEvents: this.state.programEvents, blocks: this.state.blocks });
-    return { canonical, eventSequence, retainedEvents: Array.isArray(events) ? events.length : null, oldestSequence: Array.isArray(events) ? events[0]?.sequence ?? null : null };
+    const envelopeCanonical = canonicalPersistedEventLog(events, eventSequence), canonical = envelopeCanonical && canonicalPersistedEventLog(events, eventSequence, { programEvents: this.state.programEvents, swaps: this.state.swaps, blocks: this.state.blocks }), reason = canonical ? null : envelopeCanonical && !this.indexedSwaps().available ? "indexed_swap_evidence_invalid" : "indexed_event_log_invalid";
+    return { canonical, reason, eventSequence, retainedEvents: Array.isArray(events) ? events.length : null, oldestSequence: Array.isArray(events) ? events[0]?.sequence ?? null : null };
   }
   replayEvents(cursor = this.state.eventSequence) {
     const oldest = this.state.events[0]?.sequence ?? this.state.eventSequence + 1;
@@ -802,7 +802,7 @@ export class IndexStore {
     const chain = this.chainQuality();
     if (!chain.canonical) return { status: "chain_conflict", healthy: false, reason: "indexed_parent_hash_mismatch", ageMs: null, staleAfterMs, chain, ...stats };
     if (Object.values(this.state.blocks).some((block) => block.provenance?.genesisHash !== MAINNET_GENESIS_HASH)) return { status: "wrong_network", healthy: false, reason: "indexed_block_mainnet_identity_missing_or_invalid", ageMs: null, staleAfterMs, chain, ...stats };
-    const events = this.eventQuality(); if (!events.canonical) return { status: "invalid_evidence", healthy: false, reason: "indexed_event_log_invalid", ageMs: null, staleAfterMs, chain, events, ...stats };
+    const events = this.eventQuality(); if (!events.canonical) return { status: "invalid_evidence", healthy: false, reason: events.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const transactions = this.indexedTransactions(); if (!transactions.available) return { status: "invalid_evidence", healthy: false, reason: transactions.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const instructions = this.instructionQuality(); if (!instructions.canonical) return { status: "invalid_evidence", healthy: false, reason: instructions.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const decoderRegistry = this.decoderRegistryQuality(); if (!decoderRegistry.current) return { status: "invalid_evidence", healthy: false, reason: decoderRegistry.reason, ageMs: null, staleAfterMs, chain, events, instructions, decoderRegistry, ...stats };

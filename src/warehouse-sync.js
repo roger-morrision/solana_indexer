@@ -107,7 +107,7 @@ export function compileWarehouseBatch(state, checkpoint = { lastSequence: 0 }) {
   if (!Number.isSafeInteger(state?.eventSequence) || !Array.isArray(state?.events)) throw new Error("invalid index event state");
   let previous = null;
   for (const event of state.events) { if (!Number.isSafeInteger(event?.sequence) || (previous != null && event.sequence !== previous + 1) || typeof event.type !== "string" || !event.type) throw new Error(previous != null && event?.sequence > previous + 1 ? "warehouse event sequence gap" : "invalid non-monotonic index event sequence"); if (!canonicalPersistedEvent(event)) throw new Error(`invalid warehouse event ${event.sequence}`); previous = event.sequence; }
-  if (!canonicalPersistedEventLog(state.events, state.eventSequence, { programEvents: state.programEvents, blocks: state.blocks })) throw new Error("invalid warehouse event high-water mark");
+  if (!canonicalPersistedEventLog(state.events, state.eventSequence, { programEvents: state.programEvents, swaps: state.swaps, blocks: state.blocks })) throw new Error("invalid warehouse event high-water mark");
   if (state.events.length && previous !== state.eventSequence) throw new Error("index event high-water mark mismatch");
   if (lastSequence > state.eventSequence) throw new Error("warehouse checkpoint is ahead of index");
   const oldest = state.events[0]?.sequence ?? state.eventSequence + 1;
