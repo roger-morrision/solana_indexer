@@ -589,9 +589,10 @@ authorizes or performs a restore. `ops/restore.sh` repeats it before mutation an
 `--confirm-empty-target` flag because it replaces database and local state. After
 an isolated restore, `npm run validate:recovery` exclusively writes a report only
 when the same backup manifest hash, canonical index health, zero-lag exact
-warehouse convergence, healthy finalized exporter evidence, and the four-hour RTO all validate.
+warehouse convergence, a healthy finalized exporter observation produced inside
+the recovery window, and the four-hour RTO all validate.
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
-and Prometheus validate its version-4 qualification shape, exact duration,
+and Prometheus validate its version-5 qualification shape, exact duration,
 canonical embedded backup/index/warehouse/exporter summary, recomputed evidence
 digest, invariants,
 and quarterly age without exposing sink credentials or report contents.

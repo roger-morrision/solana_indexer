@@ -48,8 +48,9 @@ index. It records the UTC restore start and prints exact recovery-path-bound
 reconcile the warehouse, resume finalized export, and exercise API/feed checks.
 The recovery validator rechecks the bound backup, requires a healthy canonical
 index and zero-lag exact ClickHouse/PostgreSQL/Redis content reconciliation, requires a healthy finalized
-exporter, enforces the four-hour RTO, and exclusively creates a hash-bound report;
-the version-4 report embeds the bounded canonical evidence summary so monitoring
+exporter observation produced after recovery started, enforces the four-hour RTO,
+and exclusively creates a hash-bound report;
+the version-5 report embeds the bounded canonical evidence summary so monitoring
 can recompute its digest and reject copied, edited, legacy, or self-asserted evidence;
 an existing report is never overwritten. Perform and retain this report for each
 quarterly isolated recovery rehearsal before promoting the environment. Point
