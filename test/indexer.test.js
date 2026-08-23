@@ -2451,6 +2451,11 @@ test("WebSocket inbound parser handles TCP fragmentation and rejects invalid cli
   peer = socket(); parse = createInboundFrameParser(peer, 4); parse(Buffer.concat(Array.from({ length: 20 }, () => clientFrame(0x9, "ping")))); assert.equal(peer.writes.length, 20);
   peer = socket(); let protocolCloses = 0; createInboundFrameParser(peer, 4_096, () => protocolCloses++)(clientFrame(0x9, "bad", { masked: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002); assert.equal(protocolCloses, 1);
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x1, "unsupported")); assert.equal(peer.endings[0].readUInt16BE(2), 1003);
+  peer = socket(); const messages = []; parse = createInboundFrameParser(peer, 8, () => {}, (text) => { messages.push(text); return null; }); parse(Buffer.concat([clientFrame(0x1, "he", { fin: false }), clientFrame(0x9, "ok"), clientFrame(0x0, "llo")])); assert.deepEqual(messages, ["hello"]); assert.equal(peer.writes[0][0] & 0x0f, 0x0a); assert.equal(peer.endings.length, 0);
+  peer = socket(); parse = createInboundFrameParser(peer, 4, () => {}, () => null); parse(clientFrame(0x1, "123", { fin: false })); parse(clientFrame(0x0, "45")); assert.equal(peer.endings[0].readUInt16BE(2), 1009);
+  peer = socket(); createInboundFrameParser(peer)(clientFrame(0x0, "detached")); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
+  peer = socket(); parse = createInboundFrameParser(peer, 8, () => {}, () => null); parse(clientFrame(0x1, "open", { fin: false })); parse(clientFrame(0x1, "nested")); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
+  peer = socket(); parse = createInboundFrameParser(peer, 8, () => {}, () => null); parse(clientFrame(0x1, Buffer.from([0xc3]), { fin: false })); parse(clientFrame(0x0, Buffer.from([0x28]))); assert.equal(peer.endings[0].readUInt16BE(2), 1007);
   peer = socket(); createInboundFrameParser(peer)(clientFrame(0x9, "fragment", { fin: false })); assert.equal(peer.endings[0].readUInt16BE(2), 1002);
   peer = socket(); createInboundFrameParser(peer, 4)(clientFrame(0x9, "12345")); assert.equal(peer.endings[0].readUInt16BE(2), 1009);
   const closePayload = (code, reason = Buffer.alloc(0)) => { const value = Buffer.alloc(2 + reason.length); value.writeUInt16BE(code); Buffer.from(reason).copy(value, 2); return value; };

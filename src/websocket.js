@@ -24,8 +24,9 @@ function closePayloadError(payload) {
   return isUtf8(payload.subarray(2)) ? null : 1007;
 }
 export function createInboundFrameParser(socket, maximumBytes = 4_096, onProtocolClose = () => {}, onText = () => 1003) {
-  let buffered = Buffer.alloc(0), closed = false;
+  let buffered = Buffer.alloc(0), closed = false, fragments = null, fragmentBytes = 0;
   const protocolError = (code = 1002) => { if (!closed) { closed = true; onProtocolClose(code); close(socket, code); } };
+  const text = (payload) => { if (!isUtf8(payload)) return protocolError(1007); const errorCode = onText(payload.toString()); if (errorCode) return protocolError(errorCode); };
   return (chunk) => {
     if (closed || !Buffer.isBuffer(chunk) || chunk.length === 0) return;
     buffered = Buffer.concat([buffered, chunk]);
@@ -34,10 +35,12 @@ export function createInboundFrameParser(socket, maximumBytes = 4_096, onProtoco
       if (first & 0x70 || !masked) return protocolError();
       if (length === 126) { if (buffered.length < 4) return; length = buffered.readUInt16BE(2); offset = 4; }
       else if (length === 127) { if (buffered.length < 10) return; const wide = buffered.readBigUInt64BE(2); if (wide > BigInt(Number.MAX_SAFE_INTEGER)) return protocolError(1009); length = Number(wide); offset = 10; }
-      const control = opcode >= 0x8; if (length > maximumBytes) return protocolError(1009); if (control && (!fin || length > 125) || ![0x1, 0x8, 0x9, 0xa].includes(opcode) || opcode === 0x1 && !fin) return protocolError(control ? 1002 : 1003);
+      const control = opcode >= 0x8; if (length > maximumBytes || opcode === 0x0 && fragments !== null && fragmentBytes + length > maximumBytes) return protocolError(1009); if (control && (!fin || length > 125) || ![0x0, 0x1, 0x8, 0x9, 0xa].includes(opcode)) return protocolError(control ? 1002 : 1003); if (opcode === 0x0 && fragments === null || opcode === 0x1 && fragments !== null) return protocolError();
       if (buffered.length < offset + 4 + length) return;
       const mask = buffered.subarray(offset, offset + 4), payload = Buffer.from(buffered.subarray(offset + 4, offset + 4 + length)); for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4]; buffered = buffered.subarray(offset + 4 + length);
-      if (opcode === 0x1) { if (!isUtf8(payload)) return protocolError(1007); const errorCode = onText(payload.toString()); if (errorCode) return protocolError(errorCode); }
+      if (opcode === 0x1 && fin) text(payload);
+      else if (opcode === 0x1) { fragments = [payload]; fragmentBytes = payload.length; }
+      else if (opcode === 0x0) { fragments.push(payload); fragmentBytes += payload.length; if (fin) { const message = Buffer.concat(fragments, fragmentBytes); fragments = null; fragmentBytes = 0; text(message); } }
       else if (opcode === 0x8) { const errorCode = closePayloadError(payload); if (errorCode) return protocolError(errorCode); closed = true; socket.end(frame(0x8, payload)); }
       else if (opcode === 0x9) socket.write(frame(0x0a, payload));
     }
