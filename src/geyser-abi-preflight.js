@@ -39,6 +39,7 @@ export function validateGeyserCompatibility(manifest, observed, now = Date.now()
 export async function preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe = runAgaveVersionProbe }) {
   for (const [label, filename] of Object.entries({ manifestFile, agaveBinary, pluginLibrary })) if (!path.isAbsolute(filename ?? "")) throw new Error(`${label} must be an absolute path`);
   const manifest = await readBoundedJsonFile(manifestFile); if (manifest?.evidenceReadError || manifest == null) throw new Error("Yellowstone activation manifest is unavailable");
+  const declared = validateGeyserCompatibility(manifest, { agaveVersionOutput: manifest.agave?.versionOutput, agaveBinarySha256: manifest.agave?.binarySha256, pluginBinarySha256: manifest.plugin?.binarySha256 }); if (!declared.activationAllowed) throw new Error(`Yellowstone activation refused: ${declared.reason}`);
   const [agaveBinarySha256, pluginBinarySha256] = await Promise.all([sha256(agaveBinary), sha256(pluginLibrary)]), agaveVersionOutput = await versionProbe(agaveBinary), result = validateGeyserCompatibility(manifest, { agaveVersionOutput, agaveBinarySha256, pluginBinarySha256 }); if (!result.activationAllowed) throw new Error(`Yellowstone activation refused: ${result.reason}`); return result;
 }
 

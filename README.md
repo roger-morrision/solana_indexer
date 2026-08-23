@@ -978,6 +978,8 @@ updates, bounded buffering, and bounded RSS slope. The version-2 contract also
 requires the exact Yellowstone plugin identity, canonical versions/commits, and
 a bounded reviewer identity. A one-MiB regular-file manifest plus stable non-link
 binary hashing capped at one GiB is required before activation can be considered.
+Qualification status, structure, recency, and sustained-run invariants are checked
+before either installed binary is read or executed.
 The checked-in example documents every required
 field but remains `blocked`; it is not an approval to load the currently
 incompatible plugin.

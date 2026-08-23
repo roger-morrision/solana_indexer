@@ -400,8 +400,16 @@ test("Yellowstone preflight rejects unsafe manifests before probing binaries", a
     await assert.rejects(() => preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return "agave-validator 4.1.0"; } }), /manifest is unavailable/);
   }
   await fs.writeFile(manifestFile, "{}"); await fs.writeFile(agaveBinary, ""); await fs.writeFile(pluginLibrary, "plugin");
-  await assert.rejects(() => preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return "agave-validator 4.1.0"; } }), /regular file/);
+  await assert.rejects(() => preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return "agave-validator 4.1.0"; } }), /compatibility_not_qualified/);
   assert.equal(probes, 0);
+});
+
+test("Yellowstone preflight binds qualified evidence to stable installed binaries", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-geyser-qualified-")), manifestFile = path.join(root, "manifest.json"), agaveBinary = path.join(root, "agave"), pluginLibrary = path.join(root, "plugin"), agave = Buffer.from("agave-binary"), plugin = Buffer.from("plugin-binary"), digest = (value) => crypto.createHash("sha256").update(value).digest("hex"), versionOutput = "agave-validator 4.1.0";
+  t.after(() => fs.rm(root, { recursive: true, force: true })); await fs.writeFile(agaveBinary, agave); await fs.writeFile(pluginLibrary, plugin);
+  const replay = { schemaVersion: 1, digest: "e".repeat(64), canonicalCounts: true, duplicateIdempotency: true, replacementCorrections: true, boundedHeapDelta: true, throughput: true }, blocks = 100_000;
+  const manifest = { schemaVersion: 2, chain: "solana-mainnet", status: "qualified", agave: { versionOutput, sourceCommit: "a".repeat(40), binarySha256: digest(agave) }, plugin: { name: "yellowstone-grpc-geyser", version: "14.2.2", sourceCommit: "b".repeat(40), binarySha256: digest(plugin) }, qualification: { testedAt: new Date(Date.now() - 1_000).toISOString(), sustainedSeconds: 86_400, finalizedBlocks: blocks, maxRssBytes: 1_000_000, rssSlopeBytesPerHour: 0, replay, reconciliation: { schemaVersion: 1, comparedFinalizedBlocks: blocks, mismatchedBlocks: 0, missingGeyserBlocks: 0, missingPubsubBlocks: 0 }, transport: { schemaVersion: 1, droppedUpdates: 0, reconnects: 0, maxBufferedUpdates: 1 } }, reviewedBy: "platform-review" };
+  await fs.writeFile(manifestFile, JSON.stringify(manifest)); let probes = 0; const result = await preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return versionOutput; } }); assert.equal(result.activationAllowed, true); assert.equal(probes, 1);
 });
 
 test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {
