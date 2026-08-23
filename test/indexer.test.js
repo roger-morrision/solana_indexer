@@ -1398,6 +1398,7 @@ test("exporter rejects corrupt and future cursors without false progress", async
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-cursor-")), cursorFile = path.join(root, "cursor"), inbox = path.join(root, "inbox");
   const client = { call: async (method) => method === "getSlot" ? 12 : null };
   await fs.writeFile(cursorFile, "not-a-slot\n"); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /non-negative integer/);
+  await fs.writeFile(cursorFile, "1".repeat(65)); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /cursor is unavailable: invalid_file/);
   await fs.writeFile(cursorFile, "13\n"); await assert.rejects(() => exportFinalizedBlocks({ client, inbox, cursorFile }), /ahead of finalized tip 12/);
   assert.equal(await fs.readFile(cursorFile, "utf8"), "13\n"); await assert.rejects(() => fs.access(inbox), /ENOENT/);
 });

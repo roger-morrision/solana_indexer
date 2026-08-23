@@ -8,7 +8,7 @@ import { durableAtomicWrite } from "./durable-file.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { parseRetryAfterMs } from "./provider-retry.js";
 import { readBoundedRpcJson } from "./rpc-response.js";
-import { readBoundedJsonFile } from "./bounded-json-file.js";
+import { readBoundedFile, readBoundedJsonFile } from "./bounded-json-file.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
@@ -67,13 +67,14 @@ export class LocalValidatorPool {
 }
 
 async function readCursor(filename) {
-  try {
-    const raw = (await fs.readFile(filename, "utf8")).trim();
-    if (!/^\d+$/.test(raw)) throw new Error("exporter cursor must be a non-negative integer");
-    const cursor = Number(raw);
-    if (!Number.isSafeInteger(cursor)) throw new Error("exporter cursor exceeds the safe integer range");
-    return cursor;
-  } catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  const content = await readBoundedFile(filename, { maximumBytes: 64, missing: null });
+  if (content == null) return null;
+  if (!Buffer.isBuffer(content)) throw new Error(`exporter cursor is unavailable: ${content.evidenceReadError}`);
+  const raw = content.toString("utf8").trim();
+  if (!/^\d+$/.test(raw)) throw new Error("exporter cursor must be a non-negative integer");
+  const cursor = Number(raw);
+  if (!Number.isSafeInteger(cursor)) throw new Error("exporter cursor exceeds the safe integer range");
+  return cursor;
 }
 async function readStatus(filename) {
   const status = await readBoundedJsonFile(filename, { missing: {} });
