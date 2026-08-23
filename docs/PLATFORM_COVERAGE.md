@@ -72,7 +72,10 @@ or stale evidence is scheduled through the leased repair pipeline.
 Phoenix orderbook now contributes analytical swap activity only when the exact
 nine-account legacy-SPL swap ABI, immediate-or-cancel packet, one
 instruction-bound audit-log fill summary, and exact trader token-account deltas
-agree. Finalized full-account acquisition validates bounded bid/ask allocators
+agree. Quote-lot fees remain immutable raw evidence and are projected to exact
+quote-mint atoms only from a finalized same-market header at or after the swap;
+the projection carries the lot size and market evidence slot and never rewrites
+the canonical event. Finalized full-account acquisition validates bounded bid/ask allocators
 and free lists and persists every active order's exact price, sequence, trader,
 quantity and expiry alongside lot/tick economics, identity, vault balances,
 provenance, ordered events, and repair jobs. The shared pool endpoint exposes

@@ -916,7 +916,11 @@ Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
 instruction-bound audit-log fill summary and the trader's base/quote token
 accounts provide conflict-free exact balance deltas. Filled lot totals are
-retained as audit evidence. Run `npm run snapshot:phoenix-markets --
+retained as audit evidence. The immutable swap retains its quote-lot fee and
+explicit unavailable atom-fee marker; once a same-market finalized header at or
+after the swap supplies the quote lot size, REST and token/pool views add an
+exact quote-mint `feeResolution` without rewriting the canonical fact. Run
+`npm run snapshot:phoenix-markets --
 <MARKET_ADDRESS...>` to acquire the official fixed market header, complete
 bounded bid/ask allocators, and both vaults behind monotonic finalized read
 barriers. Active orders retain exact price, sequence, trader, quantity, and
