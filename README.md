@@ -810,10 +810,10 @@ v4 pools. The artifact binds the official fixed pool state to both finalized SPL
 vault balances and the exact legacy OpenBook `OpenOrders` account. It validates
 market, authority, flags, free/total balances, and monotonic component slots,
 then imports exact vault-plus-orders-minus-pending-PnL reserves idempotently into
-canonical pool state. AMM v4
-snapshots remain analysis-only and do not enable execution quotes.
-Its exact-input quote subtracts accrued protocol, fund, and creator fees from
-spendable reserves and mirrors ceiling-rounded fee-on-input/output behavior.
+canonical pool state. Its exact-input analysis quote applies the pool's
+ceiling-rounded swap fee before constant-product output rounding. AMM v4
+unsigned construction and simulation remain unavailable, and the quote is
+explicitly unsafe for automation.
 Account snapshots capture Token-2022 mint-extension transfer-fee schedules and
 select the active fee at the exact finalized epoch/slot. The shared exact fee primitive implements
 the program's ceiling-rounded basis-point fee, maximum cap, older/newer epoch

@@ -8,6 +8,7 @@ import { IndexStore } from "./store.js";
 import { assertSnapshotAcquisitionAllowed } from "./snapshot-cli-policy.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
+import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 export const RAYDIUM_AMM_V4_PROGRAM = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
 export const SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -17,6 +18,8 @@ function bytes(account, label) { if (!Array.isArray(account?.data) || account.da
 function hash(data) { return crypto.createHash("sha256").update(data).digest("hex"); }
 function u64(data, offset) { return data.readBigUInt64LE(offset).toString(); }
 function fraction(data, numeratorOffset, denominatorOffset, label) { const numerator = data.readBigUInt64LE(numeratorOffset), denominator = data.readBigUInt64LE(denominatorOffset); if (denominator === 0n || numerator >= denominator) throw new Error(`AMM v4 ${label} is invalid`); return { numeratorRaw: numerator.toString(), denominatorRaw: denominator.toString() }; }
+function exact(value, label, positive = false) { if (typeof value !== "string" || !/^\d+$/.test(value) || positive && value === "0") throw new Error(`${label} must be an exact ${positive ? "positive " : ""}integer string`); const parsed = BigInt(value); if (parsed > 18_446_744_073_709_551_615n) throw new Error(`${label} exceeds u64`); return parsed; }
+function ceilDiv(numerator, denominator) { return (numerator + denominator - 1n) / denominator; }
 
 export function decodeAmmV4PoolAccount(address, account) {
   if (account?.owner !== RAYDIUM_AMM_V4_PROGRAM) throw new Error(`AMM v4 pool ${address} has unexpected owner`);
@@ -38,6 +41,27 @@ export function decodeOpenBookOpenOrdersAccount(address, account, expected) {
   const baseTokenFreeRaw = u64(data, 77), baseTokenTotalRaw = u64(data, 85), quoteTokenFreeRaw = u64(data, 93), quoteTokenTotalRaw = u64(data, 101);
   if (BigInt(baseTokenFreeRaw) > BigInt(baseTokenTotalRaw) || BigInt(quoteTokenFreeRaw) > BigInt(quoteTokenTotalRaw)) throw new Error(`OpenBook open orders ${address} balance mismatch`);
   return { address, market, owner, accountFlagsRaw: flags.toString(), baseTokenFreeRaw, baseTokenTotalRaw, quoteTokenFreeRaw, quoteTokenTotalRaw, rawPayloadHash: hash(data) };
+}
+
+export function quoteAmmV4SnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, now = Date.now(), staleAfterMs = 60_000 }) {
+  const amount = exact(amountIn, "AMM v4 amountIn", true), pool = snapshot?.pools?.find((row) => row.address === poolAddress);
+  if (snapshot?.type !== "raydium_amm_v4_pool_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.stateSlot) || !Number.isSafeInteger(snapshot.openOrdersSlot) || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.stateSlot > snapshot.openOrdersSlot || snapshot.openOrdersSlot > snapshot.balanceSlot || !pool || pool.openOrdersSlot !== snapshot.openOrdersSlot) throw new Error("AMM v4 quote requires a finalized coherent snapshot");
+  const observedAt = parseCanonicalUtcTimestamp(snapshot.observedAt), ageMs = observedAt == null ? null : now - observedAt;
+  if (ageMs == null || ageMs < 0 || ageMs > staleAfterMs) throw new Error("AMM v4 snapshot is stale or future-dated");
+  const orders = pool.openOrdersState;
+  if (pool.programId !== RAYDIUM_AMM_V4_PROGRAM || orders?.address !== pool.openOrders || orders?.market !== pool.market || orders?.owner !== pool.poolAuthority || orders?.accountFlagsRaw !== "5") throw new Error("AMM v4 OpenOrders quote evidence is invalid");
+  const vault0 = exact(pool.vault0AmountRaw, "AMM v4 vault0"), vault1 = exact(pool.vault1AmountRaw, "AMM v4 vault1"), orders0 = exact(orders.baseTokenTotalRaw, "AMM v4 OpenOrders base total"), orders1 = exact(orders.quoteTokenTotalRaw, "AMM v4 OpenOrders quote total"), pnl0 = exact(pool.needTakePnl0Raw, "AMM v4 pending base PnL"), pnl1 = exact(pool.needTakePnl1Raw, "AMM v4 pending quote PnL");
+  if (pnl0 > vault0 + orders0 || pnl1 > vault1 + orders1 || exact(pool.reserve0Raw, "AMM v4 reserve0", true) !== vault0 + orders0 - pnl0 || exact(pool.reserve1Raw, "AMM v4 reserve1", true) !== vault1 + orders1 - pnl1) throw new Error("AMM v4 reserve quote evidence is inconsistent");
+  if (![5, 6].includes(pool.status) || exact(pool.openTime, "AMM v4 open time") * 1_000n > BigInt(now)) throw new Error("AMM v4 swaps are disabled or not open");
+  const zeroForOne = inputMint === pool.tokenMint0 ? true : inputMint === pool.tokenMint1 ? false : null;
+  if (zeroForOne == null) throw new Error("AMM v4 input mint does not belong to pool");
+  const reserve0 = BigInt(pool.reserve0Raw), reserve1 = BigInt(pool.reserve1Raw), feeNumerator = exact(pool.swapFee?.numeratorRaw, "AMM v4 swap fee numerator"), feeDenominator = exact(pool.swapFee?.denominatorRaw, "AMM v4 swap fee denominator", true);
+  if (feeNumerator >= feeDenominator) throw new Error("AMM v4 swap fee is invalid");
+  const fee = ceilDiv(amount * feeNumerator, feeDenominator);
+  if (fee >= amount) throw new Error("AMM v4 input is consumed by fees");
+  const netInput = amount - fee, inputReserve = zeroForOne ? reserve0 : reserve1, outputReserve = zeroForOne ? reserve1 : reserve0, output = netInput * outputReserve / (inputReserve + netInput);
+  if (output <= 0n || output >= outputReserve) throw new Error("AMM v4 quote has insufficient output liquidity");
+  return { schemaVersion: 1, protocol: "raydium-amm-v4", status: "quoted", executable: false, safeForAutomation: false, pool: pool.address, inputMint, outputMint: zeroForOne ? pool.tokenMint1 : pool.tokenMint0, amountInRaw: amount.toString(), amountOutRaw: output.toString(), swapFeeRaw: fee.toString(), inputReserveRaw: inputReserve.toString(), outputReserveRaw: outputReserve.toString(), stateSlot: snapshot.stateSlot, openOrdersSlot: snapshot.openOrdersSlot, balanceSlot: snapshot.balanceSlot, observedAt: snapshot.observedAt, reserveEvidence: "vault_plus_open_orders_total_minus_pending_pnl", missing: ["unsigned_transaction_construction", "local_simulation", "external_signer_approval", "landed_transaction_confirmation"] };
 }
 
 function parsedVault(account, expectedMint, label) {
