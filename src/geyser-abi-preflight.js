@@ -9,9 +9,17 @@ import { fileURLToPath } from "node:url";
 import { runBoundedProcess } from "./bounded-process.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 const SHA = /^[0-9a-f]{64}$/, GIT_COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/, SEMVER = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/, REVIEWER = /^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$/;
-async function sha256(filename) { const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk); return hash.digest("hex"); }
+async function sha256(filename) {
+  const before = await fs.lstat(filename);
+  if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size < 1 || before.size > 1_073_741_824) throw new Error("activation binary must be a regular file of at most one GiB");
+  const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk);
+  const after = await fs.lstat(filename);
+  if (!after.isFile() || after.isSymbolicLink() || after.size !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.mtimeMs !== before.mtimeMs) throw new Error("activation binary changed during hashing");
+  return hash.digest("hex");
+}
 
 export async function runAgaveVersionProbe(command, spawnProcess = spawn, processOptions = {}) {
   try { return await runBoundedProcess({ command, args: ["--version"], spawnProcess, timeoutMs: 10_000, stdoutBytes: 4_096, stderrBytes: 4_096, label: "Agave version probe", ...processOptions }); }
@@ -30,7 +38,8 @@ export function validateGeyserCompatibility(manifest, observed, now = Date.now()
 
 export async function preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe = runAgaveVersionProbe }) {
   for (const [label, filename] of Object.entries({ manifestFile, agaveBinary, pluginLibrary })) if (!path.isAbsolute(filename ?? "")) throw new Error(`${label} must be an absolute path`);
-  const manifest = JSON.parse(await fs.readFile(manifestFile, "utf8")), [agaveVersionOutput, agaveBinarySha256, pluginBinarySha256] = await Promise.all([versionProbe(agaveBinary), sha256(agaveBinary), sha256(pluginLibrary)]), result = validateGeyserCompatibility(manifest, { agaveVersionOutput, agaveBinarySha256, pluginBinarySha256 }); if (!result.activationAllowed) throw new Error(`Yellowstone activation refused: ${result.reason}`); return result;
+  const manifest = await readBoundedJsonFile(manifestFile); if (manifest?.evidenceReadError || manifest == null) throw new Error("Yellowstone activation manifest is unavailable");
+  const [agaveBinarySha256, pluginBinarySha256] = await Promise.all([sha256(agaveBinary), sha256(pluginLibrary)]), agaveVersionOutput = await versionProbe(agaveBinary), result = validateGeyserCompatibility(manifest, { agaveVersionOutput, agaveBinarySha256, pluginBinarySha256 }); if (!result.activationAllowed) throw new Error(`Yellowstone activation refused: ${result.reason}`); return result;
 }
 
 function option(name) { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : null; }

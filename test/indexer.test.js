@@ -32,7 +32,7 @@ import { runReplayLoadValidation } from "../src/replay-load-validation.js";
 import { createBackupManifest, preflightBackup } from "../src/backup-preflight.js";
 import { assessBackupStatus, createBackupStatus } from "../src/backup-status.js";
 import { assessRecoveryQualification, compileRecoveryQualification, writeRecoveryReport } from "../src/recovery-qualification.js";
-import { runAgaveVersionProbe, validateGeyserCompatibility } from "../src/geyser-abi-preflight.js";
+import { preflightGeyser, runAgaveVersionProbe, validateGeyserCompatibility } from "../src/geyser-abi-preflight.js";
 import { ExternalRpcPool, providerPoolFromEnv, validateProviderUrl } from "../src/external-rpc.js";
 import { MAX_RETRY_AFTER_MS, MIN_RETRY_AFTER_MS, parseRetryAfterMs } from "../src/provider-retry.js";
 import { readBoundedRpcJson } from "../src/rpc-response.js";
@@ -389,6 +389,19 @@ test("Yellowstone activation requires exact installed ABI and sustained qualific
 test("Yellowstone version probe is output-bounded, deadline-bound, and redacted", async () => {
   const listeners = {}, scheduled = [], killed = [], child = { stdout: { on(name, handler) { if (name === "data") handler(Buffer.from("agave-validator 4.1.0")); } }, stderr: { on(name, handler) { if (name === "data") handler(Buffer.from("token=secret https://validator.invalid/private")); } }, on(name, handler) { listeners[name] = handler; }, kill(signal) { killed.push(signal); } };
   const pending = runAgaveVersionProbe("C:\\validator\\agave-validator.exe", () => child, { timeoutMs: 1_000, killGraceMs: 100, schedule: (callback, delay) => { scheduled.push([callback, delay]); return `timer-${scheduled.length}`; }, cancel() {} }); assert.equal(scheduled[0][1], 1_000); scheduled[0][0](); assert.equal(scheduled[1][1], 100); scheduled[1][0](); await assert.rejects(pending, (error) => /timed out after 1000ms/.test(error.message) && !/secret|validator\.invalid/.test(error.message)); assert.deepEqual(killed, ["SIGTERM", "SIGKILL"]); listeners.close?.(0);
+});
+
+test("Yellowstone preflight rejects unsafe manifests before probing binaries", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-geyser-manifest-")), manifestFile = path.join(root, "manifest.json"), agaveBinary = path.join(root, "agave"), pluginLibrary = path.join(root, "plugin");
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  let probes = 0;
+  for (const invalid of ["{", "x".repeat(1_048_577)]) {
+    await fs.writeFile(manifestFile, invalid);
+    await assert.rejects(() => preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return "agave-validator 4.1.0"; } }), /manifest is unavailable/);
+  }
+  await fs.writeFile(manifestFile, "{}"); await fs.writeFile(agaveBinary, ""); await fs.writeFile(pluginLibrary, "plugin");
+  await assert.rejects(() => preflightGeyser({ manifestFile, agaveBinary, pluginLibrary, versionProbe: async () => { probes++; return "agave-validator 4.1.0"; } }), /regular file/);
+  assert.equal(probes, 0);
 });
 
 test("synthetic replay load validates duplicate idempotency and bounded reorg correction", async () => {

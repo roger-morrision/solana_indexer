@@ -976,7 +976,9 @@ within 30 days with at least 24 hours, 100,000 finalized blocks, a replay digest
 all replay invariants, zero cross-lane block divergence or loss, zero dropped
 updates, bounded buffering, and bounded RSS slope. The version-2 contract also
 requires the exact Yellowstone plugin identity, canonical versions/commits, and
-a bounded reviewer identity. The checked-in example documents every required
+a bounded reviewer identity. A one-MiB regular-file manifest plus stable non-link
+binary hashing capped at one GiB is required before activation can be considered.
+The checked-in example documents every required
 field but remains `blocked`; it is not an approval to load the currently
 incompatible plugin.
 
