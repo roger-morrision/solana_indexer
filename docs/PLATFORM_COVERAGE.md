@@ -44,11 +44,12 @@ remain unavailable.
 OpenBook V2 instant-settlement activity covers the official mainnet v1.7
 `placeTakeOrder` ABI. Exact instruction layout, account roles, valid Market/IOC
 order bounds, both instruction-bound vault transfers, and signer-owned
-base/quote settlement deltas are required before a swap can
-enter analytics. The settled input includes any charged fee, so atom-level fee
-separation remains explicitly unavailable. OpenBook execution preparation and
-orderbook snapshots remain out of scope pending a separately verified market
-account implementation.
+base/quote settlement deltas are required before a swap can enter analytics.
+The invocation-scoped official `TotalOrderFillEvent` must uniquely agree with
+the taker, side, paid quantity, and received quantity, and supplies the exact
+native taker fee. Missing, duplicate, or mismatched event evidence fails closed.
+OpenBook execution preparation and orderbook snapshots remain out of scope
+pending a separately verified market account implementation.
 
 Phoenix orderbook now contributes analytical swap activity only when the exact
 nine-account legacy-SPL swap ABI, immediate-or-cancel packet, one

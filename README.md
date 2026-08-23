@@ -874,9 +874,12 @@ OpenBook V2 `placeTakeOrder` swaps are published only for the official 35-byte
 Anchor payload and 16-account ABI. The decoder requires positive order bounds,
 canonical legacy SPL and System program accounts, the only two supported taker
 order types, both exact instruction-bound vault transfers, and opposing exact
-deltas on the signer's designated base and quote token accounts. It retains side,
-price/quantity bounds, order type, and match limit; zero-fill, owner-conflicted,
-malformed, and unsupported-account transactions fail closed.
+deltas on the signer's designated base and quote token accounts. A single
+invocation-scoped official `TotalOrderFillEvent` must agree on taker, side, paid
+quantity, and received quantity; its exact taker fee is retained. The decoder
+also retains price/quantity bounds, order type, and match limit; missing,
+duplicate, mismatched, zero-fill, owner-conflicted, malformed, and
+unsupported-account evidence fails closed.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
