@@ -1225,7 +1225,15 @@ test("mainnet verification rejects a private validator genesis", async () => {
 test("validator stream accepts only loopback WebSocket endpoints", () => {
   assert.equal(validateLocalWsUrl("ws://127.0.0.1:8900"), "ws://127.0.0.1:8900/");
   assert.throws(() => validateLocalWsUrl("wss://example.com"), /must use ws/); assert.throws(() => validateLocalWsUrl("ws://192.168.1.2:8900"), /non-loopback/);
-  assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", reconnectMinMs: 1_000, reconnectMaxMs: 500 }), /positive ordered integers/); assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", expectedGenesisHash: "" }), /genesis hash is required/);
+  assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", reconnectMinMs: 1_000, reconnectMaxMs: 500 }), /positive ordered integers/); assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", expectedGenesisHash: "" }), /genesis hash is required/); assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", maxMessageBytes: 65_535 }), /message limit/);
+});
+
+test("validator stream rejects oversized, binary, and malformed messages before dispatch", async () => {
+  const stream = new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: class {}, maxMessageBytes: 65_536 });
+  for (const payload of ["x".repeat(65_537), Buffer.from("{}"), "{"]) await assert.rejects(() => stream.handleMessage(payload), (error) => error.code === "STREAM_MESSAGE_INVALID" && /validator stream message/.test(error.message));
+  assert.equal(stream.subscriptions.size, 0); assert.equal(stream.metrics.notifications, 0);
+  class FakeSocket { constructor() { this.readyState = 1; this.closed = false; } close() { this.closed = true; } }
+  const connected = new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", WebSocketClass: FakeSocket, maxMessageBytes: 65_536 }); connected.writeStatus = async () => {}; connected.connect(); const socket = connected.socket; socket.onmessage({ data: "x".repeat(65_537) }); await connected.messageQueue; assert.equal(socket.closed, true); assert.equal(connected.metrics.decodeErrors, 1); assert.match(connected.lastError.message, /not bounded UTF-8 text/);
 });
 
 test("validator stream rejects crossed subscriptions and ignores superseded sockets", async () => {
@@ -1993,6 +2001,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
   assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
   assert.equal(loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "45000" }, process.cwd()).streamIdleTimeoutMs, 45000);
+  assert.equal(loadConfig({ INDEXER_STREAM_MAX_MESSAGE_BYTES: "1048576" }, process.cwd()).streamMaxMessageBytes, 1_048_576);
   const http = loadConfig({ INDEXER_HTTP_HEADERS_TIMEOUT_MS: "4000", INDEXER_HTTP_REQUEST_TIMEOUT_MS: "12000", INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS: "3000", INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET: "250" }, process.cwd());
   assert.deepEqual({ headers: http.httpHeadersTimeoutMs, request: http.httpRequestTimeoutMs, keepAlive: http.httpKeepAliveTimeoutMs, requests: http.httpMaxRequestsPerSocket }, { headers: 4_000, request: 12_000, keepAlive: 3_000, requests: 250 });
 });
@@ -2002,6 +2011,7 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.throws(() => loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "-1" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "99" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "999" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_STREAM_MAX_MESSAGE_BYTES: "65535" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "65535" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048575" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);

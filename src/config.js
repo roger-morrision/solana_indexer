@@ -71,6 +71,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     streamReconnectMaxMs: boundedInt(env.INDEXER_STREAM_RECONNECT_MAX_MS, 30_000, 1_000, 300_000),
     streamConnectTimeoutMs: boundedInt(env.INDEXER_STREAM_CONNECT_TIMEOUT_MS, 10_000, 100, 300_000),
     streamIdleTimeoutMs: boundedInt(env.INDEXER_STREAM_IDLE_TIMEOUT_MS, 90_000, 1_000, 600_000),
+    streamMaxMessageBytes: boundedInt(env.INDEXER_STREAM_MAX_MESSAGE_BYTES, 67_108_864, 65_536, 268_435_456),
   };
 }
 
