@@ -49,8 +49,11 @@ and free lists and persists every active order's exact price, sequence, trader,
 quantity and expiry alongside lot/tick economics, identity, vault balances,
 provenance, ordered events, and repair jobs. The shared pool endpoint exposes
 exact lot-aware, expiry-filtered analytical depth quotes with ceiling taker-fee
-rounding. Construction and simulation remain unavailable, so Phoenix quotes are
-explicitly non-executable and cannot satisfy executable-route readiness.
+rounding. Official nine-account IOC construction binds exact market/vault/token
+identity, lot-aligned input/output limits, an aggressive terminal price, bounded
+slot expiry, abort-on-self-trade policy, unsigned message identity and exact
+mint-bound simulation effects. Signing and submission remain external, so
+Phoenix cannot satisfy executable-route readiness without those later gates.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|

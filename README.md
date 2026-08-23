@@ -873,8 +873,10 @@ retained as audit evidence. Run `npm run snapshot:phoenix-markets --
 bounded bid/ask allocators, and both vaults behind monotonic finalized read
 barriers. Active orders retain exact price, sequence, trader, quantity, and
 expiry fields. The internal pool quote endpoint traverses this finalized depth
-with exact lot and ceiling-fee arithmetic, but labels Phoenix output
-`analysis_only_quote` because construction and simulation remain unavailable.
+with exact lot and ceiling-fee arithmetic. The preparation endpoint binds that
+quote to the official nine-account `Swap` ABI, an IOC packet with bounded slot
+expiry, exact lot-aligned limits, a deterministic unsigned legacy transaction,
+and mint-bound local-simulation effects. Signing and submission remain external.
 Market economics, identity, depth, and balances are persisted and repaired.
 Historical swap fees remain explicitly unavailable unless market evidence is
 bound to that transaction's slot, and Phoenix activity cannot unlock execution
