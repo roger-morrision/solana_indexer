@@ -73,6 +73,7 @@ function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result
 function rpcError(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }; }
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 function indexedTokenAccountRow(store, tokenAccount, row) { const snapshot = store.state.holderSnapshots[row.mint], snapshotRow = snapshot?.accounts?.find((account) => account.tokenAccount === tokenAccount); return { tokenAccount, mint: row.mint, owner: row.owner, programId: row.programId, decimals: row.decimals, amountRaw: row.amountRaw, withheldAmountRaw: snapshotRow?.withheldAmountRaw ?? null, lastSlot: row.lastSlot, closed: row.closed, snapshotComplete: Boolean(snapshotRow && snapshot?.complete === true) }; }
+function indexedTokenSupplyRow(mint, snapshot) { return { mint, programId: snapshot.mintProgramId, supplyRaw: snapshot.mintInfo.supply, decimals: snapshot.mintInfo.decimals, mintWithheldAmountRaw: snapshot.token2022Evidence?.transferFeeConfig?.withheldAmountRaw ?? null, slot: snapshot.slot, epoch: snapshot.epoch ?? null, commitment: "finalized", observedAt: snapshot.observedAt, sourceHash: snapshot.sourceHash, coverage: "complete_finalized_mint_account_snapshot", complete: true }; }
 function decisionStateQuality(store) {
   for (const method of ["derivedLedgerQuality", "recoveryQuality", "aggregateQuality", "programEventQuality", "snapshotQuality", "metadataQuality"]) { const quality = store[method](); if (!quality.canonical || method === "recoveryQuality" && quality.capacityExceeded) return quality; }
   return { canonical: true, reason: null };
@@ -117,6 +118,14 @@ function dispatchRpc(payload, config, store) {
     if (!row) return rpcResult(payload.id, null);
     if (!canonicalTokenAccountProjections(store.state, new Set([row.mint]))) return rpcError(payload.id, -32003, "Indexed token-account evidence unavailable");
     return rpcResult(payload.id, { ...indexedTokenAccountRow(store, tokenAccount, row), coverage: "latest_canonical_observed_account", complete: false });
+  }
+  if (payload.method === "getIndexedTokenSupply") {
+    const mint = Array.isArray(payload.params) ? payload.params[0] : payload.params?.mint;
+    if (!SOLANA_ADDRESS.test(mint ?? "")) return rpcError(payload.id, -32602, "Invalid params");
+    const snapshot = store.state.holderSnapshots[mint];
+    if (!snapshot && !store.state.mints[mint]) return rpcResult(payload.id, null);
+    if (!snapshot || !canonicalTokenAccountProjections(store.state, new Set([mint]))) return rpcError(payload.id, -32004, "Indexed token-supply evidence unavailable");
+    return rpcResult(payload.id, indexedTokenSupplyRow(mint, snapshot));
   }
   if (payload.method === "getIndexedTokenAccountsByOwner") {
     const params = Array.isArray(payload.params) ? { owner: payload.params[0], mint: payload.params[1], limit: payload.params[2], cursor: payload.params[3] } : payload.params;

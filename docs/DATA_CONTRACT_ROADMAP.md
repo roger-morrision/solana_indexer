@@ -31,6 +31,10 @@ is scoped to the selected mints: relevant account or snapshot-hash corruption
 fails closed without coupling wallet availability to unrelated pool snapshots.
 Explicit mint filters validate that mint even for an empty owner result, so
 corrupt relevant snapshot evidence cannot masquerade as an empty healthy page.
+The `getIndexedTokenSupply` RPC method exposes only exact raw supply from the
+same canonical finalized mint/account snapshot, separately discloses
+Token-2022 mint-withheld fees, and fails closed when a tracked mint lacks that
+complete evidence.
 
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
