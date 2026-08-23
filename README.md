@@ -466,6 +466,9 @@ expired, or future-dated registries do not unlock concentration or bot safety.
 Applied exclusion provenance and totals
 are shared by holder, token-security, and pool-risk projections so consumers do
 not receive contradictory completeness claims.
+`/api/stats`, `getIndexerStats`, and `/metrics` expose only aggregate registry
+qualification: configured/fresh state, age/expiry, covered-mint count, and entry
+count. They never export selector identities, evidence labels, or registry hashes.
 `/internal/tokens/:mint/security` reports snapshot-backed authority/extension
 findings. `/internal/wallets/:address/performance` reports exact rational cost
 basis/PnL only for decoded swaps carrying an explicit user address. The

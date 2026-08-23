@@ -102,6 +102,9 @@ transitions, or snapshot-field changes.
 Holder exclusion registries now bind every mint, owner and token-account
 selector to a canonical 32-byte Solana base58 address before their reviewed
 completeness can affect concentration, security or bot-safety projections.
+Credential-free stats and fixed-cardinality Prometheus gauges expose registry
+configuration, freshness, age/expiry, complete-mint count and entry count without
+leaking selectors, evidence labels or hashes.
 
 | Consumer | Required data | Current source | Normalized contract | Freshness / safety | Exposure | Coverage |
 |---|---|---|---|---|---|---|
