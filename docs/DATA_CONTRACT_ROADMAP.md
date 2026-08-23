@@ -128,7 +128,10 @@ Embedded swap and lifecycle batches now share that replay boundary. Exact stable
 identity, amounts, mint direction, registry/decoder binding, payload hash,
 provenance and outer slot/time must hold; reorg tombstones additionally bind the
 replacement blockhash. Declared batch counts must equal their retained arrays,
-so a valid outer envelope cannot conceal corrupt market facts during resume.
+so a valid outer envelope cannot conceal corrupt market facts during resume. When
+the replaced block envelope remains in replay retention, the replacement must retract
+its complete swap and lifecycle multisets byte-for-byte after adding only the canonical
+replacement hash. Non-replacement event types cannot carry retraction payloads.
 Canonical swap rows and every replay copy now require an active program-registry
 entry at the fact slot, the exact current registry version, its protocol and decoder
 version, bounded decimals, exact positive u64 amounts, fee bounds, and a recognized

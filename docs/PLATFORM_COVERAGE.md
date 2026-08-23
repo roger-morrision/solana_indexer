@@ -69,6 +69,8 @@ and WebSocket replay instead of presenting a second market history to consumers.
 Both ledgers also require the active slot-qualified program registration, exact
 current registry and decoder versions, protocol identity, amount/fee/decimal bounds,
 and recognized payload-hash semantics; stale or invented decoder identities fail closed.
+Fork-replacement tombstones are content-reconciled with the latest retained predecessor
+for that slot, and ordinary index/finality envelopes are forbidden from carrying retractions.
 
 Multi-sink repair also runs when the canonical event batch is empty, rebuilding
 PostgreSQL projections, canonical dead letters, and expired or lost versioned
