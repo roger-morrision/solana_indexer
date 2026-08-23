@@ -29,7 +29,7 @@ export async function createAccountSnapshot({ client, mints, genesisHash, observ
       if (found?.context?.slot !== slot || !Array.isArray(found.value)) throw new Error(`token accounts for ${mint} did not share the exact finalized snapshot context`);
       for (const row of found.value) {
         const info = row.account?.data?.parsed?.info;
-        if (typeof row.pubkey !== "string" || !row.pubkey || row.account?.owner !== programId || info?.mint !== mint || !validAmount(info?.tokenAmount?.amount) || !validDecimals(info?.tokenAmount?.decimals)) throw new Error(`invalid canonical token account identity for ${mint}`);
+        if (typeof row.pubkey !== "string" || !row.pubkey || programId !== mintAccount.owner || row.account?.owner !== programId || info?.mint !== mint || typeof info.owner !== "string" || !info.owner || !validAmount(info?.tokenAmount?.amount) || !validDecimals(info?.tokenAmount?.decimals) || info.tokenAmount.decimals !== mintInfo.decimals) throw new Error(`invalid canonical token account identity for ${mint}`);
         if (accounts.has(row.pubkey)) throw new Error(`duplicate token account ${row.pubkey}`);
         totalAmount += BigInt(info.tokenAmount.amount); if (totalAmount > BigInt(mintInfo.supply)) throw new Error(`token accounts for ${mint} exceed mint supply`);
         accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner ?? null, programId, amountRaw: info.tokenAmount.amount, decimals: info.tokenAmount.decimals, state: info.state ?? null });
