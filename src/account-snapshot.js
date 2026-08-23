@@ -13,7 +13,9 @@ import { extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
 export { extractToken2022MintEvidence } from "./token-2022-transfer-fee.js";
 
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
+const U64_MAX = (1n << 64n) - 1n;
 const validAmount = (value) => typeof value === "string" && /^\d+$/.test(value);
+const validU64 = (value) => validAmount(value) && BigInt(value) <= U64_MAX;
 const validDecimals = (value) => Number.isInteger(value) && value >= 0 && value <= 255;
 async function atomicWrite(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value)}\n`); }
 
@@ -23,22 +25,25 @@ export async function createAccountSnapshot({ client, mints, genesisHash, observ
   const mintAccounts = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "mint" }); const rows = [];
   for (let index = 0; index < mints.length; index++) {
     const mint = mints[index], mintAccount = mintAccounts.value[index], mintInfo = mintAccount?.data?.parsed?.info; const accounts = new Map(); let totalAmount = 0n;
-    if (!TOKEN_PROGRAMS.includes(mintAccount?.owner) || !mintInfo || !validAmount(mintInfo.supply) || !validDecimals(mintInfo.decimals)) throw new Error(`invalid canonical mint account ${mint}`);
+    if (!TOKEN_PROGRAMS.includes(mintAccount?.owner) || !mintInfo || !validU64(mintInfo.supply) || !validDecimals(mintInfo.decimals)) throw new Error(`invalid canonical mint account ${mint}`);
+    const token2022Evidence = extractToken2022MintEvidence(mintAccount, epoch, slot), transferFeeConfig = token2022Evidence?.transferFeeConfig ?? null;
     for (const programId of TOKEN_PROGRAMS) {
       const found = await client.call("getProgramAccounts", [programId, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot, withContext: true, filters: [{ memcmp: { offset: 0, bytes: mint } }] }]);
       if (found?.context?.slot !== slot || !Array.isArray(found.value)) throw new Error(`token accounts for ${mint} did not share the exact finalized snapshot context`);
       for (const row of found.value) {
         const info = row.account?.data?.parsed?.info;
-        if (typeof row.pubkey !== "string" || !row.pubkey || programId !== mintAccount.owner || row.account?.owner !== programId || info?.mint !== mint || typeof info.owner !== "string" || !info.owner || !validAmount(info?.tokenAmount?.amount) || !validDecimals(info?.tokenAmount?.decimals) || info.tokenAmount.decimals !== mintInfo.decimals) throw new Error(`invalid canonical token account identity for ${mint}`);
+        if (typeof row.pubkey !== "string" || !row.pubkey || programId !== mintAccount.owner || row.account?.owner !== programId || info?.mint !== mint || typeof info.owner !== "string" || !info.owner || !validU64(info?.tokenAmount?.amount) || !validDecimals(info?.tokenAmount?.decimals) || info.tokenAmount.decimals !== mintInfo.decimals) throw new Error(`invalid canonical token account identity for ${mint}`);
         if (accounts.has(row.pubkey)) throw new Error(`duplicate token account ${row.pubkey}`);
-        totalAmount += BigInt(info.tokenAmount.amount); if (totalAmount > BigInt(mintInfo.supply)) throw new Error(`token accounts for ${mint} exceed mint supply`);
-        accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner ?? null, programId, amountRaw: info.tokenAmount.amount, decimals: info.tokenAmount.decimals, state: info.state ?? null });
+        const extensions = info.extensions, feeAmounts = Array.isArray(extensions) ? extensions.filter((extension) => extension?.extension === "transferFeeAmount") : [];
+        if (programId === TOKEN_PROGRAMS[1] && !Array.isArray(extensions) || transferFeeConfig && feeAmounts.length !== 1 || !transferFeeConfig && feeAmounts.length !== 0 || feeAmounts.length && (!Number.isSafeInteger(feeAmounts[0]?.state?.withheldAmount) || feeAmounts[0].state.withheldAmount < 0)) throw new Error(`invalid Token-2022 withheld balance for ${mint}`);
+        const withheldAmountRaw = feeAmounts.length ? String(feeAmounts[0].state.withheldAmount) : null;
+        totalAmount += BigInt(info.tokenAmount.amount) + BigInt(withheldAmountRaw ?? 0); if (totalAmount + BigInt(transferFeeConfig?.withheldAmountRaw ?? 0) > BigInt(mintInfo.supply)) throw new Error(`token accounts for ${mint} exceed mint supply`);
+        accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner, programId, amountRaw: info.tokenAmount.amount, ...(withheldAmountRaw != null ? { withheldAmountRaw } : {}), decimals: info.tokenAmount.decimals, state: info.state ?? null });
       }
     }
     const metadataResponse = await client.call("getProgramAccounts", [TOKEN_METADATA_PROGRAM, { commitment: "finalized", encoding: "base64", minContextSlot: slot, withContext: true, filters: [{ memcmp: { offset: 33, bytes: mint } }] }]);
     if (metadataResponse?.context?.slot !== slot || !Array.isArray(metadataResponse.value) || metadataResponse.value.length > 1) throw new Error(`token metadata for ${mint} did not share the exact finalized snapshot context`);
     const metadata = metadataResponse.value.length ? decodeTokenMetadataAccount(metadataResponse.value[0].pubkey, metadataResponse.value[0].account, mint) : null;
-    const token2022Evidence = extractToken2022MintEvidence(mintAccount, epoch, slot);
     rows.push({ mint, mintProgramId: mintAccount.owner, mintInfo, ...(token2022Evidence ? { token2022Evidence } : {}), ...(metadata ? { metadata } : {}), accounts: [...accounts.values()].sort((a, b) => a.tokenAccount.localeCompare(b.tokenAccount)) });
   }
   return { schemaVersion: 1, chain: "solana", genesisHash, commitment: "finalized", slot, epoch, observedAt, mints: rows };
