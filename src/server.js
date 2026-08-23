@@ -98,7 +98,7 @@ function dispatchRpc(payload, config, store) {
     if (!params || typeof params !== "object" || Array.isArray(params)) return rpcError(payload.id, -32602, "Invalid params");
     const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || (cursor !== null && typeof cursor !== "string")) return rpcError(payload.id, -32602, "Invalid params");
     const view = store.indexedBlocks(); if (!view.available) return rpcError(payload.id, -32001, "Indexed block evidence unavailable");
-    try { return rpcResult(payload.id, page(view.data, size, cursor, (row) => String(row.slot), "rpc:getIndexedBlocks:v1")); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+    try { return rpcResult(payload.id, page(view.data, size, cursor, (row) => String(row.slot), `rpc:getIndexedBlocks:v2:${projectionDigest(view.data)}`)); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   if (payload.method === "getIndexedTransaction") {
     const signature = Array.isArray(payload.params) ? payload.params[0] : payload.params?.signature;
@@ -112,7 +112,7 @@ function dispatchRpc(payload, config, store) {
     const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || cursor !== null && typeof cursor !== "string") return rpcError(payload.id, -32602, "Invalid params");
     const view = store.indexedTransactions(); if (!view.available) return rpcError(payload.id, -32002, "Indexed transaction evidence unavailable");
     const rows = view.data.filter((transaction) => transaction.provenance?.commitment === "finalized" && transaction.accounts.includes(params.address)).map(({ signature, slot, blockTime, success, feePayer, feeLamports, provenance }) => ({ signature, slot, blockTime, success, feePayer, feeLamports, commitment: provenance.commitment }));
-    try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => `${row.slot}:${row.signature}`, `rpc:getIndexedSignaturesForAddress:v1:${params.address}`), coverage: "retained_finalized_index_history", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+    try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => `${row.slot}:${row.signature}`, `rpc:getIndexedSignaturesForAddress:v2:${params.address}:${projectionDigest(rows)}`), coverage: "retained_finalized_index_history", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   if (payload.method === "getIndexedTokenAccount") {
     const tokenAccount = Array.isArray(payload.params) ? payload.params[0] : payload.params?.tokenAccount;

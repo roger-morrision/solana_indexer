@@ -653,7 +653,8 @@ or transaction-submission methods return JSON-RPC `Method not found`.
 `getIndexedSignaturesForAddress` accepts object parameters `{ address, limit,
 cursor }` or positional `[address, limit, cursor]`, returns only finalized rows,
 and labels its coverage as incomplete retained index history. Its cursor is bound
-to the requested address and cannot be reused for another account.
+to the requested address and the deterministic retained result projection, so it
+cannot be reused for another account or after indexed history changes.
 `getIndexedTokenAccount` accepts `{ tokenAccount }` or `[tokenAccount]` and
 returns the latest canonical observed account, or `null` when the address is not
 retained. `getIndexedTokenSupply` accepts `{ mint }` or `[mint]` and returns
