@@ -2064,10 +2064,16 @@ test("pool manipulation risk detects exact notional concentration and burst patt
   store.state.swaps.at(-1).blockTime = "1700000019"; const corruptTime = store.poolRisk("risk-pool", 120_000, 1_700_000_020_000); assert.equal(corruptTime.latestBlockTime, null); assert.equal(corruptTime.ageMs, null); assert.ok(corruptTime.flags.includes("stale_market_activity")); assert.equal(corruptTime.assessable, false);
 });
 
-test("trending is deterministic for equal transfer counts", async () => {
+test("all-time trending is deterministic and uses the same verified event contract", async () => {
   const store = new IndexStore("unused"); await store.load();
-  store.state.mints = { older: { transferCount: 2, lastSlot: 10 }, newer: { transferCount: 2, lastSlot: 11 }, busy: { transferCount: 3, lastSlot: 9 } };
-  assert.deepEqual(store.trending(3).map((row) => row.mint), ["busy", "newer", "older"]);
+  store.state.transfers = [
+    { mint: "older", slot: 10, blockTime: 100 }, { mint: "older", slot: 10, blockTime: 101 },
+    { mint: "newer", slot: 11, blockTime: 100 }, { mint: "newer", slot: 11, blockTime: 101 },
+    { mint: "busy", slot: 9, blockTime: 100 }, { mint: "busy", slot: 9, blockTime: 101 }, { mint: "busy", slot: 9, blockTime: 102 },
+  ];
+  const rows = store.trending(3, null, 200_000);
+  assert.deepEqual(rows.map((row) => row.mint), ["busy", "newer", "older"]);
+  assert.deepEqual(Object.keys(rows[0]).sort(), ["buyCount", "lastBlockTime", "lastSlot", "mint", "protocols", "sellCount", "swapCount", "transferCount", "uniqueTraders"].sort());
 });
 
 test("rolling trending excludes stale activity and exposes trader and protocol evidence", async () => {
@@ -2088,6 +2094,7 @@ test("future market observations fail closed across consumer projections", async
   store.state.swaps = [swap]; store.state.transfers = [{ mint: "token", slot: 10, blockTime: future }];
   assert.equal(store.referencePrice("token", 120_000, now).available, false);
   assert.equal(store.trending(10, 300, now).some((row) => row.mint === "token"), false);
+  assert.equal(store.trending(10, null, now).some((row) => row.mint === "token"), false);
   const candles = store.candles("future-pool", 60, 10, now); assert.equal(candles.data.length, 0); assert.equal(candles.futureRejectedSwaps, 1);
   const evidence = store.evidence("token", 120_000, now); assert.equal(evidence.freshness.observedInFuture, true); assert.equal(evidence.freshness.stale, true); assert.ok(evidence.missing.includes("market_clock_skew"));
 });

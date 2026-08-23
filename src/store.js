@@ -963,8 +963,7 @@ export class IndexStore {
     return { pool: address, intervalSeconds, price: "quote_raw_per_base_raw", exact: true, rejectedSwaps: rejected, futureRejectedSwaps: futureRejected, data };
   }
   trending(limit = 50, windowSeconds = null, now = Date.now()) {
-    if (windowSeconds == null) return Object.entries(this.state.mints).map(([mint, row]) => ({ mint, ...row })).sort((a, b) => (b.swapCount ?? 0) - (a.swapCount ?? 0) || (b.transferCount ?? 0) - (a.transferCount ?? 0) || b.lastSlot - a.lastSlot).slice(0, limit);
-    const currentSecond = Math.floor(now / 1_000), cutoff = currentSecond - windowSeconds; const rows = new Map();
+    const currentSecond = Math.floor(now / 1_000), cutoff = windowSeconds == null ? Number.NEGATIVE_INFINITY : currentSecond - windowSeconds; const rows = new Map();
     const get = (mint) => { const row = rows.get(mint) ?? { mint, swapCount: 0, buyCount: 0, sellCount: 0, transferCount: 0, uniqueTraders: new Set(), protocols: new Set(), lastSlot: 0, lastBlockTime: null }; rows.set(mint, row); return row; };
     for (const swap of this.state.swaps) if (swap.blockTime != null && swap.blockTime >= cutoff && swap.blockTime <= currentSecond) {
       const tradedMint = swap.side === "buy" ? swap.outputMint : swap.side === "sell" ? swap.inputMint : null;
