@@ -108,6 +108,14 @@ function dispatchRpc(payload, config, store) {
     const rows = view.data.filter((transaction) => transaction.provenance?.commitment === "finalized" && transaction.accounts.includes(params.address)).map(({ signature, slot, blockTime, success, feePayer, feeLamports, provenance }) => ({ signature, slot, blockTime, success, feePayer, feeLamports, commitment: provenance.commitment }));
     try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => `${row.slot}:${row.signature}`, `rpc:getIndexedSignaturesForAddress:v1:${params.address}`), coverage: "retained_finalized_index_history", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
+  if (payload.method === "getIndexedTokenAccountsByOwner") {
+    const params = Array.isArray(payload.params) ? { owner: payload.params[0], mint: payload.params[1], limit: payload.params[2], cursor: payload.params[3] } : payload.params;
+    if (!params || typeof params !== "object" || Array.isArray(params) || !SOLANA_ADDRESS.test(params.owner ?? "") || params.mint != null && !SOLANA_ADDRESS.test(params.mint)) return rpcError(payload.id, -32602, "Invalid params");
+    const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || cursor !== null && typeof cursor !== "string") return rpcError(payload.id, -32602, "Invalid params");
+    if (!store.aggregateQuality().canonical || !store.snapshotQuality().canonical) return rpcError(payload.id, -32003, "Indexed token-account evidence unavailable");
+    const rows = Object.entries(store.state.tokenAccounts).filter(([, row]) => row.owner === params.owner && (params.mint == null || row.mint === params.mint)).sort(([left], [right]) => left.localeCompare(right)).map(([tokenAccount, row]) => { const snapshot = store.state.holderSnapshots[row.mint], snapshotRow = snapshot?.accounts?.find((account) => account.tokenAccount === tokenAccount); return { tokenAccount, mint: row.mint, owner: row.owner, programId: row.programId, decimals: row.decimals, amountRaw: row.amountRaw, withheldAmountRaw: snapshotRow?.withheldAmountRaw ?? null, lastSlot: row.lastSlot, closed: row.closed, snapshotComplete: Boolean(snapshotRow && snapshot?.complete === true) }; });
+    const scope = `rpc:getIndexedTokenAccountsByOwner:v1:${params.owner}:${params.mint ?? "*"}`; try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, scope), coverage: "latest_canonical_observed_accounts", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+  }
   return rpcError(payload.id, -32601, "Method not found");
 }
 function dispatchRpcEnvelope(payload, config, store) { if (!Array.isArray(payload)) return dispatchRpc(payload, config, store); if (!payload.length || payload.length > 100) return rpcError(null, -32600, "Invalid Request"); return payload.map((request) => dispatchRpc(request, config, store)); }

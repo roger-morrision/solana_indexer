@@ -21,6 +21,12 @@ finalized compact outcomes plus explicit partial retained-history coverage;
 cursors cannot cross addresses, and the method does not impersonate validator
 history completeness.
 
+Owner token-account inventory is available through the fail-closed
+`getIndexedTokenAccountsByOwner` RPC method. It uses owner/mint-bound cursors,
+keeps exact raw balances separate from snapshot-backed Token-2022 withheld
+amounts, discloses per-account snapshot completeness, and never claims global
+wallet completeness from the tracked mint set.
+
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
 readiness fail closed with `indexed_decoder_registry_stale` when old indexed

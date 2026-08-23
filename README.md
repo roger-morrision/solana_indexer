@@ -363,7 +363,7 @@ automatically.
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
 - `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence; malformed cursor/lag/tip progress fails closed)
 - `GET /api/v1/warehouse` (durable sink checkpoint age, event lag and retained-replay coverage; unavailable/corrupt/ahead checkpoints fail closed)
-- `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedBlock`, `getIndexedBlocks`, `getIndexedTransaction`, and `getIndexedSignaturesForAddress` only; bounded batches of 100 calls, charged per logical call)
+- `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedBlock`, `getIndexedBlocks`, `getIndexedTransaction`, `getIndexedSignaturesForAddress`, and `getIndexedTokenAccountsByOwner` only; bounded batches of 100 calls, charged per logical call)
 - `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle|snapshots&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume; account/off-chain metadata and every supported finalized pool/curve snapshot family use the isolated `snapshots` topic with strict filter-domain isolation)
 
 REST `limit` parameters are strict base-10 integers from 1 through 500;
@@ -652,6 +652,10 @@ or transaction-submission methods return JSON-RPC `Method not found`.
 cursor }` or positional `[address, limit, cursor]`, returns only finalized rows,
 and labels its coverage as incomplete retained index history. Its cursor is bound
 to the requested address and cannot be reused for another account.
+`getIndexedTokenAccountsByOwner` accepts `{ owner, mint?, limit?, cursor? }`
+or positional equivalents. It returns exact raw balances, separately preserves
+snapshot-backed Token-2022 withheld amounts when available, and binds cursors
+to both owner and optional mint while explicitly reporting partial coverage.
 Each decoded swap has a deterministic `swapId` of `<signature>:<eventIndex>`.
 This preserves legitimate multi-hop/multi-event transactions while giving REST
 cursors and downstream consumers a stable deduplication key. When a trusted
