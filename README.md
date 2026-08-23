@@ -911,6 +911,12 @@ maximum-minus-minimum deviation. The snapshot applies OpenBook's
 confidence, freshness, mixed/dual-oracle, market-decimal, lot conversion,
 signed overflow, and side-specific peg-limit rules. Other legacy Switchboard
 account forms and mutable stub sources remain unpriced and fail closed.
+Fresh full-depth OpenBook snapshots support exact-input analysis quotes through
+`GET /internal/pools/:address/quote`. Quotes merge fixed and validated
+oracle-pegged orders in price-time priority, discard expired orders, preserve
+whole-lot input dust, and apply the aggregate ceiling-rounded taker fee. They
+are explicitly non-executable: OpenBook instruction construction, simulation,
+external signer approval, and landed-message confirmation remain required.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one

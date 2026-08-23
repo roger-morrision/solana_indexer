@@ -19,7 +19,7 @@ export const SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 export const OPENBOOK_MARKET_DISCRIMINATOR = Buffer.from([219, 190, 213, 55, 0, 227, 198, 154]);
 export const OPENBOOK_BOOKSIDE_DISCRIMINATOR = crypto.createHash("sha256").update("account:BookSide").digest().subarray(0, 8);
 export const OPENBOOK_STUB_ORACLE_DISCRIMINATOR = crypto.createHash("sha256").update("account:StubOracle").digest().subarray(0, 8);
-const MARKET_ACCOUNT_BYTES = 848, FEE_SCALE = 1_000_000n, BOOKSIDE_ACCOUNT_BYTES = 90_952, BOOKSIDE_NODES_OFFSET = 840, BOOKSIDE_NODE_BYTES = 88, BOOKSIDE_NODE_CAPACITY = 1_024;
+const MARKET_ACCOUNT_BYTES = 848, FEE_SCALE = 1_000_000n, U64_MAX = (1n << 64n) - 1n, BOOKSIDE_ACCOUNT_BYTES = 90_952, BOOKSIDE_NODES_OFFSET = 840, BOOKSIDE_NODE_BYTES = 88, BOOKSIDE_NODE_CAPACITY = 1_024;
 const RAYDIUM_CLMM_PROGRAM = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", SWITCHBOARD_V1_DEVNET_PROGRAM = "7azgmy1pFXHikv36q1zZASvFq5vFa39TT9NweVugKKTU", SWITCHBOARD_V2_MAINNET_PROGRAM = "DtmE9D2CSB4L5D6A15mraeEjrGMm6auWVzgaD8hK2tZM", SWITCHBOARD_V2_DISCRIMINATOR = Buffer.from([217, 230, 65, 101, 201, 162, 27, 125]), PYTH_MAGIC = 0xa1b2c3d4;
 
 function base58(bytes) { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } for (const byte of bytes) { if (byte) break; output = `1${output}`; } return output || "1"; }
@@ -106,6 +106,32 @@ export function decodeOpenBookBookSideAccount(address, account, expectedSide) {
   const free = new Set(); let handle = freeListHead; for (let index = 0; index < freeListLength; index++) { if (handle >= bumpIndex || free.has(handle)) throw new Error(`OpenBook ${expectedSide} ${address} has corrupt free list`); free.add(handle); const offset = BOOKSIDE_NODES_OFFSET + handle * BOOKSIDE_NODE_BYTES, tag = data[offset]; if (tag !== (index === freeListLength - 1 ? 4 : 3)) throw new Error(`OpenBook ${expectedSide} ${address} has invalid free node`); handle = data.readUInt32LE(offset + 4); }
   const claimed = new Set(), fixed = decodeBookTree(data, 8, expectedSide, "fixed", bumpIndex, address, claimed), pegged = decodeBookTree(data, 16, expectedSide, "oracle_pegged", bumpIndex, address, claimed); for (let index = 0; index < bumpIndex; index++) if (!free.has(index) && !claimed.has(index)) throw new Error(`OpenBook ${expectedSide} ${address} has unreachable allocated node`);
   return { address, side: expectedSide, fixedOrders: fixed.orders, oraclePeggedOrders: pegged.orders, fixedLeafCount: fixed.leafCount, oraclePeggedLeafCount: pegged.leafCount, bumpIndex, freeListLength, accountDataBytes: data.length, rawPayloadHash: hash(data) };
+}
+
+function openBookQuoteOrders(market, side, nowSeconds) {
+  const fixed = side === "asks" ? market.askOrders : market.bidOrders, pegged = side === "asks" ? market.oraclePeggedAskOrders : market.oraclePeggedBidOrders;
+  if (!Array.isArray(fixed) || !Array.isArray(pegged)) throw new Error("OpenBook orderbook evidence is incomplete");
+  return [...fixed, ...pegged.filter((order) => order.executable === true)].filter((order) => {
+    if (!/^\d+$/.test(order.priceLots ?? "") || BigInt(order.priceLots) < 1n || !/^\d+$/.test(order.quantityBaseLots ?? "") || BigInt(order.quantityBaseLots) < 1n || !/^\d+$/.test(order.expiresAtUnix ?? "")) throw new Error("OpenBook order evidence is invalid");
+    return BigInt(order.expiresAtUnix) === 0n || BigInt(order.expiresAtUnix) > nowSeconds;
+  }).sort((left, right) => { const price = BigInt(left.priceLots) - BigInt(right.priceLots); if (price) return side === "asks" ? (price < 0n ? -1 : 1) : (price > 0n ? -1 : 1); const key = BigInt(left.keyRaw) - BigInt(right.keyRaw); return side === "asks" ? (key < 0n ? -1 : key > 0n ? 1 : 0) : (key > 0n ? -1 : key < 0n ? 1 : 0); });
+}
+
+export function quoteOpenBookSnapshotExactInput({ snapshot, poolAddress, inputMint, amountIn, now = Date.now(), staleAfterMs = 60_000, currentSlot = snapshot?.balanceSlot }) {
+  if (snapshot?.schemaVersion !== 1 || snapshot.type !== "openbook_market_snapshot" || snapshot.commitment !== "finalized" || !Number.isSafeInteger(snapshot.balanceSlot) || snapshot.balanceSlot < 0 || !Number.isSafeInteger(currentSlot) || currentSlot < snapshot.balanceSlot || !Number.isSafeInteger(now) || now < 0) throw new Error("invalid OpenBook quote context");
+  const observed = Date.parse(snapshot.observedAt); if (!Number.isFinite(observed) || now < observed || now - observed > staleAfterMs) throw new Error("OpenBook quote evidence is stale or future-dated");
+  const market = snapshot.markets?.find((row) => row.address === poolAddress);
+  if (!market || !["finalized_full_fixed_depth", "finalized_full_depth_with_validated_oracle_pegs"].includes(market.orderbookCoverage) || market.tokenProgram0 !== SPL_TOKEN_PROGRAM || market.tokenProgram1 !== SPL_TOKEN_PROGRAM) throw new Error("OpenBook orderbook evidence is incomplete");
+  if (!/^\d+$/.test(String(amountIn)) || BigInt(amountIn) < 1n || BigInt(amountIn) > U64_MAX) throw new Error("invalid OpenBook quote amount");
+  const amount = BigInt(amountIn), baseLot = BigInt(market.baseLotSizeRaw), quoteLot = BigInt(market.quoteLotSizeRaw), takerFee = BigInt(market.takerFeeMillionths), scale = FEE_SCALE;
+  if (baseLot < 1n || quoteLot < 1n || takerFee < 0n || takerFee > scale) throw new Error("OpenBook market economics are invalid");
+  const buy = inputMint === market.tokenMint1; if (!buy && inputMint !== market.tokenMint0) throw new Error("input mint does not belong to OpenBook market");
+  const nowSeconds = BigInt(Math.floor(now / 1_000)), orders = openBookQuoteOrders(market, buy ? "asks" : "bids", nowSeconds), levels = [];
+  let availableLots = buy ? amount / quoteLot * scale / (scale + takerFee) : amount / baseLot, baseLots = 0n, quoteLots = 0n;
+  for (const order of orders) { const price = BigInt(order.priceLots), quantity = BigInt(order.quantityBaseLots), lots = buy ? (availableLots / price < quantity ? availableLots / price : quantity) : (availableLots < quantity ? availableLots : quantity); if (!lots) continue; const matchedQuoteLots = lots * price; baseLots += lots; quoteLots += matchedQuoteLots; availableLots -= buy ? matchedQuoteLots : lots; levels.push({ priceLots: order.priceLots, baseLots: lots.toString(), quoteLots: matchedQuoteLots.toString(), orderTree: order.orderTree }); }
+  const baseNative = baseLots * baseLot, quoteNative = quoteLots * quoteLot, fee = quoteNative === 0n ? 0n : (quoteNative * takerFee + scale - 1n) / scale, consumed = buy ? quoteNative + fee : baseNative, output = buy ? baseNative : quoteNative - fee, left = amount - consumed;
+  if (consumed > amount || output < 0n || consumed > U64_MAX || output > U64_MAX) throw new Error("OpenBook quote arithmetic overflow");
+  return { schemaVersion: 1, protocol: "openbook-v2", status: left === 0n ? "quoted" : "partial", pool: poolAddress, inputMint, outputMint: buy ? market.tokenMint0 : market.tokenMint1, side: buy ? "bid" : "ask", amountInRaw: amount.toString(), consumedInRaw: consumed.toString(), amountLeftRaw: left.toString(), amountOutRaw: output.toString(), takerFeeRaw: fee.toString(), baseLotsFilled: baseLots.toString(), quoteLotsFilled: quoteLots.toString(), stateSlot: snapshot.stateSlot, bookSlot: snapshot.bookSlot, oracleSlot: snapshot.oracleSlot, balanceSlot: snapshot.balanceSlot, currentSlot, levels, executable: false, safeForAutomation: false, executionBoundary: "analysis_only_quote", missing: ["unsigned_instruction_construction", "local_simulation", "external_signer_approval", "landed_transaction_confirmation"] };
 }
 
 function parsedVault(account, expectedMint, label) { if (account?.owner !== SPL_TOKEN_PROGRAM) throw new Error(`${label} token program mismatch`); const info = account?.data?.parsed?.info; if (info?.mint !== expectedMint || !/^\d+$/.test(info?.tokenAmount?.amount ?? "") || !Number.isInteger(info?.tokenAmount?.decimals) || info.tokenAmount.decimals < 0 || info.tokenAmount.decimals > 255) throw new Error(`${label} identity mismatch`); return { amountRaw: info.tokenAmount.amount, decimals: info.tokenAmount.decimals, programId: account.owner }; }
