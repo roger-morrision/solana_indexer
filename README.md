@@ -524,6 +524,9 @@ Inbox archive production accepts only bounded regular non-link files with
 USTAR-representable canonical names. Manifests and completion receipts require
 exact archive identities, canonical timestamps, bounded control files, and
 canonical SHA-256 entries before durable installation.
+Local compressed archives are built and verified in a private sibling staging
+directory, atomically renamed to their final identity, and remove only that
+validated staging directory after a failed attempt.
 The isolated restore copies the fixed artifact inventory without dereferencing
 links into a private temporary staging directory, validates that staged copy,
 and consumes only staged files to remove source-directory mutation races. Failed

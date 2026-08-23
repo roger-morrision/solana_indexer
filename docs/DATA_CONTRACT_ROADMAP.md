@@ -237,6 +237,9 @@ the producer cannot qualify a host-format-dependent or knowingly partial tar.
 The shared inbox archive boundary rejects links, non-files, oversized payloads,
 non-USTAR names, malformed hashes, identities, timestamps, and control files
 before producing a manifest or installing a completion receipt.
+Compressed inbox archives are staged privately and published by one atomic
+directory rename; failed attempts remove their validated staging directory and
+cannot leave a partial final archive that blocks an identity-safe retry.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the
