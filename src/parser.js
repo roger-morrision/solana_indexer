@@ -16,6 +16,7 @@ const PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const METEORA_DLMM = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+const RENT_SYSVAR = "SysvarRent111111111111111111111111111111111";
 const PUMP_FEE_PROGRAM = "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ";
 const STAKE_PROGRAM = "Stake11111111111111111111111111111111111111";
 function u64(value, field) { if (typeof value !== "string" || !/^\d+$/.test(value) || BigInt(value) > 18_446_744_073_709_551_615n) throw new Error(`${field} must be a decimal u64 string`); return value; }
@@ -89,6 +90,7 @@ export function recognizedLifecycleInstructionOutput(instruction) {
   if (typeof instruction?.data !== "string") return null;
   let data; try { data = decodeBase58(instruction.data); } catch { return null; }
   const discriminator = data.subarray(0, 8), exact = (length, expected) => data.length === length && discriminator.equals(expected);
+  if (instruction.programId === RAYDIUM_AMM_V4 && data.length === 26 && data[0] === 1 && data.readBigUInt64LE(10) > 0n && data.readBigUInt64LE(18) > 0n) return { protocol: "raydium-amm-v4", type: "pool_created" };
   if (instruction.programId === RAYDIUM_CPMM && exact(32, RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR)) return { protocol: "raydium-cpmm", type: "pool_created" };
   if (instruction.programId === RAYDIUM_CLMM && exact(32, RAYDIUM_CLMM_CREATE_POOL_DISCRIMINATOR)) return { protocol: "raydium-clmm", type: "pool_created" };
   if (instruction.programId === PUMP_AMM && exact(60, PUMP_AMM_CREATE_POOL_DISCRIMINATOR) && data[58] <= 1 && data[59] <= 1) return { protocol: "pump-swap", type: "pool_created" };
@@ -105,6 +107,7 @@ export function recognizedLifecycleInstructionOutput(instruction) {
 export function recognizedLifecycleInstructionEvidence(instruction) {
   const lifecycle = recognizedLifecycleInstructionOutput(instruction); if (!lifecycle || !Array.isArray(instruction.accounts) || instruction.accounts.some((account) => typeof account !== "string" || !account)) return lifecycle ? { ...lifecycle, valid: false } : null;
   let data; try { data = decodeBase58(instruction.data); } catch { return { ...lifecycle, valid: false }; } const accounts = instruction.accounts;
+  if (lifecycle.protocol === "raydium-amm-v4" && accounts.length === 21 && accounts[0] === "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" && accounts[1] === ASSOCIATED_TOKEN_PROGRAM && accounts[2] === SYSTEM_PROGRAM && accounts[3] === RENT_SYSVAR && accounts[8] !== accounts[9] && accounts[10] !== accounts[11] && accounts[18] !== accounts[19]) return { ...lifecycle, valid: true, creator: accounts[17], pool: accounts[4], poolAuthority: accounts[5], openOrders: accounts[6], lpMint: accounts[7], tokenMint0: accounts[8], tokenMint1: accounts[9], tokenVault0: accounts[10], tokenVault1: accounts[11], targetOrders: accounts[12], ammConfig: accounts[13], createFeeDestination: accounts[14], marketProgram: accounts[15], market: accounts[16], userToken0: accounts[18], userToken1: accounts[19], userLpToken: accounts[20], nonce: data[1], requestedOpenTime: readU64(data, 2), initialAmount0Raw: readU64(data, 18), initialAmount1Raw: readU64(data, 10) };
   if (lifecycle.protocol === "raydium-cpmm" && accounts.length >= 14 && accounts[4] !== accounts[5]) return { ...lifecycle, valid: true, creator: accounts[0], ammConfig: accounts[1], pool: accounts[3], tokenMint0: accounts[4], tokenMint1: accounts[5], lpMint: accounts[6], tokenVault0: accounts[10], tokenVault1: accounts[11], observationKey: accounts[13], initialAmount0Raw: readU64(data, 8), initialAmount1Raw: readU64(data, 16), requestedOpenTime: readU64(data, 24) };
   if (lifecycle.protocol === "raydium-clmm" && accounts.length >= 13 && accounts.length <= 15 && TOKEN_PROGRAMS.has(accounts[9]) && TOKEN_PROGRAMS.has(accounts[10]) && accounts[11] === SYSTEM_PROGRAM && accounts[12] === "SysvarRent111111111111111111111111111111111" && accounts[3] !== accounts[4]) return { ...lifecycle, valid: true, creator: accounts[0], ammConfig: accounts[1], pool: accounts[2], tokenMint0: accounts[3], tokenMint1: accounts[4], tokenVault0: accounts[5], tokenVault1: accounts[6], observationKey: accounts[7], tickArrayBitmap: accounts[8], baseTokenProgram: accounts[9], quoteTokenProgram: accounts[10], initialSqrtPriceX64: readU128(data, 8), requestedOpenTime: readU64(data, 24) };
   if (lifecycle.protocol === "pump-swap" && accounts.length >= 11 && accounts[3] !== accounts[4]) return { ...lifecycle, valid: true, pool: accounts[0], ammConfig: accounts[1], creator: accounts[2], tokenMint0: accounts[3], tokenMint1: accounts[4], lpMint: accounts[5], tokenVault0: accounts[9], tokenVault1: accounts[10], poolIndex: data.readUInt16LE(8), initialAmount0Raw: readU64(data, 10), initialAmount1Raw: readU64(data, 18), coinCreator: base58(data.subarray(26, 58)), mayhemMode: data[58] === 1, cashbackCoin: data[59] === 1 };
@@ -132,6 +135,19 @@ export function decodeRaydiumCpmmPoolInitializations(entry, signature) {
     let data; try { data = decodeBase58(instruction.data); } catch { continue; }
     if (data.length !== 32 || !data.subarray(0, 8).equals(RAYDIUM_CPMM_INITIALIZE_DISCRIMINATOR)) continue;
     events.push({ type: "pool_created", protocol: "raydium-cpmm", programId: RAYDIUM_CPMM, signature, creator: accounts[0], ammConfig: accounts[1], pool: accounts[3], tokenMint0: accounts[4], tokenMint1: accounts[5], lpMint: accounts[6], tokenVault0: accounts[10], tokenVault1: accounts[11], observationKey: accounts[13], initialAmount0Raw: readU64(data, 8), initialAmount1Raw: readU64(data, 16), requestedOpenTime: readU64(data, 24), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
+export function decodeRaydiumAmmV4PoolInitializations(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], keys = accountKeys(entry.transaction?.message, entry.meta);
+  for (const instruction of instructionRows(entry)) {
+    const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
+    if (programId !== RAYDIUM_AMM_V4 || typeof instruction.data !== "string") continue;
+    const evidence = recognizedLifecycleInstructionEvidence({ programId, accounts, data: instruction.data });
+    if (!evidence?.valid) continue;
+    const data = decodeBase58(instruction.data), { valid, ...event } = evidence;
+    events.push({ ...event, programId: RAYDIUM_AMM_V4, signature, venueType: "amm", rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -700,7 +716,7 @@ export function parseBlock(block) {
     const normalized = normalizedInstructions(entry, keys, signature, block.slot, blockTime); instructions.push(...normalized);
     if (failed) continue;
     nativeTransfers.push(...decodeSystemTransfers(normalized));
-    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeRaydiumClmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodeMeteoraDlmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
+    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeRaydiumAmmV4PoolInitializations(entry, signature), ...decodeRaydiumClmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodeMeteoraDlmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumAmmV4SwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodeMeteoraDlmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     const tokenAccounts = tokenAccountEvidence(entry, keys);
