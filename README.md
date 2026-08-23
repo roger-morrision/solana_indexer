@@ -427,9 +427,12 @@ Fresh finalized curve, mint-owner, Global, and FeeConfig evidence now feeds an
 exact unsigned Sell V2 and Buy Exact Quote In V2 builders with hash-bound local simulation preparation;
 the quote, instruction, and simulation all bind the same finalized mint-evidence
 slot and epoch. Legacy SPL routes fail closed when this evidence is absent, and
-Pump Token-2022 routes remain unavailable until exact fee-transfer semantics are
-verified rather than relying on the mint program ID alone.
-bounded external signer approval, cryptographic signature verification, and
+Pump V2 Token-2022 routes accept only the transfer-neutral `metadataPointer` and
+`tokenMetadata` extension set used by the documented `create_v2` flow. Transfer
+fees, hooks, delegates, confidential-transfer features, unknown extensions, and
+incomplete extension evidence fail closed rather than relying on the mint program
+ID alone. This boundary follows Pump's official [coin creation](https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_PROGRAM/COIN_CREATION.md), [buy](https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_PROGRAM/BUY.md), and [sell](https://github.com/pump-fun/pump-public-docs/blob/main/docs/PUMP_PROGRAM/SELL.md) contracts.
+Bounded external signer approval, cryptographic signature verification, and
 identical finalized landed-message confirmation are available and remain required.
 The indexer never signs or submits. Other venues and fee modes return
 an explicit unavailable response rather than an estimate.
