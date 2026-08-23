@@ -1984,6 +1984,13 @@ test("JSON POST routes reject malformed UTF-8 without normalizing identity bytes
   const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: malformed }); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "request body must be valid UTF-8 JSON" });
 });
 
+test("HTTP routes enforce methods after quota admission and never ignore request bodies", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({ apiKeys: ["secret"], rateLimitPerMinute: 2 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`, headers = { "x-api-key": "secret" };
+  const getOnly = await fetch(`${base}/api/stats`, { method: "POST", headers: { ...headers, "content-type": "text/plain" }, body: "ignored-body" }); assert.equal(getOnly.status, 405); assert.equal(getOnly.headers.get("allow"), "GET"); assert.equal((await getOnly.json()).error, "method_not_allowed");
+  const postOnly = await fetch(`${base}/rpc`, { headers }); assert.equal(postOnly.status, 405); assert.equal(postOnly.headers.get("allow"), "POST"); assert.equal((await postOnly.json()).error, "method_not_allowed");
+  assert.equal((await fetch(`${base}/api/stats`, { headers })).status, 429);
+});
+
 test("unexpected HTTP failures use a stable public envelope and redacted internal diagnostics", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const diagnostics = [], structureQuality = store.structureQuality.bind(store); store.structureQuality = () => { throw new Error("provider https://rpc.invalid/private?token=visible password=hunter2\nsecond line"); }; const server = createServer({ onDiagnostic: (diagnostic) => diagnostics.push(diagnostic) }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`, response = await fetch(`${base}/api/stats`); assert.equal(response.status, 500); assert.deepEqual(await response.json(), { error: "internal_error" }); assert.equal(diagnostics.length, 1); assert.equal(diagnostics[0].event, "http_internal_error"); assert.match(diagnostics[0].error, /\[redacted-url\]/); assert.match(diagnostics[0].error, /password=\[redacted\]/); assert.doesNotMatch(JSON.stringify(diagnostics), /rpc\.invalid|visible|hunter2|second line\n/);
