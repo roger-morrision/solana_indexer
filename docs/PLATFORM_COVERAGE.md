@@ -54,7 +54,11 @@ identity, lot-aligned input/output limits, an aggressive terminal price, bounded
 slot expiry, abort-on-self-trade policy, unsigned message identity and exact
 mint-bound simulation effects. Capped expiring signer requests, Ed25519 message
 verification, and finalized byte-identical landed confirmation complete the
-read-only evidence chain. Signing and submission remain external.
+read-only handoff. Canonical Phoenix swap validation also binds the orderbook
+venue, bid/ask side, positive base/quote lot fills, bounded quote-fee lots and
+the explicit unavailable atom-fee reason, so corrupted persisted facts fail
+closed before REST, pricing, warehouse or bot consumption.
+Signing and submission remain external.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
