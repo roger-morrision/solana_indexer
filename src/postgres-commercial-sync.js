@@ -1,7 +1,7 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { readBoundedFile } from "./bounded-json-file.js";
 import { loadApiTenants } from "./api-tenants.js";
 import { loadConfig } from "./config.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
@@ -16,8 +16,7 @@ function values(rows) { return rows.map((row) => `(${row.join(", ")})`).join(",\
 
 export async function readCommercialAuditFile(filename, { maximumBytes = MAX_COMMERCIAL_AUDIT_BYTES, maximumRecords = MAX_COMMERCIAL_AUDIT_RECORDS } = {}) {
   if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || !Number.isSafeInteger(maximumRecords) || maximumRecords < 1) throw new Error("commercial audit bounds are invalid");
-  const before = await fs.lstat(filename); if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size > maximumBytes) throw new Error("commercial audit file is unavailable");
-  const bytes = await fs.readFile(filename); if (bytes.length !== before.size) throw new Error("commercial audit file changed during read"); const after = await fs.lstat(filename); if (!after.isFile() || after.isSymbolicLink() || after.size !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.mtimeMs !== before.mtimeMs) throw new Error("commercial audit file changed during read");
+  const bytes = await readBoundedFile(filename, { maximumBytes, allowEmpty: true }); if (!Buffer.isBuffer(bytes)) throw new Error(bytes?.evidenceReadError === "changed_during_read" ? "commercial audit file changed during read" : "commercial audit file is unavailable");
   const text = bytes.toString("utf8"), records = text.split(/\r?\n/).filter(Boolean).length; if (records > maximumRecords) throw new Error("commercial audit record limit exceeded"); return { text, records };
 }
 

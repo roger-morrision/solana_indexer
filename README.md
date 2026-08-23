@@ -574,8 +574,9 @@ invalid resume status before any network request or inbox mutation.
 Commercial authorization and holder-risk registries cross the same bounded
 regular-file boundary before they can affect tenant admission or automation risk;
 the independent USD/depeg artifact does likewise before influencing price confidence.
-Commercial usage synchronization also admits only a stable regular audit file,
-bounded to 64 MiB and 250,000 records per idempotent synchronization cycle.
+Commercial usage synchronization also admits only a handle-bound stable regular
+audit file, bounded to 64 MiB and 250,000 records per idempotent synchronization
+cycle; an explicitly empty log is a valid zero-record cycle.
 Dead-letter exception text is likewise normalized and capped before persistence;
 provider URLs, credentials, token-shaped values, and private keys are never part
 of the durable dead-letter or warehouse contract.

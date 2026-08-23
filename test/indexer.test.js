@@ -2182,6 +2182,7 @@ test("commercial sync deterministically upserts hash-only tenants and hourly usa
 
 test("commercial audit synchronization uses a stable bounded file snapshot", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-commercial-audit-")), filename = path.join(root, "audit.jsonl"); t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.writeFile(filename, ""); assert.deepEqual(await readCommercialAuditFile(filename), { text: "", records: 0 });
   await fs.writeFile(filename, "{}\n{}\n"); assert.deepEqual(await readCommercialAuditFile(filename, { maximumBytes: 32, maximumRecords: 2 }), { text: "{}\n{}\n", records: 2 });
   await assert.rejects(() => readCommercialAuditFile(filename, { maximumBytes: 32, maximumRecords: 1 }), /record limit/);
   await fs.writeFile(filename, "x".repeat(33)); await assert.rejects(() => readCommercialAuditFile(filename, { maximumBytes: 32 }), /file is unavailable/);

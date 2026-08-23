@@ -3,14 +3,14 @@ import fs from "node:fs/promises";
 
 export const MAX_OPERATIONAL_JSON_BYTES = 1_048_576;
 
-export async function readBoundedFile(filename, { maximumBytes = MAX_OPERATIONAL_JSON_BYTES, missing = null } = {}) {
+export async function readBoundedFile(filename, { maximumBytes = MAX_OPERATIONAL_JSON_BYTES, missing = null, allowEmpty = false } = {}) {
   if (!filename) return missing;
-  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) throw new Error("maximum file size must be a positive safe integer");
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || typeof allowEmpty !== "boolean") throw new Error("maximum file size and empty-file policy are invalid");
   let handle, observed = false;
   try {
     const before = await fs.lstat(filename);
     observed = true;
-    if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size < 1 || before.size > maximumBytes) return { evidenceReadError: "invalid_file" };
+    if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size < (allowEmpty ? 0 : 1) || before.size > maximumBytes) return { evidenceReadError: "invalid_file" };
     handle = await fs.open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     const opened = await handle.stat();
     if (!opened.isFile() || opened.size !== before.size || opened.dev !== before.dev || opened.ino !== before.ino || opened.mtimeMs !== before.mtimeMs) return { evidenceReadError: "changed_during_read" };
