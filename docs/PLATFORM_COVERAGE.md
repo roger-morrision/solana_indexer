@@ -41,6 +41,13 @@ undetermined function state; missing
 evidence and every execution step remain fail closed. Event-derived reserves
 remain unavailable.
 
+Phoenix orderbook now contributes analytical swap activity only when the exact
+nine-account legacy-SPL swap ABI, immediate-or-cancel packet, one
+instruction-bound audit-log fill summary, and exact trader token-account deltas
+agree. Filled lots remain auditable, while fee/reserve conversion is explicitly
+unavailable until finalized market lot-size/state acquisition exists; Phoenix
+therefore cannot satisfy executable-route readiness.
+
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
 | Mainnet RPC | deployable, not running here | non-voting Agave unit, private loopback RPC with strict JSON-RPC version/request-ID correlation and a fail-closed genesis identity gate on every data call | production Ubuntu hosts and snapshots |

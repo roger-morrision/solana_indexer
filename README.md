@@ -838,7 +838,7 @@ before holder concentration can unlock trading-bot decisions.
 Pool candles support 60, 300, 900, 3600, 14400, and 86400-second intervals.
 Prices remain exact `quote_raw/base_raw` fractions and volumes remain separate
 base/quote raw integer strings. Protocol events provide pair orientation for
-Raydium CPMM/CLMM, Orca Whirlpools, Meteora DLMM, PumpSwap, and Pump bonding curves; sidecars without authoritative
+Raydium CPMM/CLMM, Orca Whirlpools, Meteora DLMM, Phoenix orderbook, PumpSwap, and Pump bonding curves; sidecars without authoritative
 pair fields use a visibly labeled deterministic lexical fallback. No USD value
 is inferred.
 
@@ -863,6 +863,14 @@ official reward mints resolve `Undetermined` pools exactly: only pools with both
 reward mints unset receive limit-order behavior. Missing reward evidence fails
 closed. Transaction construction, simulation, signing, submission, and bot
 execution remain unavailable.
+
+Phoenix orderbook swaps are published only for the official nine-account
+legacy-SPL ABI when an immediate-or-cancel packet has exactly one
+instruction-bound audit-log fill summary and the trader's base/quote token
+accounts provide conflict-free exact balance deltas. Filled lot totals are
+retained as audit evidence. Market lot sizes and reserves are not present at
+this boundary, so raw fees and reserves are explicitly unavailable and Phoenix
+activity cannot unlock execution readiness.
 
 The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may

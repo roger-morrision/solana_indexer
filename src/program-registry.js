@@ -1,4 +1,4 @@
-export const PROGRAM_REGISTRY_VERSION = 19;
+export const PROGRAM_REGISTRY_VERSION = 20;
 
 const programs = [
   { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", protocol: "spl-token", deploymentVersion: "legacy", decoderVersion: 1, activationSlot: 0, eventTypes: ["instruction", "transfer", "balance_change"] },
@@ -12,6 +12,7 @@ const programs = [
   { programId: "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA", protocol: "pump-swap", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
   { programId: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P", protocol: "pump-bonding-curve", deploymentVersion: "mainnet", decoderVersion: 5, activationSlot: 0, eventTypes: ["swap", "pool_created", "curve_completed", "pool_migrated", "migration_completed"] },
   { programId: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo", protocol: "meteora-dlmm", deploymentVersion: "mainnet", decoderVersion: 3, activationSlot: 0, eventTypes: ["swap", "pool_created"] },
+  { programId: "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY", protocol: "phoenix-orderbook", deploymentVersion: "legacy-mainnet", decoderVersion: 1, activationSlot: 0, eventTypes: ["swap"] },
 ];
 
 export const PROGRAM_REGISTRY = new Map(programs.map((row) => [row.programId, Object.freeze(row)]));
