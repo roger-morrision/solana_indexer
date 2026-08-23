@@ -54,8 +54,10 @@ decoded authority, optional admin/oracles, books, heap, vaults, legacy token
 program, worst traversed price, lot caps and match limit; preparation is
 content-hashed with exact mint-bound simulation effects. Loopback-only
 finalized simulation verifies the immutable message, exact instruction policy,
-minimum context, program allowlist and token effects. Signer approval and
-landed confirmation remain out of scope and fail closed.
+minimum context, program allowlist and token effects. Bounded expiring approval
+authorizes every required signer, caps input/slippage, verifies all external
+Ed25519 signatures, and confirms the identical message and first signature at
+finalized commitment. Signing and submission remain external and fail closed.
 Finalized acquisition strictly decodes the official fixed 848-byte `Market`,
 both 90,952-byte `BookSide` accounts, and both vaults at monotonic shared
 finalized contexts. It validates allocator/free-list/tree reachability and exact

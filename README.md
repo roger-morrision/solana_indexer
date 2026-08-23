@@ -919,8 +919,11 @@ preparation endpoint now emits the exact unsigned 16-account `placeTakeOrder`
 IOC instruction and a hash-bound simulation policy with mint-specific balance
 bounds. Loopback-only finalized simulation verifies the immutable prepared
 message, program/account policy, dependency slot, and exact mint-bound token
-effects. External signer approval and landed-message confirmation remain
-unavailable, so OpenBook execution still fails closed.
+effects. Bounded expiring approval authorizes every required signer, verifies
+all external Ed25519 signatures over the identical prepared message, and
+read-only confirmation requires that exact message and first signature to land
+successfully at finalized commitment after simulation. The indexer never signs
+or submits, so each OpenBook route remains fail closed pending external action.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
