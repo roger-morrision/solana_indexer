@@ -520,6 +520,10 @@ backup from silently omitting or adding replay inputs. The tar is rehashed after
 inventory inspection to reject concurrent replacement.
 Backup creation emits the same strict USTAR subset and treats every unreadable
 state path as fatal instead of silently producing a partial archive.
+Inbox archive production accepts only bounded regular non-link files with
+USTAR-representable canonical names. Manifests and completion receipts require
+exact archive identities, canonical timestamps, bounded control files, and
+canonical SHA-256 entries before durable installation.
 The isolated restore copies the fixed artifact inventory without dereferencing
 links into a private temporary staging directory, validates that staged copy,
 and consumes only staged files to remove source-directory mutation races. Failed
