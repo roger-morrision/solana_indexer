@@ -253,7 +253,7 @@ one atomic directory rename; failed attempts remove their validated staging
 directory and cannot leave a partial final archive that blocks an identity-safe retry.
 HTTP health, readiness, metrics, backup, recovery qualification, exporter health,
 and warehouse publication use one bounded regular-file snapshot reader for
-operational evidence. Link, size, read, replacement, and JSON failures become
+operational evidence. Link, size, read, replacement, malformed UTF-8, and JSON failures become
 explicit unavailable evidence rather than unbounded allocation or an uncaught
 serving failure; publication rejects invalid prior checkpoints before sink I/O.
 Polling and streaming ingestion apply the same boundary to durable resume status

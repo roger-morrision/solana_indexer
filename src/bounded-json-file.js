@@ -30,6 +30,6 @@ export async function readBoundedFile(filename, { maximumBytes = MAX_OPERATIONAL
 export async function readBoundedJsonFile(filename, options = {}) {
   const content = await readBoundedFile(filename, options);
   if (content == null || !Buffer.isBuffer(content)) return content;
-  try { return JSON.parse(content.toString("utf8")); }
+  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(content)); }
   catch { return { evidenceReadError: "invalid_json" }; }
 }
