@@ -13,7 +13,7 @@ docker compose -f "$compose" exec -T postgres pg_dump -U terminal_dex -d termina
 for table in instructions swaps balance_changes dead_letters; do docker compose -f "$compose" exec -T clickhouse clickhouse-client --database terminal_dex --query "SELECT * FROM $table FORMAT Native" > "$target/clickhouse-$table.native"; done
 docker compose -f "$compose" exec -T redis sh -c 'redis-cli -a "$(cat /run/secrets/redis_password)" --no-auth-warning SAVE >/dev/null'
 docker compose -f "$compose" cp redis:/data/dump.rdb "$target/redis.rdb" >/dev/null
-tar --create --file "$target/indexer-state.tar" --ignore-failed-read data/index.json data/exporter-status.json data/account-snapshot.json inbox
+tar --create --format=ustar --file "$target/indexer-state.tar" data/index.json data/exporter-status.json data/account-snapshot.json inbox
 node src/archive-receipt.js manifest inbox "$target/inbox-manifest.json" "$stamp"
 node src/backup-preflight.js --create "$target" "$stamp"
 (cd "$target" && sha256sum postgres.dump clickhouse-*.native redis.rdb indexer-state.tar inbox-manifest.json manifest.json > SHA256SUMS)

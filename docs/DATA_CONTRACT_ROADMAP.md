@@ -232,6 +232,8 @@ inputs. The tar is rehashed after inventory inspection. The restore workflow
 validates and consumes a private, fixed-inventory staged copy,
 closing the source-directory check/use interval. Failed restores clean staging;
 successful restores retain the evidence through recovery qualification.
+Backup production explicitly emits USTAR and never suppresses read failures, so
+the producer cannot qualify a host-format-dependent or knowingly partial tar.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the
