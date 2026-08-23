@@ -34,6 +34,9 @@ const PUMP_COMPLETE_EVENT_DISCRIMINATOR = Buffer.from([95, 114, 97, 156, 212, 46
 const PUMP_COMPLETE_MIGRATION_EVENT_DISCRIMINATOR = Buffer.from([189, 233, 93, 185, 92, 148, 234, 148]);
 const METEORA_SWAP_INSTRUCTION_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
 const METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR = Buffer.from([65, 75, 63, 76, 235, 91, 91, 136]);
+const METEORA_INITIALIZE_LB_PAIR_DISCRIMINATOR = Buffer.from([45, 154, 237, 210, 221, 15, 166, 92]);
+const METEORA_INITIALIZE_LB_PAIR2_DISCRIMINATOR = Buffer.from([73, 59, 36, 120, 237, 83, 108, 198]);
+const METEORA_LB_PAIR_CREATE_EVENT_DISCRIMINATOR = Buffer.from([185, 74, 252, 125, 27, 215, 188, 111]);
 const RAYDIUM_CPMM_SWAP_BASE_INPUT_DISCRIMINATOR = crypto.createHash("sha256").update("global:swap_base_input").digest().subarray(0, 8);
 const RAYDIUM_CLMM_SWAP_V2_DISCRIMINATOR = crypto.createHash("sha256").update("global:swap_v2").digest().subarray(0, 8);
 const ORCA_SWAP_INSTRUCTION_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200]);
@@ -70,6 +73,7 @@ export function recognizedLifecycleInstructionOutput(instruction) {
     try { let cursor = 8; cursor = readBorshString(data, cursor, 32).offset; cursor = readBorshString(data, cursor, 10).offset; cursor = readBorshString(data, cursor, 200).offset; if (cursor + 34 === data.length && data[cursor + 32] <= 1 && data[cursor + 33] <= 1) return { protocol: "pump-bonding-curve", type: "pool_created" }; } catch {}
   }
   if (instruction.programId === PUMP_PROGRAM && (exact(8, PUMP_MIGRATE_DISCRIMINATOR) || exact(8, PUMP_MIGRATE_V2_DISCRIMINATOR))) return { protocol: "pump-bonding-curve", type: "pool_migrated" };
+  if (instruction.programId === METEORA_DLMM && (exact(14, METEORA_INITIALIZE_LB_PAIR_DISCRIMINATOR) || exact(14, METEORA_INITIALIZE_LB_PAIR2_DISCRIMINATOR)) && data.readUInt16LE(12) > 0) return { protocol: "meteora-dlmm", type: "pool_created" };
   return null;
 }
 function readBorshString(buffer, offset, maxCharacters) {
@@ -255,6 +259,21 @@ export function decodeOrcaWhirlpoolPoolInitializations(entry, signature) {
     if (data.length !== 220 || !data.subarray(0, 8).equals(ORCA_POOL_INITIALIZED_EVENT_DISCRIMINATOR)) continue;
     const tickSpacing = data.readUInt16LE(136); if (!tickSpacing) continue;
     events.push({ type: "pool_created", protocol: "orca-whirlpool", programId: ORCA_WHIRLPOOL, venueType: "clmm", signature, pool: base58(data.subarray(8, 40)), whirlpoolsConfig: base58(data.subarray(40, 72)), tokenMint0: base58(data.subarray(72, 104)), tokenMint1: base58(data.subarray(104, 136)), tickSpacing, baseTokenProgram: base58(data.subarray(138, 170)), quoteTokenProgram: base58(data.subarray(170, 202)), mintDecimals0: data[202], mintDecimals1: data[203], initialSqrtPriceX64: readU128(data, 204), rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
+  }
+  return events;
+}
+export function decodeMeteoraDlmmPoolInitializations(entry, signature) {
+  if (entry.meta?.err != null) return [];
+  const events = [], stack = [];
+  for (const line of entry.meta?.logMessages ?? []) {
+    const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
+    const done = line.match(/^Program (\S+) (?:success|failed:)/); if (done) { const index = stack.lastIndexOf(done[1]); if (index >= 0) stack.splice(index); continue; }
+    if (stack.at(-1) !== METEORA_DLMM || !line.startsWith("Program data: ")) continue;
+    let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
+    if (data.length !== 106 || !data.subarray(0, 8).equals(METEORA_LB_PAIR_CREATE_EVENT_DISCRIMINATOR)) continue;
+    const binStep = data.readUInt16LE(40), pool = base58(data.subarray(8, 40)), tokenMint0 = base58(data.subarray(42, 74)), tokenMint1 = base58(data.subarray(74, 106));
+    if (!binStep || tokenMint0 === tokenMint1) continue;
+    events.push({ type: "pool_created", protocol: "meteora-dlmm", programId: METEORA_DLMM, venueType: "dlmm", signature, pool, tokenMint0, tokenMint1, binStep, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;
 }
@@ -560,7 +579,7 @@ export function parseBlock(block) {
     const normalized = normalizedInstructions(entry, keys, signature, block.slot, blockTime); instructions.push(...normalized);
     if (failed) continue;
     nativeTransfers.push(...decodeSystemTransfers(normalized));
-    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeRaydiumClmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
+    poolLifecycleEvents.push(...[...decodeRaydiumCpmmPoolInitializations(entry, signature), ...decodeRaydiumClmmPoolInitializations(entry, signature), ...decodeOrcaWhirlpoolPoolInitializations(entry, signature), ...decodeMeteoraDlmmPoolInitializations(entry, signature), ...decodePumpSwapPoolInitializations(entry, signature), ...decodePumpBondingCurveInitializations(entry, signature), ...decodePumpMigrations(entry, signature), ...decodePumpCompletionEvents(entry, signature)].map((event, eventIndex) => { const registration = programRegistration(event.programId, block.slot); return { ...event, eventId: `solana:${block.slot}:${signature}:-1:${eventIndex}:${event.type}`, slot: block.slot, blockTime, instructionIndex: -1, innerIndex: eventIndex, registryVersion: PROGRAM_REGISTRY_VERSION, decoderVersion: registration?.decoderVersion ?? null }; }));
     decodedDexEvents.push(...decodeRaydiumSwapEvents(entry, signature), ...decodeRaydiumClmmSwapEvents(entry, signature), ...decodeOrcaWhirlpoolSwapEvents(entry, signature), ...decodeMeteoraDlmmSwapEvents(entry, signature), ...decodePumpSwapEvents(entry, signature), ...decodePumpTradeEvents(entry, signature));
     balanceChanges.push(...tokenBalanceChanges(entry, keys, signature, block.slot, blockTime));
     const tokenAccounts = tokenAccountEvidence(entry, keys);

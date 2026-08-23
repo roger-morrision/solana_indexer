@@ -770,7 +770,10 @@ transaction also carries the matching official instruction version, pool/user,
 ordered mint accounts, canonical token programs, program self-account, and
 conflict-free mint decimals. Partial `Swap2` input is reported as
 `amount_in - amount_left`; bin IDs, direction, fees, and fee-side flags remain
-exact. DLMM event logs do not provide spendable bin liquidity. Run
+exact. Official legacy/current pair initialization instructions are matched to
+exact `LbPairCreate` events, preserving pool, ordered mint identity, and bin step
+as replayable lifecycle evidence before the first swap. DLMM event logs do not
+provide spendable bin liquidity. Run
 `npm run snapshot:meteora-dlmm-pools -- <POOL_ADDRESS...>` to acquire an exact
 finalized pair, vault, mint, bitmap, and complete 70-bin-per-array snapshot.
 Snapshots are persisted and automatically repaired when missing, partial, or
