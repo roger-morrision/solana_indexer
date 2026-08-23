@@ -7,15 +7,15 @@ import { IndexStore } from "./store.js";
 
 export async function reconcileDeadLetters({ dataFile, confirm = false }) {
   const store = new IndexStore(dataFile); await store.load(); store.assertWritable();
-  const eligible = store.state.deadLetters.filter((row) => {
-    const checkpoint = store.state.processedFiles[row.filename];
-    return !row.resolved && Boolean(row.fingerprint) && checkpoint?.parserVersion === 2 && checkpoint.fingerprint === row.fingerprint;
+  const eligible = store.state.deadLetters.flatMap((row) => {
+    const snapshotType = row.filename.startsWith("snapshot:") ? row.filename.slice(9) : null, checkpoint = snapshotType == null ? store.state.processedFiles[row.filename] : store.state.checkpoints.snapshotArtifacts?.[snapshotType], fingerprint = checkpoint?.fingerprint, checkpointValid = snapshotType == null ? checkpoint?.parserVersion === 2 : Boolean(checkpoint);
+    return !row.resolved && checkpointValid && typeof fingerprint === "string" && (row.fingerprint == null || row.fingerprint === fingerprint) ? [{ row, fingerprint }] : [];
   });
   if (confirm) {
-    for (const row of eligible) store.resolveDeadLetters(row.filename, row.fingerprint);
+    for (const candidate of eligible) store.resolveDeadLetters(candidate.row.filename, candidate.fingerprint);
     if (eligible.length) await store.save();
   }
-  return { dryRun: !confirm, eligible: eligible.map((row) => ({ id: row.id, filename: row.filename, resolution: "parser_v2_checkpoint" })), resolved: confirm ? eligible.length : 0, unresolvedRemaining: store.state.deadLetters.filter((row) => !row.resolved).length };
+  return { dryRun: !confirm, eligible: eligible.map(({ row }) => ({ id: row.id, filename: row.filename, resolution: "parser_v2_checkpoint" })), resolved: confirm ? eligible.length : 0, unresolvedRemaining: store.state.deadLetters.filter((row) => !row.resolved).length };
 }
 
 async function main() {

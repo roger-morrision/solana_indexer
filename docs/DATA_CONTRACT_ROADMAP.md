@@ -225,11 +225,15 @@ redacted in memory on load and durably replaced on the next successful save.
 Unchanged failures no longer execute on every watch poll. Canonical retry evidence
 binds the exact file fingerprint, failure stage, parser/registry/state identity,
 attempt count, policy version, and next eligible UTC instant. Read failures use a
-short bounded backoff, decoder failures use a longer bounded backoff, and state or
+short bounded backoff for both inbox and snapshot artifacts, decoder failures use a longer bounded backoff, and state or
 snapshot application failures use an intermediate schedule. Changed bytes or a
 new decoder identity bypass the old schedule immediately; restart preserves it.
+Unreadable evidence retains its stable `unreadable` identity and can be resolved only
+when a later stable read is durably installed under an exact SHA-256 checkpoint recorded
+as `resolutionFingerprint`; snapshot read failures therefore stop hot-looping without
+becoming permanently unresolved after repair.
 Credential-free API and Prometheus projections expose only due/deferred/legacy
-counts, the next delay, and five bounded stage labels. No file identity, hash,
+counts, the next delay, and six bounded stage labels. No file identity, hash,
 error, or source payload crosses that telemetry boundary; a ten-minute due-work
 alert detects a stopped or wedged index loop.
 
