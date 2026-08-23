@@ -44,12 +44,13 @@ remain unavailable.
 Phoenix orderbook now contributes analytical swap activity only when the exact
 nine-account legacy-SPL swap ABI, immediate-or-cancel packet, one
 instruction-bound audit-log fill summary, and exact trader token-account deltas
-agree. Finalized market-header and vault acquisition now persists exact lot/tick
-sizes, status, sequence, mint/vault identity, custodial balances, provenance,
-ordered snapshot events, and missing/incomplete/stale repair jobs. Filled lots
-remain auditable, but historical fee conversion remains unavailable without
-transaction-slot-bound market evidence; Phoenix therefore cannot satisfy
-executable-route readiness.
+agree. Finalized full-account acquisition validates bounded bid/ask allocators
+and free lists and persists every active order's exact price, sequence, trader,
+quantity and expiry alongside lot/tick economics, identity, vault balances,
+provenance, ordered events, and repair jobs. The shared pool endpoint exposes
+exact lot-aware, expiry-filtered analytical depth quotes with ceiling taker-fee
+rounding. Construction and simulation remain unavailable, so Phoenix quotes are
+explicitly non-executable and cannot satisfy executable-route readiness.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|
