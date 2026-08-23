@@ -510,10 +510,12 @@ cursor to a deterministic digest of the complete ordered result projection.
 Insertions, retention changes, or reorg replacements invalidate prior cursors
 instead of allowing a response to mix rows from different index snapshots.
 
-OpenBook V2 market evidence now decodes the official fixed 848-byte `Market`
-account and binds both token vaults behind a monotonic finalized barrier.
-Authority, ordered mints/programs, bid/ask/event-heap addresses, decimals, lot
+OpenBook V2 market evidence now decodes the official fixed 848-byte `Market`,
+both fixed 90,952-byte `BookSide` accounts, and both token vaults behind
+monotonic finalized barriers. Allocator/free-list consistency, reachable
+crit-bit nodes, exact leaf counts, fixed-price and oracle-pegged order fields,
+authority, ordered mints/programs, bid/ask/event-heap addresses, decimals, lot
 sizes, expiry, fee policy, deposits, accrued fees and volumes persist
-idempotently with replayable snapshot events and leased repair jobs. Orderbook
-depth remains explicitly unavailable until the separate official `BookSide`
-allocator and node layout is decoded and completeness-tested.
+idempotently with replayable snapshot events and leased repair jobs. Fixed-price
+depth is authoritative. Oracle-pegged leaves remain explicitly unpriced and
+non-executable pending finalized oracle account/confidence binding.

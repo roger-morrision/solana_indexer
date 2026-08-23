@@ -48,13 +48,14 @@ base/quote settlement deltas are required before a swap can enter analytics.
 The invocation-scoped official `TotalOrderFillEvent` must uniquely agree with
 the taker, side, paid quantity, and received quantity, and supplies the exact
 native taker fee. Missing, duplicate, or mismatched event evidence fails closed.
-OpenBook execution preparation and orderbook depth remain out of scope pending
-verified `BookSide` decoding. Finalized market acquisition now strictly decodes
-the official fixed 848-byte `Market` account and binds both vaults at a later
-shared finalized context, preserving canonical authority, mint/program,
-book/event-heap, decimal, lot-size, expiry, fee, deposit, accrued-fee, and volume
-evidence. It explicitly labels depth unavailable and schedules missing,
-incomplete, or stale market evidence through the leased repair pipeline.
+OpenBook execution preparation and oracle-pegged pricing remain out of scope.
+Finalized acquisition strictly decodes the official fixed 848-byte `Market`,
+both 90,952-byte `BookSide` accounts, and both vaults at monotonic shared
+finalized contexts. It validates allocator/free-list/tree reachability and exact
+leaf counts, preserving fixed and oracle-pegged orders alongside canonical
+identity and economics. Fixed depth is complete; any oracle-pegged leaves are
+explicitly unpriced until verified oracle evidence exists. Missing, incomplete,
+or stale evidence is scheduled through the leased repair pipeline.
 
 Phoenix orderbook now contributes analytical swap activity only when the exact
 nine-account legacy-SPL swap ABI, immediate-or-cancel packet, one

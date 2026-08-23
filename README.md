@@ -882,13 +882,16 @@ duplicate, mismatched, zero-fill, owner-conflicted, malformed, and
 unsupported-account evidence fails closed.
 
 Run `npm run snapshot:openbook-markets -- <MARKET_ADDRESS...>` to acquire the
-official fixed 848-byte OpenBook V2 `Market` account and both vault balances
-behind monotonic finalized read barriers. The artifact binds market authority,
+official fixed 848-byte OpenBook V2 `Market`, both 90,952-byte `BookSide`
+accounts, and both vault balances behind monotonic finalized read barriers. The
+artifact validates allocator free lists, reachable crit-bit trees, exact leaf
+counts, fixed and oracle-pegged order fields, and binds market authority,
 ordered mints and token programs, vaults, bid/ask/event-heap accounts, decimals,
 lot sizes, expiry, fee policy, deposits, accrued fees, and cumulative volumes.
-Its `orderbookCoverage` remains
-`unavailable_pending_bookside_decoder`: market metadata is never presented as
-executable depth until the separate `BookSide` accounts are decoded and bound.
+`finalized_full_fixed_depth` identifies books with completely decoded fixed
+orders and no oracle-pegged leaves. Books containing oracle-pegged leaves are
+labelled `finalized_fixed_depth_oracle_pegged_unpriced`; those leaves remain
+non-executable until their oracle accounts and confidence policy are bound.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
