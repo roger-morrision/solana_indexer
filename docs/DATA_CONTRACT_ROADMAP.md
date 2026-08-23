@@ -245,6 +245,10 @@ or replacement of the compatibility state because omitted identities cannot be i
 The same durable overflow marker refuses raw-inbox retention, dead-letter reconciliation,
 warehouse fact publication, and gap-feed availability; none may claim complete evidence
 after an identity was omitted.
+Recovery canonicality is also a shared decision-consumer prerequisite. Trending,
+candidate, evidence, wallet, token, holder, pool, price, volume, candle, risk, quote,
+bot-readiness, and unsigned-preparation HTTP surfaces return 503 before evaluating or
+constructing decision inputs when recovery evidence is invalid or capacity-exceeded.
 
 The root compatibility-state collection shape is checked before any health,
 capability, bot-readiness, statistics, metrics, RPC-status, feed-health, or

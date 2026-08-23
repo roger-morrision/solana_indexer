@@ -68,6 +68,9 @@ aggregate overflow checkpoint and fails index/bot readiness closed instead of si
 discarding the oldest unresolved identity. Metrics and alerting expose only the aggregate
 dropped count. Raw retention, reconciliation, warehouse publication, and gap feeds all
 refuse overflowed state; controlled replay into replacement state is required to clear it.
+Every decision-bearing HTTP projection, analysis quote, and unsigned preparation route
+shares the same recovery gate, preventing incomplete recovery state from bypassing bot
+readiness through a lower-level endpoint.
 
 For every retained canonical slot, the latest canonical-block replay envelope is
 content-reconciled against both the complete lifecycle ledger and the complete swap

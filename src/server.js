@@ -211,6 +211,7 @@ export function createServer(config, store) {
       const structure = store.structureQuality(), diagnosticRoute = new Set(["/metrics", "/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/internal/registry", "/internal/feed/health", "/internal/execution-policy"]).has(url.pathname);
       if (protectedRoute && url.pathname !== "/rpc" && !diagnosticRoute && !structure.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: structure.reason, fields: structure.fields });
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpcEnvelope(rpcPayload, config, store));
+      if (preparePoolSwap || prepareCurveSwap) { const recovery = store.recoveryQuality(); if (!recovery.canonical || recovery.capacityExceeded) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: recovery.reason }); }
       if (preparePoolSwap) {
         const poolAddress = decodeURIComponent(preparePoolSwap[1]), row = store.state.poolSnapshots[poolAddress];
         if (!row) return json(response, 404, { error: "pool_snapshot_not_found" });
@@ -242,6 +243,8 @@ export function createServer(config, store) {
       const derivedLedgerConsumer = new Set(["/internal/trending", "/internal/candidates", "/api/trending"]).has(url.pathname) || ["/internal/evidence/", "/internal/tokens/", "/internal/wallets/", "/api/account/", "/api/mint/", "/api/v1/holders/", "/api/v1/token-account/"].some((prefix) => url.pathname.startsWith(prefix));
       if (derivedLedgerConsumer) { const quality = store.derivedLedgerQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       const aggregateConsumer = new Set(["/internal/trending", "/internal/candidates", "/internal/new-pairs", "/api/trending", "/api/v1/tokens", "/api/v1/pools"]).has(url.pathname) || ["/internal/evidence/", "/internal/tokens/", "/internal/wallets/", "/api/account/", "/api/mint/", "/api/v1/holders/", "/api/v1/token-account/"].some((prefix) => url.pathname.startsWith(prefix));
+      const recoveryConsumer = aggregateConsumer || ["/internal/pools/", "/api/v1/price/", "/api/v1/volume/", "/api/v1/risk/", "/api/v1/pool/", "/api/v1/candles/", "/api/v1/bot/readiness"].some((prefix) => url.pathname.startsWith(prefix));
+      if (recoveryConsumer) { const quality = store.recoveryQuality(); if (!quality.canonical || quality.capacityExceeded) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.aggregateQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.programEventQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
       if (aggregateConsumer && !url.pathname.endsWith("/executable-depth")) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: quality.reason }); }
