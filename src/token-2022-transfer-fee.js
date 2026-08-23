@@ -4,6 +4,7 @@ const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
 function u64(value, label) {
   let parsed;
+  if (typeof value === "number" && (!Number.isSafeInteger(value) || value < 0)) throw new Error(`${label} is invalid`);
   try { parsed = BigInt(value); } catch { throw new Error(`${label} is invalid`); }
   if (parsed < 0n || parsed > U64_MAX) throw new Error(`${label} is invalid`);
   return parsed;
