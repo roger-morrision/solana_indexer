@@ -534,7 +534,9 @@ changed file is preserved. The exclusively created
 report binds the exact processed source inventory and candidate SHA-256, current
 decoder registry/output coverage, finalized mainnet identity, and canonical
 core projections. The version-2 report binds that complete canonical evidence
-under a recomputed SHA-256 digest, so legacy or edited reports fail closed. It
+under a recomputed SHA-256 digest, so legacy or edited reports fail closed. Before
+qualification, every source filename and processed content fingerprint is reread;
+additions, removals, renames, or replacements make the report non-promoting. It
 always sets `promotionAuthorized: false`; promotion is a
 separate operator-reviewed action outside this command.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
