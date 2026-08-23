@@ -42,8 +42,9 @@ evidence and every execution step remain fail closed. Event-derived reserves
 remain unavailable.
 
 OpenBook V2 instant-settlement activity covers the official mainnet v1.7
-`placeTakeOrder` ABI. Exact instruction layout, account roles, order bounds,
-and signer-owned base/quote settlement deltas are required before a swap can
+`placeTakeOrder` ABI. Exact instruction layout, account roles, valid Market/IOC
+order bounds, both instruction-bound vault transfers, and signer-owned
+base/quote settlement deltas are required before a swap can
 enter analytics. The settled input includes any charged fee, so atom-level fee
 separation remains explicitly unavailable. OpenBook execution preparation and
 orderbook snapshots remain out of scope pending a separately verified market

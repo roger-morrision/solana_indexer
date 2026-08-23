@@ -64,7 +64,7 @@ function phoenixImmediateOrCancelSide(data) {
   try { optionalU64(); if (offset + 33 > data.length) return null; const baseLots = data.readBigUInt64LE(offset), quoteLots = data.readBigUInt64LE(offset + 8); offset += 32; if (data[offset++] > 2) return null; optionalU64(); if (offset + 17 > data.length) return null; offset += 16; if (data[offset++] > 1) return null; optionalU64(); optionalU64(); return offset === data.length && (baseLots > 0n || quoteLots > 0n) ? data[2] : null; } catch { return null; }
 }
 function openBookPlaceTakeOrder(data) {
-  if (!Buffer.isBuffer(data) || data.length !== 35 || !data.subarray(0, 8).equals(OPENBOOK_PLACE_TAKE_ORDER_DISCRIMINATOR) || data[8] > 1 || data[33] > 5) return null;
+  if (!Buffer.isBuffer(data) || data.length !== 35 || !data.subarray(0, 8).equals(OPENBOOK_PLACE_TAKE_ORDER_DISCRIMINATOR) || data[8] > 1 || ![1, 3].includes(data[33])) return null;
   const priceLots = data.readBigInt64LE(9), maxBaseLots = data.readBigInt64LE(17), maxQuoteLotsIncludingFees = data.readBigInt64LE(25), orderType = data[33], limit = data[34];
   if (priceLots < 0n || maxBaseLots <= 0n || maxQuoteLotsIncludingFees <= 0n || limit === 0) return null;
   return { side: data[8] === 0 ? "bid" : "ask", priceLots: priceLots.toString(), maxBaseLots: maxBaseLots.toString(), maxQuoteLotsIncludingFees: maxQuoteLotsIncludingFees.toString(), orderType, limit };
@@ -375,8 +375,8 @@ export function decodePhoenixSwapEvents(entry, signature, slot) {
 }
 export function decodeOpenBookV2SwapEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
-  const keys = accountKeys(entry.transaction?.message, entry.meta), events = [];
-  for (const instruction of instructionRows(entry)) {
+  const keys = accountKeys(entry.transaction?.message, entry.meta), innerGroups = new Map((entry.meta?.innerInstructions ?? []).map((group) => [group.index, group.instructions ?? []])), events = [];
+  for (const [instructionIndex, instruction] of (entry.transaction?.message?.instructions ?? []).entries()) {
     const programId = instruction.programId ?? instruction.program ?? (Number.isSafeInteger(instruction.programIdIndex) ? keys[instruction.programIdIndex] : null), accounts = (instruction.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account);
     if (programId !== OPENBOOK_V2 || typeof instruction.data !== "string" || accounts.some((account) => typeof account !== "string" || !account)) continue;
     let data; try { data = decodeBase58(instruction.data); } catch { continue; } const args = openBookPlaceTakeOrder(data);
@@ -384,6 +384,9 @@ export function decodeOpenBookV2SwapEvents(entry, signature) {
     const base = phoenixBalanceDelta(entry, keys, accounts[9], accounts[0]), quote = phoenixBalanceDelta(entry, keys, accounts[10], accounts[0]);
     if (!base || !quote || base.mint === quote.mint) continue; const input = args.side === "bid" ? quote : base, output = args.side === "bid" ? base : quote;
     if (input.delta >= 0n || output.delta <= 0n) continue;
+    const expectedTransfers = args.side === "bid" ? [[accounts[10], accounts[7], accounts[0], (-input.delta).toString()], [accounts[6], accounts[9], accounts[3], output.delta.toString()]] : [[accounts[9], accounts[6], accounts[0], (-input.delta).toString()], [accounts[7], accounts[10], accounts[3], output.delta.toString()]], observedTransfers = [];
+    for (const inner of innerGroups.get(instructionIndex) ?? []) { const innerProgram = inner.programId ?? inner.program ?? (Number.isSafeInteger(inner.programIdIndex) ? keys[inner.programIdIndex] : null), innerAccounts = (inner.accounts ?? []).map((account) => Number.isSafeInteger(account) ? keys[account] : account); if (innerProgram !== "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" || innerAccounts.length !== 3 || typeof inner.data !== "string") continue; let raw; try { raw = decodeBase58(inner.data); } catch { continue; } if (raw.length === 9 && raw[0] === 3) observedTransfers.push([...innerAccounts, readU64(raw, 1)]); }
+    if (observedTransfers.length !== 2 || expectedTransfers.some((expected) => !observedTransfers.some((observed) => observed.every((value, index) => value === expected[index])))) continue;
     events.push({ protocol: "openbook-v2", programId: OPENBOOK_V2, venueType: "orderbook", type: "swap", signature, pool: accounts[2], user: accounts[0], side: args.side, baseMint: base.mint, quoteMint: quote.mint, inputMint: input.mint, outputMint: output.mint, inputAmountRaw: (-input.delta).toString(), outputAmountRaw: output.delta.toString(), inputVaultBeforeRaw: null, outputVaultBeforeRaw: null, reserveTiming: "unavailable", inputDecimals: input.decimals, outputDecimals: output.decimals, tradeFeeRaw: null, feeEvidence: "included_in_settled_token_delta", priceLots: args.priceLots, maxBaseLots: args.maxBaseLots, maxQuoteLotsIncludingFees: args.maxQuoteLotsIncludingFees, orderType: args.orderType, matchLimit: args.limit, rawPayloadHash: crypto.createHash("sha256").update(data).digest("hex") });
   }
   return events;

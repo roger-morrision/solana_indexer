@@ -872,8 +872,9 @@ execution remain unavailable.
 
 OpenBook V2 `placeTakeOrder` swaps are published only for the official 35-byte
 Anchor payload and 16-account ABI. The decoder requires positive order bounds,
-canonical legacy SPL and System program accounts, and opposing exact deltas on
-the signer's designated base and quote token accounts. It retains side,
+canonical legacy SPL and System program accounts, the only two supported taker
+order types, both exact instruction-bound vault transfers, and opposing exact
+deltas on the signer's designated base and quote token accounts. It retains side,
 price/quantity bounds, order type, and match limit; zero-fill, owner-conflicted,
 malformed, and unsupported-account transactions fail closed.
 
