@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { gzip, gunzip } from "node:zlib";
 import { canonicalInboxNames, completeArchiveReceipt, createInboxManifest, readCanonicalInboxFile } from "./archive-receipt.js";
+import { readBoundedFile } from "./bounded-json-file.js";
 import { loadConfig } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 
@@ -26,7 +27,9 @@ export async function archiveInbox({ inbox, archiveRoot, receiptFile, archiveId 
     }
     const manifestFile = path.join(staging, "inbox-manifest.json"), archiveReceipt = path.join(staging, "inbox-archive-receipt.json"), manifest = await createInboxManifest({ inbox, output: manifestFile, archiveId });
     if (JSON.stringify(manifest.files) !== JSON.stringify(fingerprints)) throw new Error("inbox changed while archive was being created");
-    const receipt = await completeArchiveReceipt({ manifestFile, output: archiveReceipt, status: "verified_local" }), receiptBytes = await fs.readFile(archiveReceipt), originalBytes = (await Promise.all(names.map(async (name) => (await readCanonicalInboxFile(inbox, name)).length))).reduce((sum, size) => sum + size, 0);
+    const receipt = await completeArchiveReceipt({ manifestFile, output: archiveReceipt, status: "verified_local" }), receiptBytes = await readBoundedFile(archiveReceipt, { maximumBytes: 16_777_216 }), expectedReceiptBytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`), originalBytes = (await Promise.all(names.map(async (name) => (await readCanonicalInboxFile(inbox, name)).length))).reduce((sum, size) => sum + size, 0);
+    if (!Buffer.isBuffer(receiptBytes)) throw new Error(`generated archive receipt is unavailable: ${receiptBytes?.evidenceReadError ?? "missing"}`);
+    if (!receiptBytes.equals(expectedReceiptBytes)) throw new Error("generated archive receipt does not match completion evidence");
     await fs.rename(staging, target); staging = null; await durableAtomicWrite(receiptFile, receiptBytes);
     return { archiveId, files: names.length, originalBytes, archiveDirectory: target, receiptFile, receipt };
   } finally { if (staging !== null && path.dirname(staging) === root && path.basename(staging).startsWith(`.${archiveId}.`)) await fs.rm(staging, { recursive: true, force: true }); }
