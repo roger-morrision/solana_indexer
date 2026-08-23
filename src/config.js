@@ -53,6 +53,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     warehouseStaleAfterMs: boundedInt(env.INDEXER_WAREHOUSE_STALE_AFTER_MS, 300_000, 10_000, 86_400_000),
     maxWarehouseLagEvents: boundedInt(env.INDEXER_MAX_WAREHOUSE_LAG_EVENTS, 1_000, 0, 1_000_000),
     maxTransactions: boundedInt(env.INDEXER_MAX_TRANSACTIONS, 250_000, 1000, 2_000_000),
+    maxIngestionFileBytes: boundedInt(env.INDEXER_MAX_INGESTION_FILE_BYTES, 67_108_864, 65_536, 268_435_456),
     retentionSeconds: boundedInt(env.INDEXER_RETENTION_SECONDS, 604_800, 3_600, 31_536_000),
     apiKeys,
     rateLimitPerMinute: boundedInt(env.INDEXER_RATE_LIMIT_PER_MINUTE, 600, 1, 100_000),

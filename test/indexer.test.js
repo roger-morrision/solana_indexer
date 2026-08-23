@@ -976,6 +976,11 @@ test("persists bounded dead-letter evidence for invalid inbox payloads", async (
   const persisted = JSON.parse(await fs.readFile(dataFile, "utf8")); assert.equal(persisted.deadLetters[0].attempts, 1);
 });
 
+test("ingestion rejects oversized inbox and snapshot files before parsing", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-ingestion-boundary-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"), snapshotFile = path.join(root, "snapshot.json"); await fs.mkdir(inbox); await fs.writeFile(path.join(inbox, "oversized.json"), "x".repeat(65_537)); await fs.writeFile(snapshotFile, "x".repeat(65_537));
+  const store = new IndexStore(dataFile); const result = await indexInbox({ inbox, dataFile, maxIngestionFileBytes: 65_536, accountSnapshotFile: snapshotFile }, store); assert.equal(result.files, 0); assert.equal(result.snapshots, 0); assert.equal(result.errors.length, 2); assert.equal(store.state.deadLetters.length, 1); assert.equal(store.state.deadLetters[0].failureStage, "inbox_read"); assert.equal(store.state.deadLetters[0].fingerprint, null); assert.match(result.errors[0].error, /ingestion file is unsafe/); assert.deepEqual(result.errors[1], { file: "snapshot:account", error: "ingestion file is unsafe: invalid_file" });
+});
+
 test("rejects multi-record inbox files atomically before checkpointing", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-inbox-batch-atomic-")), inbox = path.join(root, "inbox"), dataFile = path.join(root, "index.json"); await fs.mkdir(inbox);
   const valid = JSON.parse(await fs.readFile(fixture, "utf8")); const invalidDowngrade = { ...valid, blockhash: "late-confirmed-fork", provenance: { ...valid.provenance, commitment: "confirmed" } };
@@ -1965,6 +1970,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "25" }, process.cwd()).maxExporterLagSlots, 25);
   assert.equal(loadConfig({ INDEXER_WS_MAX_CLIENTS: "25", INDEXER_WS_MAX_OUTSTANDING_ACKS: "50", INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketMaxClients, 25); assert.deepEqual({ outstanding: loadConfig({ INDEXER_WS_MAX_OUTSTANDING_ACKS: "50" }, process.cwd()).webSocketMaxOutstandingAcks, timeout: loadConfig({ INDEXER_WS_ACK_TIMEOUT_MS: "5000" }, process.cwd()).webSocketAcknowledgementTimeoutMs }, { outstanding: 50, timeout: 5_000 });
   assert.equal(loadConfig({ INDEXER_RPC_MAX_BODY_BYTES: "4096", INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).rpcMaxBodyBytes, 4096); assert.equal(loadConfig({ INDEXER_EXECUTION_MAX_BODY_BYTES: "32768" }, process.cwd()).executionMaxBodyBytes, 32768);
+  assert.equal(loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "1048576" }, process.cwd()).maxIngestionFileBytes, 1_048_576);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
   assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
   assert.equal(loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "45000" }, process.cwd()).streamIdleTimeoutMs, 45000);
@@ -1977,6 +1983,7 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.throws(() => loadConfig({ INDEXER_MAX_EXPORT_LAG_SLOTS: "-1" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "99" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "999" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "65535" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);

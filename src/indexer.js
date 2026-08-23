@@ -4,15 +4,24 @@ import path from "node:path";
 import { parseBlock, parseInput } from "./parser.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { PROGRAM_REGISTRY_VERSION } from "./program-registry.js";
+import { readBoundedFile } from "./bounded-json-file.js";
 
 function fingerprint(content) { return crypto.createHash("sha256").update(content).digest("hex"); }
 export const INGESTION_RETRY_IDENTITY = `parser-v2:registry-v${PROGRAM_REGISTRY_VERSION}:state-v21`;
+const DEFAULT_MAX_INGESTION_FILE_BYTES = 67_108_864;
+
+async function readIngestionFile(filename, maximumBytes) {
+  const content = await readBoundedFile(filename, { maximumBytes, missing: null });
+  if (content == null) { const error = new Error("ingestion file is unavailable"); error.code = "ENOENT"; throw error; }
+  if (!Buffer.isBuffer(content)) throw new Error(`ingestion file is unsafe: ${content.evidenceReadError}`);
+  return content;
+}
 
 export async function applySnapshotArtifacts(config, store, { now = Date.now(), retryIdentity = INGESTION_RETRY_IDENTITY } = {}) {
   store.assertWritable();
   const descriptors = [{ type: "account", filename: config.accountSnapshotFile, apply: (value) => store.applyAccountSnapshot(value) }, { type: "cpmm_pool", filename: config.cpmmPoolSnapshotFile, apply: (value) => store.applyCpmmPoolSnapshot(value) }, { type: "pump_swap_pool", filename: config.pumpSwapPoolSnapshotFile, apply: (value) => store.applyPumpSwapPoolSnapshot(value) }, { type: "pump_bonding_curve", filename: config.pumpBondingCurveSnapshotFile, apply: (value) => store.applyPumpBondingCurveSnapshot(value) }, { type: "clmm_pool", filename: config.clmmPoolSnapshotFile, apply: (value) => store.applyPoolSnapshot(value) }, { type: "orca_pool", filename: config.orcaPoolSnapshotFile, apply: (value) => store.applyOrcaPoolSnapshot(value) }, { type: "meteora_dlmm_pool", filename: config.meteoraDlmmPoolSnapshotFile, apply: (value) => store.applyMeteoraDlmmPoolSnapshot(value) }, { type: "offchain_metadata", filename: config.offchainMetadataSnapshotFile, apply: (value) => store.applyOffchainMetadataSnapshot(value) }], result = { applied: 0, skipped: 0, deferred: 0, errors: [] }; store.state.checkpoints.snapshotArtifacts ??= {};
   for (const descriptor of descriptors) {
-    if (!descriptor.filename) continue; let content; try { content = await fs.readFile(descriptor.filename); } catch (error) { if (error.code === "ENOENT") { result.skipped++; continue; } result.errors.push({ type: descriptor.type, error: redactDiagnostic(error, "snapshot read failure") }); continue; } const hash = fingerprint(content); if (store.state.checkpoints.snapshotArtifacts[descriptor.type]?.fingerprint === hash) { result.skipped++; continue; } if (!store.deadLetterRetryStatus(`snapshot:${descriptor.type}`, hash, retryIdentity, now).eligible) { result.deferred++; continue; } const before = structuredClone(store.state);
+    if (!descriptor.filename) continue; let content; try { content = await readIngestionFile(descriptor.filename, config.maxIngestionFileBytes ?? DEFAULT_MAX_INGESTION_FILE_BYTES); } catch (error) { if (error.code === "ENOENT") { result.skipped++; continue; } result.errors.push({ type: descriptor.type, error: redactDiagnostic(error, "snapshot read failure") }); continue; } const hash = fingerprint(content); if (store.state.checkpoints.snapshotArtifacts[descriptor.type]?.fingerprint === hash) { result.skipped++; continue; } if (!store.deadLetterRetryStatus(`snapshot:${descriptor.type}`, hash, retryIdentity, now).eligible) { result.deferred++; continue; } const before = structuredClone(store.state);
     try { const value = JSON.parse(content.toString("utf8")); descriptor.apply(value); store.state.checkpoints.snapshotArtifacts[descriptor.type] = { fingerprint: hash, observedAt: value.observedAt, sourceSlot: value.slot ?? value.balanceSlot ?? value.stateSlot, appliedAt: new Date().toISOString() }; result.applied++; }
     catch (error) { store.state = before; const safeError = store.recordDeadLetter(`snapshot:${descriptor.type}`, hash, error, { failureStage: "snapshot_apply", retryIdentity, now }); result.errors.push({ type: descriptor.type, error: safeError }); }
   }
@@ -27,7 +36,7 @@ export async function indexInbox(config, store, { now = Date.now(), retryIdentit
     const filename = path.join(config.inbox, name); let hash = null, failureStage = "inbox_read";
     try {
       if (!store.deadLetterRetryStatus(name, null, retryIdentity, now).eligible) { result.deferredFiles++; continue; }
-      const content = await fs.readFile(filename);
+      const content = await readIngestionFile(filename, config.maxIngestionFileBytes ?? DEFAULT_MAX_INGESTION_FILE_BYTES);
       hash = fingerprint(content);
       if (store.hasFile(name, hash)) { result.resolvedDeadLetters += store.resolveDeadLetters(name, hash); result.skippedFiles++; continue; }
       if (!store.deadLetterRetryStatus(name, hash, retryIdentity, now).eligible) { result.deferredFiles++; continue; }

@@ -268,6 +268,7 @@ Configuration:
 | `INDEXER_WS_ACK_TIMEOUT_MS` | `10000` | Maximum time an `ack=1` client may leave the oldest persisted event unacknowledged |
 | `INDEXER_RECOVERY_MAXIMUM_AGE_SECONDS` | `7776000` | Maximum qualification age (90 days) before the quarterly rehearsal contract fails |
 | `INDEXER_MAX_TRANSACTIONS` | `250000` | Retention cap |
+| `INDEXER_MAX_INGESTION_FILE_BYTES` | `67108864` | Maximum stable regular-file size for each inbox block/NDJSON batch or snapshot artifact (64 MiB; allowed 64 KiB-256 MiB) |
 | `INDEXER_RETENTION_SECONDS` | `604800` | Indexed-time retention window (seven days) |
 | `USD_DEPEG_REFERENCE_FILE` | unset | Reviewed, expiring exact-rational finalized independent on-chain USDC/USD evidence |
 | `USDC_ORACLE_RELOAD_MS` | `5000` | Fail-closed live reload interval for refreshed USDC/USD evidence |
