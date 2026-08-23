@@ -35,6 +35,10 @@ The `getIndexedTokenSupply` RPC method exposes only exact raw supply from the
 same canonical finalized mint/account snapshot, separately discloses
 Token-2022 mint-withheld fees, and fails closed when a tracked mint lacks that
 complete evidence.
+The mint-bound, stable-cursor `getIndexedTokenLargestAccounts` RPC view orders
+positive accounts by exact raw balance and address, preserves owner/program and
+withheld-fee evidence, and is available only from the same complete finalized
+snapshot.
 
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot

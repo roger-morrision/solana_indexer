@@ -127,6 +127,16 @@ function dispatchRpc(payload, config, store) {
     if (!snapshot || !canonicalTokenAccountProjections(store.state, new Set([mint]))) return rpcError(payload.id, -32004, "Indexed token-supply evidence unavailable");
     return rpcResult(payload.id, indexedTokenSupplyRow(mint, snapshot));
   }
+  if (payload.method === "getIndexedTokenLargestAccounts") {
+    const params = Array.isArray(payload.params) ? { mint: payload.params[0], limit: payload.params[1], cursor: payload.params[2] } : payload.params;
+    if (!params || typeof params !== "object" || Array.isArray(params) || !SOLANA_ADDRESS.test(params.mint ?? "")) return rpcError(payload.id, -32602, "Invalid params");
+    const size = params.limit ?? 20, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || cursor !== null && typeof cursor !== "string") return rpcError(payload.id, -32602, "Invalid params");
+    const snapshot = store.state.holderSnapshots[params.mint];
+    if (!snapshot && !store.state.mints[params.mint]) return rpcResult(payload.id, null);
+    if (!snapshot || !canonicalTokenAccountProjections(store.state, new Set([params.mint]))) return rpcError(payload.id, -32004, "Indexed token-account snapshot unavailable");
+    const rows = snapshot.accounts.filter((row) => BigInt(row.amountRaw) > 0n).sort((left, right) => { const amounts = BigInt(right.amountRaw) - BigInt(left.amountRaw); return amounts < 0n ? -1 : amounts > 0n ? 1 : left.tokenAccount.localeCompare(right.tokenAccount); }).map((row) => ({ tokenAccount: row.tokenAccount, owner: row.owner, programId: row.programId, amountRaw: row.amountRaw, withheldAmountRaw: row.withheldAmountRaw ?? null, decimals: row.decimals }));
+    try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, `rpc:getIndexedTokenLargestAccounts:v1:${params.mint}`), mint: params.mint, slot: snapshot.slot, commitment: "finalized", coverage: "complete_finalized_mint_account_snapshot", complete: true }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+  }
   if (payload.method === "getIndexedTokenAccountsByOwner") {
     const params = Array.isArray(payload.params) ? { owner: payload.params[0], mint: payload.params[1], limit: payload.params[2], cursor: payload.params[3] } : payload.params;
     if (!params || typeof params !== "object" || Array.isArray(params) || !SOLANA_ADDRESS.test(params.owner ?? "") || params.mint != null && !SOLANA_ADDRESS.test(params.mint)) return rpcError(payload.id, -32602, "Invalid params");
