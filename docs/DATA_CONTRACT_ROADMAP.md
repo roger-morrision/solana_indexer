@@ -240,6 +240,10 @@ before producing a manifest or installing a completion receipt.
 Compressed inbox archives are staged privately and published by one atomic
 directory rename; failed attempts remove their validated staging directory and
 cannot leave a partial final archive that blocks an identity-safe retry.
+HTTP health, readiness, metrics, backup, and recovery consumers use bounded
+regular-file snapshots for operational evidence. Link, size, read, replacement,
+and JSON failures become explicit unavailable evidence rather than unbounded
+allocation or an uncaught serving failure.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the

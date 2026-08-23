@@ -527,6 +527,10 @@ canonical SHA-256 entries before durable installation.
 Local compressed archives are built and verified in a private sibling staging
 directory, atomically renamed to their final identity, and remove only that
 validated staging directory after a failed attempt.
+Serving paths read exporter, warehouse, backup, and recovery evidence only from
+non-link regular files capped at 1 MiB and stable across the read. Missing,
+malformed, oversized, replaced, or unreadable evidence becomes an unavailable
+dependency while metrics remain responsive and automation stays fail closed.
 The isolated restore copies the fixed artifact inventory without dereferencing
 links into a private temporary staging directory, validates that staged copy,
 and consumes only staged files to remove source-directory mutation races. Failed
