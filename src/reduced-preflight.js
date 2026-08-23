@@ -3,14 +3,18 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { readBoundedFile } from "./bounded-json-file.js";
 import { validateProviderUrl } from "./external-rpc.js";
 import { MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 
+const MAX_PROTECTED_ENV_BYTES = 65_536;
 function parseEnvironment(text) { const values = {}; for (const raw of text.split(/\r?\n/)) { const line = raw.trim(); if (!line || line.startsWith("#")) continue; const index = line.indexOf("="); if (index <= 0) throw new Error("invalid protected environment line"); values[line.slice(0, index).trim()] = line.slice(index + 1).trim(); } return values; }
 
 export async function reducedPreflight({ root, nodeImage, envFile }) {
   if (!/^[a-z0-9][a-z0-9._\/-]*@sha256:[a-f0-9]{64}$/i.test(nodeImage ?? "")) throw new Error("NODE_IMAGE must be an explicit sha256 image digest");
-  const env = parseEnvironment(await fs.readFile(envFile, "utf8"));
+  const envBytes = await readBoundedFile(envFile, { maximumBytes: MAX_PROTECTED_ENV_BYTES });
+  if (!Buffer.isBuffer(envBytes)) throw new Error(`protected environment file is unavailable: ${envBytes?.evidenceReadError ?? "missing"}`);
+  const env = parseEnvironment(envBytes.toString("utf8"));
   for (const [name, provider] of [["HELIUS_RPC_URL", "helius"], ["ALCHEMY_RPC_URL", "alchemy"]]) { if (!env[name] || /REPLACE/i.test(env[name])) throw new Error(`${name} must be configured`); validateProviderUrl(provider, env[name]); }
   if (env.INDEXER_EXPECTED_GENESIS_HASH !== MAINNET_GENESIS_HASH) throw new Error("INDEXER_EXPECTED_GENESIS_HASH must pin Solana mainnet");
   const apiKeys = (env.INDEXER_API_KEYS ?? "").split(",").map((value) => value.trim()).filter(Boolean); if (!apiKeys.length || apiKeys.some((value) => value.length < 32 || /replace/i.test(value))) throw new Error("INDEXER_API_KEYS must contain non-placeholder keys of at least 32 characters");
