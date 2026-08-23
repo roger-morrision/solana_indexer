@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
+import { constants } from "node:fs";
 import fs from "node:fs/promises";
-import { createReadStream } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -15,15 +15,27 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const BACKUP_SCHEMA_VERSION = 3;
 const CHAIN = "solana-mainnet";
 function safeName(value) { return typeof value === "string" && /^[a-z0-9][a-z0-9._-]{0,127}$/i.test(value) && value !== "." && value !== ".."; }
-async function sha256(filename) { const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk); return hash.digest("hex"); }
-async function artifactEvidence(root, name) { const filename = path.join(root, name), stat = await fs.lstat(filename); if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`backup artifact is not a regular file: ${name}`); return { bytes: stat.size, sha256: await sha256(filename) }; }
+function sameFile(left, right) { return right.isFile() && !right.isSymbolicLink() && right.size === left.size && right.dev === left.dev && right.ino === left.ino && right.mtimeMs === left.mtimeMs; }
+async function stableArtifactEvidence(filename, name) {
+  let handle;
+  try {
+    const before = await fs.lstat(filename); if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size < 0) throw new Error(`backup artifact is not a regular file: ${name}`);
+    handle = await fs.open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)); const opened = await handle.stat(); if (!sameFile(before, opened)) throw new Error(`backup artifact changed while hashing: ${name}`);
+    const hash = crypto.createHash("sha256"), chunk = Buffer.allocUnsafe(65_536); let offset = 0;
+    while (offset < before.size) { const length = Math.min(chunk.length, before.size - offset), { bytesRead } = await handle.read(chunk, 0, length, offset); if (bytesRead !== length) throw new Error(`backup artifact changed while hashing: ${name}`); hash.update(chunk.subarray(0, length)); offset += length; }
+    if ((await handle.read(chunk, 0, 1, before.size)).bytesRead !== 0) throw new Error(`backup artifact changed while hashing: ${name}`);
+    const afterRead = await handle.stat(), after = await fs.lstat(filename); if (!sameFile(before, afterRead) || !sameFile(before, after)) throw new Error(`backup artifact changed while hashing: ${name}`);
+    return { bytes: before.size, sha256: hash.digest("hex") };
+  } finally { await handle?.close().catch(() => {}); }
+}
+async function artifactEvidence(root, name) { return stableArtifactEvidence(path.join(root, name), name); }
 async function readBoundedRegularFile(filename, maximumBytes, label) { const content = await readBoundedFile(filename, { maximumBytes }); if (Buffer.isBuffer(content)) return content; if (content?.evidenceReadError === "invalid_file") throw new Error(`${label} is not a bounded regular file`); if (content?.evidenceReadError === "changed_during_read") throw new Error(`${label} changed while being read`); throw new Error(`${label} is unavailable: ${content?.evidenceReadError ?? "missing"}`); }
 async function writeAtomic(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 function parseSums(text) { const rows = new Map(); for (const [index, line] of text.trim().split(/\r?\n/).entries()) { const match = /^([0-9a-f]{64})  ([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(line); if (!match || rows.has(match[2])) throw new Error(`invalid SHA256SUMS line ${index + 1}`); rows.set(match[2], match[1]); } return rows; }
 async function tarInventory(filename) {
-  const handle = await fs.open(filename, "r"), names = [], seen = new Set(), inboxFiles = new Map(); let offset = 0, terminated = false, fileSize;
+  const before = await fs.lstat(filename); if (!before.isFile() || before.isSymbolicLink()) throw new Error("indexer-state tar is not a regular file"); const handle = await fs.open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)), names = [], seen = new Set(), inboxFiles = new Map(); let offset = 0, terminated = false, fileSize;
   try { while (true) {
-    if (fileSize == null) { const stat = await handle.stat(); if (!stat.isFile() || !Number.isSafeInteger(stat.size) || stat.size < 1_024 || stat.size % 512 !== 0) throw new Error("invalid indexer-state tar file"); fileSize = stat.size; }
+    if (fileSize == null) { const stat = await handle.stat(); if (!sameFile(before, stat) || !Number.isSafeInteger(stat.size) || stat.size < 1_024 || stat.size % 512 !== 0) throw new Error("invalid or changed indexer-state tar file"); fileSize = stat.size; }
     const header = Buffer.alloc(512), { bytesRead } = await handle.read(header, 0, 512, offset); if (bytesRead === 0) break; if (bytesRead !== 512) throw new Error("truncated indexer-state tar header"); if (header.every((byte) => byte === 0)) break;
     const read = (start, length) => header.subarray(start, start + length).toString("utf8").replace(/\0.*$/s, ""), name = [read(345, 155), read(0, 100)].filter(Boolean).join("/"), sizeText = read(124, 12).trim(), type = read(156, 1) || "0";
     const logicalName = type === "5" && name.endsWith("/") ? name.slice(0, -1) : name, segments = logicalName.split("/");
@@ -33,7 +45,7 @@ async function tarInventory(filename) {
     const contentOffset = offset + 512, nextOffset = contentOffset + Math.ceil(size / 512) * 512; if (nextOffset > fileSize) throw new Error(`truncated tar member ${name}`);
     if (type === "0" && logicalName.startsWith("inbox/")) { const inboxName = logicalName.slice(6); if (!safeName(inboxName)) throw new Error("unsafe inbox tar member"); const hash = crypto.createHash("sha256"), chunk = Buffer.alloc(Math.min(65_536, Math.max(1, size))); for (let readOffset = 0; readOffset < size;) { const length = Math.min(chunk.length, size - readOffset), { bytesRead } = await handle.read(chunk, 0, length, contentOffset + readOffset); if (bytesRead !== length) throw new Error(`truncated tar member ${name}`); hash.update(chunk.subarray(0, length)); readOffset += length; } inboxFiles.set(inboxName, hash.digest("hex")); }
     offset = nextOffset; seen.add(logicalName); names.push(logicalName);
-  } if (offset >= fileSize) throw new Error("indexer-state tar lacks a zero terminator"); for (let cursor = offset; cursor < fileSize; cursor += 65_536) { const length = Math.min(65_536, fileSize - cursor), tail = Buffer.alloc(length), { bytesRead } = await handle.read(tail, 0, length, cursor); if (bytesRead !== length || !tail.every((byte) => byte === 0)) throw new Error("indexer-state tar has nonzero trailing data"); } terminated = true; } finally { await handle.close(); }
+  } if (offset >= fileSize) throw new Error("indexer-state tar lacks a zero terminator"); for (let cursor = offset; cursor < fileSize; cursor += 65_536) { const length = Math.min(65_536, fileSize - cursor), tail = Buffer.alloc(length), { bytesRead } = await handle.read(tail, 0, length, cursor); if (bytesRead !== length || !tail.every((byte) => byte === 0)) throw new Error("indexer-state tar has nonzero trailing data"); } const afterRead = await handle.stat(), after = await fs.lstat(filename); if (!sameFile(before, afterRead) || !sameFile(before, after)) throw new Error("indexer-state tar changed during inventory"); terminated = true; } finally { await handle.close(); }
   if (!terminated) throw new Error("indexer-state tar is not terminated");
   if (!names.includes("data/index.json") || !names.includes("data/exporter-status.json")) throw new Error("indexer-state tar lacks required canonical state"); return { names: names.sort(), inboxFiles };
 }
@@ -46,7 +58,7 @@ export async function preflightBackup(directory, { now = Date.now(), maximumAgeM
   if (manifest.schemaVersion !== BACKUP_SCHEMA_VERSION || manifest.chain !== CHAIN || manifest.scope !== "postgres-clickhouse-redis-indexer-state" || manifest.writersQuiesced !== true || !BACKUP_ID.test(manifest.backupId ?? "") || (expectedBackupId !== null && manifest.backupId !== expectedBackupId) || !Number.isFinite(createdAtMs) || new Date(createdAtMs).toISOString() !== manifest.createdAt || createdAtMs > now || now - createdAtMs > maximumAgeMs || JSON.stringify(artifactNames) !== JSON.stringify([...ARTIFACTS].sort())) throw new Error("backup manifest is invalid, future-dated, outside RPO, wrong-chain, or not quiesced");
   for (const name of ARTIFACTS) { const declared = manifest.artifacts[name], actual = evidence.get(name); if (!declared || !Number.isSafeInteger(declared.bytes) || declared.bytes < 0 || declared.bytes !== actual.bytes || declared.sha256 !== actual.sha256 || sums.get(name) !== declared.sha256) throw new Error(`backup manifest evidence mismatch for ${name}`); }
   const inboxManifestBytes = await readBoundedRegularFile(path.join(root, "inbox-manifest.json"), 16_777_216, "inbox manifest"); if (crypto.createHash("sha256").update(inboxManifestBytes).digest("hex") !== evidence.get("inbox-manifest.json").sha256) throw new Error("inbox manifest changed after checksum verification"); const inboxManifest = JSON.parse(inboxManifestBytes.toString("utf8")), inboxFiles = Object.entries(inboxManifest.files ?? {}); if (inboxManifest.schemaVersion !== 1 || inboxManifest.archiveId !== manifest.backupId || !inboxManifest.files || Array.isArray(inboxManifest.files) || typeof inboxManifest.files !== "object" || inboxFiles.some(([name, hash]) => !safeName(name) || !SHA256.test(hash))) throw new Error("inbox manifest is not bound to backup identity");
-  const tarFile = path.join(root, "indexer-state.tar"), inventory = await tarInventory(tarFile), archivedInbox = [...inventory.inboxFiles.entries()].sort(([left], [right]) => left.localeCompare(right)), declaredInbox = inboxFiles.sort(([left], [right]) => left.localeCompare(right)); if (JSON.stringify(archivedInbox) !== JSON.stringify(declaredInbox)) throw new Error("inbox manifest does not match archived inbox files"); if (await sha256(tarFile) !== evidence.get("indexer-state.tar").sha256) throw new Error("indexer-state tar changed after inventory verification");
+  const tarFile = path.join(root, "indexer-state.tar"), inventory = await tarInventory(tarFile), archivedInbox = [...inventory.inboxFiles.entries()].sort(([left], [right]) => left.localeCompare(right)), declaredInbox = inboxFiles.sort(([left], [right]) => left.localeCompare(right)); if (JSON.stringify(archivedInbox) !== JSON.stringify(declaredInbox)) throw new Error("inbox manifest does not match archived inbox files"); if ((await stableArtifactEvidence(tarFile, "indexer-state.tar")).sha256 !== evidence.get("indexer-state.tar").sha256) throw new Error("indexer-state tar changed after inventory verification");
   return { schemaVersion: BACKUP_SCHEMA_VERSION, kind: "backup_restore_preflight", chain: CHAIN, backupId: manifest.backupId, backupManifestSha256: evidence.get("manifest.json").sha256, createdAt: manifest.createdAt, ageMs: now - createdAtMs, checksumFiles: sums.size, artifactBytes: [...ARTIFACTS].reduce((sum, name) => sum + evidence.get(name).bytes, 0), tarMembers: inventory.names, restoreAuthorized: false, invariants: { completeInventory: true, checksums: true, manifestEvidence: true, writersQuiesced: true, inboxIdentity: true, inboxArchiveComplete: true, rpo: true, safeTar: true, canonicalStatePresent: true, mainnetIdentity: true } };
 }
 
