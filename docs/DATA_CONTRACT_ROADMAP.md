@@ -129,6 +129,11 @@ identity, amounts, mint direction, registry/decoder binding, payload hash,
 provenance and outer slot/time must hold; reorg tombstones additionally bind the
 replacement blockhash. Declared batch counts must equal their retained arrays,
 so a valid outer envelope cannot conceal corrupt market facts during resume.
+Canonical swap rows and every replay copy now require an active program-registry
+entry at the fact slot, the exact current registry version, its protocol and decoder
+version, bounded decimals, exact positive u64 amounts, fee bounds, and a recognized
+payload-hash kind. Merely positive version numbers or nonempty program labels cannot
+promote stale or unregistered decoder output into API, warehouse, or bot evidence.
 Snapshot replay descriptors are likewise nonempty, identity-unique, type-checked,
 and bound to the exact SHA-256 suffix in their outer snapshot blockhash. Pool
 dependency slots must remain ordered beneath the emitted maximum evidence slot,

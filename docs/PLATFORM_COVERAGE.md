@@ -66,6 +66,9 @@ For every retained canonical slot, the latest canonical-block replay envelope is
 content-reconciled against both the complete lifecycle ledger and the complete swap
 ledger. A valid but detached replay copy therefore fails health, warehouse export,
 and WebSocket replay instead of presenting a second market history to consumers.
+Both ledgers also require the active slot-qualified program registration, exact
+current registry and decoder versions, protocol identity, amount/fee/decimal bounds,
+and recognized payload-hash semantics; stale or invented decoder identities fail closed.
 
 Multi-sink repair also runs when the canonical event batch is empty, rebuilding
 PostgreSQL projections, canonical dead letters, and expired or lost versioned

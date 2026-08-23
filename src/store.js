@@ -3,7 +3,7 @@ import { durableAtomicWrite } from "./durable-file.js";
 import { assessUsdDepegReference, MAINNET_USDC_MINT } from "./usd-depeg-reference.js";
 import { normalizeTransferFeeConfig, selectEpochTransferFee } from "./token-2022-transfer-fee.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
-import { PROGRAM_REGISTRY, PROGRAM_REGISTRY_VERSION } from "./program-registry.js";
+import { PROGRAM_REGISTRY, PROGRAM_REGISTRY_VERSION, programRegistration } from "./program-registry.js";
 import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { isCanonicalTokenMetadata } from "./token-metadata.js";
 import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
@@ -49,9 +49,12 @@ export function canonicalLifecycleTransition(event) {
   if (event?.type === "curve_completed") return event.protocol === "pump-bonding-curve" && text(event.user) && i64(event.completedAtUnix);
   return event?.type === "migration_completed" && event.protocol === "pump-bonding-curve" && event.destinationProtocol === "pump-swap" && [event.sourcePool, event.user].every(text) && event.sourcePool !== event.pool && [event.migratedBaseAmountRaw, event.migratedQuoteAmountRaw, event.poolMigrationFeeRaw].every((value) => u64(value)) && i64(event.completedAtUnix);
 }
+function canonicalSwapShape(swap) {
+  const u64 = (value, positive = false) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= U64_MAX && (!positive || BigInt(value) > 0n), registration = programRegistration(swap?.programId, swap?.slot), identity = `solana:${swap?.slot}:${swap?.signature}:-1:${swap?.eventIndex}:swap`;
+  return swap?.eventId === identity && swap.swapId === `${swap.signature}:${swap.eventIndex}` && Number.isSafeInteger(swap.slot) && swap.slot >= 0 && Number.isInteger(swap.eventIndex) && swap.eventIndex >= 0 && [swap.signature, swap.programId, swap.protocol, swap.pool, swap.baseMint, swap.quoteMint, swap.inputMint, swap.outputMint].every((value) => typeof value === "string" && Boolean(value)) && swap.baseMint !== swap.quoteMint && swap.inputMint !== swap.outputMint && [swap.inputMint, swap.outputMint].every((mint) => mint === swap.baseMint || mint === swap.quoteMint) && u64(swap.inputAmountRaw, true) && u64(swap.outputAmountRaw, true) && (swap.tradeFeeRaw == null || u64(swap.tradeFeeRaw) && BigInt(swap.tradeFeeRaw) <= BigInt(swap.inputAmountRaw)) && [swap.inputDecimals, swap.outputDecimals, swap.baseDecimals, swap.quoteDecimals].every((value) => Number.isInteger(value) && value >= 0 && value <= 255) && registration?.protocol === swap.protocol && registration.eventTypes.includes("swap") && swap.registryVersion === PROGRAM_REGISTRY_VERSION && swap.decoderVersion === registration.decoderVersion && /^[0-9a-f]{64}$/.test(swap.rawPayloadHash ?? "") && ["raw", "source_event"].includes(swap.payloadHashKind);
+}
 function canonicalEmbeddedSwap(swap, envelope, reverted) {
-  const u64 = (value, positive = false) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= U64_MAX && (!positive || BigInt(value) > 0n), identity = `solana:${swap?.slot}:${swap?.signature}:-1:${swap?.eventIndex}:swap`;
-  return swap?.eventId === identity && swap.swapId === `${swap.signature}:${swap.eventIndex}` && swap.slot === envelope.slot && swap.blockTime === envelope.blockTime && Number.isInteger(swap.eventIndex) && swap.eventIndex >= 0 && [swap.signature, swap.programId, swap.protocol, swap.pool, swap.baseMint, swap.quoteMint, swap.inputMint, swap.outputMint].every((value) => typeof value === "string" && Boolean(value)) && swap.baseMint !== swap.quoteMint && swap.inputMint !== swap.outputMint && [swap.inputMint, swap.outputMint].every((mint) => mint === swap.baseMint || mint === swap.quoteMint) && u64(swap.inputAmountRaw, true) && u64(swap.outputAmountRaw, true) && /^[0-9a-f]{64}$/.test(swap.rawPayloadHash ?? "") && (reverted ? swap.revertedByBlockhash === envelope.blockhash && ["confirmed", "finalized"].includes(swap.provenance?.commitment) && swap.provenance?.genesisHash === MAINNET_GENESIS_HASH : swap.revertedByBlockhash == null && JSON.stringify(swap.provenance) === JSON.stringify(envelope.provenance));
+  return canonicalSwapShape(swap) && swap.slot === envelope.slot && swap.blockTime === envelope.blockTime && (reverted ? swap.revertedByBlockhash === envelope.blockhash && ["confirmed", "finalized"].includes(swap.provenance?.commitment) && swap.provenance?.genesisHash === MAINNET_GENESIS_HASH : swap.revertedByBlockhash == null && JSON.stringify(swap.provenance) === JSON.stringify(envelope.provenance));
 }
 function canonicalEmbeddedLifecycle(event, envelope, reverted) {
   const registration = PROGRAM_REGISTRY.get(event?.programId), identity = `solana:${event?.slot}:${event?.signature}:-1:${event?.innerIndex}:${event?.type}`;
@@ -129,13 +132,12 @@ export function canonicalPersistedInstructionLog(instructions, transactions, blo
 }
 export function canonicalPersistedSwapLog(swaps, transactions, blocks) {
   if (!Array.isArray(swaps)) return false;
-  const identities = new Set(), u64 = (value, positive = false) => typeof value === "string" && /^\d+$/.test(value) && BigInt(value) <= U64_MAX && (!positive || BigInt(value) > 0n);
+  const identities = new Set();
   return swaps.every((swap) => {
     const transaction = transactions?.[swap?.signature], block = blocks?.[String(swap?.slot)], provenance = swap?.provenance;
-    const eventId = `solana:${swap?.slot}:${swap?.signature}:-1:${swap?.eventIndex}:swap`, swapId = `${swap?.signature}:${swap?.eventIndex}`;
     if (typeof swap?.swapId !== "string" || !swap.swapId || identities.has(swap.swapId)) return false;
     identities.add(swap.swapId);
-    return swap.swapId === swapId && swap.eventId === eventId && canonicalPersistedTransaction(swap.signature, transaction, blocks) && transaction.success === true && canonicalPersistedBlock(String(swap.slot), block) && swap.blockTime === transaction.blockTime && Number.isInteger(swap.eventIndex) && swap.eventIndex >= 0 && [swap.protocol, swap.programId, swap.pool, swap.baseMint, swap.quoteMint, swap.inputMint, swap.outputMint].every((value) => typeof value === "string" && Boolean(value)) && swap.baseMint !== swap.quoteMint && swap.inputMint !== swap.outputMint && [swap.inputMint, swap.outputMint].every((mint) => mint === swap.baseMint || mint === swap.quoteMint) && u64(swap.inputAmountRaw, true) && u64(swap.outputAmountRaw, true) && (swap.tradeFeeRaw == null || u64(swap.tradeFeeRaw) && BigInt(swap.tradeFeeRaw) <= BigInt(swap.inputAmountRaw)) && [swap.inputDecimals, swap.outputDecimals, swap.baseDecimals, swap.quoteDecimals].every((value) => Number.isInteger(value) && value >= 0 && value <= 255) && Number.isSafeInteger(swap.registryVersion) && swap.registryVersion > 0 && Number.isSafeInteger(swap.decoderVersion) && swap.decoderVersion > 0 && /^[0-9a-f]{64}$/.test(swap.rawPayloadHash ?? "") && ["raw", "source_event"].includes(swap.payloadHashKind) && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt;
+    return canonicalSwapShape(swap) && canonicalPersistedTransaction(swap.signature, transaction, blocks) && transaction.success === true && canonicalPersistedBlock(String(swap.slot), block) && swap.blockTime === transaction.blockTime && provenance?.commitment === transaction.provenance?.commitment && provenance?.genesisHash === transaction.provenance?.genesisHash && provenance?.source === transaction.provenance?.source && provenance?.observedAt === transaction.provenance?.observedAt;
   });
 }
 export function canonicalPersistedProgramEventLog(programEvents, swaps, transactions, blocks) {
