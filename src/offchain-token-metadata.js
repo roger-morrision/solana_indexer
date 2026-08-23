@@ -1,13 +1,19 @@
 import crypto from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { request } from "node:https";
-import { isIP } from "node:net";
+import { BlockList, isIP } from "node:net";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const DEFAULT_MAX_BYTES = 256 * 1024;
+const NON_PUBLIC_IPV4 = new BlockList();
+for (const [network, prefix] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.88.99.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 4]]) NON_PUBLIC_IPV4.addSubnet(network, prefix, "ipv4");
+const NON_PUBLIC_IPV6 = new BlockList();
+for (const [network, prefix] of [["::", 96], ["::ffff:0:0", 96], ["64:ff9b::", 96], ["64:ff9b:1::", 48], ["100::", 64], ["100:0:0:1::", 64], ["2001::", 32], ["2001:2::", 48], ["2001:10::", 28], ["2001:db8::", 32], ["2002::", 16], ["3fff::", 20], ["5f00::", 16], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8]]) NON_PUBLIC_IPV6.addSubnet(network, prefix, "ipv6");
+NON_PUBLIC_IPV6.addAddress("::1", "ipv6");
+const GLOBAL_UNICAST_IPV6 = new BlockList(); GLOBAL_UNICAST_IPV6.addSubnet("2000::", 3, "ipv6");
 function publicAddress(address) {
-  if (isIP(address) === 4) { const parts = address.split(".").map(Number); return !(parts[0] === 0 || parts[0] === 10 || parts[0] === 127 || parts[0] >= 224 || parts[0] === 169 && parts[1] === 254 || parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31 || parts[0] === 192 && parts[1] === 168 || parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127); }
-  if (isIP(address) === 6) { const value = address.toLowerCase(), mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/); if (mapped) return publicAddress(mapped[1]); return value !== "::" && value !== "::1" && !value.startsWith("fe8") && !value.startsWith("fe9") && !value.startsWith("fea") && !value.startsWith("feb") && !value.startsWith("fc") && !value.startsWith("fd"); }
+  if (isIP(address) === 4) return !NON_PUBLIC_IPV4.check(address, "ipv4");
+  if (isIP(address) === 6) return GLOBAL_UNICAST_IPV6.check(address, "ipv6") && !NON_PUBLIC_IPV6.check(address, "ipv6");
   return false;
 }
 function sourceUrl(uri) { let url; try { url = new URL(uri); } catch { throw new Error("off-chain metadata URI is invalid"); } if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || !url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".localhost")) throw new Error("off-chain metadata URI is not allowed"); return url; }
