@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -9,7 +10,7 @@ import { assessExporterStatus } from "./exporter-health.js";
 import { IndexStore } from "./store.js";
 import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
 import { durableExclusiveWrite } from "./durable-file.js";
-import { readBoundedJsonFile } from "./bounded-json-file.js";
+import { decodeUtf8, readBoundedFile, readBoundedJsonFile } from "./bounded-json-file.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -18,6 +19,7 @@ const BACKUP_INVARIANTS = ["completeInventory", "checksums", "manifestEvidence",
 const RECOVERY_INVARIANTS = ["mainnetIdentity", "backupIntegrity", "canonicalIndexHealthy", "exactWarehouseConvergence", "finalizedExporterHealthy", "rto"];
 const RECONCILIATION_COUNTS = ["events", "instructions", "swaps", "balanceChanges", "nativeTransfers", "deadLetters", "tokens", "candidates", "pools"];
 const EXPORTER_SOURCE = /^(?:local-agave-(?:rpc|pubsub)(?:-[1-4])?|external-rpc-(?:helius|alchemy))$/;
+const RECOVERY_MARKER = "terminal-dex-isolated-recovery-v1";
 function exactTimestamp(value, label) { const parsed = Date.parse(value ?? ""); if (!Number.isFinite(parsed) || new Date(parsed).toISOString() !== value) throw new Error(`invalid recovery ${label}`); return parsed; }
 function stable(value) { if (Array.isArray(value)) return value.map(stable); if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])); return value; }
 function evidenceDigest(evidence) { return crypto.createHash("sha256").update(JSON.stringify(stable(evidence))).digest("hex"); }
@@ -52,8 +54,23 @@ export function assessRecoveryQualification(report, maximumAgeMs = 90 * 86_400_0
 
 export async function writeRecoveryReport(filename, value) { await durableExclusiveWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 
-export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig() } = {}) {
+function containsPath(parent, candidate) { const relative = path.relative(parent, candidate); return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)); }
+
+export async function validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory, repository = process.cwd()) {
+  if (!path.isAbsolute(recoveryStateRoot ?? "") || !path.isAbsolute(recoveryTargetMarker ?? "") || !path.isAbsolute(backupDirectory ?? "")) throw new Error("recovery state, marker, and backup paths must be absolute");
+  const [rootStat, root, backup, repo] = await Promise.all([fs.lstat(recoveryStateRoot).catch(() => null), fs.realpath(recoveryStateRoot).catch(() => null), fs.realpath(backupDirectory).catch(() => null), fs.realpath(repository).catch(() => null)]);
+  if (!rootStat || !root || !backup || !repo) throw new Error("recovery state root, backup, and repository must exist");
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink() || root === path.parse(root).root || containsPath(repo, root) || containsPath(root, repo) || containsPath(backup, root) || containsPath(root, backup)) throw new Error("recovery state root is not isolated");
+  const expectedMarker = path.join(root, ".terminal-dex-isolated-recovery"), marker = await fs.realpath(recoveryTargetMarker).catch(() => null), markerBytes = marker === expectedMarker ? await readBoundedFile(marker, { maximumBytes: 64 }) : null;
+  if (!Buffer.isBuffer(markerBytes) || !new RegExp(`^${RECOVERY_MARKER}(?:\\r?\\n)?$`).test(decodeUtf8(markerBytes))) throw new Error("recovery state marker is invalid");
+  const expected = { dataFile: path.join(root, "data", "index.json"), exporterStatusFile: path.join(root, "data", "exporter-status.json"), warehouseCheckpointFile: path.join(root, "data", "warehouse-checkpoint.json") };
+  for (const [key, filename] of Object.entries(expected)) { const actual = await fs.realpath(config?.[key] ?? "").catch(() => null); if (actual !== filename) throw new Error(`recovery ${key} is outside the isolated state root`); }
+  return { stateRoot: root, marker: expectedMarker, ...expected };
+}
+
+export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig(), recoveryStateRoot = process.env.RECOVERY_STATE_ROOT, recoveryTargetMarker = process.env.RECOVERY_TARGET_MARKER } = {}) {
   if (!path.isAbsolute(reportFile)) throw new Error("recovery report path must be absolute");
+  await validateRecoveryStatePaths(config, recoveryStateRoot, recoveryTargetMarker, backupDirectory);
   const backup = await preflightBackup(backupDirectory, { now }), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, null, null, 200, config.maxStateFileBytes); await store.load();
   store.assertWritable();
   const eventSequence = store.state.eventSequence, indexHealth = store.health(config.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readBoundedJsonFile(config.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, config.warehouseStaleAfterMs, 0, now), exporterStatus = await readBoundedJsonFile(config.exporterStatusFile), exporter = { ...assessExporterStatus(exporterStatus, config.staleAfterMs, now, config.maxExporterLagSlots), observedAt: exporterStatus?.observedAt }, completedAt = new Date(now).toISOString();

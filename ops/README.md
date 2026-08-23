@@ -49,7 +49,9 @@ reconcile the warehouse, resume finalized export, and exercise API/feed checks.
 The recovery validator rechecks the bound backup, requires a healthy canonical
 index and zero-lag exact ClickHouse/PostgreSQL/Redis content reconciliation, requires a healthy finalized
 exporter observation produced after recovery started, enforces the four-hour RTO,
-and exclusively creates a hash-bound report;
+and exclusively creates a hash-bound report. It independently resolves the marker,
+index, exporter status and warehouse checkpoint and accepts only their standard
+paths under the isolated recovery root, preventing environment-path substitution;
 the version-5 report embeds the bounded canonical evidence summary so monitoring
 can recompute its digest and reject copied, edited, legacy, or self-asserted evidence;
 an existing report is never overwritten. Perform and retain this report for each

@@ -590,7 +590,10 @@ authorizes or performs a restore. `ops/restore.sh` repeats it before mutation an
 an isolated restore, `npm run validate:recovery` exclusively writes a report only
 when the same backup manifest hash, canonical index health, zero-lag exact
 warehouse convergence, a healthy finalized exporter observation produced inside
-the recovery window, and the four-hour RTO all validate.
+the recovery window, and the four-hour RTO all validate. Qualification independently
+resolves the marker and the three evidence files and requires their canonical paths
+to be the standard files under the isolated recovery root; normal deployment state,
+symlink substitution, and state nested in the repository or backup fail closed.
 Point `INDEXER_RECOVERY_REPORT_FILE` at the latest retained report; `/api/v1/recovery`
 and Prometheus validate its version-5 qualification shape, exact duration,
 canonical embedded backup/index/warehouse/exporter summary, recomputed evidence
