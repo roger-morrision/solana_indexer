@@ -374,7 +374,7 @@ Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
-`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the authenticated Raydium CLMM/CPMM, Orca, Meteora, and PumpSwap `POST /internal/pools/:address/prepare-swap`;
+`/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the authenticated Raydium CLMM/CPMM/AMM v4, Orca, Meteora, and PumpSwap `POST /internal/pools/:address/prepare-swap`;
 `/internal/feed/health`;
 and `/internal/feed/gaps`. Evidence bundle v2 includes exact USD-reference and
 USD-volume completeness plus per-pool risk outputs alongside stable schema
@@ -395,6 +395,14 @@ unsigned Pump V2 simulation artifact. Pool preparation likewise independently
 requotes persisted finalized evidence. Both contracts require explicit user and
 token accounts, bounds, recent blockhash and pre-balances; neither signs nor
 submits transactions.
+
+Raydium AMM v4 preparation binds the exact 17-account legacy `SwapBaseIn`
+route to the finalized pool, OpenOrders, MarketState, market vault signer, pool
+vaults, and monotonic component slots. It returns a hash-bound unsigned legacy
+transaction plus exact token-account simulation policy. Local simulation must
+prove the full input debit and a bounded output credit before any separate
+signer policy may approve it; this service still performs neither signing nor
+submission.
 `GET /internal/execution-policy` publishes the versioned external handoff
 contract. Each preparation response embeds a hash-bound copy covering the
 preparation, unsigned message and transaction identities, finalized simulation,
