@@ -8,6 +8,11 @@ slot but always require a new local simulation, signer-policy approval, and
 landed-message verification through `new_order_execution_required`; prior venue
 or transaction history cannot unlock a future order.
 
+Operational snapshot workers bind every claimed PostgreSQL job type and exact
+deduplication key to its validated pool or mint target before starting a child
+process. Attempt counters must be positive safe integers, so malformed or
+cross-target repair rows fail before provider access.
+
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
 readiness fail closed with `indexed_decoder_registry_stale` when old indexed
