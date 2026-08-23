@@ -59,7 +59,7 @@ async function readJsonBody(request, maximum = 65_536) {
   if (declared != null && Number(declared) > maximum) { const error = new Error(`request body exceeds ${maximum} bytes`); error.code = "PAYLOAD_TOO_LARGE"; throw error; }
   const chunks = []; let size = 0;
   for await (const chunk of request) { size += chunk.length; if (size > maximum) { const error = new Error(`request body exceeds ${maximum} bytes`); error.code = "PAYLOAD_TOO_LARGE"; throw error; } chunks.push(chunk); }
-  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { const error = new Error("request body must be valid JSON"); error.code = "BAD_REQUEST"; throw error; }
+  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks))); } catch { const error = new Error("request body must be valid UTF-8 JSON"); error.code = "BAD_REQUEST"; throw error; }
 }
 function validateJsonBodyHeaders(request) {
   const contentType = request.headers["content-type"];

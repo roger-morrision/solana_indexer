@@ -1979,6 +1979,11 @@ test("JSON POST routes reject ambiguous media types and content encodings", asyn
   const accepted = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json; charset=UTF-8" }, body }); assert.equal(accepted.status, 200); assert.equal((await accepted.json()).result.structure.canonical, true);
 });
 
+test("JSON POST routes reject malformed UTF-8 without normalizing identity bytes", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const malformed = Buffer.from([0x7b, 0x22, 0x69, 0x64, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d]);
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: malformed }); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "request body must be valid UTF-8 JSON" });
+});
+
 test("unexpected HTTP failures use a stable public envelope and redacted internal diagnostics", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const diagnostics = [], structureQuality = store.structureQuality.bind(store); store.structureQuality = () => { throw new Error("provider https://rpc.invalid/private?token=visible password=hunter2\nsecond line"); }; const server = createServer({ onDiagnostic: (diagnostic) => diagnostics.push(diagnostic) }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`, response = await fetch(`${base}/api/stats`); assert.equal(response.status, 500); assert.deepEqual(await response.json(), { error: "internal_error" }); assert.equal(diagnostics.length, 1); assert.equal(diagnostics[0].event, "http_internal_error"); assert.match(diagnostics[0].error, /\[redacted-url\]/); assert.match(diagnostics[0].error, /password=\[redacted\]/); assert.doesNotMatch(JSON.stringify(diagnostics), /rpc\.invalid|visible|hunter2|second line\n/);
