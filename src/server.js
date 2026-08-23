@@ -70,6 +70,7 @@ function validateJsonBodyHeaders(request) {
 }
 function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result }; }
 function rpcError(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }; }
+const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 function decisionStateQuality(store) {
   for (const method of ["derivedLedgerQuality", "recoveryQuality", "aggregateQuality", "programEventQuality", "snapshotQuality", "metadataQuality"]) { const quality = store[method](); if (!quality.canonical || method === "recoveryQuality" && quality.capacityExceeded) return quality; }
   return { canonical: true, reason: null };
@@ -98,6 +99,14 @@ function dispatchRpc(payload, config, store) {
     if (typeof signature !== "string" || !signature) return rpcError(payload.id, -32602, "Invalid params");
     const view = store.indexedTransactions(); if (!view.available) return rpcError(payload.id, -32002, "Indexed transaction evidence unavailable");
     return rpcResult(payload.id, view.data.find((transaction) => transaction.signature === signature) ?? null);
+  }
+  if (payload.method === "getIndexedSignaturesForAddress") {
+    const params = Array.isArray(payload.params) ? { address: payload.params[0], limit: payload.params[1], cursor: payload.params[2] } : payload.params;
+    if (!params || typeof params !== "object" || Array.isArray(params) || !SOLANA_ADDRESS.test(params.address ?? "")) return rpcError(payload.id, -32602, "Invalid params");
+    const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || cursor !== null && typeof cursor !== "string") return rpcError(payload.id, -32602, "Invalid params");
+    const view = store.indexedTransactions(); if (!view.available) return rpcError(payload.id, -32002, "Indexed transaction evidence unavailable");
+    const rows = view.data.filter((transaction) => transaction.provenance?.commitment === "finalized" && transaction.accounts.includes(params.address)).map(({ signature, slot, blockTime, success, feePayer, feeLamports, provenance }) => ({ signature, slot, blockTime, success, feePayer, feeLamports, commitment: provenance.commitment }));
+    try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => `${row.slot}:${row.signature}`, `rpc:getIndexedSignaturesForAddress:v1:${params.address}`), coverage: "retained_finalized_index_history", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   return rpcError(payload.id, -32601, "Method not found");
 }

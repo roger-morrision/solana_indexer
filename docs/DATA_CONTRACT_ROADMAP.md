@@ -15,6 +15,12 @@ carry its job-type-specific reason, canonical UTC scheduling timestamp, and
 nullable nonnegative safe-integer source slot, so malformed or cross-target
 repair rows fail before provider access.
 
+The read-only JSON-RPC surface includes address-bound, stable-cursor retained
+transaction history through `getIndexedSignaturesForAddress`. Results expose
+finalized compact outcomes plus explicit partial retained-history coverage;
+cursors cannot cross addresses, and the method does not impersonate validator
+history completeness.
+
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
 readiness fail closed with `indexed_decoder_registry_stale` when old indexed
