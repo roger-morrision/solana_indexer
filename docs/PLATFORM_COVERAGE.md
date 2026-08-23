@@ -134,4 +134,9 @@ of a commercial consumer contract.
 Fixed-cardinality Prometheus counters and an increase alert make each protected
 failure family observable even when no diagnostic callback is configured.
 
+Metadata absence now has explicit provenance: every newly acquired account
+snapshot attests completion of its exact-slot Metaplex program search. Legacy
+snapshots without that attestation remain readable for balance consumers but
+are reported as incomplete metadata coverage and queued for snapshot repair.
+
 AMM v4 coverage update: finalized snapshots bind the exact legacy 3,228-byte OpenBook `OpenOrders` and 388-byte `MarketState` accounts, validate market/authority/flags, queues, books, market vaults, lot sizes, derived vault signer, and free/total balances, preserve every component slot, and publish exact vault-plus-orders-minus-pending-PnL reserves. The internal quote contract provides deterministic exact-input analysis using the pool's rational swap fee and explicit ceiling/output-floor rounding. The exact 17-account legacy `SwapBaseIn` route now has hash-bound unsigned transaction construction and local simulation policies binding the complete market route, exact input debit, bounded output credit, finalized component slots, message identity, and tamper rejection. Capped expiring external approval, cryptographic signature verification, and finalized byte-identical landed-message confirmation complete the read-only chain. The indexer still never signs or submits, so automation continues to fail closed until an external authority satisfies every gate.

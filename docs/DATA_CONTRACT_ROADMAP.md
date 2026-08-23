@@ -482,3 +482,9 @@ The current index is an offline local prototype. It is not yet a SolanaTracker-e
 - Pump.fun's official Pump IDL and coin-creation documentation are authoritative for the current 115-byte serialized `BondingCurve` prefix (including its zero-padded extended allocation), 1,045-byte `Global` account, PDA seeds, `TradeEvent`, `create_v2`, `migrate`, and `migrate_v2` layouts, optional quote accounts, and program `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`. Each trade event must consume one direction-, mint-, quote-, user-, and curve-bound exact V2 instruction context with the canonical token/ATA/fee/system/program suffix; ambiguous reuse and malformed event booleans fail closed.
 
 AMM v4 OpenBook reserve reconciliation and exact-input analysis quoting are complete: the exact legacy 3,228-byte OpenOrders and 388-byte MarketState layouts, market/authority/flags, queues, books, market vaults, lot sizes, derived vault signer, balances, and finalized component slots are checked before publishing vault-plus-orders-minus-pending-PnL reserves; quotes use the on-chain pool's rational swap fee with ceiling rounding and constant-product output flooring. Its exact 17-account base-input route now spans unsigned construction, hash-bound local simulation, capped and expiring external approval, Ed25519 signature verification, and byte-identical finalized landed-message confirmation without indexer signing or submission.
+
+Account snapshot metadata coverage is now provenance-qualified. New production
+artifacts and replay events record successful exact-finalized-context Metaplex
+search completion even when no metadata account exists. Legacy snapshots remain
+balance-readable, but cannot establish authoritative metadata absence and are
+scheduled for reacquisition with `metadata_search_incomplete` evidence.
