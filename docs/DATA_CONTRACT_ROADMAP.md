@@ -145,6 +145,10 @@ Snapshot replay descriptors are likewise nonempty, identity-unique, type-checked
 and bound to the exact SHA-256 suffix in their outer snapshot blockhash. Pool
 dependency slots must remain ordered beneath the emitted maximum evidence slot,
 preventing detached mint/pool refresh claims from surviving persistence.
+Reorg recovery records form unique, timestamp-monotonic replacement chains per slot;
+each link must consume the preceding canonical blockhash, the chain tail must equal
+current canonical state, and every fully retained replay transition must have its
+matching correction. Multiple legitimate replacements therefore remain auditable.
 
 Persisted transaction maps are likewise revalidated as complete collections
 before REST/RPC delivery or readiness: map keys must equal row signatures and

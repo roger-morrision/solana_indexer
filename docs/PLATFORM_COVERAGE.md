@@ -73,6 +73,8 @@ Fork-replacement tombstones are content-reconciled with the latest retained pred
 for that slot, and ordinary index/finality envelopes are forbidden from carrying retractions.
 Latest retained account, metadata, and pool snapshot replay descriptors are likewise
 content-reconciled with their canonical projections after exact field-set validation.
+Recovery evidence preserves ordered multi-replacement chains per slot, rejects duplicate
+or broken links, and reconciles every fully retained fork transition with replay history.
 
 Multi-sink repair also runs when the canonical event batch is empty, rebuilding
 PostgreSQL projections, canonical dead letters, and expired or lost versioned
