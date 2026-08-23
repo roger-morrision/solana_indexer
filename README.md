@@ -662,13 +662,16 @@ evidence fails closed. `getIndexedTokenAccountsByOwner` accepts
 `{ owner, mint?, limit?, cursor? }`
 or positional equivalents. It returns exact raw balances, separately preserves
 snapshot-backed Token-2022 withheld amounts when available, and binds cursors
-to both owner and optional mint while explicitly reporting partial coverage. An
-explicit mint is validated even when the owner has no retained account for it.
+to owner, optional mint, and the exact result projection while explicitly
+reporting partial coverage. Snapshot changes invalidate continuation instead of
+mixing account states. An explicit mint is validated even when the owner has no
+retained account for it.
 `getIndexedTokenLargestAccounts` accepts `{ mint, limit?, cursor? }` or
 positional equivalents, defaults to 20 rows, and returns positive-balance
 accounts ordered by exact raw amount descending then account address. Its cursor
-is mint-bound, balances and withheld fees remain separate raw strings, and the
-envelope declares complete finalized snapshot coverage.
+is mint-, snapshot-, and projection-bound, balances and withheld fees remain
+separate raw strings, and the envelope declares complete finalized snapshot
+coverage. A replaced snapshot invalidates prior continuation cursors.
 Each decoded swap has a deterministic `swapId` of `<signature>:<eventIndex>`.
 This preserves legitimate multi-hop/multi-event transactions while giving REST
 cursors and downstream consumers a stable deduplication key. When a trusted

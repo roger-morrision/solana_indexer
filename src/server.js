@@ -74,6 +74,7 @@ function rpcError(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, 
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 function indexedTokenAccountRow(store, tokenAccount, row) { const snapshot = store.state.holderSnapshots[row.mint], snapshotRow = snapshot?.accounts?.find((account) => account.tokenAccount === tokenAccount); return { tokenAccount, mint: row.mint, owner: row.owner, programId: row.programId, decimals: row.decimals, amountRaw: row.amountRaw, withheldAmountRaw: snapshotRow?.withheldAmountRaw ?? null, lastSlot: row.lastSlot, closed: row.closed, snapshotComplete: Boolean(snapshotRow && snapshot?.complete === true) }; }
 function indexedTokenSupplyRow(mint, snapshot) { return { mint, programId: snapshot.mintProgramId, supplyRaw: snapshot.mintInfo.supply, decimals: snapshot.mintInfo.decimals, mintWithheldAmountRaw: snapshot.token2022Evidence?.transferFeeConfig?.withheldAmountRaw ?? null, slot: snapshot.slot, epoch: snapshot.epoch ?? null, commitment: "finalized", observedAt: snapshot.observedAt, sourceHash: snapshot.sourceHash, coverage: "complete_finalized_mint_account_snapshot", complete: true }; }
+function projectionDigest(rows) { return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("hex"); }
 function decisionStateQuality(store) {
   for (const method of ["derivedLedgerQuality", "recoveryQuality", "aggregateQuality", "programEventQuality", "snapshotQuality", "metadataQuality"]) { const quality = store[method](); if (!quality.canonical || method === "recoveryQuality" && quality.capacityExceeded) return quality; }
   return { canonical: true, reason: null };
@@ -135,7 +136,7 @@ function dispatchRpc(payload, config, store) {
     if (!snapshot && !store.state.mints[params.mint]) return rpcResult(payload.id, null);
     if (!snapshot || !canonicalTokenAccountProjections(store.state, new Set([params.mint]))) return rpcError(payload.id, -32004, "Indexed token-account snapshot unavailable");
     const rows = snapshot.accounts.filter((row) => BigInt(row.amountRaw) > 0n).sort((left, right) => { const amounts = BigInt(right.amountRaw) - BigInt(left.amountRaw); return amounts < 0n ? -1 : amounts > 0n ? 1 : left.tokenAccount.localeCompare(right.tokenAccount); }).map((row) => ({ tokenAccount: row.tokenAccount, owner: row.owner, programId: row.programId, amountRaw: row.amountRaw, withheldAmountRaw: row.withheldAmountRaw ?? null, decimals: row.decimals }));
-    try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, `rpc:getIndexedTokenLargestAccounts:v1:${params.mint}`), mint: params.mint, slot: snapshot.slot, commitment: "finalized", coverage: "complete_finalized_mint_account_snapshot", complete: true }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+    try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, `rpc:getIndexedTokenLargestAccounts:v1:${params.mint}:${snapshot.slot}:${projectionDigest(rows)}`), mint: params.mint, slot: snapshot.slot, commitment: "finalized", coverage: "complete_finalized_mint_account_snapshot", complete: true }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   if (payload.method === "getIndexedTokenAccountsByOwner") {
     const params = Array.isArray(payload.params) ? { owner: payload.params[0], mint: payload.params[1], limit: payload.params[2], cursor: payload.params[3] } : payload.params;
@@ -143,7 +144,7 @@ function dispatchRpc(payload, config, store) {
     const size = params.limit ?? 100, cursor = params.cursor ?? null; if (!Number.isInteger(size) || size < 1 || size > 500 || cursor !== null && typeof cursor !== "string") return rpcError(payload.id, -32602, "Invalid params");
     const selectedMints = params.mint == null ? new Set(Object.values(store.state.tokenAccounts).filter((row) => row.owner === params.owner).map((row) => row.mint)) : new Set([params.mint]); if (!canonicalTokenAccountProjections(store.state, selectedMints)) return rpcError(payload.id, -32003, "Indexed token-account evidence unavailable");
     const rows = Object.entries(store.state.tokenAccounts).filter(([, row]) => row.owner === params.owner && (params.mint == null || row.mint === params.mint)).sort(([left], [right]) => left.localeCompare(right)).map(([tokenAccount, row]) => indexedTokenAccountRow(store, tokenAccount, row));
-    const scope = `rpc:getIndexedTokenAccountsByOwner:v1:${params.owner}:${params.mint ?? "*"}`; try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, scope), coverage: "latest_canonical_observed_accounts", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
+    const scope = `rpc:getIndexedTokenAccountsByOwner:v1:${params.owner}:${params.mint ?? "*"}:${projectionDigest(rows)}`; try { return rpcResult(payload.id, { ...page(rows, size, cursor, (row) => row.tokenAccount, scope), coverage: "latest_canonical_observed_accounts", complete: false }); } catch { return rpcError(payload.id, -32602, "Invalid params"); }
   }
   return rpcError(payload.id, -32601, "Method not found");
 }

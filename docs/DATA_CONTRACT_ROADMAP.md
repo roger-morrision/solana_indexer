@@ -38,7 +38,9 @@ complete evidence.
 The mint-bound, stable-cursor `getIndexedTokenLargestAccounts` RPC view orders
 positive accounts by exact raw balance and address, preserves owner/program and
 withheld-fee evidence, and is available only from the same complete finalized
-snapshot.
+snapshot. Owner and largest-account cursors bind a digest of their exact ordered
+projection; largest-account cursors additionally bind the snapshot slot, so a
+replacement cannot silently mix pages from different account states.
 
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
