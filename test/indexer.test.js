@@ -1123,6 +1123,7 @@ test("local validator client correlates concurrent JSON-RPC responses", async ()
 test("RPC response decoding rejects oversized and malformed bodies before parsing", async () => {
   await assert.rejects(() => readBoundedRpcJson(new Response("x".repeat(1_025)), 1_024), /exceeds byte limit/);
   await assert.rejects(() => readBoundedRpcJson(new Response("not-json"), 1_024), /JSON is invalid/);
+  await assert.rejects(() => readBoundedRpcJson(new Response(Buffer.from([0x7b, 0x22, 0x76, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d])), 1_024), /JSON is invalid/);
   let parsed = false; const fetchImpl = async (_endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getGenesisHash") return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) }; return { ok: true, headers: { get: (name) => name === "content-length" ? "1025" : null }, json: async () => { parsed = true; return {}; } }; };
   const client = new LocalValidatorClient("http://127.0.0.1:8899", { fetchImpl, maxResponseBytes: 1_024 }); await client.assertGenesis(); await assert.rejects(() => client.call("getBlock"), /exceeds byte limit/); assert.equal(parsed, false);
   assert.throws(() => new LocalValidatorClient(undefined, { maxResponseBytes: 1_023 }), /response limit/); assert.throws(() => new ExternalRpcPool([{ name: "solana-public", endpoint: "https://api.mainnet.solana.com" }], { maxResponseBytes: 268_435_457 }), /response limit/);

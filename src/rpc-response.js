@@ -30,7 +30,7 @@ export async function readBoundedRpcJson(response, maximumBytes = DEFAULT_MAX_RP
     // byte-bounded branch above.
     return response.json();
   } else throw new Error("RPC response body is unavailable");
-  try { return JSON.parse(bytes.toString("utf8")); } catch { throw new Error("RPC response JSON is invalid"); }
+  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { throw new Error("RPC response JSON is invalid"); }
 }
 
 export { DEFAULT_MAX_RPC_RESPONSE_BYTES };
