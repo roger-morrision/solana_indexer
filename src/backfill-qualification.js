@@ -42,7 +42,12 @@ async function requireAbsent(filename, label) {
   catch (error) { if (error.code !== "ENOENT") throw error; }
 }
 
-export async function qualifyIsolatedBackfill({ inbox, outputFile, reportFile, activeDataFile = null, maxInboxEntries = 100_000, maxIngestionFileBytes = 67_108_864, maxStateFileBytes = 536_870_912, now = Date.now() }) {
+async function removeInstalledCandidate(filename, expectedSha256, maximumBytes) {
+  const content = await readBoundedFile(filename, { maximumBytes });
+  if (Buffer.isBuffer(content) && digest(content) === expectedSha256) await fs.unlink(filename).catch(() => {});
+}
+
+export async function qualifyIsolatedBackfill({ inbox, outputFile, reportFile, activeDataFile = null, maxInboxEntries = 100_000, maxIngestionFileBytes = 67_108_864, maxStateFileBytes = 536_870_912, now = Date.now(), exclusiveWrite = durableExclusiveWrite }) {
   if (![inbox, outputFile, reportFile].every(path.isAbsolute) || !Number.isSafeInteger(now) || now < 0) throw new Error("backfill paths must be absolute and time must be valid");
   const paths = await validateBackfillPaths({ inbox, outputFile, reportFile, activeDataFile });
   await requireAbsent(paths.outputFile, "backfill output"); await requireAbsent(paths.reportFile, "backfill report");
@@ -54,9 +59,11 @@ export async function qualifyIsolatedBackfill({ inbox, outputFile, reportFile, a
     const blockTimes = Object.values(store.state.blocks).map((block) => block.blockTime * 1_000).filter(Number.isSafeInteger), evaluationTime = blockTimes.length ? Math.max(...blockTimes) : now, capabilities = store.dataCapabilities(86_400_000, evaluationTime), registry = store.decoderRegistryQuality(), decoderOutput = store.decoderOutputCoverageQuality(), stats = store.stats(), processed = Object.entries(store.state.processedFiles).sort(([left], [right]) => left.localeCompare(right)), sourceInventorySha256 = digest(JSON.stringify(processed));
     const invariants = { nonEmpty: stats.blocks > 0, completeInbox: ingestion.errors.length === 0 && ingestion.deferredFiles === 0 && ingestion.files === names.length && processed.length === names.length, currentDecoderRegistry: registry.current, completeDecoderOutput: decoderOutput.complete, allFinalized: capabilities.finalizedBlocks === capabilities.totalBlocks && capabilities.totalBlocks > 0, canonicalCore: REQUIRED_CAPABILITIES.every((name) => capabilities[name] === true) };
     const qualified = Object.values(invariants).every(Boolean), output = await readBoundedFile(temporary, { maximumBytes: maxStateFileBytes }); if (!Buffer.isBuffer(output)) throw new Error("isolated backfill output is unavailable");
-    await durableExclusiveWrite(paths.outputFile, output);
-    const report = { schemaVersion: 1, kind: "isolated_backfill_qualification", chain: "solana-mainnet", qualified, promotionAuthorized: false, observedAt: new Date(now).toISOString(), sourceFileCount: names.length, sourceInventorySha256, outputSha256: digest(output), stats, ingestion: { files: ingestion.files, blocks: ingestion.blocks, transactions: ingestion.transactions, transfers: ingestion.transfers, balanceChanges: ingestion.balanceChanges, swaps: ingestion.swaps, errors: ingestion.errors.length, deferredFiles: ingestion.deferredFiles }, registry, decoderOutput, invariants };
-    await durableExclusiveWrite(paths.reportFile, `${JSON.stringify(report, null, 2)}\n`); return report;
+    const outputSha256 = digest(output); await exclusiveWrite(paths.outputFile, output);
+    const report = { schemaVersion: 1, kind: "isolated_backfill_qualification", chain: "solana-mainnet", qualified, promotionAuthorized: false, observedAt: new Date(now).toISOString(), sourceFileCount: names.length, sourceInventorySha256, outputSha256, stats, ingestion: { files: ingestion.files, blocks: ingestion.blocks, transactions: ingestion.transactions, transfers: ingestion.transfers, balanceChanges: ingestion.balanceChanges, swaps: ingestion.swaps, errors: ingestion.errors.length, deferredFiles: ingestion.deferredFiles }, registry, decoderOutput, invariants };
+    try { await exclusiveWrite(paths.reportFile, `${JSON.stringify(report, null, 2)}\n`); }
+    catch (error) { await removeInstalledCandidate(paths.outputFile, outputSha256, maxStateFileBytes); throw error; }
+    return report;
   } finally { await fs.rm(temporary, { force: true }).catch(() => {}); }
 }
 

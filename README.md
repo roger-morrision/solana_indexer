@@ -528,7 +528,9 @@ replays a bounded block-artifact inbox into a new index path only. Source,
 candidate, report, and configured active-index paths are canonically resolved,
 must be distinct, and all write or active-index paths must remain outside the
 source inbox; their parents must already exist. Existing candidate or report
-files are never overwritten. The exclusively created
+files are never overwritten. If report installation fails after candidate creation,
+the command removes only its unchanged content-matching candidate; a concurrently
+changed file is preserved. The exclusively created
 report binds the exact processed source inventory and candidate SHA-256, current
 decoder registry/output coverage, finalized mainnet identity, and canonical
 core projections. It always sets `promotionAuthorized: false`; promotion is a
