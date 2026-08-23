@@ -48,7 +48,7 @@ base/quote settlement deltas are required before a swap can enter analytics.
 The invocation-scoped official `TotalOrderFillEvent` must uniquely agree with
 the taker, side, paid quantity, and received quantity, and supplies the exact
 native taker fee. Missing, duplicate, or mismatched event evidence fails closed.
-OpenBook execution preparation and oracle-pegged pricing remain out of scope.
+OpenBook execution preparation remains out of scope.
 Finalized acquisition strictly decodes the official fixed 848-byte `Market`,
 both 90,952-byte `BookSide` accounts, and both vaults at monotonic shared
 finalized contexts. It validates allocator/free-list/tree reachability and exact
@@ -60,8 +60,10 @@ monotonic finalized oracle read barrier. Exact mutable OpenBook stub accounts
 are classified unsafe. Legacy Pyth PriceAccounts decode exact header, exponent,
 publisher/status, aggregate-versus-previous selection, signed price,
 confidence, publish time, and update slot evidence. All configured oracles
-remain `configured_unverified`, while oracle-pegged leaves stay unpriced until
-confidence, freshness, composition, and remaining-provider evidence is verified. Missing, incomplete,
+remain `configured_unverified` unless every referenced oracle is a validated legacy Pyth
+PriceAccount. Pyth-backed snapshots reproduce OpenBook's inclusive confidence threshold,
+slot-staleness boundary, dual-feed relative-variance composition, decimal adjustment, lot
+conversion, and peg-limit state; unsupported providers and unsafe stubs remain unpriced. Missing, incomplete,
 or stale evidence is scheduled through the leased repair pipeline.
 
 Phoenix orderbook now contributes analytical swap activity only when the exact

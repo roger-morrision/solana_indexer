@@ -525,6 +525,9 @@ OpenBook `StubOracle` layout is decoded but marked automation-unsafe because its
 authority can mutate it. The pinned Pyth SDK v0.10.1 legacy PriceAccount layout
 now retains exact header/used-size identity, exponent, publisher/status,
 aggregate-versus-previous selection, signed price, confidence, publish time,
-and update slot without floating-point normalization. Oracle-pegged leaves
-remain explicitly unpriced and non-executable pending exact confidence and
-freshness gates, dual-oracle composition, and Switchboard/Raydium state decoding.
+and update slot without altering the raw evidence. Validated Pyth-only snapshots
+also expose `oraclePolicy.oraclePriceLots` and project each oracle-pegged leaf with
+`priceLots`, `oraclePegState`, and `executable` after exact confidence, freshness,
+dual-oracle composition, decimal, lot-size, signed-overflow, and peg-limit gates.
+Switchboard, Raydium, and mutable stub providers remain explicitly unpriced and
+non-executable pending provider-specific validation.
