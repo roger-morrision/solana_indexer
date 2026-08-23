@@ -133,3 +133,5 @@ making provider URLs, credentials, filesystem details, or exception text part
 of a commercial consumer contract.
 Fixed-cardinality Prometheus counters and an increase alert make each protected
 failure family observable even when no diagnostic callback is configured.
+
+AMM v4 coverage update: finalized snapshots bind the exact legacy 3,228-byte OpenBook `OpenOrders` account, validate market/authority/flags and free/total balances, preserve its component slot, and publish exact vault-plus-orders-minus-pending-PnL reserves. Executable AMM v4 quote math remains fail-closed pending fixture-verified fee and rounding semantics.

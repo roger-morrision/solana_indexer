@@ -29,6 +29,17 @@ export function decodeAmmV4PoolAccount(address, account) {
   return { address, programId: RAYDIUM_AMM_V4_PROGRAM, status: Number(status), nonce: Number(nonce), state: Number(state), resetFlag: Number(resetFlag), mintDecimals0: Number(coinDecimals), mintDecimals1: Number(pcDecimals), tokenVault0, tokenVault1, tokenMint0, tokenMint1, lpMint: base58(data.subarray(464, 496)), openOrders: base58(data.subarray(496, 528)), market: base58(data.subarray(528, 560)), marketProgram: base58(data.subarray(560, 592)), targetOrders: base58(data.subarray(592, 624)), ammOwner: base58(data.subarray(688, 720)), lpAmountRaw: u64(data, 720), openTime: u64(data, 224), needTakePnl0Raw: u64(data, 192), needTakePnl1Raw: u64(data, 200), minimumSeparation: fraction(data, 128, 136, "minimum separation"), tradeFee: fraction(data, 144, 152, "trade fee"), pnl: fraction(data, 160, 168, "PnL fraction"), swapFee: fraction(data, 176, 184, "swap fee"), rawPayloadHash: hash(data) };
 }
 
+export function decodeOpenBookOpenOrdersAccount(address, account, expected) {
+  if (account?.owner !== expected.marketProgram) throw new Error(`OpenBook open orders ${address} has unexpected owner`);
+  const data = bytes(account, `OpenBook open orders ${address}`);
+  if (data.length !== 3_228 || !data.subarray(0, 5).equals(Buffer.from("serum")) || !data.subarray(-7).equals(Buffer.from("padding"))) throw new Error(`OpenBook open orders ${address} has invalid layout`);
+  const flags = data.readBigUInt64LE(5), market = base58(data.subarray(13, 45)), owner = base58(data.subarray(45, 77));
+  if (flags !== 5n || market !== expected.market || owner !== expected.poolAuthority) throw new Error(`OpenBook open orders ${address} identity mismatch`);
+  const baseTokenFreeRaw = u64(data, 77), baseTokenTotalRaw = u64(data, 85), quoteTokenFreeRaw = u64(data, 93), quoteTokenTotalRaw = u64(data, 101);
+  if (BigInt(baseTokenFreeRaw) > BigInt(baseTokenTotalRaw) || BigInt(quoteTokenFreeRaw) > BigInt(quoteTokenTotalRaw)) throw new Error(`OpenBook open orders ${address} balance mismatch`);
+  return { address, market, owner, accountFlagsRaw: flags.toString(), baseTokenFreeRaw, baseTokenTotalRaw, quoteTokenFreeRaw, quoteTokenTotalRaw, rawPayloadHash: hash(data) };
+}
+
 function parsedVault(account, expectedMint, label) {
   if (account?.owner !== SPL_TOKEN_PROGRAM) throw new Error(`${label} token program mismatch`);
   const info = account?.data?.parsed?.info;
@@ -41,10 +52,12 @@ export async function createAmmV4PoolSnapshot({ client, pools, genesisHash, obse
   const stateResponse = await getMultipleAccountsBatched(client, pools, { commitment: "finalized", encoding: "base64" }, { label: "AMM v4 pool" }), stateSlot = stateResponse?.context?.slot;
   if (!Number.isSafeInteger(stateSlot) || stateSlot < 0 || stateResponse.value?.length !== pools.length) throw new Error("invalid AMM v4 pool account response");
   const decoded = pools.map((address, index) => decodeAmmV4PoolAccount(address, stateResponse.value[index]));
-  const vaultResponse = await getMultipleAccountsBatched(client, decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]), { commitment: "finalized", encoding: "jsonParsed", minContextSlot: stateSlot }, { label: "AMM v4 vault" }), balanceSlot = vaultResponse?.context?.slot;
-  if (!Number.isSafeInteger(balanceSlot) || balanceSlot < stateSlot || vaultResponse.value?.length !== decoded.length * 2) throw new Error("invalid AMM v4 vault response");
-  decoded.forEach((row, index) => { const vault0 = parsedVault(vaultResponse.value[index * 2], row.tokenMint0, `AMM v4 pool ${row.address} vault 0`), vault1 = parsedVault(vaultResponse.value[index * 2 + 1], row.tokenMint1, `AMM v4 pool ${row.address} vault 1`); if (vault0.decimals !== row.mintDecimals0 || vault1.decimals !== row.mintDecimals1 || vault0.authority !== vault1.authority) throw new Error(`AMM v4 pool ${row.address} vault evidence mismatch`); row.vault0AmountRaw = vault0.amountRaw; row.vault1AmountRaw = vault1.amountRaw; row.poolAuthority = vault0.authority; });
-  return { schemaVersion: 1, type: "raydium_amm_v4_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, balanceSlot, observedAt, pools: decoded };
+  const openOrdersResponse = await getMultipleAccountsBatched(client, decoded.map((row) => row.openOrders), { commitment: "finalized", encoding: "base64", minContextSlot: stateSlot }, { label: "AMM v4 OpenBook open orders" }), openOrdersSlot = openOrdersResponse?.context?.slot;
+  if (!Number.isSafeInteger(openOrdersSlot) || openOrdersSlot < stateSlot || openOrdersResponse.value?.length !== decoded.length) throw new Error("invalid AMM v4 OpenBook open orders response");
+  const vaultResponse = await getMultipleAccountsBatched(client, decoded.flatMap((row) => [row.tokenVault0, row.tokenVault1]), { commitment: "finalized", encoding: "jsonParsed", minContextSlot: openOrdersSlot }, { label: "AMM v4 vault" }), balanceSlot = vaultResponse?.context?.slot;
+  if (!Number.isSafeInteger(balanceSlot) || balanceSlot < openOrdersSlot || vaultResponse.value?.length !== decoded.length * 2) throw new Error("invalid AMM v4 vault response");
+  decoded.forEach((row, index) => { const vault0 = parsedVault(vaultResponse.value[index * 2], row.tokenMint0, `AMM v4 pool ${row.address} vault 0`), vault1 = parsedVault(vaultResponse.value[index * 2 + 1], row.tokenMint1, `AMM v4 pool ${row.address} vault 1`); if (vault0.decimals !== row.mintDecimals0 || vault1.decimals !== row.mintDecimals1 || vault0.authority !== vault1.authority) throw new Error(`AMM v4 pool ${row.address} vault evidence mismatch`); row.vault0AmountRaw = vault0.amountRaw; row.vault1AmountRaw = vault1.amountRaw; row.poolAuthority = vault0.authority; const openOrders = decodeOpenBookOpenOrdersAccount(row.openOrders, openOrdersResponse.value[index], row), reserve0 = BigInt(row.vault0AmountRaw) + BigInt(openOrders.baseTokenTotalRaw), reserve1 = BigInt(row.vault1AmountRaw) + BigInt(openOrders.quoteTokenTotalRaw); if (BigInt(row.needTakePnl0Raw) > reserve0 || BigInt(row.needTakePnl1Raw) > reserve1) throw new Error(`AMM v4 pool ${row.address} pending PnL exceeds total reserves`); row.openOrdersState = openOrders; row.openOrdersSlot = openOrdersSlot; row.reserve0Raw = (reserve0 - BigInt(row.needTakePnl0Raw)).toString(); row.reserve1Raw = (reserve1 - BigInt(row.needTakePnl1Raw)).toString(); });
+  return { schemaVersion: 1, type: "raydium_amm_v4_pool_snapshot", chain: "solana", genesisHash, commitment: "finalized", stateSlot, openOrdersSlot, balanceSlot, observedAt, pools: decoded };
 }
 
 async function main() {
@@ -57,6 +70,6 @@ async function main() {
   const snapshot = await createAmmV4PoolSnapshot({ client, pools, genesisHash });
   if (!artifactOnly) { store.applyAmmV4PoolSnapshot(snapshot); await store.save(); }
   await durableAtomicWrite(config.ammV4PoolSnapshotFile, `${JSON.stringify(snapshot)}\n`);
-  console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly }));
+  console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, openOrdersSlot: snapshot.openOrdersSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly }));
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
