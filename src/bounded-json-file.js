@@ -3,6 +3,11 @@ import fs from "node:fs/promises";
 
 export const MAX_OPERATIONAL_JSON_BYTES = 1_048_576;
 
+export function decodeUtf8(content) {
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(content); }
+  catch { throw new SyntaxError("content is not valid UTF-8"); }
+}
+
 export async function readBoundedFile(filename, { maximumBytes = MAX_OPERATIONAL_JSON_BYTES, missing = null, allowEmpty = false } = {}) {
   if (!filename) return missing;
   if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || typeof allowEmpty !== "boolean") throw new Error("maximum file size and empty-file policy are invalid");
@@ -30,6 +35,6 @@ export async function readBoundedFile(filename, { maximumBytes = MAX_OPERATIONAL
 export async function readBoundedJsonFile(filename, options = {}) {
   const content = await readBoundedFile(filename, options);
   if (content == null || !Buffer.isBuffer(content)) return content;
-  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(content)); }
+  try { return JSON.parse(decodeUtf8(content)); }
   catch { return { evidenceReadError: "invalid_json" }; }
 }

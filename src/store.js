@@ -8,7 +8,7 @@ import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "
 import { isCanonicalTokenMetadata } from "./token-metadata.js";
 import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
-import { readBoundedFile } from "./bounded-json-file.js";
+import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
 
 export const MAX_INDEX_STATE_BYTES = 536_870_912;
 
@@ -268,7 +268,7 @@ export class IndexStore {
       const content = await readBoundedFile(this.filename, { maximumBytes: this.maximumStateBytes, missing: null });
       if (content == null) { this.loaded = true; return; }
       if (!Buffer.isBuffer(content)) { this.loadFailure = { reason: "indexed_state_file_invalid", fields: [] }; this.loaded = true; return; }
-      const persisted = JSON.parse(content.toString("utf8"));
+      const persisted = JSON.parse(decodeUtf8(content));
       if (!persisted || typeof persisted !== "object" || Array.isArray(persisted)) { this.loadFailure = { reason: "indexed_state_structure_invalid", fields: ["root"] }; this.loaded = true; return; }
       this.state = persisted;
     } catch (error) {

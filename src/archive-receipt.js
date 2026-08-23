@@ -6,7 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { durableAtomicWrite } from "./durable-file.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
-import { readBoundedFile } from "./bounded-json-file.js";
+import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
 import { readBoundedDirectoryNames } from "./bounded-directory.js";
 
 const sha256 = (content) => crypto.createHash("sha256").update(content).digest("hex");
@@ -37,7 +37,7 @@ export async function completeArchiveReceipt({ manifestFile, output, completedAt
   if (parseCanonicalUtcTimestamp(completedAt) == null) throw new Error("invalid inbox archive manifest or completion time");
   const manifestBytes = await readBoundedFile(manifestFile, { maximumBytes: 16_777_216 });
   if (!Buffer.isBuffer(manifestBytes)) throw new Error(`inbox archive manifest is unavailable: ${manifestBytes?.evidenceReadError ?? "missing"}`);
-  const manifest = JSON.parse(manifestBytes.toString("utf8"));
+  const manifest = JSON.parse(decodeUtf8(manifestBytes));
   const entries = Object.entries(manifest.files ?? {}); if (manifest.schemaVersion !== 1 || !ARCHIVE_ID.test(manifest.archiveId ?? "") || !manifest.files || Array.isArray(manifest.files) || typeof manifest.files !== "object" || entries.some(([name, hash]) => !canonicalInboxName(name) || !SHA256.test(hash))) throw new Error("invalid inbox archive manifest");
   if (!["uploaded", "verified_local"].includes(status)) throw new Error("invalid archive receipt status");
   const receipt = { ...manifest, storage: "self-hosted", status, completedAt, ...(status === "uploaded" ? { uploadCompletedAt: completedAt } : {}), manifestSha256: sha256(manifestBytes) };

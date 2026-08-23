@@ -26,7 +26,7 @@ import { preparePumpSwapBuyExactQuoteInSimulation, preparePumpSwapSellSimulation
 import { preparePumpBuyExactQuoteInV2Simulation, preparePumpSellV2Simulation } from "./pump-bonding-curve-execution.js";
 import { bindExecutionHandoff, EXECUTION_HANDOFF_POLICY } from "./execution-handoff-policy.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
-import { readBoundedFile, readBoundedJsonFile as readJsonFile } from "./bounded-json-file.js";
+import { decodeUtf8, readBoundedFile, readBoundedJsonFile as readJsonFile } from "./bounded-json-file.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const INTERNAL_FAILURE_EVENTS = ["http_internal_error", "pool_quote_failed", "pool_swap_preparation_failed", "curve_swap_preparation_failed"];
@@ -39,7 +39,7 @@ function candleInterval(url) { const value = Number(url.searchParams.get("interv
 function encodeCursor(key, scope) { return Buffer.from(JSON.stringify({ version: 1, key, scope })).toString("base64url"); }
 function decodeCursor(value) {
   if (!value) return null;
-  try { const bytes = Buffer.from(value, "base64url"), decoded = JSON.parse(bytes.toString("utf8")), keys = Object.keys(decoded ?? {}).sort().join(","); if (value.length > 1_024 || !/^[A-Za-z0-9_-]+$/.test(value) || bytes.toString("base64url") !== value || keys !== "key,scope,version" || decoded.version !== 1 || typeof decoded.key !== "string" || !decoded.key || decoded.key.length > 256 || decoded.scope !== null && (typeof decoded.scope !== "string" || !decoded.scope || decoded.scope.length > 256)) throw new Error("invalid cursor contract"); return decoded; }
+  try { const bytes = Buffer.from(value, "base64url"), decoded = JSON.parse(decodeUtf8(bytes)), keys = Object.keys(decoded ?? {}).sort().join(","); if (value.length > 1_024 || !/^[A-Za-z0-9_-]+$/.test(value) || bytes.toString("base64url") !== value || keys !== "key,scope,version" || decoded.version !== 1 || typeof decoded.key !== "string" || !decoded.key || decoded.key.length > 256 || decoded.scope !== null && (typeof decoded.scope !== "string" || !decoded.scope || decoded.scope.length > 256)) throw new Error("invalid cursor contract"); return decoded; }
   catch { const error = new Error("cursor must be canonical version-1 base64url JSON"); error.code = "INVALID_CURSOR"; throw error; }
 }
 function page(rows, size, cursor, key, scope = null) {
@@ -100,7 +100,7 @@ function presentedApiKey(request) {
   const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
   const protocols = String(request.headers["sec-websocket-protocol"] ?? "").split(",").map((value) => value.trim());
   const encoded = protocols.find((value) => value.startsWith("bearer."))?.slice(7);
-  let websocketBearer = ""; try { if (encoded) websocketBearer = Buffer.from(encoded, "base64url").toString("utf8"); } catch { websocketBearer = ""; }
+  let websocketBearer = ""; try { if (encoded) { const bytes = Buffer.from(encoded, "base64url"); if (bytes.toString("base64url") !== encoded) throw new Error("noncanonical credential encoding"); websocketBearer = decodeUtf8(bytes); } } catch { websocketBearer = ""; }
   return String(request.headers["x-api-key"] ?? bearer ?? websocketBearer ?? "");
 }
 function keyMatches(presented, configured) {
