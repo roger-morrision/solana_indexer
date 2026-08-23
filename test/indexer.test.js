@@ -1906,6 +1906,17 @@ test("bot readiness rejects DEX instructions produced by an obsolete decoder reg
   assert.ok(store.botReadiness(120_000, block.blockTime * 1_000, "pool-address").missing.includes("currentDecoderRegistry"));
 });
 
+test("health rejects successful recognized swap instructions without decoder output", async () => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString();
+  Object.assign(store.state.instructions[0], { programId: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo", protocol: "meteora-dlmm", registryVersion: 10, decoderVersion: 1, data: "fx9RHbGFfZ9nvoQ7a9m2HSQdbiS6AEVjmaqFoD" });
+  assert.deepEqual(store.decoderOutputCoverageQuality(), { complete: false, scopeProtocols: ["meteora-dlmm"], observedProtocols: ["meteora-dlmm"], recognizedTransactionCount: 1, decodedTransactionCount: 0, missingTransactionCount: 1, affectedProtocols: ["meteora-dlmm"], reason: "indexed_decoder_output_incomplete" });
+  assert.equal(store.dataCapabilities(120_000, block.blockTime * 1_000).completeDecoderOutput, false);
+  const health = store.health(120_000, block.blockTime * 1_000); assert.deepEqual({ status: health.status, healthy: health.healthy, reason: health.reason }, { status: "invalid_evidence", healthy: false, reason: "indexed_decoder_output_incomplete" });
+  assert.ok(store.botReadiness(120_000, block.blockTime * 1_000, "pool-address").missing.includes("completeDecoderOutput"));
+  store.state.swaps[0].protocol = "meteora-dlmm";
+  assert.equal(store.decoderOutputCoverageQuality().complete, true);
+});
+
 test("swap readiness, REST, and warehouse export fail closed on invalid persisted evidence", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString(); const original = structuredClone(store.state.swaps), batch = compileWarehouseBatch(store.state, { lastSequence: 0 });
   for (const mutate of [(swaps) => { swaps.push(structuredClone(swaps[0])); }, (swaps) => { swaps[0].signature = "detached"; }, (swaps) => { swaps[0].tradeFeeRaw = swaps[0].inputAmountRaw + "0"; }, (swaps) => { swaps[0].outputMint = swaps[0].inputMint; }, (swaps) => { swaps[0].provenance.observedAt = "2023-11-14T22:13:21.100Z"; }]) {

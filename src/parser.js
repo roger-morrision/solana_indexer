@@ -37,6 +37,11 @@ const METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR = Buffer.from([65, 75, 63, 76, 235
 const METEORA_SWAP_EVENT_DISCRIMINATOR = Buffer.from([81, 108, 227, 190, 205, 208, 10, 196]);
 const METEORA_SWAP2_EVENT_DISCRIMINATOR = Buffer.from([46, 116, 82, 215, 148, 27, 84, 77]);
 const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
+export function recognizedSwapInstructionProtocol(instruction) {
+  if (instruction?.programId !== METEORA_DLMM || typeof instruction.data !== "string") return null;
+  let data; try { data = decodeBase58(instruction.data); } catch { return null; }
+  return data.length === 24 && data.subarray(0, 8).equals(METEORA_SWAP_INSTRUCTION_DISCRIMINATOR) || data.length >= 25 && data.subarray(0, 8).equals(METEORA_SWAP2_INSTRUCTION_DISCRIMINATOR) ? "meteora-dlmm" : null;
+}
 function readBorshString(buffer, offset, maxCharacters) {
   if (offset + 4 > buffer.length) throw new Error("truncated borsh string");
   const byteLength = buffer.readUInt32LE(offset); offset += 4;

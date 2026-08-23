@@ -9,6 +9,7 @@ import { isCanonicalTokenMetadata } from "./token-metadata.js";
 import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
+import { recognizedSwapInstructionProtocol } from "./parser.js";
 
 export const MAX_INDEX_STATE_BYTES = 536_870_912;
 
@@ -635,6 +636,12 @@ export class IndexStore {
     const stale = recognized.filter((instruction) => { const registration = PROGRAM_REGISTRY.get(instruction.programId); return instruction.registryVersion !== PROGRAM_REGISTRY_VERSION || instruction.protocol !== registration.protocol || instruction.decoderVersion !== registration.decoderVersion; });
     return { current: stale.length === 0, recognizedInstructionCount: recognized.length, staleInstructionCount: stale.length, affectedProtocols: [...new Set(stale.map((instruction) => PROGRAM_REGISTRY.get(instruction.programId).protocol))].sort(), reason: stale.length ? "indexed_decoder_registry_stale" : null };
   }
+  decoderOutputCoverageQuality() {
+    const expected = new Set();
+    for (const instruction of this.state.instructions) { const protocol = recognizedSwapInstructionProtocol(instruction), transaction = this.state.transactions[instruction.signature]; if (protocol && transaction?.success === true) expected.add(`${instruction.signature}\u0000${protocol}`); }
+    const observed = new Set(this.state.swaps.map((swap) => `${swap.signature}\u0000${swap.protocol}`)), missing = [...expected].filter((key) => !observed.has(key)), protocols = [...new Set([...expected].map((key) => key.slice(key.indexOf("\u0000") + 1)))].sort();
+    return { complete: missing.length === 0, scopeProtocols: ["meteora-dlmm"], observedProtocols: protocols, recognizedTransactionCount: expected.size, decodedTransactionCount: expected.size - missing.length, missingTransactionCount: missing.length, affectedProtocols: [...new Set(missing.map((key) => key.slice(key.indexOf("\u0000") + 1)))].sort(), reason: missing.length ? "indexed_decoder_output_incomplete" : null };
+  }
   programEventQuality() {
     const canonical = canonicalPersistedProgramEventLog(this.state.programEvents, this.state.swaps, this.state.transactions, this.state.blocks);
     return { canonical, count: Array.isArray(this.state.programEvents) ? this.state.programEvents.length : null, lifecycleEvents: Array.isArray(this.state.programEvents) ? this.state.programEvents.filter((row) => row?.type !== "swap").length : null, reason: canonical ? null : "indexed_program_event_evidence_invalid" };
@@ -685,7 +692,7 @@ export class IndexStore {
     return { canonical: conflicts.length === 0, conflicts: conflicts.slice(0, 100), conflictCount: conflicts.length };
   }
   dataCapabilities(staleAfterMs = 120_000, now = Date.now()) {
-    if (!this.structureQuality().canonical) return { canonicalBlocks: false, canonicalTransactions: false, canonicalInstructions: false, currentDecoderRegistry: false, canonicalProgramEvents: false, canonicalSwaps: false, canonicalDerivedLedger: false, canonicalAggregates: false, canonicalSnapshots: false, canonicalMetadata: false, canonicalRecoveryState: false, replayableEvents: false, mainnetIdentity: false, finalizedProvenance: false, splTransfers: false, nativeTransfers: false, observedTokenBalances: false, completeHolderSnapshots: false, dexSwaps: false, poolLiquidity: false, marketPrices: false, riskSignals: false, finalizedBlocks: 0, totalBlocks: 0 };
+    if (!this.structureQuality().canonical) return { canonicalBlocks: false, canonicalTransactions: false, canonicalInstructions: false, currentDecoderRegistry: false, completeDecoderOutput: false, canonicalProgramEvents: false, canonicalSwaps: false, canonicalDerivedLedger: false, canonicalAggregates: false, canonicalSnapshots: false, canonicalMetadata: false, canonicalRecoveryState: false, replayableEvents: false, mainnetIdentity: false, finalizedProvenance: false, splTransfers: false, nativeTransfers: false, observedTokenBalances: false, completeHolderSnapshots: false, dexSwaps: false, poolLiquidity: false, marketPrices: false, riskSignals: false, finalizedBlocks: 0, totalBlocks: 0 };
     const entries = Object.entries(this.state.blocks), blocks = entries.map(([, block]) => block);
     const canonicalBlockTimes = blocks.length > 0 && blocks.every((block) => canonicalBlockTimeMs(block?.blockTime) != null);
     const canonicalBlockIdentities = entries.length > 0 && entries.every(([key, block]) => canonicalPersistedBlock(key, block));
@@ -695,6 +702,7 @@ export class IndexStore {
       canonicalTransactions: this.indexedTransactions().available,
       canonicalInstructions: this.instructionQuality().canonical,
       currentDecoderRegistry: this.decoderRegistryQuality().current,
+      completeDecoderOutput: this.decoderOutputCoverageQuality().complete,
       canonicalProgramEvents: this.programEventQuality().canonical,
       canonicalSwaps: this.indexedSwaps().available,
       canonicalDerivedLedger: this.derivedLedgerQuality().canonical,
@@ -731,7 +739,7 @@ export class IndexStore {
   botReadiness(staleAfterMs = 120_000, now = Date.now(), poolAddress = null) {
     const health = this.health(staleAfterMs, now);
     const capabilities = this.dataCapabilities(staleAfterMs, now);
-    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "currentDecoderRegistry", "canonicalProgramEvents", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "canonicalRecoveryState", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
+    const required = ["canonicalBlocks", "canonicalTransactions", "canonicalInstructions", "currentDecoderRegistry", "completeDecoderOutput", "canonicalProgramEvents", "canonicalSwaps", "canonicalDerivedLedger", "canonicalAggregates", "canonicalSnapshots", "canonicalMetadata", "canonicalRecoveryState", "replayableEvents", "mainnetIdentity", "finalizedProvenance", "dexSwaps", "poolLiquidity", "marketPrices", "riskSignals"];
     if (!this.structureQuality().canonical) return { ready: false, reason: "index_unhealthy", targetPool: poolAddress, missing: [...(!poolAddress ? ["targetPool"] : []), ...required], health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk: null, usdReference: null };
     const risk = poolAddress ? this.poolRisk(poolAddress, staleAfterMs, now) : null, latestPoolSwap = poolAddress ? this.state.swaps.filter((row) => row.pool === poolAddress).reduce((latest, row) => !latest || row.slot > latest.slot || (row.slot === latest.slot && (row.eventIndex ?? 0) > (latest.eventIndex ?? 0)) ? row : latest, null) : null, usdReference = latestPoolSwap?.baseMint ? this.referencePrice(latestPoolSwap.baseMint, staleAfterMs, now) : null; const missing = required.filter((name) => name === "riskSignals" ? !risk?.safeForAutomation : !capabilities[name]); if (poolAddress && !usdReference?.safeForAutomation) missing.push("independentUsdReference"); if (!poolAddress) missing.unshift("targetPool");
     return { ready: health.healthy && missing.length === 0, reason: !health.healthy ? "index_unhealthy" : missing.length ? "missing_required_capabilities" : null, targetPool: poolAddress, missing, health: { status: health.status, ageMs: health.ageMs ?? null }, capabilities, risk, usdReference };
@@ -762,6 +770,7 @@ export class IndexStore {
     const transactions = this.indexedTransactions(); if (!transactions.available) return { status: "invalid_evidence", healthy: false, reason: transactions.reason, ageMs: null, staleAfterMs, chain, events, ...stats };
     const instructions = this.instructionQuality(); if (!instructions.canonical) return { status: "invalid_evidence", healthy: false, reason: instructions.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const decoderRegistry = this.decoderRegistryQuality(); if (!decoderRegistry.current) return { status: "invalid_evidence", healthy: false, reason: decoderRegistry.reason, ageMs: null, staleAfterMs, chain, events, instructions, decoderRegistry, ...stats };
+    const decoderOutput = this.decoderOutputCoverageQuality(); if (!decoderOutput.complete) return { status: "invalid_evidence", healthy: false, reason: decoderOutput.reason, ageMs: null, staleAfterMs, chain, events, instructions, decoderRegistry, decoderOutput, ...stats };
     const swaps = this.indexedSwaps(); if (!swaps.available) return { status: "invalid_evidence", healthy: false, reason: swaps.reason, ageMs: null, staleAfterMs, chain, events, instructions, ...stats };
     const programEvents = this.programEventQuality(); if (!programEvents.canonical) return { status: "invalid_evidence", healthy: false, reason: programEvents.reason, ageMs: null, staleAfterMs, chain, events, instructions, programEvents, ...stats };
     const derivedLedger = this.derivedLedgerQuality(); if (!derivedLedger.canonical) return { status: "invalid_evidence", healthy: false, reason: derivedLedger.reason, ageMs: null, staleAfterMs, chain, events, instructions, derivedLedger, ...stats };
