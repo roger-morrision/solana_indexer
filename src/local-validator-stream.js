@@ -7,6 +7,7 @@ import { loadConfig, parseBoundedInteger } from "./config.js";
 import { LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 export function validateLocalWsUrl(value) {
   const url = new URL(value);
@@ -15,7 +16,11 @@ export function validateLocalWsUrl(value) {
   return url.href;
 }
 async function atomicWrite(filename, value) { await durableAtomicWrite(filename, typeof value === "string" ? value : `${JSON.stringify(value)}\n`); }
-async function readJson(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
+async function readStatus(filename) {
+  const status = await readBoundedJsonFile(filename, { missing: {} });
+  if (status?.evidenceReadError) throw new Error(`prior stream status is unavailable: ${status.evidenceReadError}`);
+  return status;
+}
 function priorSkippedSlots(status) { if (!Object.hasOwn(status, "durableSkippedSlots")) return []; const slots = status.durableSkippedSlots; if (!Array.isArray(slots) || slots.length > 10_000 || slots.some((slot, index) => !Number.isSafeInteger(slot) || slot < 0 || (index > 0 && slots[index - 1] >= slot))) throw new Error("prior stream skipped-slot evidence is invalid"); return slots; }
 function priorSlot(status, field) { const value = status[field]; if (value == null) return null; if (!Number.isSafeInteger(value) || value < 0) throw new Error(`prior stream ${field} is invalid`); return value; }
 
@@ -30,7 +35,7 @@ export class LocalValidatorStream {
     this.expectedGenesisHash = expectedGenesisHash; this.genesisHash = null; this.socket = null; this.stopped = false; this.reconnectMs = reconnectMinMs; this.reconnectTimer = null; this.connectTimer = null; this.idleTimer = null; this.subscriptions = new Map(); this.lastSlots = { confirmed: null, finalized: null }; this.durableSkippedSlots = []; this.messageQueue = Promise.resolve(); this.lastError = null; this.metrics = { connections: 0, reconnects: 0, notifications: 0, gapRepairs: 0, decodeErrors: 0, skippedSlots: [] };
   }
   async start() { this.stopped = false; await this.initializeAndConnect(); return () => this.stop(); }
-  async initializeAndConnect() { const prior = await readJson(this.statusFile); this.durableSkippedSlots = priorSkippedSlots(prior); this.lastSlots.confirmed = priorSlot(prior, "lastConfirmedSlot"); this.lastSlots.finalized = priorSlot(prior, "lastFinalizedSlot"); if (Object.hasOwn(prior, "cursor") && prior.cursor !== this.lastSlots.finalized) throw new Error("prior stream cursor does not match finalized resume slot"); const ceiling = Math.max(this.lastSlots.confirmed ?? -1, this.lastSlots.finalized ?? -1); if (this.durableSkippedSlots.some((slot) => slot > ceiling)) throw new Error("prior stream skipped-slot evidence is ahead of durable progress"); this.genesisHash = await this.rpcClient.assertGenesis(this.expectedGenesisHash); let names = []; try { names = await fs.readdir(this.inbox); } catch (error) { if (error.code !== "ENOENT") throw error; } if (!prior.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox"); if (prior.genesisHash && prior.genesisHash !== this.genesisHash) throw new Error(`refusing to reuse stream state from genesis ${prior.genesisHash}`); await this.writeStatus(); this.connect(); }
+  async initializeAndConnect() { const prior = await readStatus(this.statusFile); this.durableSkippedSlots = priorSkippedSlots(prior); this.lastSlots.confirmed = priorSlot(prior, "lastConfirmedSlot"); this.lastSlots.finalized = priorSlot(prior, "lastFinalizedSlot"); if (Object.hasOwn(prior, "cursor") && prior.cursor !== this.lastSlots.finalized) throw new Error("prior stream cursor does not match finalized resume slot"); const ceiling = Math.max(this.lastSlots.confirmed ?? -1, this.lastSlots.finalized ?? -1); if (this.durableSkippedSlots.some((slot) => slot > ceiling)) throw new Error("prior stream skipped-slot evidence is ahead of durable progress"); this.genesisHash = await this.rpcClient.assertGenesis(this.expectedGenesisHash); let names = []; try { names = await fs.readdir(this.inbox); } catch (error) { if (error.code !== "ENOENT") throw error; } if (!prior.genesisHash && names.some((name) => /\.(?:json|ndjson)$/i.test(name))) throw new Error("refusing to attach a verified network to an inbox with unknown genesis; use a new empty inbox"); if (prior.genesisHash && prior.genesisHash !== this.genesisHash) throw new Error(`refusing to reuse stream state from genesis ${prior.genesisHash}`); await this.writeStatus(); this.connect(); }
   stop() { if (this.stopped) return this.messageQueue; const source = this.provenanceSource; this.stopped = true; if (this.reconnectTimer != null) { this.cancelReconnect(this.reconnectTimer); this.reconnectTimer = null; } if (this.connectTimer != null) { this.cancelConnectTimeout(this.connectTimer); this.connectTimer = null; } if (this.idleTimer != null) { this.cancelIdleTimeout(this.idleTimer); this.idleTimer = null; } this.socket?.close(); this.socket = null; this.lastError = { at: new Date().toISOString(), message: "validator stream stopped" }; return this.queueStatus(source, false); }
   get endpoint() { return this.endpoints[this.endpointIndex]; }
   get provenanceSource() { return this.endpoints.length === 1 ? "local-agave-pubsub" : `local-agave-pubsub-${this.endpointIndex + 1}`; }

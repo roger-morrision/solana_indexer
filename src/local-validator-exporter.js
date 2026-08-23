@@ -8,6 +8,7 @@ import { durableAtomicWrite } from "./durable-file.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { parseRetryAfterMs } from "./provider-retry.js";
 import { readBoundedRpcJson } from "./rpc-response.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 export const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
@@ -74,7 +75,11 @@ async function readCursor(filename) {
     return cursor;
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
-async function readStatus(filename) { try { return JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return {}; throw error; } }
+async function readStatus(filename) {
+  const status = await readBoundedJsonFile(filename, { missing: {} });
+  if (status?.evidenceReadError) throw new Error(`prior exporter status is unavailable: ${status.evidenceReadError}`);
+  return status;
+}
 
 function priorSkippedSlots(status) {
   if (!Object.hasOwn(status, "durableSkippedSlots")) return [];

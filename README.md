@@ -565,7 +565,8 @@ recovery health checks, or echoes its source bytes: exporter, warehouse, backup,
 recovery, feed-health and gap contracts all use the same one-MiB regular-file
 snapshot boundary and return redacted unhealthy evidence until an atomic valid
 replacement appears. Warehouse publication rejects an invalid checkpoint before
-contacting downstream sinks.
+contacting downstream sinks, and both polling and streaming ingestion reject an
+invalid resume status before any network request or inbox mutation.
 Dead-letter exception text is likewise normalized and capped before persistence;
 provider URLs, credentials, token-shaped values, and private keys are never part
 of the durable dead-letter or warehouse contract.
