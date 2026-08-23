@@ -23,7 +23,6 @@ import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
 import { prepareMeteoraDlmmSwapSimulation } from "./meteora-dlmm-execution.js";
 import { canonicalTokenAccountProjections } from "./store.js";
-import { isCanonicalTokenMetadata } from "./token-metadata.js";
 import { isCanonicalOffchainTokenMetadata } from "./offchain-token-metadata.js";
 import { prepareRaydiumClmmSwapV2Simulation } from "./raydium-clmm-execution.js";
 import { prepareRaydiumCpmmSwapBaseInputSimulation } from "./raydium-cpmm-execution.js";
@@ -135,10 +134,10 @@ function dispatchRpc(payload, config, store) {
     if (!SOLANA_ADDRESS.test(mint ?? "")) return rpcError(payload.id, -32602, "Invalid params");
     const token = store.state.mints[mint], snapshot = store.state.holderSnapshots[mint];
     if (!token && !snapshot) return rpcResult(payload.id, null);
-    if (!snapshot || snapshot.metadataSearchComplete !== true || !canonicalTokenAccountProjections(store.state, new Set([mint]))) return rpcError(payload.id, -32005, "Indexed token-metadata evidence unavailable");
+    const evidence = store.metadataEvidence(mint); if (!evidence.complete) return rpcError(payload.id, -32005, "Indexed token-metadata evidence unavailable");
     const metadata = token?.metadata ?? null, offchainMetadata = token?.offchainMetadata ?? null;
-    if (projectionDigest([metadata]) !== projectionDigest([snapshot.metadata ?? null]) || metadata != null && !isCanonicalTokenMetadata(metadata, mint) || offchainMetadata != null && (metadata == null || !isCanonicalOffchainTokenMetadata(offchainMetadata, metadata.uri))) return rpcError(payload.id, -32005, "Indexed token-metadata evidence unavailable");
-    return rpcResult(payload.id, { mint, metadata, metadataPresent: metadata != null, authoritativeAbsence: metadata == null, offchainMetadata, provenance: { slot: snapshot.slot, commitment: "finalized", observedAt: snapshot.observedAt, sourceHash: snapshot.sourceHash, searchComplete: true }, coverage: "complete_finalized_metaplex_program_search", complete: true, safeForAutomation: false });
+    if (offchainMetadata != null && (metadata == null || !isCanonicalOffchainTokenMetadata(offchainMetadata, metadata.uri))) return rpcError(payload.id, -32005, "Indexed token-metadata evidence unavailable");
+    return rpcResult(payload.id, { mint, metadata, metadataPresent: evidence.metadataPresent, authoritativeAbsence: evidence.authoritativeAbsence, offchainMetadata, provenance: { ...evidence.provenance, searchComplete: evidence.searchComplete }, coverage: evidence.coverage, complete: evidence.complete, safeForAutomation: evidence.safeForAutomation });
   }
   if (payload.method === "getIndexedTokenLargestAccounts") {
     const params = Array.isArray(payload.params) ? { mint: payload.params[0], limit: payload.params[1], cursor: payload.params[2] } : payload.params;
