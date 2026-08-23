@@ -560,9 +560,12 @@ and Prometheus validate its version-3 qualification shape, exact duration,
 canonical embedded backup/index/warehouse/exporter summary, recomputed evidence
 digest, invariants,
 and quarterly age without exposing sink credentials or report contents.
-Malformed operational evidence never takes `/metrics` down or echoes its source
-bytes: exporter, warehouse, backup, recovery, feed-health and gap contracts all
-return redacted unhealthy evidence until an atomic valid replacement appears.
+Malformed operational evidence never takes `/metrics` down, aborts exporter or
+recovery health checks, or echoes its source bytes: exporter, warehouse, backup,
+recovery, feed-health and gap contracts all use the same one-MiB regular-file
+snapshot boundary and return redacted unhealthy evidence until an atomic valid
+replacement appears. Warehouse publication rejects an invalid checkpoint before
+contacting downstream sinks.
 Dead-letter exception text is likewise normalized and capped before persistence;
 provider URLs, credentials, token-shaped values, and private keys are never part
 of the durable dead-letter or warehouse contract.

@@ -17,6 +17,7 @@ import { derivePumpBondingCurve, derivePumpFeeConfig, derivePumpGlobal, derivePu
 import { durableAtomicWrite } from "./durable-file.js";
 import { canonicalUnixSecondsToMilliseconds, parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { runBoundedProcess } from "./bounded-process.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 const CHAIN = "solana-mainnet";
 const GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -334,8 +335,8 @@ export async function writeWarehouseCheckpoint(filename, sequence, sinks, reconc
 export function assertWarehousePublicationState(store) { store.assertWritable(); return true; }
 
 async function main() {
-  const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile; let checkpoint = { lastSequence: 0 };
-  try { checkpoint = JSON.parse(await fs.readFile(checkpointFile, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
+  const config = loadConfig(), checkpointFile = config.warehouseCheckpointFile, checkpoint = await readBoundedJsonFile(checkpointFile, { missing: { lastSequence: 0 } });
+  if (checkpoint?.evidenceReadError) throw new Error(`warehouse checkpoint is unavailable: ${checkpoint.evidenceReadError}`);
   const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions); await store.load(); assertWarehousePublicationState(store);
   const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) { const password = (await fs.readFile(config.clickhousePasswordFile, "utf8")).trim(); if (!password) throw new Error("CLICKHOUSE_PASSWORD_FILE is empty"); clientEnv.CLICKHOUSE_PASSWORD = password; } if (config.redisPasswordFile) { const password = (await fs.readFile(config.redisPasswordFile, "utf8")).trim(); if (!password) throw new Error("REDIS_PASSWORD_FILE is empty"); clientEnv.REDISCLI_AUTH = password; }
   const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv), reconciliation = await probeWarehouseReconciliation(expectedWarehouseReconciliation(state, result.sequence, projections, facts), spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks, reconciliation); console.log(JSON.stringify({ ...result, sinks, reconciliation, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));

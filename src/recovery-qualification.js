@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -10,6 +9,7 @@ import { exporterHealthCheck } from "./exporter-health.js";
 import { IndexStore } from "./store.js";
 import { assessWarehouseCheckpoint } from "./warehouse-sync.js";
 import { durableExclusiveWrite } from "./durable-file.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const BACKUP_ID = /^[0-9]{8}T[0-9]{6}Z$/;
@@ -48,14 +48,13 @@ export function assessRecoveryQualification(report, maximumAgeMs = 90 * 86_400_0
   return { available: true, healthy: ageMs <= maximumAgeMs, reason: ageMs <= maximumAgeMs ? null : "recovery_qualification_stale", ageMs, maximumAgeMs, ...identity };
 }
 
-async function readJson(filename) { return JSON.parse(await fs.readFile(filename, "utf8")); }
 export async function writeRecoveryReport(filename, value) { await durableExclusiveWrite(filename, `${JSON.stringify(value, null, 2)}\n`); }
 
 export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, reportFile, { now = Date.now(), config = loadConfig() } = {}) {
   if (!path.isAbsolute(reportFile)) throw new Error("recovery report path must be absolute");
   const backup = await preflightBackup(backupDirectory, { now }), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds); await store.load();
   store.assertWritable();
-  const eventSequence = store.state.eventSequence, indexHealth = store.health(config.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readJson(config.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, config.warehouseStaleAfterMs, 0, now), exporter = await exporterHealthCheck(config.exporterStatusFile, config.staleAfterMs, now, config.maxExporterLagSlots), completedAt = new Date(now).toISOString();
+  const eventSequence = store.state.eventSequence, indexHealth = store.health(config.staleAfterMs, now), oldestSequence = store.state.events[0]?.sequence ?? eventSequence + 1, checkpoint = await readBoundedJsonFile(config.warehouseCheckpointFile), warehouse = assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, config.warehouseStaleAfterMs, 0, now), exporter = await exporterHealthCheck(config.exporterStatusFile, config.staleAfterMs, now, config.maxExporterLagSlots), completedAt = new Date(now).toISOString();
   const result = compileRecoveryQualification({ backup, indexHealth, warehouse, exporter, eventSequence, startedAt, completedAt }); await writeRecoveryReport(reportFile, result); return result;
 }
 

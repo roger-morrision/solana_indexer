@@ -41,6 +41,7 @@ import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-health.js";
+import { readBoundedJsonFile } from "../src/bounded-json-file.js";
 import { archiveInbox } from "../src/inbox-archive.js";
 import { reducedPreflight } from "../src/reduced-preflight.js";
 import { compileHolderExclusions, holderExclusionContentSha256 } from "../src/holder-exclusions.js";
@@ -1359,6 +1360,22 @@ test("exporter failure evidence is durable, redacted, and preserves the last suc
 test("exporter health probe fails closed for missing, stale, and failed durable status", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-exporter-health-")), statusFile = path.join(root, "status.json"), now = Date.parse("2026-08-21T00:00:00.000Z"), identity = { version: 2, genesisHash: MAINNET_GENESIS_HASH }; assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "status_unavailable"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-alchemy", commitment: "finalized", cursor: 42, lagSlots: 0, observedAt: "2026-08-20T00:00:00.000Z", consecutiveFailures: 0, durableSkippedSlots: [] })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_stale"); await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 43, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 1 })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).reason, "exporter_failure"); await fs.writeFile(statusFile, JSON.stringify({ ...identity, source: "external-rpc-helius", commitment: "finalized", cursor: 44, lagSlots: 0, observedAt: "2026-08-20T23:59:30.000Z", consecutiveFailures: 0, durableSkippedSlots: [] })); assert.equal((await exporterHealthCheck(statusFile, 120_000, now)).healthy, true);
   await fs.writeFile(statusFile, JSON.stringify({ source: "external-rpc-helius", commitment: "finalized", cursor: 45, lagSlots: 0, observedAt: "2026-08-21T00:00:00.001Z", consecutiveFailures: 0, durableSkippedSlots: [] })); const future = await exporterHealthCheck(statusFile, 120_000, now); assert.equal(future.healthy, false); assert.equal(future.reason, "observed_at_in_future"); assert.equal(future.ageMs, -1);
+});
+
+test("operational JSON reads are bounded and fail closed", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-bounded-json-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const filename = path.join(root, "status.json");
+  assert.equal(await readBoundedJsonFile(path.join(root, "missing.json")), null);
+  await fs.writeFile(filename, JSON.stringify({ healthy: true }));
+  assert.deepEqual(await readBoundedJsonFile(filename), { healthy: true });
+  await fs.writeFile(filename, "{");
+  assert.deepEqual(await readBoundedJsonFile(filename), { evidenceReadError: "invalid_json" });
+  await fs.writeFile(filename, "x".repeat(1_048_577));
+  assert.deepEqual(await readBoundedJsonFile(filename), { evidenceReadError: "invalid_file" });
+  const health = await exporterHealthCheck(filename, 120_000);
+  assert.equal(health.healthy, false);
+  assert.equal(health.reason, "invalid_source");
 });
 
 test("exporter health rejects invalid progress evidence", async () => {

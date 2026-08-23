@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 export function assessExporterStatus(status, staleAfterMs, now = Date.now(), maxLagSlots = 512) {
   if (status == null) return { available: false, healthy: false, reason: "status_unavailable", source: "unknown", cursor: null, localValidatorTip: null, lagSlots: null, maxLagSlots, ageMs: null, staleAfterMs, consecutiveFailures: 0 };
@@ -19,8 +19,7 @@ export function assessExporterStatus(status, staleAfterMs, now = Date.now(), max
 }
 
 export async function exporterHealthCheck(filename, staleAfterMs, now = Date.now(), maxLagSlots = 512) {
-  let status; try { status = JSON.parse(await fs.readFile(filename, "utf8")); } catch (error) { if (error.code === "ENOENT") return assessExporterStatus(null, staleAfterMs, now, maxLagSlots); throw error; }
-  return assessExporterStatus(status, staleAfterMs, now, maxLagSlots);
+  return assessExporterStatus(await readBoundedJsonFile(filename), staleAfterMs, now, maxLagSlots);
 }
 
 async function main() { const config = loadConfig(), result = await exporterHealthCheck(config.exporterStatusFile, config.staleAfterMs, Date.now(), config.maxExporterLagSlots); console.log(JSON.stringify(result)); if (!result.healthy) process.exitCode = 1; }
