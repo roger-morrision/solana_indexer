@@ -509,3 +509,11 @@ Read-only block and address-signature RPC pagination now binds each continuation
 cursor to a deterministic digest of the complete ordered result projection.
 Insertions, retention changes, or reorg replacements invalidate prior cursors
 instead of allowing a response to mix rows from different index snapshots.
+
+OpenBook V2 market evidence now decodes the official fixed 848-byte `Market`
+account and binds both token vaults behind a monotonic finalized barrier.
+Authority, ordered mints/programs, bid/ask/event-heap addresses, decimals, lot
+sizes, expiry, fee policy, deposits, accrued fees and volumes persist
+idempotently with replayable snapshot events and leased repair jobs. Orderbook
+depth remains explicitly unavailable until the separate official `BookSide`
+allocator and node layout is decoded and completeness-tested.
