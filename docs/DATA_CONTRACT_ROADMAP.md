@@ -517,5 +517,8 @@ crit-bit nodes, exact leaf counts, fixed-price and oracle-pegged order fields,
 authority, ordered mints/programs, bid/ask/event-heap addresses, decimals, lot
 sizes, expiry, fee policy, deposits, accrued fees and volumes persist
 idempotently with replayable snapshot events and leased repair jobs. Fixed-price
-depth is authoritative. Oracle-pegged leaves remain explicitly unpriced and
-non-executable pending finalized oracle account/confidence binding.
+depth is authoritative. Exact optional oracle A/B identities, raw IEEE-754
+confidence-filter bits, and signed maximum-staleness-slot policy are retained
+as `configured_unverified`. Oracle-pegged leaves remain explicitly unpriced and
+non-executable pending provider-specific finalized account decoding and exact
+confidence, freshness, and oracle-composition policy reproduction.

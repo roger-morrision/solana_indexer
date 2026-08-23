@@ -892,6 +892,11 @@ lot sizes, expiry, fee policy, deposits, accrued fees, and cumulative volumes.
 orders and no oracle-pegged leaves. Books containing oracle-pegged leaves are
 labelled `finalized_fixed_depth_oracle_pegged_unpriced`; those leaves remain
 non-executable until their oracle accounts and confidence policy are bound.
+Snapshots retain the exact optional oracle A/B identities and raw IEEE-754
+confidence-filter bits plus signed maximum-staleness-slot policy. Configured
+oracles are labelled `configured_unverified` and cannot price orders until
+their provider-specific account, confidence, freshness, and composition
+semantics are independently verified.
 
 Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one

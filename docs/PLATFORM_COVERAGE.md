@@ -53,8 +53,11 @@ Finalized acquisition strictly decodes the official fixed 848-byte `Market`,
 both 90,952-byte `BookSide` accounts, and both vaults at monotonic shared
 finalized contexts. It validates allocator/free-list/tree reachability and exact
 leaf counts, preserving fixed and oracle-pegged orders alongside canonical
-identity and economics. Fixed depth is complete; any oracle-pegged leaves are
-explicitly unpriced until verified oracle evidence exists. Missing, incomplete,
+identity and economics. Fixed depth is complete; exact optional oracle A/B
+identities and raw confidence-filter/staleness policy are retained as
+`configured_unverified`, while oracle-pegged leaves remain unpriced until
+provider-specific account, confidence, freshness, and composition evidence is
+verified. Missing, incomplete,
 or stale evidence is scheduled through the leased repair pipeline.
 
 Phoenix orderbook now contributes analytical swap activity only when the exact
