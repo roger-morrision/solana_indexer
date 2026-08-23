@@ -488,3 +488,7 @@ artifacts and replay events record successful exact-finalized-context Metaplex
 search completion even when no metadata account exists. Legacy snapshots remain
 balance-readable, but cannot establish authoritative metadata absence and are
 scheduled for reacquisition with `metadata_search_incomplete` evidence.
+The read-only `getIndexedTokenMetadata` JSON-RPC contract exposes this boundary
+directly: canonical metadata and optional untrusted enrichment are returned only
+with content-bound finalized search provenance, and a successful empty search is
+reported as authoritative absence rather than being conflated with missing data.

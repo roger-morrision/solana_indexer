@@ -1991,6 +1991,19 @@ test("indexed token holders aggregate owners with versioned canonical evidence",
   apply(102, "2026-08-23T00:00:01.000Z"); assert.equal((await call([mint, 1, first.result.nextCursor])).error.code, -32602); const sourceHash = store.state.holderSnapshots[mint].sourceHash; store.state.holderSnapshots[mint].sourceHash = "f".repeat(64); assert.equal((await call([mint])).error.code, -32004); store.state.holderSnapshots[mint].sourceHash = sourceHash;
 });
 
+test("indexed token metadata distinguishes authoritative absence from missing search evidence", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const absentMint = "8".repeat(32), presentMint = "9".repeat(32), legacyMint = "A".repeat(32), mintInfo = { supply: "0", decimals: 6, mintAuthority: null, freezeAuthority: null }, envelope = { schemaVersion: 1, chain: "solana", genesisHash: MAINNET_GENESIS_HASH, commitment: "finalized", observedAt: "2026-08-23T00:00:00.000Z" };
+  store.applyAccountSnapshot({ ...envelope, slot: 101, mints: [{ mint: absentMint, mintProgramId: SPL_TOKEN_PROGRAM, mintInfo, metadataSearchComplete: true, accounts: [] }] });
+  const metadata = { account: "metadata-account", programId: TOKEN_METADATA_PROGRAM, mint: presentMint, updateAuthority: "update-authority", name: "Canonical", symbol: "CAN", uri: "https://metadata.example/token.json", sellerFeeBasisPoints: 0, rawPayloadHash: "a".repeat(64) };
+  store.applyAccountSnapshot({ ...envelope, slot: 102, mints: [{ mint: presentMint, mintProgramId: SPL_TOKEN_PROGRAM, mintInfo, metadataSearchComplete: true, metadata, accounts: [] }] });
+  store.applyAccountSnapshot({ ...envelope, slot: 103, mints: [{ mint: legacyMint, mintProgramId: SPL_TOKEN_PROGRAM, mintInfo, accounts: [] }] });
+  const server = createServer({ staleAfterMs: 1_000_000_000_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/rpc`, call = async (params) => (await (await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getIndexedTokenMetadata", params }) })).json());
+  const absent = await call({ mint: absentMint }); assert.deepEqual({ metadata: absent.result.metadata, present: absent.result.metadataPresent, absence: absent.result.authoritativeAbsence, searchComplete: absent.result.provenance.searchComplete, coverage: absent.result.coverage, complete: absent.result.complete, safe: absent.result.safeForAutomation }, { metadata: null, present: false, absence: true, searchComplete: true, coverage: "complete_finalized_metaplex_program_search", complete: true, safe: false });
+  const present = await call([presentMint]); assert.deepEqual({ symbol: present.result.metadata.symbol, present: present.result.metadataPresent, absence: present.result.authoritativeAbsence, slot: present.result.provenance.slot }, { symbol: "CAN", present: true, absence: false, slot: 102 }); assert.equal(present.result.offchainMetadata, null);
+  assert.equal((await call(["B".repeat(32)])).result, null); assert.equal((await call([legacyMint])).error.code, -32005); assert.equal((await call(["invalid"])).error.code, -32602);
+  store.state.mints[presentMint].metadata.rawPayloadHash = "b".repeat(64); assert.equal((await call([presentMint])).error.code, -32005);
+});
+
 test("block REST and RPC views fail closed on invalid persisted evidence", async (t) => {
   const store = new IndexStore("unused"); await store.load();
   const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block);
