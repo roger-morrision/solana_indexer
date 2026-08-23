@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { durableAtomicWrite } from "./durable-file.js";
+import { readBoundedFile } from "./bounded-json-file.js";
 
 const BACKUP_ID = /^[0-9]{8}T[0-9]{6}Z$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -14,6 +14,14 @@ const digest = (content) => crypto.createHash("sha256").update(content).digest("
 const canonicalArtifact = (value) => Number.isSafeInteger(value?.bytes) && value.bytes >= 0 && SHA256.test(value.sha256 ?? "");
 const evidenceDigest = (evidence) => digest(JSON.stringify(evidence));
 const canonicalEvidence = (evidence) => evidence?.chain === "solana-mainnet" && evidence.storage === "self-hosted" && BACKUP_ID.test(evidence.backupId ?? "") && parseCanonicalUtcTimestamp(evidence.completedAt) != null && SHA256.test(evidence.backupManifestSha256 ?? "") && SHA256.test(evidence.archiveReceiptSha256 ?? "");
+export const MAX_BACKUP_STATUS_EVIDENCE_BYTES = 16_777_216;
+
+async function readBackupEvidence(filename, label) {
+  const content = await readBoundedFile(filename, { maximumBytes: MAX_BACKUP_STATUS_EVIDENCE_BYTES, missing: null });
+  if (content == null) throw new Error(`${label} is unavailable`);
+  if (!Buffer.isBuffer(content)) throw new Error(`${label} is unsafe: ${content.evidenceReadError}`);
+  return content;
+}
 
 export function assessBackupStatus(status, maximumAgeMs = 86_400_000, now = Date.now()) {
   if (!Number.isSafeInteger(maximumAgeMs) || maximumAgeMs < 1 || !Number.isFinite(now)) throw new Error("invalid backup status assessment parameters");
@@ -25,7 +33,7 @@ export function assessBackupStatus(status, maximumAgeMs = 86_400_000, now = Date
 }
 
 export async function createBackupStatus({ manifestFile, archiveReceiptFile, output, completedAt = new Date().toISOString() }) {
-  const [manifestBytes, receiptBytes] = await Promise.all([fs.readFile(manifestFile), fs.readFile(archiveReceiptFile)]), manifest = JSON.parse(manifestBytes), receipt = JSON.parse(receiptBytes), manifestCreatedAtMs = parseCanonicalUtcTimestamp(manifest.createdAt), completedAtMs = parseCanonicalUtcTimestamp(completedAt), receiptCompletedAtMs = parseCanonicalUtcTimestamp(receipt.completedAt), uploadCompletedAtMs = parseCanonicalUtcTimestamp(receipt.uploadCompletedAt), artifactNames = Object.keys(manifest.artifacts ?? {}).sort(), receiptFiles = Object.entries(receipt.files ?? {});
+  const [manifestBytes, receiptBytes] = await Promise.all([readBackupEvidence(manifestFile, "backup manifest"), readBackupEvidence(archiveReceiptFile, "archive receipt")]), manifest = JSON.parse(manifestBytes), receipt = JSON.parse(receiptBytes), manifestCreatedAtMs = parseCanonicalUtcTimestamp(manifest.createdAt), completedAtMs = parseCanonicalUtcTimestamp(completedAt), receiptCompletedAtMs = parseCanonicalUtcTimestamp(receipt.completedAt), uploadCompletedAtMs = parseCanonicalUtcTimestamp(receipt.uploadCompletedAt), artifactNames = Object.keys(manifest.artifacts ?? {}).sort(), receiptFiles = Object.entries(receipt.files ?? {});
   if (manifest.schemaVersion !== 3 || manifest.chain !== "solana-mainnet" || manifest.scope !== "postgres-clickhouse-redis-indexer-state" || manifest.writersQuiesced !== true || !BACKUP_ID.test(manifest.backupId ?? "") || manifestCreatedAtMs == null || JSON.stringify(artifactNames) !== JSON.stringify(ARTIFACTS) || ARTIFACTS.some((name) => !canonicalArtifact(manifest.artifacts[name])) || receipt.schemaVersion !== 1 || receipt.storage !== "self-hosted" || receipt.status !== "uploaded" || receipt.archiveId !== manifest.backupId || !receipt.files || Array.isArray(receipt.files) || typeof receipt.files !== "object" || receiptFiles.some(([name, hash]) => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) || !SHA256.test(hash)) || receipt.manifestSha256 !== manifest.artifacts["inbox-manifest.json"].sha256 || receiptCompletedAtMs == null || uploadCompletedAtMs !== receiptCompletedAtMs || completedAtMs == null || manifestCreatedAtMs > receiptCompletedAtMs || completedAtMs < receiptCompletedAtMs) throw new Error("backup completion evidence is invalid");
   const evidence = { chain: "solana-mainnet", storage: "self-hosted", backupId: manifest.backupId, completedAt, backupManifestSha256: digest(manifestBytes), archiveReceiptSha256: digest(receiptBytes) }, status = { schemaVersion: 2, kind: "self_hosted_backup_completed", chain: evidence.chain, storage: evidence.storage, backupId: evidence.backupId, completedAt: evidence.completedAt, evidence, evidenceSha256: evidenceDigest(evidence) };
   await durableAtomicWrite(output, `${JSON.stringify(status, null, 2)}\n`);
