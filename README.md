@@ -821,8 +821,10 @@ market vaults, lot sizes, vault-signer derivation, balances, and monotonic slots
 then imports exact vault-plus-orders-minus-pending-PnL reserves idempotently into
 canonical pool state. Its exact-input analysis quote applies the pool's
 ceiling-rounded swap fee before constant-product output rounding. AMM v4
-unsigned construction and simulation remain unavailable, and the quote is
-explicitly unsafe for automation.
+now supports hash-bound unsigned construction, local simulation receipts,
+capped external approval, cryptographic signature verification, and finalized
+landed-message confirmation. The indexer never signs or submits, and the quote
+remains explicitly unsafe for automation until those external gates succeed.
 Account snapshots capture Token-2022 mint-extension transfer-fee schedules and
 select the active fee at the exact finalized epoch/slot. The shared exact fee primitive implements
 the program's ceiling-rounded basis-point fee, maximum cap, older/newer epoch
