@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 const HASH = /^[0-9a-f]{64}$/;
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -17,7 +17,12 @@ export function compileApiTenants(document) {
   return { schemaVersion: 1, source: document.source ?? null, observedAt, tenants };
 }
 
-export async function loadApiTenants(filename) { if (!filename) return null; return compileApiTenants(JSON.parse(await fs.readFile(filename, "utf8"))); }
+export async function loadApiTenants(filename) {
+  if (!filename) return null;
+  const document = await readBoundedJsonFile(filename);
+  if (document?.evidenceReadError) throw new Error(`API tenant registry is unavailable: ${document.evidenceReadError}`);
+  return compileApiTenants(document);
+}
 
 export function resolveApiTenant(registry, presentedKey, now = Date.now()) {
   if (!registry || !presentedKey) return null; const candidate = crypto.createHash("sha256").update(presentedKey).digest("hex");

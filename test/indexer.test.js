@@ -44,8 +44,8 @@ import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-healt
 import { readBoundedJsonFile } from "../src/bounded-json-file.js";
 import { archiveInbox } from "../src/inbox-archive.js";
 import { reducedPreflight } from "../src/reduced-preflight.js";
-import { compileHolderExclusions, holderExclusionContentSha256 } from "../src/holder-exclusions.js";
-import { compileApiTenants, resolveApiTenant } from "../src/api-tenants.js";
+import { compileHolderExclusions, holderExclusionContentSha256, loadHolderExclusions } from "../src/holder-exclusions.js";
+import { compileApiTenants, loadApiTenants, resolveApiTenant } from "../src/api-tenants.js";
 import { retainApiAudit } from "../src/api-audit-retention.js";
 import { normalizeAuditRoute } from "../src/api-audit.js";
 import { buildCommercialSyncSql, runCommercialSync } from "../src/postgres-commercial-sync.js";
@@ -615,6 +615,20 @@ test("holder concentration applies only fresh complete authoritative exclusions"
   const invalidEntry = { ...unsigned, entries: [{ mint: "mint-a", owner: "wallet", tokenAccount: "account", category: "vault", evidenceSource: "invalid-double-selector" }] }; assert.throws(() => compileHolderExclusions({ ...invalidEntry, contentSha256: holderExclusionContentSha256(invalidEntry) }), /invalid holder exclusion entry/);
   assert.throws(() => compileHolderExclusions({ ...unsigned, contentSha256: "0".repeat(64) }), /content hash mismatch/); assert.throws(() => compileHolderExclusions({ ...unsigned, expiresAt: observedAt, contentSha256: "0".repeat(64) }), /invalid holder exclusion registry/);
   for (const timestamp of ["2026-08-20", "2026-08-20T00:00:00Z", "2026-08-20T07:00:00.000+07:00", "2026-02-30T00:00:00.000Z", 1_776_556_800_000]) { const invalid = { ...unsigned, observedAt: timestamp }; assert.throws(() => compileHolderExclusions({ ...invalid, contentSha256: holderExclusionContentSha256(invalid) }), /invalid holder exclusion registry/); }
+});
+
+test("authorization and risk registries use bounded regular-file snapshots", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-registry-boundary-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const tenantFile = path.join(root, "tenants.json"), exclusionsFile = path.join(root, "exclusions.json");
+  assert.equal(await loadHolderExclusions(exclusionsFile), null);
+  await assert.rejects(() => loadApiTenants(tenantFile), /invalid API tenant registry/);
+  for (const [filename, load, expected] of [[tenantFile, loadApiTenants, /API tenant registry is unavailable/], [exclusionsFile, loadHolderExclusions, /holder exclusion registry is unavailable/]]) {
+    await fs.writeFile(filename, "{");
+    await assert.rejects(() => load(filename), expected);
+    await fs.writeFile(filename, "x".repeat(1_048_577));
+    await assert.rejects(() => load(filename), expected);
+  }
 });
 
 test("finalized Raydium CPMM snapshots bind pool, fee config, vaults, and exact quotes", async (t) => {

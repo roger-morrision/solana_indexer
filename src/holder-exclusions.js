@@ -1,6 +1,6 @@
-import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
+import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const CATEGORIES = new Set(["burn", "exchange", "locker", "pool", "protocol", "vault"]);
@@ -28,6 +28,8 @@ export function compileHolderExclusions(value) {
 
 export async function loadHolderExclusions(filename) {
   if (!filename) return null;
-  try { return compileHolderExclusions(JSON.parse(await fs.readFile(filename, "utf8"))); }
-  catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  const document = await readBoundedJsonFile(filename);
+  if (document == null) return null;
+  if (document.evidenceReadError) throw new Error(`holder exclusion registry is unavailable: ${document.evidenceReadError}`);
+  return compileHolderExclusions(document);
 }

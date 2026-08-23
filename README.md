@@ -567,6 +567,8 @@ snapshot boundary and return redacted unhealthy evidence until an atomic valid
 replacement appears. Warehouse publication rejects an invalid checkpoint before
 contacting downstream sinks, and both polling and streaming ingestion reject an
 invalid resume status before any network request or inbox mutation.
+Commercial authorization and holder-risk registries cross the same bounded
+regular-file boundary before they can affect tenant admission or automation risk.
 Dead-letter exception text is likewise normalized and capped before persistence;
 provider URLs, credentials, token-shaped values, and private keys are never part
 of the durable dead-letter or warehouse contract.

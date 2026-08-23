@@ -247,6 +247,8 @@ explicit unavailable evidence rather than unbounded allocation or an uncaught
 serving failure; publication rejects invalid prior checkpoints before sink I/O.
 Polling and streaming ingestion apply the same boundary to durable resume status
 before network verification, cursor advancement, or inbox mutation.
+Hash-only tenant authorization and reviewed holder-exclusion registries also
+cross this boundary before changing access or automation-risk decisions.
 Live PostgreSQL warehouse convergence also requires the persisted checkpoint's
 canonical chain and mainnet genesis hash, not sequence agreement alone.
 The atomic local warehouse receipt is version 2 and independently carries the
