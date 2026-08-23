@@ -2,6 +2,12 @@
 
 This matrix describes verified capabilities, not aspirational marketing claims.
 
+Persisted instructions for registered swap programs must carry the current
+registry version, protocol identity, and decoder version. Health and bot
+readiness fail closed with `indexed_decoder_registry_stale` when old indexed
+facts survive a decoder upgrade, making a verified replay/backfill mandatory
+instead of silently treating legacy coverage as current.
+
 Reviewed holder exclusions use a version-2 canonical-content hash and explicit
 expiry. Their governance lifetime is independent of market-data freshness, while
 both future review evidence and expired labels fail every concentration/risk gate

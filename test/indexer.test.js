@@ -1894,6 +1894,18 @@ test("instruction readiness and warehouse export fail closed on detached or dupl
   }
 });
 
+test("bot readiness rejects DEX instructions produced by an obsolete decoder registry", async () => {
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString();
+  const instruction = store.state.instructions[0]; Object.assign(instruction, { programId: RAYDIUM_CPMM_PROGRAM, protocol: "raydium-cpmm", registryVersion: 10, decoderVersion: 2 });
+  assert.deepEqual(store.decoderRegistryQuality(), { current: true, recognizedInstructionCount: 1, staleInstructionCount: 0, affectedProtocols: [], reason: null });
+  instruction.registryVersion--;
+  assert.equal(store.instructionQuality().canonical, true);
+  assert.deepEqual(store.decoderRegistryQuality(), { current: false, recognizedInstructionCount: 1, staleInstructionCount: 1, affectedProtocols: ["raydium-cpmm"], reason: "indexed_decoder_registry_stale" });
+  assert.equal(store.dataCapabilities(120_000, block.blockTime * 1_000).currentDecoderRegistry, false);
+  const health = store.health(120_000, block.blockTime * 1_000); assert.deepEqual({ status: health.status, healthy: health.healthy, reason: health.reason }, { status: "invalid_evidence", healthy: false, reason: "indexed_decoder_registry_stale" });
+  assert.ok(store.botReadiness(120_000, block.blockTime * 1_000, "pool-address").missing.includes("currentDecoderRegistry"));
+});
+
 test("swap readiness, REST, and warehouse export fail closed on invalid persisted evidence", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date(block.blockTime * 1_000).toISOString(); const original = structuredClone(store.state.swaps), batch = compileWarehouseBatch(store.state, { lastSequence: 0 });
   for (const mutate of [(swaps) => { swaps.push(structuredClone(swaps[0])); }, (swaps) => { swaps[0].signature = "detached"; }, (swaps) => { swaps[0].tradeFeeRaw = swaps[0].inputAmountRaw + "0"; }, (swaps) => { swaps[0].outputMint = swaps[0].inputMint; }, (swaps) => { swaps[0].provenance.observedAt = "2023-11-14T22:13:21.100Z"; }]) {
