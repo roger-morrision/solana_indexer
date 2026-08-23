@@ -868,9 +868,14 @@ Phoenix orderbook swaps are published only for the official nine-account
 legacy-SPL ABI when an immediate-or-cancel packet has exactly one
 instruction-bound audit-log fill summary and the trader's base/quote token
 accounts provide conflict-free exact balance deltas. Filled lot totals are
-retained as audit evidence. Market lot sizes and reserves are not present at
-this boundary, so raw fees and reserves are explicitly unavailable and Phoenix
-activity cannot unlock execution readiness.
+retained as audit evidence. Run `npm run snapshot:phoenix-markets --
+<MARKET_ADDRESS...>` to acquire the official fixed market header and both vaults
+behind monotonic finalized read barriers. The resulting lot sizes, tick size,
+market status, sequence, mint/vault identity, and custodial vault balances are
+persisted and automatically repaired when missing, incomplete, or stale.
+Historical swap fees remain explicitly unavailable unless market evidence is
+bound to that transaction's slot, and Phoenix activity cannot unlock execution
+readiness.
 
 The Raydium CPMM mainnet program
 `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`. A validator-side decoder may

@@ -22,6 +22,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     clmmPoolSnapshotFile: path.resolve(cwd, env.CLMM_POOL_SNAPSHOT_FILE || "data/clmm-pool-snapshot.json"),
     orcaPoolSnapshotFile: path.resolve(cwd, env.ORCA_POOL_SNAPSHOT_FILE || "data/orca-pool-snapshot.json"),
     meteoraDlmmPoolSnapshotFile: path.resolve(cwd, env.METEORA_DLMM_POOL_SNAPSHOT_FILE || "data/meteora-dlmm-pool-snapshot.json"),
+    phoenixMarketSnapshotFile: path.resolve(cwd, env.PHOENIX_MARKET_SNAPSHOT_FILE || "data/phoenix-market-snapshot.json"),
     offchainMetadataSnapshotFile: path.resolve(cwd, env.OFFCHAIN_METADATA_SNAPSHOT_FILE || "data/offchain-metadata-snapshot.json"),
     auditLogFile: env.INDEXER_AUDIT_LOG_FILE ? path.resolve(cwd, env.INDEXER_AUDIT_LOG_FILE) : null,
     apiTenantsFile: env.INDEXER_API_TENANTS_FILE ? path.resolve(cwd, env.INDEXER_API_TENANTS_FILE) : null,

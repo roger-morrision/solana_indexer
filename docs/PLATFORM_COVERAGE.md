@@ -44,9 +44,12 @@ remain unavailable.
 Phoenix orderbook now contributes analytical swap activity only when the exact
 nine-account legacy-SPL swap ABI, immediate-or-cancel packet, one
 instruction-bound audit-log fill summary, and exact trader token-account deltas
-agree. Filled lots remain auditable, while fee/reserve conversion is explicitly
-unavailable until finalized market lot-size/state acquisition exists; Phoenix
-therefore cannot satisfy executable-route readiness.
+agree. Finalized market-header and vault acquisition now persists exact lot/tick
+sizes, status, sequence, mint/vault identity, custodial balances, provenance,
+ordered snapshot events, and missing/incomplete/stale repair jobs. Filled lots
+remain auditable, but historical fee conversion remains unavailable without
+transaction-slot-bound market evidence; Phoenix therefore cannot satisfy
+executable-route readiness.
 
 | Capability | Status | Current implementation | Next dependency |
 |---|---|---|---|

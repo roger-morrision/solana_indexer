@@ -65,7 +65,7 @@ export function validWebSocketHandshake(request) {
 }
 const SNAPSHOT_PROTOCOLS = new Map([
   ["cpmm_pool_snapshot_applied", "raydium-cpmm"], ["amm_v4_pool_snapshot_applied", "raydium-amm-v4"], ["pump_swap_pool_snapshot_applied", "pump-swap"], ["pump_bonding_curve_snapshot_applied", "pump-bonding-curve"],
-  ["clmm_pool_snapshot_applied", "raydium-clmm"], ["orca_pool_snapshot_applied", "orca-whirlpool"], ["meteora_dlmm_pool_snapshot_applied", "meteora-dlmm"],
+  ["clmm_pool_snapshot_applied", "raydium-clmm"], ["orca_pool_snapshot_applied", "orca-whirlpool"], ["meteora_dlmm_pool_snapshot_applied", "meteora-dlmm"], ["phoenix_market_snapshot_applied", "phoenix-orderbook"],
 ]);
 const MINT_SNAPSHOT_TYPES = new Set(["account_snapshot_applied", "offchain_metadata_snapshot_applied"]);
 export function projectWebSocketEvent(event, filter) {
