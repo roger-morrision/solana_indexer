@@ -233,7 +233,10 @@ bounded paths and types, a bounded count, and an all-zero terminator tail so a
 concatenated archive cannot hide extraction payloads after qualified state.
 Every archived inbox member is independently hashed and its exact name/hash set
 must match the bound inbox manifest, rejecting omitted, extra, or changed replay
-inputs. The tar is rehashed after inventory inspection. The restore workflow
+inputs. Restore tar members are additionally restricted to the three declared
+canonical state files, optional directory entries, and canonical inbox files,
+so a checksummed archive cannot overwrite application or operator tooling. The
+tar is rehashed after inventory inspection. The restore workflow
 validates and consumes a private, fixed-inventory staged copy,
 closing the source-directory check/use interval. Failed restores clean staging;
 successful restores retain the evidence through recovery qualification.
