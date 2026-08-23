@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import http from "node:http";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -27,7 +26,7 @@ import { preparePumpSwapBuyExactQuoteInSimulation, preparePumpSwapSellSimulation
 import { preparePumpBuyExactQuoteInV2Simulation, preparePumpSellV2Simulation } from "./pump-bonding-curve-execution.js";
 import { bindExecutionHandoff, EXECUTION_HANDOFF_POLICY } from "./execution-handoff-policy.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
-import { readBoundedJsonFile as readJsonFile } from "./bounded-json-file.js";
+import { readBoundedFile, readBoundedJsonFile as readJsonFile } from "./bounded-json-file.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const INTERNAL_FAILURE_EVENTS = ["http_internal_error", "pool_quote_failed", "pool_swap_preparation_failed", "curve_swap_preparation_failed"];
@@ -294,7 +293,7 @@ export function createServer(config, store) {
       const pool = url.pathname.match(/^\/api\/v1\/pool\/([^/]+)$/); if (pool) { const row = store.pool(decodeURIComponent(pool[1])); return json(response, row.summary ? 200 : 404, row.summary ? row : { error: "not_found" }); }
       const candles = url.pathname.match(/^\/api\/v1\/candles\/([^/]+)$/); if (candles) return json(response, 200, store.candles(decodeURIComponent(candles[1]), candleInterval(url), limit(url)));
       const risk = url.pathname.match(/^\/api\/v1\/risk\/([^/]+)$/); if (risk) return json(response, 200, store.poolRisk(decodeURIComponent(risk[1]), config.staleAfterMs));
-      if (url.pathname === "/" || url.pathname === "/index.html") { const body = await fs.readFile(path.join(PUBLIC, "index.html")); response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return response.end(body); }
+      if (url.pathname === "/" || url.pathname === "/index.html") { const body = await readBoundedFile(config.publicIndexFile ?? path.join(PUBLIC, "index.html"), { maximumBytes: config.staticAssetMaxBytes ?? 1_048_576 }); if (!Buffer.isBuffer(body)) { reportDiagnostic(config, metrics, "http_internal_error", new Error(`static index unavailable: ${body?.evidenceReadError ?? "missing"}`)); return json(response, 503, { error: "static_asset_unavailable" }); } response.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-length": body.length, "cache-control": "no-store" }); return response.end(body); }
       return json(response, 404, { error: "not_found" });
     } catch (error) { const tooLarge = error.code === "PAYLOAD_TOO_LARGE", badRequest = ["INVALID_CURSOR", "BAD_REQUEST"].includes(error.code), controlled = tooLarge || badRequest; if (!controlled) reportDiagnostic(config, metrics, "http_internal_error", error); return json(response, tooLarge ? 413 : badRequest ? 400 : 500, { error: tooLarge ? "payload_too_large" : error.code === "INVALID_CURSOR" ? "invalid_cursor" : badRequest ? "bad_request" : "internal_error", ...(controlled ? { detail: error.message } : {}) }); }
   });

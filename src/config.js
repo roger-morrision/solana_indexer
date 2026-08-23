@@ -48,6 +48,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     httpRequestTimeoutMs: boundedInt(env.INDEXER_HTTP_REQUEST_TIMEOUT_MS, 30_000, 1_000, 300_000),
     httpKeepAliveTimeoutMs: boundedInt(env.INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS, 5_000, 1_000, 60_000),
     httpMaxRequestsPerSocket: boundedInt(env.INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET, 1_000, 1, 100_000),
+    staticAssetMaxBytes: boundedInt(env.INDEXER_STATIC_ASSET_MAX_BYTES, 1_048_576, 1_024, 16_777_216),
     staleAfterMs: boundedInt(env.INDEXER_STALE_AFTER_MS, 120_000, 1_000, 86_400_000),
     maxExporterLagSlots: boundedInt(env.INDEXER_MAX_EXPORT_LAG_SLOTS, 512, 0, 1_000_000),
     warehouseStaleAfterMs: boundedInt(env.INDEXER_WAREHOUSE_STALE_AFTER_MS, 300_000, 10_000, 86_400_000),

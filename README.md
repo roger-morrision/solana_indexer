@@ -286,6 +286,7 @@ Configuration:
 | `INDEXER_HTTP_REQUEST_TIMEOUT_MS` | `30000` | Maximum time to receive a complete HTTP request |
 | `INDEXER_HTTP_KEEP_ALIVE_TIMEOUT_MS` | `5000` | Idle HTTP keep-alive lifetime |
 | `INDEXER_HTTP_MAX_REQUESTS_PER_SOCKET` | `1000` | Maximum requests admitted on one HTTP connection |
+| `INDEXER_STATIC_ASSET_MAX_BYTES` | `1048576` | Maximum stable non-link root HTML asset size (allowed 1 KiB-16 MiB) |
 | `INDEXER_WS_HEARTBEAT_MS` | `30000` | WebSocket ping interval |
 | `INDEXER_WS_MAX_BUFFERED_BYTES` | `1048576` | Slow-consumer eviction threshold |
 | `LOCAL_VALIDATOR_WS` | `ws://127.0.0.1:8900` | Loopback-only Agave PubSub endpoint |

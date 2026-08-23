@@ -1491,6 +1491,13 @@ test("REST v1 exposes chain quality and fails closed when empty", async (t) => {
   assert.equal(stats.status, 200); assert.deepEqual((await stats.json()).chain, { canonical: true, conflicts: [], conflictCount: 0 });
 });
 
+test("root asset serving uses a stable bounded non-link file contract", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-static-asset-")), publicIndexFile = path.join(root, "index.html"), store = new IndexStore("unused"); t.after(() => fs.rm(root, { recursive: true, force: true })); await store.load(); await fs.writeFile(publicIndexFile, "<html>bounded</html>");
+  const server = createServer({ publicIndexFile, staticAssetMaxBytes: 1_024, staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  const available = await fetch(`${base}/`); assert.equal(available.status, 200); assert.equal(await available.text(), "<html>bounded</html>"); assert.equal(available.headers.get("content-length"), "20"); assert.equal(available.headers.get("cache-control"), "no-store");
+  await fs.unlink(publicIndexFile); await fs.mkdir(publicIndexFile); const unavailable = await fetch(`${base}/index.html`); assert.equal(unavailable.status, 503); assert.deepEqual(await unavailable.json(), { error: "static_asset_unavailable" }); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_internal_failures_total\{operation="http_internal_error"\} 1/);
+});
+
 test("Prometheus endpoint exposes fail-closed SLO signals", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   await fetch(`http://127.0.0.1:${server.address().port}/api/stats`); const response = await fetch(`http://127.0.0.1:${server.address().port}/metrics`), body = await response.text(); assert.equal(response.status, 200); assert.match(response.headers.get("content-type"), /text\/plain/); assert.match(body, /terminal_dex_index_healthy 0/); assert.match(body, /terminal_dex_index_state_quarantined 0/); assert.match(body, /terminal_dex_index_state_invalid_fields 0/); assert.match(body, /terminal_dex_dead_letters 0/); assert.match(body, /terminal_dex_warehouse_healthy 0/); assert.match(body, /terminal_dex_warehouse_lag_events NaN/); assert.match(body, /terminal_dex_backup_healthy 0/); assert.match(body, /terminal_dex_backup_age_seconds NaN/); assert.match(body, /terminal_dex_recovery_qualified 0/); assert.match(body, /terminal_dex_recovery_qualification_age_seconds NaN/); assert.match(body, /terminal_dex_http_requests_total/); assert.match(body, /terminal_dex_http_request_duration_seconds_bucket\{le="0\.5"\} 1/); assert.match(body, /terminal_dex_http_request_duration_seconds_bucket\{le="\+Inf"\} 1/); assert.match(body, /terminal_dex_http_request_duration_seconds_count 1/); assert.match(body, /terminal_dex_distributed_quota_failures_total 0/);
@@ -2010,6 +2017,7 @@ test("configuration refuses public binding without API keys", () => {
   assert.equal(loadConfig({ INDEXER_MAX_INBOX_ENTRIES: "250000" }, process.cwd()).maxInboxEntries, 250_000);
   assert.equal(loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048576" }, process.cwd()).maxStateFileBytes, 1_048_576);
   assert.equal(loadConfig({ INDEXER_SHUTDOWN_TIMEOUT_MS: "5000" }, process.cwd()).shutdownTimeoutMs, 5000);
+  assert.equal(loadConfig({ INDEXER_STATIC_ASSET_MAX_BYTES: "2048" }, process.cwd()).staticAssetMaxBytes, 2_048);
   assert.equal(loadConfig({ INDEXER_STREAM_CONNECT_TIMEOUT_MS: "2500" }, process.cwd()).streamConnectTimeoutMs, 2500);
   assert.equal(loadConfig({ INDEXER_STREAM_IDLE_TIMEOUT_MS: "45000" }, process.cwd()).streamIdleTimeoutMs, 45000);
   assert.equal(loadConfig({ INDEXER_STREAM_MAX_MESSAGE_BYTES: "1048576" }, process.cwd()).streamMaxMessageBytes, 1_048_576);
@@ -2026,6 +2034,7 @@ test("configuration rejects malformed and out-of-range explicit controls", () =>
   assert.throws(() => loadConfig({ INDEXER_MAX_INGESTION_FILE_BYTES: "65535" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_INBOX_ENTRIES: "99" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_MAX_STATE_FILE_BYTES: "1048575" }, process.cwd()), /integer configuration/);
+  assert.throws(() => loadConfig({ INDEXER_STATIC_ASSET_MAX_BYTES: "1023" }, process.cwd()), /integer configuration/);
   assert.throws(() => loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "TRUE" }, process.cwd()), /boolean configuration/);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "true" }, process.cwd()).distributedQuotaEnabled, true);
   assert.equal(loadConfig({ INDEXER_DISTRIBUTED_QUOTA: "false" }, process.cwd()).distributedQuotaEnabled, false);
