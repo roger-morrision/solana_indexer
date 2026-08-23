@@ -203,7 +203,9 @@ rows carry source-derived SHA-256 hashes, and reconciliation version 8 verifies
 a sequence-ordered rolling SHA-256 chain recomputed from ClickHouse `FINAL`
 rows. Only exact three-sink sequence and content agreement permits the atomic
 local 0600 checkpoint to advance. Older or sequence-only checkpoints require a
-full replay and fail health closed.
+full replay and fail health closed. Before any sink process starts, the worker
+also recomputes every supplied event/fact content hash and the complete batch
+chain transition; forged or internally inconsistent batches cause zero writes.
 Retries are idempotent by `(chain, sequence)`, and the worker
 fails closed if its checkpoint falls behind the bounded replay history, moves
 ahead of the index, or encounters a sequence gap. Database passwords remain in

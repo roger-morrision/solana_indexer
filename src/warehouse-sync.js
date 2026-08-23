@@ -126,13 +126,14 @@ export function compileWarehouseBatch(state, checkpoint = { lastSequence: 0 }) {
   if (events.length && events[0].sequence !== lastSequence + 1) throw new Error("warehouse event sequence gap");
   let eventContentChain = lastSequence === 0 ? EMPTY_EVENT_CONTENT_CHAIN : checkpoint?.reconciliation?.eventContentChain;
   if (!/^[0-9a-f]{64}$/.test(eventContentChain ?? "")) throw new Error("warehouse checkpoint event content chain unavailable; full replay required");
+  const previousEventContentChain = eventContentChain;
   const rows = events.map((event) => {
     const row = { chain: CHAIN, sequence: event.sequence, event_type: event.type, slot: event.slot, block_time: event.blockTime == null ? null : new Date(event.blockTime * 1_000).toISOString(), commitment: event.provenance?.commitment ?? "unknown", blockhash: event.blockhash ?? "", payload: JSON.stringify(event) };
     const content_hash = projectionContentHash("clickhouse-event-v1", row);
     eventContentChain = crypto.createHash("sha256").update(`${eventContentChain}:${content_hash}`).digest("hex");
     return { ...row, content_hash };
   });
-  return { fromSequence: lastSequence + 1, toSequence: events.at(-1)?.sequence ?? lastSequence, events: rows, eventContentChain };
+  return { fromSequence: lastSequence + 1, toSequence: events.at(-1)?.sequence ?? lastSequence, previousEventContentChain, events: rows, eventContentChain };
 }
 
 function factBase(row) {
@@ -347,11 +348,31 @@ export async function probeWarehouseSinks(expectedSequence, spawnProcess = spawn
   return validateWarehouseSinkSequences(expectedSequence, { clickhouse, postgres, redis });
 }
 
+function contentHashMatches(kind, row) {
+  if (!row || typeof row !== "object" || Array.isArray(row) || !/^[0-9a-f]{64}$/.test(row.content_hash ?? "")) return false;
+  const { content_hash, ...content } = row;
+  return content_hash === projectionContentHash(`clickhouse-${kind}-v1`, content);
+}
+
+function validateWarehouseWriteContent(batch, facts) {
+  if (!Array.isArray(batch?.events) || !Number.isSafeInteger(batch.fromSequence) || batch.fromSequence < 1 || !Number.isSafeInteger(batch.toSequence) || batch.toSequence < 0 || !/^[0-9a-f]{64}$/.test(batch.previousEventContentChain ?? "") || !/^[0-9a-f]{64}$/.test(batch.eventContentChain ?? "")) throw new Error("invalid warehouse batch");
+  let sequence = batch.fromSequence - 1, chain = batch.previousEventContentChain;
+  for (const row of batch.events) {
+    if (row?.chain !== CHAIN || row.sequence !== ++sequence || !contentHashMatches("event", row)) throw new Error("invalid warehouse event content");
+    chain = crypto.createHash("sha256").update(`${chain}:${row.content_hash}`).digest("hex");
+  }
+  if (sequence !== batch.toSequence || chain !== batch.eventContentChain) throw new Error("invalid warehouse event content chain");
+  if (!facts) return;
+  if (facts.eventContentChain !== batch.eventContentChain) throw new Error("invalid warehouse facts");
+  for (const [kind, rows] of [["instruction", facts.instructions], ["swap", facts.swaps], ["balance", facts.balanceChanges], ["native-transfer", facts.nativeTransfers], ["dead-letter", facts.deadLetters]]) if (!Array.isArray(rows) || rows.some((row) => !contentHashMatches(kind, row))) throw new Error("invalid warehouse fact content");
+}
+
 export async function syncWarehouseBatch(batch, spawnProcess = spawn, env = process.env, facts = null, postgresSql = checkpointSql(batch.toSequence), redisInput = null) {
   if (!Array.isArray(batch?.events) || !Number.isSafeInteger(batch.toSequence) || batch.toSequence < 0) throw new Error("invalid warehouse batch");
   if (facts && (!Array.isArray(facts.slots) || facts.slots.some((slot) => !Number.isSafeInteger(slot) || slot < 0) || !Array.isArray(facts.instructions) || !Array.isArray(facts.swaps) || !Array.isArray(facts.balanceChanges) || !Array.isArray(facts.nativeTransfers) || !Array.isArray(facts.deadLetters))) throw new Error("invalid warehouse facts");
   if (typeof postgresSql !== "string" || !postgresSql.trim()) throw new Error("invalid warehouse PostgreSQL transaction");
   if (redisInput != null && !Buffer.isBuffer(redisInput)) throw new Error("invalid Redis hot-state transaction");
+  validateWarehouseWriteContent(batch, facts);
   if (batch.events.length) { const body = `${batch.events.map((row) => JSON.stringify(row)).join("\n")}\n`; await runProcess("clickhouse-client", ["--query", "INSERT INTO terminal_dex.canonical_events FORMAT JSONEachRow"], body, spawnProcess, env); }
   if (facts) {
     const suffixes = [["canonical_instructions", facts.instructions], ["canonical_swaps", facts.swaps], ["canonical_balance_changes", facts.balanceChanges], ["canonical_native_transfers", facts.nativeTransfers]];
