@@ -2,6 +2,12 @@
 
 This matrix describes verified capabilities, not aspirational marketing claims.
 
+Pool-risk execution contracts distinguish durable `venueQualified` snapshot
+capability from fresh per-order evidence. They expose the bound venue evidence
+slot but always require a new local simulation, signer-policy approval, and
+landed-message verification through `new_order_execution_required`; prior venue
+or transaction history cannot unlock a future order.
+
 Persisted instructions for registered swap programs must carry the current
 registry version, protocol identity, and decoder version. Health and bot
 readiness fail closed with `indexed_decoder_registry_stale` when old indexed
