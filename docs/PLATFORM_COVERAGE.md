@@ -71,6 +71,8 @@ current registry and decoder versions, protocol identity, amount/fee/decimal bou
 and recognized payload-hash semantics; stale or invented decoder identities fail closed.
 Fork-replacement tombstones are content-reconciled with the latest retained predecessor
 for that slot, and ordinary index/finality envelopes are forbidden from carrying retractions.
+Latest retained account, metadata, and pool snapshot replay descriptors are likewise
+content-reconciled with their canonical projections after exact field-set validation.
 
 Multi-sink repair also runs when the canonical event batch is empty, rebuilding
 PostgreSQL projections, canonical dead letters, and expired or lost versioned

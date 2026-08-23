@@ -137,6 +137,10 @@ entry at the fact slot, the exact current registry version, its protocol and dec
 version, bounded decimals, exact positive u64 amounts, fee bounds, and a recognized
 payload-hash kind. Merely positive version numbers or nonempty program labels cannot
 promote stale or unregistered decoder output into API, warehouse, or bot evidence.
+Snapshot replay descriptors use exact type-specific field sets and the latest retained
+descriptor for each mint or pool must match the canonical holder, off-chain metadata,
+or pool snapshot projection byte-for-byte. Rehashing a divergent descriptor therefore
+cannot create an alternative WebSocket or warehouse snapshot history.
 Snapshot replay descriptors are likewise nonempty, identity-unique, type-checked,
 and bound to the exact SHA-256 suffix in their outer snapshot blockhash. Pool
 dependency slots must remain ordered beneath the emitted maximum evidence slot,

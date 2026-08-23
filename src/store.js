@@ -68,8 +68,10 @@ function canonicalSnapshotEventPayload(event) {
     const identity = row?.mint ?? row?.pool;
     if (typeof identity !== "string" || !identity || identities.has(identity) || !hash(row.sourceHash ?? row.rawPayloadHash)) return false;
     identities.add(identity);
-    if (event.type === "account_snapshot_applied" && (!Number.isSafeInteger(row.accountCount) || row.accountCount < 0 || typeof row.metadata !== "boolean" || typeof row.token2022Evidence !== "boolean" || row.complete !== true)) return false;
-    if (event.type === "offchain_metadata_snapshot_applied" && (!hash(row.onchainMetadataHash) || !hash(row.rawPayloadHash))) return false;
+    const keys = Object.keys(row).sort().join(",");
+    if (event.type === "account_snapshot_applied" && (keys !== "accountCount,complete,metadata,mint,sourceHash,token2022Evidence" || !Number.isSafeInteger(row.accountCount) || row.accountCount < 0 || typeof row.metadata !== "boolean" || typeof row.token2022Evidence !== "boolean" || row.complete !== true)) return false;
+    if (event.type === "offchain_metadata_snapshot_applied" && (keys !== "mint,onchainMetadataHash,rawPayloadHash" || !hash(row.onchainMetadataHash) || !hash(row.rawPayloadHash))) return false;
+    if (event.type.endsWith("pool_snapshot_applied")) { const expectedKeys = event.type === "pump_bonding_curve_snapshot_applied" ? "configSlot,evidenceSlot,mint,mintSlot,pool,sourceHash,stateSlot" : ["cpmm_pool_snapshot_applied", "pump_swap_pool_snapshot_applied"].includes(event.type) ? "balanceSlot,configSlot,evidenceSlot,pool,sourceHash,stateSlot" : "balanceSlot,evidenceSlot,pool,sourceHash,stateSlot"; if (keys !== expectedKeys) return false; }
     if (event.type.endsWith("pool_snapshot_applied")) { if (!slot(row.stateSlot) || !slot(row.evidenceSlot) || row.evidenceSlot > event.slot) return false; for (const field of ["mintSlot", "configSlot", "balanceSlot"]) if (row[field] != null && (!slot(row[field]) || row[field] > row.evidenceSlot)) return false; }
   }
   return !event.type.endsWith("pool_snapshot_applied") || Math.max(...rows.map((row) => row.evidenceSlot)) === event.slot;
@@ -84,11 +86,25 @@ export function canonicalPersistedEvent(event) {
   if (event.type !== "block_replaced" && (revertedSwaps.length || revertedLifecycle.length)) return false;
   return (event.swapCount == null || event.swapCount === swaps.length) && (event.lifecycleEventCount == null || event.lifecycleEventCount === lifecycle.length) && (event.revertedSwapCount == null || event.revertedSwapCount === revertedSwaps.length) && (event.revertedLifecycleEventCount == null || event.revertedLifecycleEventCount === revertedLifecycle.length);
 }
-export function canonicalPersistedEventLog(events, eventSequence, { programEvents = null, swaps = null, blocks = null } = {}) {
+export function canonicalPersistedEventLog(events, eventSequence, { programEvents = null, swaps = null, blocks = null, holderSnapshots = null, poolSnapshots = null, mints = null } = {}) {
   const canonical = Number.isSafeInteger(eventSequence) && eventSequence >= 0 && Array.isArray(events) && events.every((event, index) => canonicalPersistedEvent(event) && (!index || event.sequence === events[index - 1].sequence + 1)) && (events.length === 0 ? eventSequence === 0 : events.at(-1).sequence === eventSequence);
   if (!canonical) return false;
   const identity = (event) => event.eventId, rows = (values) => [...values].sort((left, right) => identity(left).localeCompare(identity(right))).map(canonicalJson), previousBySlot = new Map();
   for (const event of events) if (BLOCK_EVENT_TYPES.has(event.type)) { const source = previousBySlot.get(event.slot); if (event.type === "block_replaced" && source) { if (source.blockhash === event.blockhash) return false; const expectedSwaps = rows((source.swaps ?? []).map((row) => ({ ...row, revertedByBlockhash: event.blockhash }))), actualSwaps = rows(event.revertedSwaps ?? []), expectedLifecycle = rows((source.lifecycleEvents ?? []).map((row) => ({ ...row, revertedByBlockhash: event.blockhash }))), actualLifecycle = rows(event.revertedLifecycleEvents ?? []); if (expectedSwaps.length !== actualSwaps.length || expectedSwaps.some((value, index) => value !== actualSwaps[index]) || expectedLifecycle.length !== actualLifecycle.length || expectedLifecycle.some((value, index) => value !== actualLifecycle[index])) return false; } previousBySlot.set(event.slot, event); }
+  const snapshotContext = [holderSnapshots, poolSnapshots, mints], hasSnapshotContext = snapshotContext.some((value) => value != null);
+  if (hasSnapshotContext) {
+    if (snapshotContext.some((value) => !value || typeof value !== "object" || Array.isArray(value))) return false;
+    const latestAccounts = new Map(), latestMetadata = new Map(), latestPools = new Map();
+    for (const event of events) {
+      if (event.type === "account_snapshot_applied") for (const row of event.mints) latestAccounts.set(row.mint, row);
+      else if (event.type === "offchain_metadata_snapshot_applied") for (const row of event.mints) latestMetadata.set(row.mint, row);
+      else if (event.type.endsWith("pool_snapshot_applied")) for (const row of event.pools) latestPools.set(row.pool, { type: event.type, row });
+    }
+    for (const [mint, row] of latestAccounts) { const snapshot = holderSnapshots[mint], expected = snapshot && { mint, accountCount: snapshot.accountCount, metadata: Boolean(snapshot.metadata), token2022Evidence: Boolean(snapshot.token2022Evidence), complete: true, sourceHash: snapshot.sourceHash }; if (!expected || canonicalJson(row) !== canonicalJson(expected)) return false; }
+    for (const [mint, row] of latestMetadata) { const token = mints[mint], expected = token?.metadata && token?.offchainMetadata && { mint, onchainMetadataHash: token.metadata.rawPayloadHash, rawPayloadHash: token.offchainMetadata.rawPayloadHash }; if (!expected || canonicalJson(row) !== canonicalJson(expected)) return false; }
+    const poolEventTypes = { "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "orca_pool_snapshot_applied", "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo": "meteora_dlmm_pool_snapshot_applied", "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C": "cpmm_pool_snapshot_applied", "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA": "pump_swap_pool_snapshot_applied", "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P": "pump_bonding_curve_snapshot_applied", "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK": "clmm_pool_snapshot_applied" };
+    for (const [pool, descriptor] of latestPools) { const snapshot = poolSnapshots[pool], expected = snapshot && { pool, ...(descriptor.type === "pump_bonding_curve_snapshot_applied" ? { mint: snapshot.mint } : {}), stateSlot: snapshot.stateSlot, ...(descriptor.type === "pump_bonding_curve_snapshot_applied" ? { mintSlot: snapshot.mintSlot, configSlot: snapshot.configSlot } : ["cpmm_pool_snapshot_applied", "pump_swap_pool_snapshot_applied"].includes(descriptor.type) ? { configSlot: snapshot.configSlot, balanceSlot: snapshot.balanceSlot } : { balanceSlot: snapshot.balanceSlot }), evidenceSlot: snapshot.evidenceSlot, sourceHash: snapshot.sourceHash }; if (!expected || poolEventTypes[snapshot.programId] !== descriptor.type || canonicalJson(descriptor.row) !== canonicalJson(expected)) return false; }
+  }
   if (programEvents == null && swaps == null && blocks == null) return true;
   if (programEvents != null && !Array.isArray(programEvents) || swaps != null && !Array.isArray(swaps) || !blocks || typeof blocks !== "object" || Array.isArray(blocks)) return false;
   const latestBySlot = new Map(); for (const event of events) if (BLOCK_EVENT_TYPES.has(event.type) && blocks[String(event.slot)]?.blockhash === event.blockhash) latestBySlot.set(event.slot, event);
@@ -788,7 +804,7 @@ export class IndexStore {
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   eventQuality() {
     const events = this.state.events, eventSequence = this.state.eventSequence;
-    const envelopeCanonical = canonicalPersistedEventLog(events, eventSequence), canonical = envelopeCanonical && canonicalPersistedEventLog(events, eventSequence, { programEvents: this.state.programEvents, swaps: this.state.swaps, blocks: this.state.blocks }), reason = canonical ? null : envelopeCanonical && !this.indexedSwaps().available ? "indexed_swap_evidence_invalid" : "indexed_event_log_invalid";
+    const envelopeCanonical = canonicalPersistedEventLog(events, eventSequence), ledgerCanonical = envelopeCanonical && canonicalPersistedEventLog(events, eventSequence, { programEvents: this.state.programEvents, swaps: this.state.swaps, blocks: this.state.blocks }), snapshotCanonical = !envelopeCanonical || canonicalPersistedEventLog(events, eventSequence, { holderSnapshots: this.state.holderSnapshots, poolSnapshots: this.state.poolSnapshots, mints: this.state.mints }), canonical = ledgerCanonical && snapshotCanonical, reason = canonical ? null : !snapshotCanonical ? "indexed_snapshot_projection_invalid" : envelopeCanonical && !this.indexedSwaps().available ? "indexed_swap_evidence_invalid" : "indexed_event_log_invalid";
     return { canonical, reason, eventSequence, retainedEvents: Array.isArray(events) ? events.length : null, oldestSequence: Array.isArray(events) ? events[0]?.sequence ?? null : null };
   }
   replayEvents(cursor = this.state.eventSequence) {
