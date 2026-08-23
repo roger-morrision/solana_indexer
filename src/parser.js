@@ -355,16 +355,24 @@ export function decodePumpSwapEvents(entry, signature) {
   return events;
 }
 const PUMP_TRADE_DISCRIMINATOR = Buffer.from([189, 219, 127, 211, 78, 230, 97, 238]);
-function pumpTradeContext(entry, mint) {
+function pumpTradeContexts(entry) {
+  const contexts = [];
   for (const instruction of instructionRows(entry)) {
-    if ((instruction.programId ?? instruction.program) !== PUMP_PROGRAM || !Array.isArray(instruction.accounts)) continue;
-    if (instruction.accounts[2] === mint && typeof instruction.accounts[3] === "string") return instruction.accounts[3];
+    const accounts = instruction.accounts;
+    if ((instruction.programId ?? instruction.program) !== PUMP_PROGRAM || !Array.isArray(accounts) || accounts.some((account) => typeof account !== "string" || !account) || typeof instruction.data !== "string") continue;
+    let data; try { data = decodeBase58(instruction.data); } catch { continue; }
+    const sell = data.length === 24 && data.subarray(0, 8).equals(PUMP_SELL_V2_DISCRIMINATOR) && accounts.length === 26;
+    const buy = data.length === 24 && data.subarray(0, 8).equals(PUMP_BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR) && accounts.length === 27;
+    const feeIndex = buy ? 23 : 22, systemIndex = buy ? 24 : 23, programIndex = buy ? 26 : 25;
+    if ((!sell && !buy) || !TOKEN_PROGRAMS.has(accounts[3]) || !TOKEN_PROGRAMS.has(accounts[4]) || accounts[5] !== ASSOCIATED_TOKEN_PROGRAM || accounts[feeIndex] !== PUMP_FEE_PROGRAM || accounts[systemIndex] !== SYSTEM_PROGRAM || accounts[programIndex] !== PUMP_PROGRAM || accounts[1] === accounts[2]) continue;
+    contexts.push({ side: buy ? "buy" : "sell", mint: accounts[1], quoteMint: accounts[2], pool: accounts[10], user: accounts[13] });
   }
-  return null;
+  return contexts;
 }
 export function decodePumpTradeEvents(entry, signature) {
   if (entry.meta?.err != null) return [];
   const decimals = mintDecimalEvidence(entry);
+  const contexts = pumpTradeContexts(entry); if (!contexts.length) return [];
   const events = []; const stack = [];
   for (const line of entry.meta?.logMessages ?? []) {
     const invoke = line.match(/^Program (\S+) invoke /); if (invoke) { stack.push(invoke[1]); continue; }
@@ -373,17 +381,17 @@ export function decodePumpTradeEvents(entry, signature) {
     let data; try { data = Buffer.from(line.slice(14), "base64"); } catch { continue; }
     if (data.length < 263 || !data.subarray(0, 8).equals(PUMP_TRADE_DISCRIMINATOR)) continue;
     try {
-      const mint = base58(data.subarray(8, 40)); const buy = data[56] !== 0; const user = base58(data.subarray(57, 89));
+      const mint = base58(data.subarray(8, 40)); if (data[56] > 1) continue; const buy = data[56] === 1; const user = base58(data.subarray(57, 89));
       const stringLength = data.readUInt32LE(258); if (stringLength > 128 || 262 + stringLength + 37 > data.length) continue;
       const ixName = data.toString("utf8", 262, 262 + stringLength); let offset = 262 + stringLength;
-      const mayhemMode = data[offset++] !== 0; const cashbackFeeBasisPoints = readU64(data, offset); offset += 8; const cashbackRaw = readU64(data, offset); offset += 8;
+      if (data[offset] > 1) continue; const mayhemMode = data[offset++] === 1; const cashbackFeeBasisPoints = readU64(data, offset); offset += 8; const cashbackRaw = readU64(data, offset); offset += 8;
       const buybackFeeBasisPoints = readU64(data, offset); offset += 8; const buybackRaw = readU64(data, offset); offset += 8;
       const shareholderCount = data.readUInt32LE(offset); offset += 4; if (shareholderCount > 64 || offset + shareholderCount * 34 + 56 > data.length) continue;
       offset += shareholderCount * 34; const quoteMint = base58(data.subarray(offset, offset + 32)); offset += 32;
       const quoteAmountRaw = readU64(data, offset); offset += 8; const virtualQuoteReservesRaw = readU64(data, offset); offset += 8; const realQuoteReservesRaw = readU64(data, offset);
-      const pool = pumpTradeContext(entry, mint); if (!pool) continue;
+      const side = buy ? "buy" : "sell", contextIndex = contexts.findIndex((context) => context.side === side && context.mint === mint && context.quoteMint === quoteMint && context.user === user); if (contextIndex < 0) continue; const [{ pool }] = contexts.splice(contextIndex, 1);
       const inputMint = buy ? quoteMint : mint; const outputMint = buy ? mint : quoteMint;
-      events.push({ protocol: "pump-bonding-curve", programId: PUMP_PROGRAM, type: "swap", venueType: "bonding_curve", side: buy ? "buy" : "sell", signature, pool, mint, quoteMint, inputMint, outputMint, inputAmountRaw: buy ? quoteAmountRaw : readU64(data, 48), outputAmountRaw: buy ? readU64(data, 48) : quoteAmountRaw, inputVaultBeforeRaw: buy ? realQuoteReservesRaw : readU64(data, 121), outputVaultBeforeRaw: buy ? readU64(data, 121) : realQuoteReservesRaw, reserveTiming: "reported", tradeFeeRaw: readU64(data, 169), creatorFeeRaw: readU64(data, 217), cashbackRaw, buybackRaw, feeBasisPoints: readU64(data, 161), creatorFeeBasisPoints: readU64(data, 209), cashbackFeeBasisPoints, buybackFeeBasisPoints, user, creator: base58(data.subarray(177, 209)), feeRecipient: base58(data.subarray(129, 161)), virtualSolReservesRaw: readU64(data, 97), virtualTokenReservesRaw: readU64(data, 105), realSolReservesRaw: readU64(data, 113), realTokenReservesRaw: readU64(data, 121), virtualQuoteReservesRaw, realQuoteReservesRaw, ixName, mayhemMode, shareholderCount, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint) });
+      events.push({ protocol: "pump-bonding-curve", programId: PUMP_PROGRAM, type: "swap", venueType: "bonding_curve", side, signature, pool, mint, quoteMint, inputMint, outputMint, inputAmountRaw: buy ? quoteAmountRaw : readU64(data, 48), outputAmountRaw: buy ? readU64(data, 48) : quoteAmountRaw, inputVaultBeforeRaw: buy ? realQuoteReservesRaw : readU64(data, 121), outputVaultBeforeRaw: buy ? readU64(data, 121) : realQuoteReservesRaw, reserveTiming: "reported", tradeFeeRaw: readU64(data, 169), creatorFeeRaw: readU64(data, 217), cashbackRaw, buybackRaw, feeBasisPoints: readU64(data, 161), creatorFeeBasisPoints: readU64(data, 209), cashbackFeeBasisPoints, buybackFeeBasisPoints, user, creator: base58(data.subarray(177, 209)), feeRecipient: base58(data.subarray(129, 161)), virtualSolReservesRaw: readU64(data, 97), virtualTokenReservesRaw: readU64(data, 105), realSolReservesRaw: readU64(data, 113), realTokenReservesRaw: readU64(data, 121), virtualQuoteReservesRaw, realQuoteReservesRaw, ixName, mayhemMode, shareholderCount, inputDecimals: decimals.get(inputMint), outputDecimals: decimals.get(outputMint) });
     } catch { continue; }
   }
   return events;
