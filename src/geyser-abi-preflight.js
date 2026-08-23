@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
-import { createReadStream } from "node:fs";
+import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -13,12 +13,17 @@ import { readBoundedJsonFile } from "./bounded-json-file.js";
 
 const SHA = /^[0-9a-f]{64}$/, GIT_COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/, SEMVER = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/, REVIEWER = /^[A-Za-z0-9][A-Za-z0-9._@-]{2,127}$/;
 async function sha256(filename) {
-  const before = await fs.lstat(filename);
-  if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size < 1 || before.size > 1_073_741_824) throw new Error("activation binary must be a regular file of at most one GiB");
-  const hash = crypto.createHash("sha256"); for await (const chunk of createReadStream(filename)) hash.update(chunk);
-  const after = await fs.lstat(filename);
-  if (!after.isFile() || after.isSymbolicLink() || after.size !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.mtimeMs !== before.mtimeMs) throw new Error("activation binary changed during hashing");
-  return hash.digest("hex");
+  let handle;
+  try {
+    const before = await fs.lstat(filename);
+    if (!before.isFile() || before.isSymbolicLink() || !Number.isSafeInteger(before.size) || before.size < 1 || before.size > 1_073_741_824) throw new Error("activation binary must be a regular file of at most one GiB");
+    const sameFile = (stat) => stat.isFile() && !stat.isSymbolicLink() && stat.size === before.size && stat.dev === before.dev && stat.ino === before.ino && stat.mtimeMs === before.mtimeMs;
+    handle = await fs.open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)); if (!sameFile(await handle.stat())) throw new Error("activation binary changed during hashing");
+    const hash = crypto.createHash("sha256"), chunk = Buffer.allocUnsafe(65_536); let offset = 0;
+    while (offset < before.size) { const length = Math.min(chunk.length, before.size - offset), { bytesRead } = await handle.read(chunk, 0, length, offset); if (bytesRead !== length) throw new Error("activation binary changed during hashing"); hash.update(chunk.subarray(0, length)); offset += length; }
+    if ((await handle.read(chunk, 0, 1, before.size)).bytesRead !== 0 || !sameFile(await handle.stat()) || !sameFile(await fs.lstat(filename))) throw new Error("activation binary changed during hashing");
+    return hash.digest("hex");
+  } finally { await handle?.close().catch(() => {}); }
 }
 
 export async function runAgaveVersionProbe(command, spawnProcess = spawn, processOptions = {}) {
