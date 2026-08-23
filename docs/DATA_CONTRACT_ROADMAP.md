@@ -527,9 +527,11 @@ now retains exact header/used-size identity, exponent, publisher/status,
 aggregate-versus-previous selection, signed price, confidence, publish time,
 and update slot without altering the raw evidence. The canonical Raydium CLMM
 PoolState decoder supplies OpenBook-compatible Q64.64 square and mint-decimal
-evidence. Validated Pyth/CLMM and mixed-provider snapshots expose
+evidence. Pinned Switchboard V2 aggregators validate exact packed identity,
+round/sliding selection, minimum results, decimal scales, standard deviation,
+and round-open slot. Validated Pyth/CLMM/Switchboard V2 and mixed-provider snapshots expose
 `oraclePolicy.oraclePriceLots` and project each oracle-pegged leaf with
 `priceLots`, `oraclePegState`, and `executable` after exact confidence, freshness,
 dual-oracle composition, decimal, lot-size, signed-overflow, and peg-limit gates.
-Switchboard and mutable stub providers remain explicitly unpriced and
+Legacy Switchboard V1 and mutable stub providers remain explicitly unpriced and
 non-executable pending provider-specific validation.

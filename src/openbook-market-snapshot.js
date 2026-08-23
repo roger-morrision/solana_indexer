@@ -28,6 +28,7 @@ function hash(data) { return crypto.createHash("sha256").update(data).digest("he
 function u64(data, offset) { return data.readBigUInt64LE(offset).toString(); }
 function u128(data, offset) { return ((data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset)).toString(); }
 function u128Value(data, offset) { return (data.readBigUInt64LE(offset + 8) << 64n) | data.readBigUInt64LE(offset); }
+function i128Value(data, offset) { return BigInt.asIntN(128, u128Value(data, offset)); }
 function optionalPubkey(data, offset) { const value = data.subarray(offset, offset + 32); return value.every((byte) => byte === 0) ? null : base58(value); }
 
 function projectPeggedOrders(orders, side, oraclePriceLots) {
@@ -56,9 +57,14 @@ export function decodeOpenBookOracleAccount(address, account) {
     if (priceRaw < 0n) throw new Error(`OpenBook Pyth oracle ${address} has negative selected price`);
     return { ...common, provider: "pyth_legacy", coverage: "finalized_state_unpriced", version: 2, declaredAccountBytes, priceType: "price", exponent, publisherComponentCount, aggregateQuoterCount, aggregateStatus: ["unknown", "trading", "halted", "auction", "ignored"][aggregateStatus], selectedPriceSource: trading ? "aggregate" : "previous_trading", priceRaw: priceRaw.toString(), confidenceRaw: confidenceRaw.toString(), publishTimeUnix: publishTimeUnix.toString(), lastUpdateSlotRaw: lastUpdateSlotRaw.toString() };
   }
+  if (data.subarray(0, 8).equals(SWITCHBOARD_V2_DISCRIMINATOR)) {
+    if (data.length !== 3_851) throw new Error(`OpenBook Switchboard V2 oracle ${address} has invalid AggregatorAccountData layout`);
+    const minimumOracleResults = data.readUInt32LE(236), successfulResults = data.readUInt32LE(341), resolutionMode = data[3_712], resultMantissaRaw = i128Value(data, 366), resultScale = data.readUInt32LE(382), standardDeviationMantissaRaw = i128Value(data, 386), standardDeviationScale = data.readUInt32LE(402), lastUpdateSlotRaw = data.readBigUInt64LE(350);
+    if (resolutionMode > 1 || resolutionMode === 0 && successfulResults < minimumOracleResults || resultScale > 28 || standardDeviationScale > 28 || resultMantissaRaw < 0n || standardDeviationMantissaRaw < 0n) throw new Error(`OpenBook Switchboard V2 oracle ${address} has invalid aggregator state`);
+    return { ...common, provider: "switchboard_v2", coverage: "finalized_openbook_compatible_state", resolutionMode: resolutionMode === 0 ? "round" : "sliding", minimumOracleResults, successfulResults, resultMantissaRaw: resultMantissaRaw.toString(), resultScale, standardDeviationMantissaRaw: standardDeviationMantissaRaw.toString(), standardDeviationScale, lastUpdateSlotRaw: lastUpdateSlotRaw.toString() };
+  }
   let provider = null;
-  if (data.subarray(0, 8).equals(SWITCHBOARD_V2_DISCRIMINATOR)) provider = "switchboard_v2_unverified";
-  else if ([SWITCHBOARD_V1_DEVNET_PROGRAM, SWITCHBOARD_V2_MAINNET_PROGRAM].includes(account.owner)) provider = "switchboard_v1_unverified";
+  if ([SWITCHBOARD_V1_DEVNET_PROGRAM, SWITCHBOARD_V2_MAINNET_PROGRAM].includes(account.owner)) provider = "switchboard_v1_unverified";
   if (!provider) throw new Error(`OpenBook oracle ${address} provider is unsupported`);
   return { ...common, provider, coverage: "finalized_raw_unverified" };
 }

@@ -61,10 +61,11 @@ are classified unsafe. Legacy Pyth PriceAccounts decode exact header, exponent,
 publisher/status, aggregate-versus-previous selection, signed price,
 confidence, publish time, and update slot evidence. All configured oracles
 remain `configured_unverified` unless every referenced oracle is a validated legacy Pyth
-PriceAccount or Raydium CLMM PoolState. Those snapshots reproduce OpenBook's inclusive confidence threshold,
+PriceAccount, Raydium CLMM PoolState, or pinned Switchboard V2 aggregator. Those
+snapshots reproduce OpenBook's inclusive confidence threshold,
 slot-staleness boundary, dual-feed relative-variance composition, decimal adjustment, lot
 conversion, mixed-provider composition, Q64.64 CLMM square, and peg-limit state;
-Switchboard providers and unsafe stubs remain unpriced. Missing, incomplete,
+Legacy Switchboard V1 providers and unsafe stubs remain unpriced. Missing, incomplete,
 or stale evidence is scheduled through the leased repair pipeline.
 
 Phoenix orderbook now contributes analytical swap activity only when the exact
