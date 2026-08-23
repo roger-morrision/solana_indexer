@@ -533,7 +533,9 @@ the command removes only its unchanged content-matching candidate; a concurrentl
 changed file is preserved. The exclusively created
 report binds the exact processed source inventory and candidate SHA-256, current
 decoder registry/output coverage, finalized mainnet identity, and canonical
-core projections. It always sets `promotionAuthorized: false`; promotion is a
+core projections. The version-2 report binds that complete canonical evidence
+under a recomputed SHA-256 digest, so legacy or edited reports fail closed. It
+always sets `promotionAuthorized: false`; promotion is a
 separate operator-reviewed action outside this command.
 `ops/backup.sh` creates checksummed PostgreSQL, ClickHouse, Redis, local index,
 and inbox archives and uploads them to the loopback SeaweedFS filer. Only after
