@@ -893,9 +893,12 @@ orders and no oracle-pegged leaves. Books containing oracle-pegged leaves are
 labelled `finalized_fixed_depth_oracle_pegged_unpriced`; those leaves remain
 non-executable until their oracle accounts and confidence policy are bound.
 Snapshots retain the exact optional oracle A/B identities and raw IEEE-754
-confidence-filter bits plus signed maximum-staleness-slot policy. Configured
-oracles are labelled `configured_unverified` and cannot price orders until
-their provider-specific account, confidence, freshness, and composition
+confidence-filter bits plus signed maximum-staleness-slot policy, then capture
+the referenced accounts at a monotonic finalized oracle read barrier. Provider
+classification and raw account hashes are retained. The exact OpenBook
+`StubOracle` layout is decoded, but explicitly marked unsafe because its owner
+can mutate it. Configured oracles remain `configured_unverified` and cannot
+price orders until provider-specific confidence, freshness, and composition
 semantics are independently verified.
 
 Phoenix orderbook swaps are published only for the official nine-account

@@ -54,10 +54,12 @@ both 90,952-byte `BookSide` accounts, and both vaults at monotonic shared
 finalized contexts. It validates allocator/free-list/tree reachability and exact
 leaf counts, preserving fixed and oracle-pegged orders alongside canonical
 identity and economics. Fixed depth is complete; exact optional oracle A/B
-identities and raw confidence-filter/staleness policy are retained as
-`configured_unverified`, while oracle-pegged leaves remain unpriced until
-provider-specific account, confidence, freshness, and composition evidence is
-verified. Missing, incomplete,
+identities and raw confidence-filter/staleness policy are retained with
+referenced account identity prefixes, provider classification, content hashes, and a
+monotonic finalized oracle read barrier. Exact mutable OpenBook stub accounts
+are classified unsafe. All configured oracles remain `configured_unverified`,
+while oracle-pegged leaves stay unpriced until provider-specific confidence,
+freshness, and composition evidence is verified. Missing, incomplete,
 or stale evidence is scheduled through the leased repair pipeline.
 
 Phoenix orderbook now contributes analytical swap activity only when the exact
