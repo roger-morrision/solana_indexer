@@ -22,7 +22,7 @@ export async function createAccountSnapshot({ client, mints, genesisHash, observ
   const epochInfo = await client.call("getEpochInfo", [{ commitment: "finalized" }]), slot = epochInfo?.absoluteSlot, epoch = epochInfo?.epoch; if (!Number.isSafeInteger(slot) || slot < 0 || !Number.isSafeInteger(epoch) || epoch < 0) throw new Error("invalid finalized account snapshot epoch context");
   const mintAccounts = await getMultipleAccountsBatched(client, mints, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot }, { expectedSlot: slot, label: "mint" }); const rows = [];
   for (let index = 0; index < mints.length; index++) {
-    const mint = mints[index], mintAccount = mintAccounts.value[index], mintInfo = mintAccount?.data?.parsed?.info; const accounts = new Map();
+    const mint = mints[index], mintAccount = mintAccounts.value[index], mintInfo = mintAccount?.data?.parsed?.info; const accounts = new Map(); let totalAmount = 0n;
     if (!TOKEN_PROGRAMS.includes(mintAccount?.owner) || !mintInfo || !validAmount(mintInfo.supply) || !validDecimals(mintInfo.decimals)) throw new Error(`invalid canonical mint account ${mint}`);
     for (const programId of TOKEN_PROGRAMS) {
       const found = await client.call("getProgramAccounts", [programId, { commitment: "finalized", encoding: "jsonParsed", minContextSlot: slot, withContext: true, filters: [{ memcmp: { offset: 0, bytes: mint } }] }]);
@@ -31,6 +31,7 @@ export async function createAccountSnapshot({ client, mints, genesisHash, observ
         const info = row.account?.data?.parsed?.info;
         if (typeof row.pubkey !== "string" || !row.pubkey || row.account?.owner !== programId || info?.mint !== mint || !validAmount(info?.tokenAmount?.amount) || !validDecimals(info?.tokenAmount?.decimals)) throw new Error(`invalid canonical token account identity for ${mint}`);
         if (accounts.has(row.pubkey)) throw new Error(`duplicate token account ${row.pubkey}`);
+        totalAmount += BigInt(info.tokenAmount.amount); if (totalAmount > BigInt(mintInfo.supply)) throw new Error(`token accounts for ${mint} exceed mint supply`);
         accounts.set(row.pubkey, { tokenAccount: row.pubkey, owner: info.owner ?? null, programId, amountRaw: info.tokenAmount.amount, decimals: info.tokenAmount.decimals, state: info.state ?? null });
       }
     }
