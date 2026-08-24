@@ -558,3 +558,11 @@ Pyth/CLMM/Switchboard V1/V2 and mixed-provider snapshots expose
 dual-oracle composition, decimal, lot-size, signed-overflow, and peg-limit gates.
 Other legacy Switchboard account forms and mutable stub providers remain explicitly unpriced and
 non-executable pending provider-specific validation.
+
+Phase 7 execution qualification update: a durable, content-bound artifact may
+record a locally simulated route whose signature and byte-identical landed
+message were finalized. Import requires mainnet/finality identity, ordered
+simulation and confirmation slots, canonical hashes, and an exact match to the
+current venue evidence slot. The risk contract still emits
+`new_order_execution_required`; prior route evidence is diagnostic and can
+never authorize a subsequent order.

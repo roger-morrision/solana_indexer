@@ -10,6 +10,7 @@ const definitions = [
   ["phoenix_market", "phoenixMarketSnapshotFile", "applyPhoenixMarketSnapshot"],
   ["openbook_market", "openBookMarketSnapshotFile", "applyOpenBookMarketSnapshot"],
   ["offchain_metadata", "offchainMetadataSnapshotFile", "applyOffchainMetadataSnapshot"],
+  ["execution_qualification", "executionQualificationFile", "applyExecutionQualification"],
 ];
 
 export const SNAPSHOT_ARTIFACT_REGISTRY = Object.freeze(definitions.map(([type, configKey, applyMethod]) => Object.freeze({ type, configKey, applyMethod })));

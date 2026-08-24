@@ -257,6 +257,7 @@ Configuration:
 | `INDEXER_OPERATIONAL_JOB_BACKOFF_SECONDS` | `30` | Initial exponential snapshot-job retry delay |
 | `EXPORTER_STATUS_FILE` | `data/exporter-status.json` | Atomic durable exporter health and skipped-slot evidence |
 | `ACCOUNT_SNAPSHOT_FILE` | `data/account-snapshot.json` | Atomic mint/holder evidence requiring one exact finalized RPC context and canonical token-program identities |
+| `EXECUTION_QUALIFICATION_FILE` | `data/execution-qualification.json` | Optional content-bound finalized landed-route qualification; historical evidence never authorizes a new order |
 | `HOLDER_EXCLUSIONS_FILE` | unset | Optional reviewed mainnet exclusion registry; concentration remains unassessable unless coverage for the mint is complete and fresh |
 | `CLMM_POOL_SNAPSHOT_FILE` | `data/clmm-pool-snapshot.json` | Atomic finalized Raydium CLMM pool/vault evidence |
 | `ORCA_POOL_SNAPSHOT_FILE` | `data/orca-pool-snapshot.json` | Atomic finalized Orca Whirlpool state/vault evidence |
