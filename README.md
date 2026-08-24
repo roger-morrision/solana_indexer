@@ -724,7 +724,7 @@ and returns the canonical Metaplex prefix, explicitly untrusted optional display
 enrichment, and exact finalized search provenance. A completed search with no
 account returns `authoritativeAbsence: true`; missing legacy search attestation
 or corrupt metadata fails closed. Token catalog and detail REST responses expose
-the same canonical `metadataEvidence` projection; token detail summaries also use exact top-level and on/off-chain metadata projections instead of echoing the mutable aggregate. JSON-RPC, PostgreSQL token metadata, and versioned Redis hot-token rows reuse the evidence, while JSON-RPC additionally quarantines invalid off-chain display enrichment, exposes valid enrichment through an exact allowlisted nested projection, and uses `metadataPresent: null` for unattested rows
+the same canonical `metadataEvidence` projection; token details and REST holder snapshots also use exact top-level, mint-info, extension-state, Token-2022, account, and on/off-chain metadata projections instead of echoing mutable snapshot aggregates. Transfer-fee and transfer-hook extension evidence retains its canonical fields; other extensions expose only their canonical name. JSON-RPC, PostgreSQL token metadata, and versioned Redis hot-token rows reuse the evidence, while JSON-RPC additionally quarantines invalid off-chain display enrichment, exposes valid enrichment through an exact allowlisted nested projection, and uses `metadataPresent: null` for unattested rows
 and never masquerade as an authoritative empty result. `getIndexedTokenAccountsByOwner` accepts
 `{ owner, mint?, limit?, cursor? }`
 or positional equivalents. It returns exact raw balances, separately preserves
