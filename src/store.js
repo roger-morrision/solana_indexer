@@ -154,6 +154,16 @@ export function canonicalPersistedRecoveryState(state) {
   if (Array.isArray(state.events)) { const previousBySlot = new Map(); for (const event of state.events) if (BLOCK_EVENT_TYPES.has(event?.type)) { const prior = previousBySlot.get(event.slot); if (event.type === "block_replaced" && prior && !correctionIdentities.has(`${event.slot}:${prior.blockhash}:${event.blockhash}`)) return false; previousBySlot.set(event.slot, event); } }
   return true;
 }
+function canonicalExecutionQualificationRow(state, pool, row) {
+  const summary = state?.pools?.[pool], snapshot = summary?.accountSnapshot, observed = parseCanonicalUtcTimestamp(row?.observedAt), venueEvidenceSlot = snapshot?.evidenceSlot ?? Math.max(snapshot?.stateSlot ?? 0, snapshot?.balanceSlot ?? 0, snapshot?.mintEvidenceSlot ?? 0), hash = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value), keys = "commitment,confirmationHash,finalizedSlot,genesisHash,landedRouteVerified,locallySimulated,messageHash,observedAt,pool,preparationHash,protocol,schemaVersion,signature,signedArtifactHash,signerPolicyApproved,signingRequestHash,simulationReceiptHash,simulationSlot,sourceHash,venueEvidenceSlot";
+  if (Object.keys(row ?? {}).sort().join(",") !== keys || row.pool !== pool || row.schemaVersion !== 1 || row.protocol !== summary?.protocol || row.commitment !== "finalized" || row.genesisHash !== MAINNET_GENESIS_HASH || observed == null || row.venueEvidenceSlot !== venueEvidenceSlot || !Number.isSafeInteger(row.simulationSlot) || !Number.isSafeInteger(row.finalizedSlot) || row.simulationSlot < row.venueEvidenceSlot || row.finalizedSlot < row.simulationSlot || row.locallySimulated !== true || row.signerPolicyApproved !== true || row.landedRouteVerified !== true || !/^[1-9A-HJ-NP-Za-km-z]{64,100}$/.test(row.signature ?? "") || ![row.messageHash, row.preparationHash, row.simulationReceiptHash, row.signingRequestHash, row.signedArtifactHash, row.confirmationHash, row.sourceHash].every(hash)) return false;
+  const payload = Object.fromEntries(Object.entries(row).filter(([key]) => !["commitment", "genesisHash", "sourceHash"].includes(key)));
+  return row.sourceHash === evidenceHash(payload) && completeExecutionSnapshot(summary, observed);
+}
+export function canonicalExecutionQualifications(state) {
+  const rows = state?.executionQualifications;
+  return Boolean(rows && typeof rows === "object" && !Array.isArray(rows) && Object.entries(rows).every(([pool, row]) => canonicalExecutionQualificationRow(state, pool, row)));
+}
 function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
 function canonicalPersistedTransaction(key, transaction, blocks) {
   const block = blocks?.[String(transaction?.slot)], provenance = transaction?.provenance, blockProvenance = block?.provenance;
@@ -824,8 +834,8 @@ export class IndexStore {
     return { canonical, capacityExceeded: Boolean(overflow), droppedDeadLetters: overflow?.droppedCount ?? 0, processedFiles: Object.keys(this.state.processedFiles ?? {}).length, deadLetters: Array.isArray(this.state.deadLetters) ? this.state.deadLetters.length : null, reorgCorrections: Array.isArray(this.state.reorgCorrections) ? this.state.reorgCorrections.length : null, reason: !canonical ? "indexed_recovery_evidence_invalid" : overflow ? "dead_letter_capacity_exceeded" : null };
   }
   structureQuality() {
-    const fields = this.loadFailure?.fields ?? invalidStateCollections(this.state), canonical = !this.loadFailure && fields.length === 0;
-    return { canonical, reason: canonical ? null : this.loadFailure?.reason ?? "indexed_state_structure_invalid", fields };
+    const fields = this.loadFailure?.fields ?? invalidStateCollections(this.state), qualificationsCanonical = fields.length > 0 || canonicalExecutionQualifications(this.state), canonical = !this.loadFailure && fields.length === 0 && qualificationsCanonical;
+    return { canonical, reason: canonical ? null : this.loadFailure?.reason ?? (qualificationsCanonical ? "indexed_state_structure_invalid" : "indexed_execution_qualification_invalid"), fields: qualificationsCanonical ? fields : [...new Set([...fields, "executionQualifications"])] };
   }
   holderExclusionQuality(now = Date.now()) {
     const registry = this.holderExclusions, observedAt = parseCanonicalUtcTimestamp(registry?.observedAt), expiresAt = parseCanonicalUtcTimestamp(registry?.expiresAt), ageMs = observedAt == null ? null : now - observedAt, expiresInMs = expiresAt == null ? null : expiresAt - now, observedInFuture = ageMs != null && ageMs < 0, configured = Boolean(registry), completeMintCount = registry?.completeMints instanceof Set ? registry.completeMints.size : 0, entryCount = registry?.byMint instanceof Map ? [...registry.byMint.values()].reduce((total, rows) => total + (Array.isArray(rows) ? rows.length : 0), 0) : 0, fresh = configured && !observedInFuture && expiresInMs != null && expiresInMs > 0;

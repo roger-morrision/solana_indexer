@@ -566,3 +566,7 @@ simulation and confirmation slots, canonical hashes, and an exact match to the
 current venue evidence slot. The risk contract still emits
 `new_order_execution_required`; prior route evidence is diagnostic and can
 never authorize a subsequent order.
+Persisted qualification rows are revalidated on every structural health check:
+their exact schema, protocol/pool binding, venue slot, ordered slots, hashes,
+signature encoding, and canonical source hash must still match current pool
+state. Any post-import mutation quarantines decision-bearing consumers.
