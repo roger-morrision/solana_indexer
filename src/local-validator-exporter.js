@@ -44,7 +44,14 @@ export class LocalValidatorPool {
   async assertGenesis(expected = MAINNET_GENESIS_HASH) {
     const hashes = [];
     try {
-      for (const { client } of this.nodes) hashes.push(await client.assertGenesis(expected));
+      for (const node of this.nodes) {
+        if (node.openUntil > this.now()) {
+          if (node.client.verifiedGenesisHash !== expected) throw new Error("validator identity unavailable while circuit is open");
+          hashes.push(node.client.verifiedGenesisHash);
+          continue;
+        }
+        hashes.push(await node.client.assertGenesis(expected));
+      }
       if (new Set(hashes).size !== 1) throw new Error("inconsistent validator genesis identities");
       return hashes[0];
     } catch {

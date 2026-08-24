@@ -1262,6 +1262,11 @@ test("local validator pool honors Retry-After during HTTP 503 maintenance", asyn
   await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryCalls, 1); assert.equal(pool.telemetry()[0].openUntil, 61_000); now = 61_001; assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryCalls, 2);
 });
 
+test("local validator genesis verification does not bypass an open Retry-After circuit", async () => {
+  let now = 1_000, primaryGenesisCalls = 0; const fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getGenesisHash" && endpoint.includes("8899")) primaryGenesisCalls++; if (request.method === "getHealth" && endpoint.includes("8899")) return { ok: false, status: 429, headers: { get: () => "120" } }; return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : "secondary" }) }; }, pool = new LocalValidatorPool(["http://127.0.0.1:8899", "http://127.0.0.1:8900"], { fetchImpl, now: () => now });
+  await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryGenesisCalls, 1); assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.equal(primaryGenesisCalls, 1); now = 121_001; await pool.assertGenesis(); assert.equal(primaryGenesisCalls, 2);
+});
+
 test("local validator pool admits only one half-open probe after cooldown", async () => {
   let now = 1_000, primaryCalls = 0, releaseProbe;
   const probe = new Promise((resolve) => { releaseProbe = resolve; });
@@ -1305,6 +1310,11 @@ test("external RPC pool honors bounded Retry-After without retrying a limited pr
 test("external RPC pool honors Retry-After during HTTP 503 maintenance", async () => {
   let now = 1_000, heliusCalls = 0; const fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getHealth" && endpoint.includes("helius")) { heliusCalls++; return { ok: false, status: 503, headers: { get: () => "60" } }; } return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : "ok" }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl, now: () => now });
   await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusCalls, 1); assert.equal(pool.telemetry()[0].openUntil, 61_000); now = 61_001; assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusCalls, 2);
+});
+
+test("external genesis refresh does not bypass an open Retry-After circuit", async () => {
+  let now = 1_000, heliusGenesisCalls = 0; const fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getGenesisHash" && endpoint.includes("helius")) heliusGenesisCalls++; if (request.method === "getHealth" && endpoint.includes("helius")) return { ok: false, status: 429, headers: { get: () => "120" } }; return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: request.method === "getGenesisHash" ? MAINNET_GENESIS_HASH : "ok" }) }; }, pool = new ExternalRpcPool([{ name: "helius", endpoint: "https://mainnet.helius-rpc.com/?api-key=secret" }, { name: "alchemy", endpoint: "https://solana-mainnet.g.alchemy.com/v2/secret" }], { fetchImpl, now: () => now, genesisVerificationTtlMs: 100 });
+  await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "ok"); assert.equal(heliusGenesisCalls, 1); now = 1_101; await assert.rejects(() => pool.assertGenesis(), /verification deferred for helius/); assert.equal(heliusGenesisCalls, 1); now = 121_001; await pool.assertGenesis(); assert.equal(heliusGenesisCalls, 2);
 });
 
 test("external RPC pool admits only one half-open probe after cooldown", async () => {
