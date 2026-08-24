@@ -29,6 +29,7 @@ export function loadConfig(env = process.env, cwd = process.cwd()) {
     auditLogFile: env.INDEXER_AUDIT_LOG_FILE ? path.resolve(cwd, env.INDEXER_AUDIT_LOG_FILE) : null,
     apiTenantsFile: env.INDEXER_API_TENANTS_FILE ? path.resolve(cwd, env.INDEXER_API_TENANTS_FILE) : null,
     warehouseCheckpointFile: path.resolve(cwd, env.INDEXER_WAREHOUSE_CHECKPOINT_FILE || "data/warehouse-checkpoint.json"),
+    warehouseStatusFile: path.resolve(cwd, env.INDEXER_WAREHOUSE_STATUS_FILE || "data/warehouse-status.json"),
     backupStatusFile: path.resolve(cwd, env.INDEXER_BACKUP_STATUS_FILE || "data/backup-status.json"),
     backupMaximumAgeMs: boundedInt(env.INDEXER_BACKUP_MAXIMUM_AGE_SECONDS, 86_400, 3_600, 604_800) * 1_000,
     recoveryReportFile: path.resolve(cwd, env.INDEXER_RECOVERY_REPORT_FILE || "data/recovery-report.json"),

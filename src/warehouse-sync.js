@@ -322,7 +322,20 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
   const reconciliation = checkpoint.reconciliation; if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) return { ...unavailable("content_reconciliation_unavailable"), sequence, sinks };
   if (sequence > eventSequence) return { ...unavailable("checkpoint_ahead_of_index"), sequence };
   const lagEvents = eventSequence - sequence, ageMs = now - updated, replayHistoryLost = sequence < oldestSequence - 1, reason = ageMs < 0 ? "checkpoint_clock_skew" : replayHistoryLost ? "checkpoint_behind_replay_history" : lagEvents > maxLagEvents ? "warehouse_lag_exceeded" : ageMs > staleAfterMs ? "warehouse_checkpoint_stale" : null;
-  return { available: true, healthy: reason == null, reason, chain: checkpoint.chain, genesisHash: checkpoint.genesisHash, sequence, eventSequence, oldestSequence, lagEvents, ageMs, staleAfterMs, maxLagEvents, replayHistoryLost, sinks, reconciliation };
+  return { available: true, healthy: reason == null, reason, chain: checkpoint.chain, genesisHash: checkpoint.genesisHash, sequence, eventSequence, oldestSequence, lagEvents, ageMs, updatedAt: checkpoint.updatedAt, staleAfterMs, maxLagEvents, replayHistoryLost, sinks, reconciliation };
+}
+
+export function applyWarehouseFailureStatus(warehouse, status) {
+  if (!warehouse || !status || status.schemaVersion !== 1 || status.kind !== "warehouse_sync_status" || status.chain !== CHAIN || status.genesisHash !== GENESIS_HASH || status.healthy !== false || status.reason !== "warehouse_sync_failed") return warehouse;
+  const failedAt = Date.parse(status.observedAt ?? ""), checkpointAt = Date.parse(status.checkpointUpdatedAt ?? "");
+  if (!Number.isFinite(failedAt) || !Number.isFinite(checkpointAt) || failedAt <= checkpointAt || status.checkpointUpdatedAt !== warehouse.updatedAt) return warehouse;
+  return { ...warehouse, healthy: false, reason: "warehouse_sync_failed", lastFailureAt: status.observedAt };
+}
+
+export async function writeWarehouseFailureStatus(filename, checkpointUpdatedAt, observedAt = new Date().toISOString()) {
+  if (typeof filename !== "string" || !filename || !Number.isFinite(Date.parse(checkpointUpdatedAt ?? "")) || !Number.isFinite(Date.parse(observedAt)) || Date.parse(observedAt) <= Date.parse(checkpointUpdatedAt)) throw new Error("invalid warehouse failure status");
+  const status = { schemaVersion: 1, kind: "warehouse_sync_status", chain: CHAIN, genesisHash: GENESIS_HASH, healthy: false, reason: "warehouse_sync_failed", observedAt, checkpointUpdatedAt };
+  await durableAtomicWrite(filename, `${JSON.stringify(status)}\n`); return status;
 }
 
 function runProcess(command, args, input, spawnProcess = spawn, env = process.env) {
@@ -431,7 +444,8 @@ async function main() {
   if (checkpoint?.evidenceReadError) throw new Error(`warehouse checkpoint is unavailable: ${checkpoint.evidenceReadError}`);
   const holderExclusions = await loadHolderExclusions(config.holderExclusionsFile), store = new IndexStore(config.dataFile, config.maxTransactions, config.retentionSeconds, holderExclusions, null, 200, config.maxStateFileBytes); await store.load(); assertWarehousePublicationState(store);
   const clientEnv = { ...process.env }; if (config.clickhousePasswordFile) clientEnv.CLICKHOUSE_PASSWORD = await readSecretFile(config.clickhousePasswordFile, "CLICKHOUSE_PASSWORD_FILE"); if (config.redisPasswordFile) clientEnv.REDISCLI_AUTH = await readSecretFile(config.redisPasswordFile, "REDIS_PASSWORD_FILE");
-  const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv), reconciliation = await probeWarehouseReconciliation(expectedWarehouseReconciliation(state, result.sequence, projections, facts), spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks, reconciliation); console.log(JSON.stringify({ ...result, sinks, reconciliation, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length }));
+  try { const state = store.state, batch = compileWarehouseBatch(state, checkpoint), facts = compileWarehouseFacts(state, batch), projections = compileWarehouseProjections(store, config.staleAfterMs), postgresSql = compileWarehouseMetadataSql(state, batch.toSequence, projections), redisInput = compileRedisHotSync(state, batch, config.redisHotTtlSeconds, config.redisHotMaxBytes), result = await syncWarehouseBatch(batch, spawn, clientEnv, facts, postgresSql, redisInput), sinks = await probeWarehouseSinks(result.sequence, spawn, clientEnv), reconciliation = await probeWarehouseReconciliation(expectedWarehouseReconciliation(state, result.sequence, projections, facts), spawn, clientEnv); await writeWarehouseCheckpoint(checkpointFile, result.sequence, sinks, reconciliation); console.log(JSON.stringify({ ...result, sinks, reconciliation, candidates: projections.candidates.length, securitySnapshots: projections.security.length, operationalJobs: projections.jobs.length, redisBytes: redisInput.length })); }
+  catch (error) { if (checkpoint?.updatedAt) await writeWarehouseFailureStatus(config.warehouseStatusFile, checkpoint.updatedAt); throw error; }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
