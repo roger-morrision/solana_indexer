@@ -406,7 +406,8 @@ contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
 `/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the authenticated Raydium CLMM/CPMM/AMM v4, Orca, Meteora, and PumpSwap `POST /internal/pools/:address/prepare-swap`;
 `/internal/feed/health`;
-and `/internal/feed/gaps`. Evidence bundle v2 includes exact USD-reference and
+and `/internal/feed/gaps`, whose skipped-slot, inbox-checkpoint, and reorg-correction
+projections expose only their schema-bound fields. Evidence bundle v2 includes exact USD-reference and
 USD-volume completeness plus per-pool risk outputs alongside stable schema
 versions, provenance, freshness, confidence, and explicit missing fields. The program
 registry is available at `/internal/registry`.
