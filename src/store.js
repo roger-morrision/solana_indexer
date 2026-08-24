@@ -298,7 +298,7 @@ function pumpCurveFeePolicy(snapshot) {
 }
 const PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS = new Set(["metadataPointer", "tokenMetadata"]);
 function pumpTransferSemanticsSupported(snapshot) {
-  return [snapshot?.mint0Evidence, snapshot?.mint1Evidence].every((evidence) => evidence?.programId !== TOKEN_2022_PROGRAM || Array.isArray(evidence.extensionTypes) && evidence.extensionTypes.every((extension) => PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.has(extension)));
+  return [snapshot?.mint0Evidence, snapshot?.mint1Evidence].every((evidence) => evidence?.programId !== TOKEN_2022_PROGRAM || Array.isArray(evidence.extensionTypes) && evidence.extensionTypes.length === PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.size && evidence.extensionTypes.every((extension) => PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.has(extension)));
 }
 function pumpTokenProgramMode(snapshot) { return snapshot?.baseTokenProgram === TOKEN_2022_PROGRAM || snapshot?.quoteTokenProgram === TOKEN_2022_PROGRAM ? "token_2022_transfer_neutral_extensions" : "legacy_spl"; }
 function completeExecutionSnapshot(summary, now) {

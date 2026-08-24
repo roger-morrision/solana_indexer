@@ -15,7 +15,10 @@ function validateFeePolicy(curve) {
 }
 function validateTransferSemantics(curve) {
   if (!TOKEN_PROGRAMS.has(curve?.baseTokenProgram) || !TOKEN_PROGRAMS.has(curve?.quoteTokenProgram)) throw new Error("Pump V2 token program is unsupported");
-  for (const evidence of [curve.mint0Evidence, curve.mint1Evidence]) if (evidence?.programId === TOKEN_2022_PROGRAM && (!Array.isArray(evidence.extensionTypes) || evidence.extensionTypes.some((extension) => !TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.has(extension)))) throw new Error("Pump V2 Token-2022 extension changes transfer semantics");
+  for (const evidence of [curve.mint0Evidence, curve.mint1Evidence]) if (evidence?.programId === TOKEN_2022_PROGRAM) {
+    const extensions = evidence.extensionTypes;
+    if (!Array.isArray(extensions) || extensions.length !== TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.size || extensions.some((extension) => !TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.has(extension))) throw new Error("Pump V2 Token-2022 extension inventory is not the documented transfer-neutral create_v2 set");
+  }
 }
 function tokenProgramMode(curve) { return curve.baseTokenProgram === TOKEN_2022_PROGRAM || curve.quoteTokenProgram === TOKEN_2022_PROGRAM ? "token_2022_transfer_neutral_extensions" : "legacy_spl"; }
 
