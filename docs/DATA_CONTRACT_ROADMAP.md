@@ -580,4 +580,6 @@ Risk projections expose the bounded `qualificationStatus` enum (`missing`,
 canonical evidence, allowing bots and operators to distinguish repair actions
 without relaxing `new_order_execution_required`. Canonical superseded evidence
 retains its diagnostic age even though its capability flags and evidence body
-remain unavailable.
+remain unavailable. The execution projection also exposes the canonical
+qualification observation timestamp and an explicit future-clock flag; invalid
+or missing artifacts expose neither timestamp nor age.
