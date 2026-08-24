@@ -11,6 +11,8 @@ maintenance is reported separately and is not silently removed from raw data.
 | Complete execution snapshot | 100% of automation-ready responses | event-only, stale, or mismatched mint evidence blocks bot readiness |
 | Newest finalized block age | <=120 seconds for 99.9% of minutes | page and bot responses disclose stale data |
 | Consecutive exporter failures | zero during normal operation | alert; preserve the last success and publish redacted failure evidence |
+| Warehouse projection preimage integrity | zero invalid token, pool, or candidate rows | page within one minute; retain the last successful checkpoint and require canonical replay/repair before readiness |
+| Classified warehouse sync failures | no stage remains failed for two minutes | alert on the fixed compile/write/probe/reconciliation/checkpoint stage and keep REST/bot readiness unavailable |
 | Private block stream connection | connected during normal operation | readiness fails immediately on a durable disconnect transition; rotate nodes and repair gaps over verified RPC |
 | REST read latency | p99 <=500 ms monthly | route-free fixed-bucket histogram alerts after a sustained five-minute-window breach; shed expensive requests |
 | WebSocket persisted-event delivery | acknowledgement-enabled client p99 <=2 seconds after durable index commit | alert on the fixed-bucket commit-to-ack histogram; reconnect and resume from cursor |
@@ -43,6 +45,13 @@ Malformed JSON in exporter, warehouse, backup, or recovery evidence is converted
 to a redacted invalid-evidence state. `/metrics` remains available with zero
 health gauges, while every dependent API, gap feed, and bot gate fails closed;
 the malformed bytes are never reflected in a response.
+
+Warehouse failure telemetry uses only five fixed processing stages and three
+fixed projection labels. Any invalid PostgreSQL preimage is critical after one
+minute; a classified sync failure sustained for two minutes is warning-level
+diagnostic context alongside the existing critical warehouse-health alert. No
+row identity, mint, address, content hash, provider response, or error text is
+placed in either metric or alert annotation.
 Ingestion and snapshot dead-letter errors are restricted to 512-byte redacted
 diagnostics. URLs, authentication tokens, secret assignments, JWTs, private-key
 blocks, and control characters never enter durable state or warehouse facts.

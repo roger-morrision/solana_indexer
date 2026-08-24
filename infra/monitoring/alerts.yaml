@@ -46,6 +46,16 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations: { summary: "Canonical warehouse synchronization is unavailable, stale, lagged, or outside retained replay history" }
+      - alert: TerminalDexWarehouseProjectionIntegrity
+        expr: max by (projection) (terminal_dex_warehouse_invalid_postgres_preimages) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "A PostgreSQL warehouse projection has a stored preimage that does not reproduce its content hash" }
+      - alert: TerminalDexWarehouseFailureStage
+        expr: max by (stage) (terminal_dex_warehouse_failure_stage) == 1
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "Warehouse synchronization is repeatedly failing at a bounded processing stage" }
       - alert: TerminalDexBackupRpoMissed
         expr: terminal_dex_backup_healthy == 0 or terminal_dex_backup_age_seconds > 86400
         for: 5m
