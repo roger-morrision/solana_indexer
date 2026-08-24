@@ -570,3 +570,7 @@ Persisted qualification rows are revalidated on every structural health check:
 their exact schema, protocol/pool binding, venue slot, ordered slots, hashes,
 signature encoding, and canonical source hash must still match current pool
 state. Any post-import mutation quarantines decision-bearing consumers.
+Risk projections expose the bounded `qualificationStatus` enum (`missing`,
+`invalid`, `venue_superseded`, `future`, `stale`, or `fresh`) and age only for
+canonical evidence, allowing bots and operators to distinguish repair actions
+without relaxing `new_order_execution_required`.
