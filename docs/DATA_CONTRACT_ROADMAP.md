@@ -572,7 +572,9 @@ hashes, signature encoding, and canonical source hash must remain internally
 consistent. Any post-import mutation quarantines decision-bearing consumers.
 Normal venue snapshot advancement preserves the immutable qualification as
 canonical audit evidence while current eligibility reports `venue_superseded`
-and continues to fail closed.
+and continues to fail closed. Snapshot completeness is enforced when evidence
+is imported; later integrity checks validate only the persisted artifact's
+content-bound facts instead of re-evaluating history against newer venue state.
 Risk projections expose the bounded `qualificationStatus` enum (`missing`,
 `invalid`, `venue_superseded`, `future`, `stale`, or `fresh`) and age only for
 canonical evidence, allowing bots and operators to distinguish repair actions
