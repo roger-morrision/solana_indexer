@@ -122,6 +122,11 @@ Signing and submission remain external.
 Reviewed holder exclusions cannot establish completeness with display labels or
 mistyped identities: every mint, owner and token-account selector is decoded as
 a canonical 32-byte Solana base58 address before the registry is admitted.
+The PostgreSQL pool catalog additionally projects nullable all-or-none normalized
+base/quote mint columns with chain-scoped partial indexes, so token-page and AI
+pool discovery avoids JSON scans without inventing pair identity for incomplete
+evidence. The canonical summary and its reconciliation hash remain authoritative.
+
 REST/RPC stats and fixed-cardinality Prometheus gauges publish only aggregate
 configured/fresh state, age/expiry, covered-mint count and entry count.
 
