@@ -195,8 +195,10 @@ and pool identity so an extracted qualification cannot lose its canonical bindin
 Its separate `venueQualified` flag reuses the protocol-specific execution-snapshot
 validator; slot equality alone never claims executable venue capability.
 Current venue identity is the maximum of every protocol dependency slot (including
-book/oracle, config, tick/bin-array, bitmap, fee and mint evidence), so advancing
-any dependency supersedes historical route qualification immediately.
+book/oracle, config, tick/bin-array, CLMM or DLMM bitmap extension, fee and mint
+evidence), and execution completeness requires the persisted evidence slot to equal
+that maximum, so advancing any dependency supersedes historical route qualification
+immediately.
 The application does not claim these
 stores are active until connector health and dual-write validation are added.
 SeaweedFS master, volume, and filer services provide self-hosted archive storage;

@@ -13,7 +13,7 @@ import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmPoolInitializations, decodeMeteoraDlmmSwapEvents, decodeOpenBookV2SwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePhoenixSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumAmmV4PoolInitializations, decodeRaydiumAmmV4SwapEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedLifecycleInstructionEvidence, recognizedLifecycleInstructionOutput, recognizedSwapInstructionEvidence, recognizedSwapInstructionProtocol } from "../src/parser.js";
 import { createServer, gateBotReadiness } from "../src/server.js";
 import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
-import { canonicalLifecycleTransition, canonicalPersistedEvent, canonicalSwapShape, canonicalTokenAccountProjections, IndexStore, isCanonicalAccountSnapshotEvidence, validOpenBookOracleEvidence } from "../src/store.js";
+import { canonicalLifecycleTransition, canonicalPersistedEvent, canonicalSwapShape, canonicalTokenAccountProjections, IndexStore, isCanonicalAccountSnapshotEvidence, poolExecutionEvidenceSlot, validOpenBookOracleEvidence } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
 import { createAccountSnapshot, decodeRawToken2022Account, extractToken2022MintEvidence } from "../src/account-snapshot.js";
@@ -84,6 +84,11 @@ import { acquirePoolMintEvidence, bindPoolMintEvidence, deriveTransferHookValida
 import { redactDiagnostic } from "../src/diagnostic-redaction.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
+test("pool execution evidence slot covers every venue dependency family", () => {
+  assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, openOrdersSlot: 11, marketSlot: 12, bookSlot: 13, oracleSlot: 14, balanceSlot: 15, configSlot: 16, mintSlot: 17, tickArraySlot: 18, binArraySlot: 19, bitmapExtensionSlot: 20, binArrayBitmapExtensionSlot: 21, ammConfigSlot: 22, feeConfigSlot: 23, globalConfigSlot: 24, mintEvidenceSlot: 25 }), 25);
+  assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, binArrayBitmapExtensionSlot: 26, evidenceSlot: 99 }), 26);
+  assert.equal(poolExecutionEvidenceSlot({ evidenceSlot: 99 }), null);
+});
 function isolateManualDecisionFixture(store) { const canonical = () => ({ canonical: true, reason: null }); for (const name of ["derivedLedgerQuality", "aggregateQuality", "programEventQuality", "snapshotQuality", "metadataQuality"]) store[name] = canonical; return store; }
 
 test("durable atomic writes tolerate same-process concurrency without temporary-file collisions", async (t) => {
@@ -121,7 +126,7 @@ test("graceful shutdown cannot be held open by an active WebSocket", async () =>
   let timeout; try { await Promise.race([shutdownIndexer({ server }), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("shutdown timed out with active WebSocket")), 1_000); })]); } finally { clearTimeout(timeout); } const event = await closed; assert.equal(event.code, 1001); assert.equal(server.webSocketStats.activeClients, 0);
 });
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const withLegacyMintEvidence = (pool, slot, epoch = 2) => ({ ...pool, mintEvidenceSlot: slot, epoch, mint0Evidence: { schemaVersion: 1, mint: pool.tokenMint0, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals0 ?? 6, extensionTypes: [], token2022Evidence: null }, mint1Evidence: { schemaVersion: 1, mint: pool.tokenMint1, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals1 ?? 6, extensionTypes: [], token2022Evidence: null } });
+const withLegacyMintEvidence = (pool, slot, epoch = 2) => ({ ...pool, evidenceSlot: pool.evidenceSlot ?? slot, mintEvidenceSlot: slot, epoch, mint0Evidence: { schemaVersion: 1, mint: pool.tokenMint0, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals0 ?? 6, extensionTypes: [], token2022Evidence: null }, mint1Evidence: { schemaVersion: 1, mint: pool.tokenMint1, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals1 ?? 6, extensionTypes: [], token2022Evidence: null } });
 const emptyClmmBitmap = (tickSpacing) => ({ bitCount: 1024, minStartTickIndex: -512 * 60 * tickSpacing, maxStartTickIndexExclusive: 512 * 60 * tickSpacing, initializedTickArrayStartIndexes: [], rawHex: "00".repeat(128) });
 
 test("Pump V2 token-program policy is shared and fail closed", () => {
