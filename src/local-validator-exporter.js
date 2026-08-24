@@ -55,7 +55,10 @@ export class LocalValidatorPool {
           hashes.push(node.client.verifiedGenesisHash);
           continue;
         }
-        try { hashes.push(await node.client.assertGenesis(expected)); }
+        try {
+          hashes.push(await node.client.assertGenesis(expected));
+          node.failures = 0; node.openUntil = 0;
+        }
         catch (error) { this.recordFailure(node, error); throw error; }
       }
       if (new Set(hashes).size !== 1) throw new Error("inconsistent validator genesis identities");
