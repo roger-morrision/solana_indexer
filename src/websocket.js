@@ -73,6 +73,7 @@ export function projectWebSocketEvent(event, filter) {
   if (filter.topic === "snapshots") {
     if (filter.eventType && event.type !== filter.eventType) return null;
     if (MINT_SNAPSHOT_TYPES.has(event.type)) { if (filter.pool || filter.protocol) return null; const mints = (event.mints ?? []).filter((row) => !filter.mint || row.mint === filter.mint); return mints.length ? { ...event, mints } : null; }
+    if (event.type === "execution_qualification_applied") { if (filter.mint) return null; const qualifications = (event.qualifications ?? []).filter((row) => (!filter.pool || row.pool === filter.pool) && (!filter.protocol || row.protocol === filter.protocol)); return qualifications.length ? { ...event, qualifications } : null; }
     const protocol = SNAPSHOT_PROTOCOLS.get(event.type); if (!protocol || filter.mint || filter.protocol && filter.protocol !== protocol) return null; const pools = (event.pools ?? []).filter((row) => !filter.pool || row.pool === filter.pool); return pools.length ? { ...event, protocol, pools } : null;
   }
   if (filter.topic === "lifecycle") {

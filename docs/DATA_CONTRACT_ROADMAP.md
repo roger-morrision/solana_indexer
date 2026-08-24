@@ -586,3 +586,6 @@ or missing artifacts expose neither timestamp nor age. A separate
 `qualificationVenueEvidenceSlot` retains the artifact's canonical bound slot,
 so consumers can compare it with the current `venueEvidenceSlot` without
 parsing or trusting the unavailable execution evidence body.
+Accepted qualification changes emit canonical
+`execution_qualification_applied` events on the ordered replayable snapshot
+topic, filterable by pool and protocol; idempotent re-imports emit no duplicate.
