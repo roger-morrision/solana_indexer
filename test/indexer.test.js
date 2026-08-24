@@ -1220,6 +1220,9 @@ test("provider Retry-After hints are bounded and never reopen immediately", () =
   assert.equal(parseRetryAfterMs("Sat, 21 Aug 2026 23:59:00 GMT", now), MIN_RETRY_AFTER_MS);
   assert.equal(parseRetryAfterMs("999999999999999999999", now), MAX_RETRY_AFTER_MS);
   assert.equal(parseRetryAfterMs("3601", now), MAX_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfterMs("00001", now), MIN_RETRY_AFTER_MS);
+  assert.equal(parseRetryAfterMs("00002", now), 2_000);
+  assert.equal(parseRetryAfterMs("00003601", now), MAX_RETRY_AFTER_MS);
   assert.equal(parseRetryAfterMs("2", now), 2_000);
   assert.equal(parseRetryAfterMs("invalid", now), null);
 });
