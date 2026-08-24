@@ -388,7 +388,7 @@ excludes future-dated observations. It does not infer USD volume or holder count
 - `GET /api/v1/holders/:mint?limit=100` (finalized snapshot coverage when available; exclusions disclosed)
 - `GET /api/v1/bot/readiness?pool=:pool` (targeted fail-closed capability gate)
 - `GET /api/v1/risk/:pool` (data-quality evidence, not a rug/security oracle)
-- `GET /api/v1/ingestion` (durable exporter lag and skipped-slot evidence; malformed cursor/lag/tip progress fails closed)
+- `GET /api/v1/ingestion` (sanitized durable exporter lag and validated skipped-slot evidence; malformed progress fails closed and raw status fields or diagnostics are never echoed)
 - `GET /api/v1/warehouse` (durable sink checkpoint age, event lag and retained-replay coverage; unavailable/corrupt/ahead checkpoints fail closed)
 - `POST /rpc` (`getIndexerHealth`, `getIndexerStats`, `getIndexedBlock`, `getIndexedBlocks`, `getIndexedTransaction`, `getIndexedSignaturesForAddress`, `getIndexedTokenAccount`, `getIndexedTokenSupply`, `getIndexedTokenMetadata`, `getIndexedTokenLargestAccounts`, `getIndexedTokenHolders`, and `getIndexedTokenAccountsByOwner` only; bounded batches of 100 calls, charged per logical call)
 - `WS /ws?cursor=<sequence>&topic=blocks|swaps|lifecycle|snapshots&mint=&pool=&protocol=&eventType=` (filtered persisted events with replay/resume; account/off-chain metadata and every supported finalized pool/curve snapshot family use the isolated `snapshots` topic with strict filter-domain isolation)

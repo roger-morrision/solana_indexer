@@ -343,7 +343,7 @@ export function createServer(config, store) {
       if (url.pathname === "/api/stats") { const structure = store.structureQuality(), payload = { ...store.stats(), structure, chain: structure.canonical ? store.chainQuality() : { canonical: false, conflicts: [], conflictCount: 0, invalidStateStructure: true } }; return json(response, structure.canonical ? 200 : 503, payload); }
       if (url.pathname === "/api/v1/ingestion") {
         const exporter = await readJsonFile(config.exporterStatusFile);
-        const status = assessExporterStatus(exporter, config.staleAfterMs, Date.now(), config.maxExporterLagSlots), payload = { ...status, exporter, index: store.stats().ingestion };
+        const status = assessExporterStatus(exporter, config.staleAfterMs, Date.now(), config.maxExporterLagSlots), payload = { ...status, exporter: status, index: store.stats().ingestion };
         return json(response, status.healthy ? 200 : 503, payload);
       }
       if (url.pathname === "/api/v1/warehouse") { const [checkpoint, failure] = await Promise.all([readJsonFile(config.warehouseCheckpointFile), readJsonFile(config.warehouseStatusFile)]), sequence = Number.isSafeInteger(store.state?.eventSequence) ? store.state.eventSequence : 0, events = Array.isArray(store.state?.events) ? store.state.events : [], status = applyWarehouseFailureStatus(assessWarehouseCheckpoint(checkpoint, sequence, events[0]?.sequence ?? sequence + 1, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents), failure); return json(response, status.healthy ? 200 : 503, status); }
