@@ -27,6 +27,7 @@ import { createPumpSwapPoolSnapshot, decodePumpSwapFeeConfigAccount, decodePumpS
 import { createPumpBondingCurveSnapshot, decodePumpBondingCurveAccount, decodePumpGlobalAccount } from "../src/pump-bonding-curve-snapshot.js";
 import { buildPumpSwapBuyExactQuoteInInstruction, buildPumpSwapSellInstruction, createPumpSwapBuyExactQuoteInSigningRequest, createPumpSwapSellSigningRequest, preparePumpSwapBuyExactQuoteInSimulation, preparePumpSwapSellSimulation, simulatePreparedPumpSwapBuyExactQuoteIn, simulatePreparedPumpSwapSell, verifyFinalizedPumpSwapBuyExactQuoteIn, verifyFinalizedPumpSwapSell, verifyPumpSwapBuyExactQuoteInSignedRequest, verifyPumpSwapSellSignedRequest, PUMP_SWAP_EXECUTION_CONSTANTS } from "../src/pump-swap-execution.js";
 import { buildPumpBuyExactQuoteInV2Instruction, buildPumpSellV2Instruction, createPumpBuyExactQuoteInV2SigningRequest, createPumpSellV2SigningRequest, preparePumpBuyExactQuoteInV2Simulation, preparePumpSellV2Simulation, simulatePreparedPumpBuyExactQuoteInV2, simulatePreparedPumpSellV2, verifyFinalizedPumpBuyExactQuoteInV2, verifyFinalizedPumpSellV2, verifyPumpBuyExactQuoteInV2SignedRequest, verifyPumpSellV2SignedRequest, PUMP_BONDING_CURVE_EXECUTION_CONSTANTS } from "../src/pump-bonding-curve-execution.js";
+import { assessPumpV2TokenProgramPolicy, PUMP_TOKEN_PROGRAM_POLICY } from "../src/pump-token-program-policy.js";
 import { bindExecutionHandoff, EXECUTION_HANDOFF_POLICY } from "../src/execution-handoff-policy.js";
 import { createOrcaPoolSnapshot, decodeOrcaTickArrayAccount, decodeOrcaWhirlpoolAccount, ORCA_WHIRLPOOL_PROGRAM } from "../src/orca-pool-snapshot.js";
 import { createMeteoraDlmmPoolSnapshot, decodeMeteoraBinArrayAccount, decodeMeteoraLbPairAccount, METEORA_DLMM_PROGRAM } from "../src/meteora-dlmm-pool-snapshot.js";
@@ -122,6 +123,15 @@ test("graceful shutdown cannot be held open by an active WebSocket", async () =>
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const withLegacyMintEvidence = (pool, slot, epoch = 2) => ({ ...pool, mintEvidenceSlot: slot, epoch, mint0Evidence: { schemaVersion: 1, mint: pool.tokenMint0, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals0 ?? 6, extensionTypes: [], token2022Evidence: null }, mint1Evidence: { schemaVersion: 1, mint: pool.tokenMint1, programId: SPL_TOKEN_PROGRAM, commitment: "finalized", slot, epoch, decimals: pool.mintDecimals1 ?? 6, extensionTypes: [], token2022Evidence: null } });
 const emptyClmmBitmap = (tickSpacing) => ({ bitCount: 1024, minStartTickIndex: -512 * 60 * tickSpacing, maxStartTickIndexExclusive: 512 * 60 * tickSpacing, initializedTickArrayStartIndexes: [], rawHex: "00".repeat(128) });
+
+test("Pump V2 token-program policy is shared and fail closed", () => {
+  const legacy = { programId: PUMP_TOKEN_PROGRAM_POLICY.legacyTokenProgram, extensionTypes: [] }, token2022 = { programId: PUMP_TOKEN_PROGRAM_POLICY.token2022Program, extensionTypes: [...PUMP_TOKEN_PROGRAM_POLICY.token2022Extensions] }, snapshot = { baseTokenProgram: token2022.programId, quoteTokenProgram: legacy.programId, mint0Evidence: token2022, mint1Evidence: legacy };
+  assert.deepEqual(assessPumpV2TokenProgramPolicy(snapshot), { supported: true, mode: "token_2022_transfer_neutral_extensions", reason: null });
+  assert.deepEqual(assessPumpV2TokenProgramPolicy({ ...snapshot, mint0Evidence: { ...token2022, extensionTypes: ["metadataPointer"] } }), { supported: false, mode: null, reason: "unsupported_token_2022_extension_inventory" });
+  assert.deepEqual(assessPumpV2TokenProgramPolicy({ ...snapshot, mint0Evidence: { ...token2022, extensionTypes: [...token2022.extensionTypes, "permanentDelegate"] } }), { supported: false, mode: null, reason: "unsupported_token_2022_extension_inventory" });
+  assert.deepEqual(assessPumpV2TokenProgramPolicy({ ...snapshot, mint0Evidence: legacy }), { supported: false, mode: null, reason: "token_program_evidence_mismatch" });
+  assert.deepEqual(assessPumpV2TokenProgramPolicy({ ...snapshot, baseTokenProgram: "untrusted" }), { supported: false, mode: null, reason: "unsupported_token_program" });
+});
 
 test("local simulation accepts only unsigned hash-bound transactions", async () => {
   const bytes = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1, 2, 3, 4])]), transactionBase64 = bytes.toString("base64"), validated = validateUnsignedTransactionBase64(transactionBase64); assert.equal(validated.signatureCount, 1); assert.match(validated.transactionHash, /^[0-9a-f]{64}$/);

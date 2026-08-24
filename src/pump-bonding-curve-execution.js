@@ -2,9 +2,9 @@ import crypto from "node:crypto";
 import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
 import { ASSOCIATED_TOKEN_PROGRAM, deriveAssociatedTokenAddress, derivePumpBondingCurve, derivePumpCreatorVault, derivePumpEventAuthority, derivePumpFeeConfig, derivePumpGlobal, derivePumpGlobalVolumeAccumulator, derivePumpSharingConfig, derivePumpUserVolumeAccumulator, PUMP_FEE_PROGRAM, PUMP_PROGRAM } from "./pump-swap-pool-snapshot.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+import { assessPumpV2TokenProgramPolicy } from "./pump-token-program-policy.js";
 
-const SYSTEM_PROGRAM = "11111111111111111111111111111111", SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", SELL_V2 = Buffer.from([51, 230, 133, 164, 1, 127, 131, 173]), BUY_EXACT_QUOTE_IN_V2 = Buffer.from([194, 171, 28, 70, 104, 77, 91, 47]), U64_MAX = (1n << 64n) - 1n;
-const TOKEN_PROGRAMS = new Set([SPL_TOKEN_PROGRAM, TOKEN_2022_PROGRAM]), TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS = new Set(["metadataPointer", "tokenMetadata"]);
+const SYSTEM_PROGRAM = "11111111111111111111111111111111", SELL_V2 = Buffer.from([51, 230, 133, 164, 1, 127, 131, 173]), BUY_EXACT_QUOTE_IN_V2 = Buffer.from([194, 171, 28, 70, 104, 77, 91, 47]), U64_MAX = (1n << 64n) - 1n;
 function integer(value, label) { let parsed; try { parsed = BigInt(value); } catch { throw new Error(`${label} is invalid`); } if (parsed < 0n || parsed > U64_MAX) throw new Error(`${label} is invalid`); return parsed; }
 function u64(value) { const data = Buffer.alloc(8); data.writeBigUInt64LE(value); return data; }
 function meta(address, signer, writable) { if (typeof address !== "string" || !address) throw new Error("Pump bonding-curve account is missing"); return { address, signer, writable }; }
@@ -14,13 +14,10 @@ function validateFeePolicy(curve) {
   if (curve.cashbackCoin || BigInt(buyback) !== 0n) throw new Error("Pump bonding-curve cashback and buyback fee modes are unsupported");
 }
 function validateTransferSemantics(curve) {
-  if (!TOKEN_PROGRAMS.has(curve?.baseTokenProgram) || !TOKEN_PROGRAMS.has(curve?.quoteTokenProgram)) throw new Error("Pump V2 token program is unsupported");
-  for (const evidence of [curve.mint0Evidence, curve.mint1Evidence]) if (evidence?.programId === TOKEN_2022_PROGRAM) {
-    const extensions = evidence.extensionTypes;
-    if (!Array.isArray(extensions) || extensions.length !== TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.size || extensions.some((extension) => !TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.has(extension))) throw new Error("Pump V2 Token-2022 extension inventory is not the documented transfer-neutral create_v2 set");
-  }
+  const policy = assessPumpV2TokenProgramPolicy(curve);
+  if (!policy.supported) throw new Error(policy.reason === "unsupported_token_program" ? "Pump V2 token program is unsupported" : "Pump V2 Token-2022 extension inventory is not the documented transfer-neutral create_v2 set");
 }
-function tokenProgramMode(curve) { return curve.baseTokenProgram === TOKEN_2022_PROGRAM || curve.quoteTokenProgram === TOKEN_2022_PROGRAM ? "token_2022_transfer_neutral_extensions" : "legacy_spl"; }
+function tokenProgramMode(curve) { return assessPumpV2TokenProgramPolicy(curve).mode; }
 
 export function buildPumpSellV2Instruction({ quote, curve, user, userBaseTokenAccount, userQuoteTokenAccount, protocolFeeRecipient, buybackFeeRecipient, minimumOutputRaw }) {
   const slots = quote?.evidence;

@@ -13,6 +13,7 @@ import { recognizedLifecycleInstructionEvidence, recognizedSwapInstructionEviden
 import { createProgramAddress, decodeBase58Address } from "./solana-pda.js";
 import { evaluateOpenBookOraclePolicy, projectOpenBookPeggedOrder } from "./openbook-oracle-policy.js";
 import { SNAPSHOT_ARTIFACT_TYPES } from "./snapshot-artifact-registry.js";
+import { assessPumpV2TokenProgramPolicy } from "./pump-token-program-policy.js";
 
 export const MAX_INDEX_STATE_BYTES = 536_870_912;
 
@@ -296,11 +297,10 @@ function pumpCurveFeePolicy(snapshot) {
   if (typeof snapshot?.cashbackCoin !== "boolean" || typeof buyback !== "string" || !/^\d+$/.test(buyback) || BigInt(buyback) > 10_000n) return { valid: false, supported: false };
   return { valid: true, supported: snapshot.cashbackCoin === false && BigInt(buyback) === 0n };
 }
-const PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS = new Set(["metadataPointer", "tokenMetadata"]);
 function pumpTransferSemanticsSupported(snapshot) {
-  return [snapshot?.mint0Evidence, snapshot?.mint1Evidence].every((evidence) => evidence?.programId !== TOKEN_2022_PROGRAM || Array.isArray(evidence.extensionTypes) && evidence.extensionTypes.length === PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.size && evidence.extensionTypes.every((extension) => PUMP_TRANSFER_NEUTRAL_TOKEN_2022_EXTENSIONS.has(extension)));
+  return assessPumpV2TokenProgramPolicy(snapshot).supported;
 }
-function pumpTokenProgramMode(snapshot) { return snapshot?.baseTokenProgram === TOKEN_2022_PROGRAM || snapshot?.quoteTokenProgram === TOKEN_2022_PROGRAM ? "token_2022_transfer_neutral_extensions" : "legacy_spl"; }
+function pumpTokenProgramMode(snapshot) { return assessPumpV2TokenProgramPolicy(snapshot).mode; }
 function completeExecutionSnapshot(summary, now) {
   try {
   const snapshot = summary?.accountSnapshot; if (snapshot?.commitment !== "finalized" || parseCanonicalUtcTimestamp(snapshot.observedAt) == null) return false;
