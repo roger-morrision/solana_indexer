@@ -582,4 +582,7 @@ without relaxing `new_order_execution_required`. Canonical superseded evidence
 retains its diagnostic age even though its capability flags and evidence body
 remain unavailable. The execution projection also exposes the canonical
 qualification observation timestamp and an explicit future-clock flag; invalid
-or missing artifacts expose neither timestamp nor age.
+or missing artifacts expose neither timestamp nor age. A separate
+`qualificationVenueEvidenceSlot` retains the artifact's canonical bound slot,
+so consumers can compare it with the current `venueEvidenceSlot` without
+parsing or trusting the unavailable execution evidence body.
