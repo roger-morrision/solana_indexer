@@ -313,7 +313,7 @@ function pumpTransferSemanticsSupported(snapshot) {
   return assessPumpV2TokenProgramPolicy(snapshot).supported;
 }
 function pumpTokenProgramMode(snapshot) { return assessPumpV2TokenProgramPolicy(snapshot).mode; }
-function completeExecutionSnapshot(summary, now) {
+export function completeExecutionSnapshot(summary, now) {
   try {
   const snapshot = summary?.accountSnapshot; if (snapshot?.commitment !== "finalized" || parseCanonicalUtcTimestamp(snapshot.observedAt) == null) return false;
   const dependencySlot = Math.max(0, ...[snapshot.stateSlot, snapshot.bookSlot, snapshot.oracleSlot, snapshot.balanceSlot, snapshot.configSlot, snapshot.mintSlot, snapshot.tickArraySlot, snapshot.ammConfigSlot, snapshot.feeConfigSlot, snapshot.globalConfigSlot].filter((slot) => Number.isSafeInteger(slot) && slot >= 0));

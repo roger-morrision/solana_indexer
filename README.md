@@ -192,6 +192,8 @@ orphan qualification rows instead of silently dropping them. The projection
 publishes `currentVenueEvidenceSlot` and `venueEvidenceCurrent`, making superseded
 route evidence explicit to hot-state consumers, and repeats canonical chain/genesis
 and pool identity so an extracted qualification cannot lose its canonical binding.
+Its separate `venueQualified` flag reuses the protocol-specific execution-snapshot
+validator; slot equality alone never claims executable venue capability.
 The application does not claim these
 stores are active until connector health and dual-write validation are added.
 SeaweedFS master, volume, and filer services provide self-hosted archive storage;
