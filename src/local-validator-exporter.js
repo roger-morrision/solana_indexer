@@ -112,7 +112,10 @@ function safeError(error) {
 export async function recordExporterFailure(statusFile, error, { source = "unknown", attemptedAt = new Date().toISOString() } = {}) {
   if (!statusFile) return null;
   const previous = await readStatus(statusFile);
-  const status = { ...previous, version: 2, source: previous.source ?? source, lastAttemptAt: attemptedAt, lastError: safeError(error), consecutiveFailures: (Number(previous.consecutiveFailures) || 0) + 1 };
+  const preserved = {};
+  for (const key of ["source", "genesisHash", "commitment", "observedAt", "cursor", "localValidatorTip", "lagSlots", "exported", "skipped", "skippedSlots", "durableSkippedSlots"]) if (Object.hasOwn(previous, key)) preserved[key] = previous[key];
+  const priorFailures = Number.isSafeInteger(previous.consecutiveFailures) && previous.consecutiveFailures >= 0 ? previous.consecutiveFailures : 0;
+  const status = { ...preserved, version: 2, source: preserved.source ?? source, lastAttemptAt: attemptedAt, lastError: safeError(error), consecutiveFailures: Math.min(Number.MAX_SAFE_INTEGER, priorFailures + 1) };
   await durableAtomicWrite(statusFile, `${JSON.stringify(status)}\n`);
   return status;
 }
