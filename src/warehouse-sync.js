@@ -326,14 +326,15 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
 }
 
 export function applyWarehouseFailureStatus(warehouse, status) {
-  if (!warehouse || !status || status.schemaVersion !== 1 || status.kind !== "warehouse_sync_status" || status.chain !== CHAIN || status.genesisHash !== GENESIS_HASH || status.healthy !== false || status.reason !== "warehouse_sync_failed") return warehouse;
-  const failedAt = Date.parse(status.observedAt ?? ""), checkpointAt = Date.parse(status.checkpointUpdatedAt ?? "");
-  if (!Number.isFinite(failedAt) || !Number.isFinite(checkpointAt) || failedAt <= checkpointAt || status.checkpointUpdatedAt !== warehouse.updatedAt) return warehouse;
+  if (!warehouse || status == null) return warehouse;
+  const failedAt = parseCanonicalUtcTimestamp(status.observedAt), checkpointAt = parseCanonicalUtcTimestamp(status.checkpointUpdatedAt), valid = status.schemaVersion === 1 && status.kind === "warehouse_sync_status" && status.chain === CHAIN && status.genesisHash === GENESIS_HASH && status.healthy === false && status.reason === "warehouse_sync_failed" && failedAt != null && checkpointAt != null && failedAt > checkpointAt;
+  if (!valid) return { ...warehouse, healthy: false, reason: "warehouse_status_invalid" };
+  if (status.checkpointUpdatedAt !== warehouse.updatedAt) return warehouse;
   return { ...warehouse, healthy: false, reason: "warehouse_sync_failed", lastFailureAt: status.observedAt };
 }
 
 export async function writeWarehouseFailureStatus(filename, checkpointUpdatedAt, observedAt = new Date().toISOString()) {
-  if (typeof filename !== "string" || !filename || !Number.isFinite(Date.parse(checkpointUpdatedAt ?? "")) || !Number.isFinite(Date.parse(observedAt)) || Date.parse(observedAt) <= Date.parse(checkpointUpdatedAt)) throw new Error("invalid warehouse failure status");
+  const checkpointAt = parseCanonicalUtcTimestamp(checkpointUpdatedAt), failureAt = parseCanonicalUtcTimestamp(observedAt); if (typeof filename !== "string" || !filename || checkpointAt == null || failureAt == null || failureAt <= checkpointAt) throw new Error("invalid warehouse failure status");
   const status = { schemaVersion: 1, kind: "warehouse_sync_status", chain: CHAIN, genesisHash: GENESIS_HASH, healthy: false, reason: "warehouse_sync_failed", observedAt, checkpointUpdatedAt };
   await durableAtomicWrite(filename, `${JSON.stringify(status)}\n`); return status;
 }

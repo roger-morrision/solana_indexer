@@ -167,6 +167,8 @@ zero-invalid-preimage counts for token, pool, and candidate projections. A
 separate aggregate-only durable warehouse status records a failed sync against
 the exact last successful checkpoint; REST health, Prometheus, and bot readiness
 fail immediately until a newer successful checkpoint supersedes that evidence.
+Missing status is neutral, while any present malformed, unsafe, noncanonical-time,
+or wrong-network status fails consumers closed instead of being ignored.
 
 Meteora DLMM `Swap`/`Swap2` event coverage is now bound to the official
 instruction version and complete account suffix, reports exact consumed input
