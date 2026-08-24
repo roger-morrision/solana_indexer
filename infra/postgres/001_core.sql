@@ -10,6 +10,9 @@ CREATE INDEX IF NOT EXISTS pools_base_mint_lookup ON pools(chain, base_mint) WHE
 CREATE INDEX IF NOT EXISTS pools_quote_mint_lookup ON pools(chain, quote_mint) WHERE quote_mint IS NOT NULL;
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS content_hash text CHECK (content_hash IS NULL OR content_hash ~ '^[0-9a-f]{64}$');
 ALTER TABLE candidates ADD COLUMN IF NOT EXISTS content_hash text CHECK (content_hash IS NULL OR content_hash ~ '^[0-9a-f]{64}$');
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS content_payload text;
+ALTER TABLE pools ADD COLUMN IF NOT EXISTS content_payload text;
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS content_payload text;
 CREATE TABLE IF NOT EXISTS security_snapshots (id bigserial PRIMARY KEY, chain text NOT NULL, mint text NOT NULL, rule_version text NOT NULL, source_slot bigint, source_signature text, evidence jsonb NOT NULL, severity text NOT NULL, blocks_research boolean NOT NULL, blocks_entry boolean NOT NULL, blocks_exit boolean NOT NULL, observed_at timestamptz NOT NULL, expires_at timestamptz);
 CREATE UNIQUE INDEX IF NOT EXISTS security_snapshots_canonical_unique ON security_snapshots(chain, mint, rule_version, source_slot) WHERE source_slot IS NOT NULL;
 CREATE TABLE IF NOT EXISTS wallet_profiles (chain text NOT NULL, address text NOT NULL, profile_version text NOT NULL, evidence jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (chain, address, profile_version));
@@ -23,4 +26,4 @@ CREATE TABLE IF NOT EXISTS audit_records (id bigserial PRIMARY KEY, actor text N
 CREATE TABLE IF NOT EXISTS api_tenants (tenant_id text PRIMARY KEY, plan text NOT NULL, status text NOT NULL CHECK (status IN ('active', 'suspended')), rate_limit_per_minute integer NOT NULL CHECK (rate_limit_per_minute > 0), retention_days integer NOT NULL CHECK (retention_days > 0), updated_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS api_key_hashes (key_hash text PRIMARY KEY CHECK (key_hash ~ '^[0-9a-f]{64}$'), tenant_id text NOT NULL REFERENCES api_tenants(tenant_id), activates_at timestamptz, expires_at timestamptz, CHECK (expires_at IS NULL OR activates_at IS NULL OR expires_at > activates_at));
 CREATE TABLE IF NOT EXISTS api_usage_hourly (tenant_id text NOT NULL REFERENCES api_tenants(tenant_id), bucket_start timestamptz NOT NULL, route text NOT NULL, status_class smallint NOT NULL CHECK (status_class BETWEEN 1 AND 5), requests bigint NOT NULL CHECK (requests >= 0), duration_ms numeric NOT NULL CHECK (duration_ms >= 0), PRIMARY KEY (tenant_id, bucket_start, route, status_class));
-INSERT INTO schema_migrations(version) VALUES (1), (2), (3), (4), (5), (6), (7), (8) ON CONFLICT DO NOTHING;
+INSERT INTO schema_migrations(version) VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9) ON CONFLICT DO NOTHING;

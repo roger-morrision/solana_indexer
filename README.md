@@ -215,7 +215,7 @@ ClickHouse client acknowledges the batch. It then probes ClickHouse canonical
 events, the PostgreSQL ingestion checkpoint, and the Redis hot-state pointer.
 It then reconciles distinct canonical event/fact identities plus PostgreSQL
 token and Redis pool/token counts against compatibility state. Canonical event
-rows carry source-derived SHA-256 hashes, and reconciliation version 9 verifies
+rows carry source-derived SHA-256 hashes, and reconciliation version 10 verifies
 a sequence-ordered rolling SHA-256 chain recomputed from ClickHouse `FINAL`
 rows. Only exact three-sink sequence and content agreement permits the atomic
 local 0600 checkpoint to advance. Older or sequence-only checkpoints require a
@@ -257,7 +257,7 @@ Configuration:
 |---|---:|---|
 | `INDEXER_INBOX` | `inbox` | Completed block files |
 | `INDEXER_DATA_FILE` | `data/index.json` | Atomic local index snapshot |
-| `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic mainnet/genesis-bound checkpoint with version-9 reconciliation evidence, advanced only after the canonical-event chain plus exact ClickHouse derived-fact, PostgreSQL token/pool/candidate, and Redis hot-state content digests reconcile |
+| `INDEXER_WAREHOUSE_CHECKPOINT_FILE` | `data/warehouse-checkpoint.json` | Atomic mainnet/genesis-bound checkpoint with version-10 reconciliation evidence, advanced only after the canonical-event chain plus exact ClickHouse derived-fact, PostgreSQL token/pool/candidate, and Redis hot-state content digests reconcile |
 | `INDEXER_WAREHOUSE_STALE_AFTER_MS` | `300000` | Maximum successful warehouse checkpoint age before health fails closed |
 | `INDEXER_MAX_WAREHOUSE_LAG_EVENTS` | `1000` | Maximum canonical-event lag before warehouse health fails closed |
 | `CLICKHOUSE_PASSWORD_FILE` | unset | Protected stable non-link ClickHouse password file (maximum 4 KiB, one credential) read into the client subprocess environment without command-line exposure |

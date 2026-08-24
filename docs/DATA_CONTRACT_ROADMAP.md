@@ -157,6 +157,11 @@ remains non-automation-safe and the indexer never signs or submits.
 
 Phase 9 current amendment: reconciliation version 9 supersedes the version-8 references above. PostgreSQL now transactionally materializes and content-hashes the canonical pool catalog alongside tokens and activity candidates; exact pool count, identity, and content participate in the PostgreSQL probe and checkpoint gate. Pre-version-9 checkpoints require replay before recovery or consumer readiness can pass.
 
+Reconciliation version 10 supersedes version 9 for readiness and recovery. Token,
+pool, and candidate rows retain the exact labeled JSON hash preimage; PostgreSQL
+recomputes SHA-256 and compares the parsed preimage with every normalized row
+field during the live probe. Drifted or legacy rows fail closed until replayed.
+
 Meteora DLMM `Swap`/`Swap2` event coverage is now bound to the official
 instruction version and complete account suffix, reports exact consumed input
 for partial fills. Finalized pair, vault, mint, bitmap, and complete bin-array
