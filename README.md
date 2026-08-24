@@ -403,7 +403,7 @@ fresh first page instead of mixing collection versions.
 Frontend, AI, and paper-bot services should prefer the authenticated internal
 contracts: `/internal/tokens/:mint` and its `market`, `security`, `holders`,
 `trades`, `ohlcv`, `liquidity`, and `executable-depth` views;
-`/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs`;
+`/internal/evidence/:mint`; `/internal/trending`; `/internal/new-pairs` (newest-first compact pool catalog rows, without raw persisted pool or snapshot internals);
 `/internal/candidates`; `/internal/wallets/:address` and its `performance`, `profile`, `funding`, and `funding-cluster` views; `/internal/pools/:address/quote` and the authenticated Raydium CLMM/CPMM/AMM v4, Orca, Meteora, and PumpSwap `POST /internal/pools/:address/prepare-swap`;
 `/internal/feed/health`;
 and `/internal/feed/gaps`, whose skipped-slot, inbox-checkpoint, and reorg-correction
