@@ -186,7 +186,9 @@ instructions, swaps, balance history and dead letters. Redis is reserved for
 hot state, locks, rankings and fan-out. Versioned pool rows include a bounded
 `executionQualification` evidence projection (or `null`) covered by the pool
 content reconciliation digest. This evidence is explicitly historical-only and
-never removes the requirement for fresh per-order evidence. The application does not claim these
+never removes the requirement for fresh per-order evidence. Warehouse publication
+rejects incomplete execution-chain hashes, forged pool/protocol bindings, and
+orphan qualification rows instead of silently dropping them. The application does not claim these
 stores are active until connector health and dual-write validation are added.
 SeaweedFS master, volume, and filer services provide self-hosted archive storage;
 only the filer is published, on loopback port 8888. No AWS/S3 account, endpoint,
