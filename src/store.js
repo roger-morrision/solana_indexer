@@ -162,7 +162,7 @@ function canonicalExecutionQualificationRow(state, pool, row, expectedVenueEvide
 }
 export function canonicalExecutionQualifications(state) {
   const rows = state?.executionQualifications;
-  return Boolean(rows && typeof rows === "object" && !Array.isArray(rows) && Object.entries(rows).every(([pool, row]) => canonicalExecutionQualificationRow(state, pool, row)));
+  return Boolean(rows && typeof rows === "object" && !Array.isArray(rows) && Object.entries(rows).every(([pool, row]) => canonicalExecutionQualificationRow(state, pool, row, row?.venueEvidenceSlot)));
 }
 function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
 function canonicalPersistedTransaction(key, transaction, blocks) {
