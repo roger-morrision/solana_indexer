@@ -190,7 +190,8 @@ never removes the requirement for fresh per-order evidence. Warehouse publicatio
 rejects incomplete execution-chain hashes, forged pool/protocol bindings, and
 orphan qualification rows instead of silently dropping them. The projection
 publishes `currentVenueEvidenceSlot` and `venueEvidenceCurrent`, making superseded
-route evidence explicit to hot-state consumers. The application does not claim these
+route evidence explicit to hot-state consumers, and repeats canonical chain/genesis
+identity so an extracted pool row cannot lose its network binding. The application does not claim these
 stores are active until connector health and dual-write validation are added.
 SeaweedFS master, volume, and filer services provide self-hosted archive storage;
 only the filer is published, on loopback port 8888. No AWS/S3 account, endpoint,
