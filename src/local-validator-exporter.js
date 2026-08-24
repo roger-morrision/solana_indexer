@@ -41,6 +41,11 @@ export class LocalValidatorPool {
     if (!Number.isSafeInteger(failureThreshold) || failureThreshold < 1 || !Number.isSafeInteger(cooldownMs) || cooldownMs < 1) throw new Error("Local validator pool circuit settings must be positive integers");
     this.nodes = normalized.map((endpoint, index) => { const client = new LocalValidatorClient(endpoint, { ...clientOptions, now }), name = `local-agave-rpc-${index + 1}`; client.provenanceSource = name; return { name, client, failures: 0, openUntil: 0, probeInFlight: false, calls: 0, errors: 0 }; }); this.failureThreshold = failureThreshold; this.cooldownMs = cooldownMs; this.now = now; this.provenanceSource = this.nodes[0].name;
   }
+  recordFailure(node, error) {
+    node.errors++; node.failures++;
+    const retryAfter = Number.isSafeInteger(error?.retryAfterMs) ? error.retryAfterMs : null;
+    if (retryAfter != null || error?.retryable === true || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs);
+  }
   async assertGenesis(expected = MAINNET_GENESIS_HASH) {
     const hashes = [];
     try {
@@ -50,7 +55,8 @@ export class LocalValidatorPool {
           hashes.push(node.client.verifiedGenesisHash);
           continue;
         }
-        hashes.push(await node.client.assertGenesis(expected));
+        try { hashes.push(await node.client.assertGenesis(expected)); }
+        catch (error) { this.recordFailure(node, error); throw error; }
       }
       if (new Set(hashes).size !== 1) throw new Error("inconsistent validator genesis identities");
       return hashes[0];
@@ -66,7 +72,7 @@ export class LocalValidatorPool {
       if (node.openUntil > this.now() || node.probeInFlight) continue;
       const probe = node.failures > 0; if (probe) node.probeInFlight = true;
       node.calls++;
-      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { node.errors++; node.failures++; const retryAfter = Number.isSafeInteger(error.retryAfterMs) ? error.retryAfterMs : null; if (retryAfter != null || error.retryable === true || node.failures >= this.failureThreshold) node.openUntil = this.now() + (retryAfter ?? this.cooldownMs); errors.push(`${node.name}: ${safeError(error)}`); } finally { if (probe) node.probeInFlight = false; }
+      try { const result = await node.client.call(method, params); node.failures = 0; node.openUntil = 0; this.provenanceSource = node.name; return result; } catch (error) { this.recordFailure(node, error); errors.push(`${node.name}: ${safeError(error)}`); } finally { if (probe) node.probeInFlight = false; }
     }
     throw new Error(`local validator pool ${method} failed: ${errors.join("; ") || "circuits_open"}`);
   }

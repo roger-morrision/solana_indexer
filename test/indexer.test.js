@@ -1267,6 +1267,11 @@ test("local validator genesis verification does not bypass an open Retry-After c
   await pool.assertGenesis(); assert.equal(await pool.call("getHealth"), "secondary"); assert.equal(primaryGenesisCalls, 1); assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.equal(primaryGenesisCalls, 1); now = 121_001; await pool.assertGenesis(); assert.equal(primaryGenesisCalls, 2);
 });
 
+test("local validator genesis failures establish Retry-After circuits", async () => {
+  let now = 1_000, primaryGenesisCalls = 0; const fetchImpl = async (endpoint, options) => { const request = JSON.parse(options.body); if (request.method === "getGenesisHash" && endpoint.includes("8899")) { primaryGenesisCalls++; if (primaryGenesisCalls < 2) return { ok: false, status: 503, headers: { get: () => "60" } }; } return { ok: true, json: async () => ({ jsonrpc: "2.0", id: request.id, result: MAINNET_GENESIS_HASH }) }; }, pool = new LocalValidatorPool(["http://127.0.0.1:8899", "http://127.0.0.1:8900"], { fetchImpl, now: () => now });
+  await assert.rejects(() => pool.assertGenesis(), /genesis verification failed/); assert.deepEqual({ calls: primaryGenesisCalls, failures: pool.telemetry()[0].failures, errors: pool.telemetry()[0].errors, openUntil: pool.telemetry()[0].openUntil }, { calls: 1, failures: 1, errors: 1, openUntil: 61_000 }); await assert.rejects(() => pool.assertGenesis(), /genesis verification failed/); assert.equal(primaryGenesisCalls, 1); now = 61_001; assert.equal(await pool.assertGenesis(), MAINNET_GENESIS_HASH); assert.equal(primaryGenesisCalls, 2);
+});
+
 test("local validator pool admits only one half-open probe after cooldown", async () => {
   let now = 1_000, primaryCalls = 0, releaseProbe;
   const probe = new Promise((resolve) => { releaseProbe = resolve; });
