@@ -310,6 +310,9 @@ function validWarehouseReconciliationEnvelope(reconciliation, sequence) {
   return reconciliation?.schemaVersion === 11 && reconciliation.verified === true && reconciliation.sequence === sequence && reconciliation.events === sequence && reconciliation.invalidPostgresPreimages?.tokens === 0 && reconciliation.invalidPostgresPreimages?.pools === 0 && reconciliation.invalidPostgresPreimages?.candidates === 0 && WAREHOUSE_RECONCILIATION_KEYS.every((key) => Number.isSafeInteger(reconciliation[key]) && reconciliation[key] >= 0) && /^[0-9a-f]{64}$/.test(reconciliation.eventContentChain ?? "") && /^[0-9a-f]{64}$/.test(reconciliation.clickhouseIdentityDigest ?? "") && /^[0-9a-f]{64}$/.test(reconciliation.clickhouseContentDigest ?? "") && /^[0-9a-f]{32}$/.test(reconciliation.postgresIdentityDigest ?? "") && /^[0-9a-f]{32}$/.test(reconciliation.postgresContentDigest ?? "") && /^[0-9a-f]{40}$/.test(reconciliation.redisIdentityDigest ?? "") && /^[0-9a-f]{40}$/.test(reconciliation.redisTokenContentDigest ?? "") && /^[0-9a-f]{40}$/.test(reconciliation.redisPoolContentDigest ?? "") && /^[0-9a-f]{40}$/.test(reconciliation.redisStatsContentDigest ?? "");
 }
 
+function publicWarehouseSinks(sinks) { return { clickhouse: sinks.clickhouse, postgres: sinks.postgres, redis: sinks.redis }; }
+function publicWarehouseReconciliation(value) { return { schemaVersion: value.schemaVersion, verified: value.verified, sequence: value.sequence, ...Object.fromEntries(WAREHOUSE_RECONCILIATION_KEYS.map((key) => [key, value[key]])), eventContentChain: value.eventContentChain, clickhouseIdentityDigest: value.clickhouseIdentityDigest, clickhouseContentDigest: value.clickhouseContentDigest, postgresIdentityDigest: value.postgresIdentityDigest, postgresContentDigest: value.postgresContentDigest, redisIdentityDigest: value.redisIdentityDigest, redisTokenContentDigest: value.redisTokenContentDigest, redisPoolContentDigest: value.redisPoolContentDigest, redisStatsContentDigest: value.redisStatsContentDigest, invalidPostgresPreimages: { tokens: value.invalidPostgresPreimages.tokens, pools: value.invalidPostgresPreimages.pools, candidates: value.invalidPostgresPreimages.candidates } }; }
+
 export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSequence, staleAfterMs = 300_000, maxLagEvents = 1_000, now = Date.now()) {
   const unavailable = (reason) => ({ available: false, healthy: false, reason, sequence: null, eventSequence, lagEvents: null, ageMs: null, staleAfterMs, maxLagEvents });
   if (!checkpoint) return unavailable("checkpoint_unavailable");
@@ -318,11 +321,12 @@ export function assessWarehouseCheckpoint(checkpoint, eventSequence, oldestSeque
   if (checkpoint.chain !== CHAIN || checkpoint.genesisHash !== GENESIS_HASH) return { ...unavailable("checkpoint_network_mismatch"), sequence };
   const sinks = checkpoint.sinks;
   if (!sinks || ![sinks.clickhouse, sinks.postgres, sinks.redis].every((value) => Number.isSafeInteger(value) && value >= 0)) return { ...unavailable("sink_evidence_unavailable"), sequence };
-  if ([sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) return { ...unavailable("sink_sequence_mismatch"), sequence, sinks };
-  const reconciliation = checkpoint.reconciliation; if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) return { ...unavailable("content_reconciliation_unavailable"), sequence, sinks };
+  const publicSinks = publicWarehouseSinks(sinks);
+  if ([sinks.clickhouse, sinks.postgres, sinks.redis].some((value) => value !== sequence)) return { ...unavailable("sink_sequence_mismatch"), sequence, sinks: publicSinks };
+  const reconciliation = checkpoint.reconciliation; if (!validWarehouseReconciliationEnvelope(reconciliation, sequence)) return { ...unavailable("content_reconciliation_unavailable"), sequence, sinks: publicSinks };
   if (sequence > eventSequence) return { ...unavailable("checkpoint_ahead_of_index"), sequence };
   const lagEvents = eventSequence - sequence, ageMs = now - updated, replayHistoryLost = sequence < oldestSequence - 1, reason = ageMs < 0 ? "checkpoint_clock_skew" : replayHistoryLost ? "checkpoint_behind_replay_history" : lagEvents > maxLagEvents ? "warehouse_lag_exceeded" : ageMs > staleAfterMs ? "warehouse_checkpoint_stale" : null;
-  return { available: true, healthy: reason == null, reason, chain: checkpoint.chain, genesisHash: checkpoint.genesisHash, sequence, eventSequence, oldestSequence, lagEvents, ageMs, updatedAt: checkpoint.updatedAt, staleAfterMs, maxLagEvents, replayHistoryLost, sinks, reconciliation };
+  return { available: true, healthy: reason == null, reason, chain: checkpoint.chain, genesisHash: checkpoint.genesisHash, sequence, eventSequence, oldestSequence, lagEvents, ageMs, updatedAt: checkpoint.updatedAt, staleAfterMs, maxLagEvents, replayHistoryLost, sinks: publicSinks, reconciliation: publicWarehouseReconciliation(reconciliation) };
 }
 
 export function applyWarehouseFailureStatus(warehouse, status) {
