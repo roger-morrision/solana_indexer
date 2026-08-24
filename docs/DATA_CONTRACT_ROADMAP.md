@@ -169,6 +169,10 @@ the exact last successful checkpoint; REST health, Prometheus, and bot readiness
 fail immediately until a newer successful checkpoint supersedes that evidence.
 Missing status is neutral, while any present malformed, unsafe, noncanonical-time,
 or wrong-network status fails consumers closed instead of being ignored.
+Version 2 restricts failure stages to compile, sink write, sink probe,
+reconciliation, or checkpoint publication and carries only optional aggregate
+token/pool/candidate invalid-preimage counts into REST and fixed-cardinality
+Prometheus telemetry; resource identities and raw diagnostics are excluded.
 
 Meteora DLMM `Swap`/`Swap2` event coverage is now bound to the official
 instruction version and complete account suffix, reports exact consumed input
