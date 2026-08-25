@@ -1,28 +1,28 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-25T20:42:37+07:00`
+- Run: `2026-08-25T22:42:46+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `8ac86aeb090fd65d6e7d88a8945d36c23f3ca071`
-- Compared with QA baseline: `6c452fa` (1 commit, 3 changed files)
-- Compared with `origin/main`: 6 ahead, 0 behind
-- Latest DEV handoff: `UPSTREAM-PATH-PARAMETER-003`
-- Overall result: the source correction passes independent empty/populated and 16-consumer path validation, but the reviewed fix remains incomplete because its committed regression covers only 2 of 16 consumers and does not assert internal-failure telemetry; live operational/provider qualification remains blocked by absent fresh evidence.
+- Revision: `f48dcd3a38d34714362596d8d038246b85acc6b4`
+- Compared with QA baseline: `9d6abbc` (1 commit, 2 changed files)
+- Compared with `origin/main`: 8 ahead, 0 behind
+- Latest DEV handoff: `UPSTREAM-PATH-PARAMETER-004`
+- Overall result: the reviewed regression enhancement closes the prior path-parameter coverage gap across all 16 consumers, valid-route preservation, diagnostic callbacks, and the internal-failure metric; live operational/provider qualification remains blocked by absent fresh evidence.
 
 ## Reviewed DEV delta (1/20)
 
 | Item | Status | Evidence |
 |---|---|---|
-| `UPSTREAM-PATH-PARAMETER-003` | `FAIL` | Functional verification passes 34/34 malformed/delimiter checks plus valid-route preservation with zero diagnostics, but the committed regression exercises only token-account and transaction consumers (2/16) and does not assert the internal-failure counter or diagnostic callback required by the prior acceptance criteria. |
+| `UPSTREAM-PATH-PARAMETER-004` | `PASS` | The committed method-aware matrix covers malformed escapes and decoded delimiters across all 16 consumers (32/32), retains empty/populated transaction checks, preserves a valid transaction route, and asserts both zero diagnostic callbacks and zero `http_internal_error` metrics. |
 
-- Available DEV delta: exactly 1 distinct fix/enhancement after `6c452fa`; the complete delta was exhausted.
-- Verification result: 0 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: exactly 1 distinct fix/enhancement after `9d6abbc`; the complete delta was exhausted.
+- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 19 because no other distinct DEV fix or enhancement exists in the reviewed delta. No evidence was duplicated, split, padded, or reused to manufacture the count.
 
 ## Independent 21-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
-| Path-parameter boundary | `FAIL` | Source behavior passes 2/2 empty transaction checks, a 32/32 malformed/delimiter matrix across all 16 consumers, valid transaction preservation, and zero diagnostics; however, the committed focused test covers only 2/16 consumers and no internal-failure telemetry assertion. |
+| Path-parameter boundary | `PASS` | The committed focused regression passes empty and populated transaction state, a 32/32 malformed/delimiter matrix across all 16 consumers, valid transaction preservation, zero diagnostics, and zero `http_internal_error` metrics. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -41,25 +41,25 @@
 | Persistence and atomic recovery | `PASS` | Durable concurrent writes/appends, snapshot batch validation-before-mutation, fingerprint replacement, quarantine, and exact checkpoint tests pass. |
 | Warehouse and schema compatibility | `PASS` | Ordered retry-safe dual-sink checkpointing, canonical event/content hashes, PostgreSQL projection preimages, Redis hot-state bounds, and ClickHouse UInt256 raw amounts pass repository tests. |
 | Fail-closed redaction | `PASS` | Explicit public projection allowlists, dead-letter/diagnostic credential redaction, bounded operational JSON, malformed evidence, and secret-file tests pass. |
-| Bounded performance | `PASS` | Full suite passes 347/347; syntax passes 83/83; replay completes at 3,192.98 blocks/s with 9,894,816-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 295,239,434 ms old. |
+| Bounded performance | `PASS` | Full suite passes 347/347; syntax passes 83/83; replay completes at 3,794.8 blocks/s with 9,664,584-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 302,429,905 ms old. |
 
-The contract minimum is satisfied with 21 distinct evidence domains: 19 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 21 distinct evidence domains: 20 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
-- Severity: `FAIL (low)`
+- Severity: `PASS`
 - Owner: `DEV`
-- Reproduction: inspect `test/indexer.test.js` test `resource routes reject malformed or delimiter-decoding path parameters`; it checks token-account and transaction paths only. Run an independent matrix for malformed escapes and decoded delimiters across preparation, quote, evidence, token, wallet, price, volume, transaction, account, mint, holder, token-account, pool, candle, and risk consumers, while capturing `onDiagnostic`; all source paths return the controlled HTTP 400 envelope.
-- Evidence: `src/server.js` now decodes the captured transaction signature before `indexedTransactions()` and collection search. Independent checks pass 2/2 with an empty transaction collection and 32/32 across all 16 consumers after applying the canonical fixture; a valid fixture transaction still returns HTTP 200 with its signature unchanged, and the diagnostic callback count remains zero. The committed test contains six requests spanning only two consumers and has no telemetry assertion.
+- Reproduction: run `test/indexer.test.js` test `resource routes reject malformed or delimiter-decoding path parameters`; it exercises malformed escapes and decoded delimiters for preparation, quote, evidence, token, wallet, price, volume, transaction, account, mint, holder, token-account, pool, candle, and risk consumers, with empty/populated transaction state and a valid transaction control.
+- Evidence: the committed test passes 32/32 consumer-matrix checks, retains 4/4 empty-state token-account/transaction checks and 2/2 populated transaction checks, preserves `signature-1` with HTTP 200, captures zero diagnostics, and observes `terminal_dex_internal_failures_total{operation="http_internal_error"} 0`.
 - Affected contracts: shared REST/internal path-parameter validation, regression coverage for 16 resource consumers, internal failure metrics, diagnostic callback behavior, and client retry/error classification.
 - Expected behavior: the source correction and committed regression together cover empty/populated transaction state, all 16 malformed/delimiter consumer boundaries, valid-route preservation, and unchanged internal-failure telemetry.
-- Actual behavior: runtime behavior matches the controlled HTTP 400 contract, but committed regression coverage omits 14 consumers, valid-route preservation, the internal-failure counter, and the diagnostic callback assertion.
-- Acceptance criteria: extend the committed test to a table-driven 16-consumer malformed/delimiter matrix; retain empty and populated transaction checks; assert a valid transaction route remains unchanged; assert both the internal-failure counter and diagnostic callback remain zero.
-- Validation results: focused committed regression 1/1 PASS; independent malformed/delimiter checks 34/34 PASS; valid transaction preservation PASS; diagnostics 0 PASS; full suite 347/347 PASS; syntax 83/83 PASS; replay invariants PASS at 3,192.98 blocks/s and 9,894,816-byte heap growth.
-- Compatibility impact: source behavior is compatible for valid paths and deterministically rejects malformed paths; the remaining work is regression-only.
+- Actual behavior: the committed regression now matches the expected controlled HTTP 400 and telemetry contracts across the complete scoped matrix.
+- Acceptance criteria: committed table-driven 16-consumer malformed/delimiter matrix; retained empty and populated transaction checks; preserved valid transaction route; zero internal-failure counter and diagnostic callbacks. All criteria are met.
+- Validation results: focused committed regression 1/1 PASS; malformed/delimiter matrix 32/32 PASS plus retained empty/populated transaction checks; valid transaction preservation PASS; diagnostics 0 PASS; internal-failure metric 0 PASS; full suite 347/347 PASS; syntax 83/83 PASS; replay invariants PASS at 3,794.8 blocks/s and 9,664,584-byte heap growth.
+- Compatibility impact: source behavior is compatible for valid paths and deterministically rejects malformed paths; the regression enhancement changes no runtime or consumer contract.
 - Performance impact: validation remains bounded to 256 decoded characters before lookup; no replay/heap/throughput regression was observed.
-- Blockers: none; this is a narrowly scoped DEV regression addition.
+- Blockers: none; the prior regression gap is closed.
 
 ## UPSTREAM-QA-HEALTH-001
 
@@ -92,7 +92,7 @@ The contract minimum is satisfied with 21 distinct evidence domains: 19 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: inspect provider/status configuration by presence only; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 295,239,434 ms age.
+- Evidence: RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 302,429,905 ms age.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -101,4 +101,4 @@ The contract minimum is satisfied with 21 distinct evidence domains: 19 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: complete `UPSTREAM-QA-PATH-PARAMETER-003` with the committed 16-consumer table-driven regression, valid-route preservation, and zero internal-failure telemetry assertions; then provide the still-required redacted fresh canonical-mainnet operational evidence bundle.
+- NEXT_DEV_ACTION: provide the redacted current canonical-mainnet provider, exporter, exact warehouse-convergence, backup, and recovery evidence bundle required to qualify live operation.
