@@ -2412,6 +2412,11 @@ test("JSON POST routes reject malformed UTF-8 without normalizing identity bytes
   const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: malformed }); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "request body must be valid UTF-8 JSON" });
 });
 
+test("resource routes reject malformed or delimiter-decoding path parameters", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  for (const pathname of ["/api/v1/token-account/%ZZ", "/api/v1/token-account/account%2Fchild"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "path parameter must use canonical percent encoding" }); }
+});
+
 test("HTTP routes enforce methods after quota admission and never ignore request bodies", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({ apiKeys: ["secret"], rateLimitPerMinute: 2 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`, headers = { "x-api-key": "secret" };
   const getOnly = await fetch(`${base}/api/stats`, { method: "POST", headers: { ...headers, "content-type": "text/plain" }, body: "ignored-body" }); assert.equal(getOnly.status, 405); assert.equal(getOnly.headers.get("allow"), "GET"); assert.equal((await getOnly.json()).error, "method_not_allowed");

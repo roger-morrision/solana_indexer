@@ -1,13 +1,13 @@
 # Terminal DEX upstream handoff
 
-- UPSTREAM-ID: `UPSTREAM-TOKEN-PROJECTION-002`
-- Problem/evidence: REST `GET /api/v1/token-account/:address` and `GET /api/v1/holders/:mint` were coupled to the global aggregate/snapshot quality gate, so corruption in an unrelated pool snapshot made a valid mint-scoped token projection unavailable. Unlike the equivalent RPC methods, these REST routes also lacked their own mint-scoped canonical projection check.
-- Consumer impact: token-account and holder pages remain available when unrelated pool evidence is unhealthy, while divergence in the requested mint's balance/snapshot projection fails closed with HTTP 503.
-- Changed contracts: the two REST routes now return `{ schemaVersion: 1, available: false, reason }` with `indexed_token_account_evidence_unavailable` or `indexed_holder_evidence_unavailable` for relevant projection corruption. Successful response fields are unchanged.
-- In scope: mint-scoped projection validation and isolation from unrelated aggregate evidence. Out of scope: snapshot acquisition, provider configuration, holder-exclusion governance, and RPC changes.
-- Compatibility: successful payloads are unchanged; only previously over-broad 503 responses and unsafe relevant-corruption reads change. Consumers should treat the new reasons as retryable upstream evidence failures.
-- Dependencies: existing canonical token-account projection verifier. Migration/config: none.
-- Acceptance criteria: unrelated pool corruption does not block either route; corruption of the requested mint projection blocks both routes; unknown internal fields remain excluded; focused and full regressions pass.
-- Validation: syntax and focused HTTP regression passed; full suite passed 346/346; canonical 1,000-block replay passed all invariants at 6,773.51 blocks/second with 9,648,008 bytes heap growth under the 536,870,912-byte bound.
-- Blockers: live provider and production operational qualification remain externally blocked by absent redacted mainnet evidence; no live data was fabricated or queried.
-- NEXT_WEB_ACTION: handle `indexed_token_account_evidence_unavailable` and `indexed_holder_evidence_unavailable` as explicit retryable upstream unavailability without rendering stale token balances or holder concentration.
+- UPSTREAM-ID: `UPSTREAM-PATH-PARAMETER-003`
+- Problem/evidence: all 16 resource-route path consumers called `decodeURIComponent` directly. Malformed percent escapes raised an unexpected exception and returned HTTP 500; encoded `/` delimiters could become ambiguous resource identities after routing.
+- Consumer impact: malformed resource links now receive a stable HTTP 400 contract instead of an internal-error response. Valid resource paths and successful response fields are unchanged.
+- Changed contracts: resource routes reject malformed percent encoding, decoded `/`, control characters, empty identities, and decoded identities longer than 256 characters with `{ error: "bad_request", detail: "path parameter must use canonical percent encoding" }`.
+- In scope: one shared path-parameter boundary used by preparation, quote, evidence, token, wallet, price, volume, transaction, account, mint, holder, token-account, pool, candle, and risk routes. Out of scope: query filters and Solana base58 identity policy.
+- Compatibility: additive validation of inputs that were malformed or ambiguous. Migration/config: none.
+- Acceptance criteria: malformed escapes and encoded delimiters return deterministic HTTP 400; unexpected-error diagnostics are not incremented; valid resource routes preserve behavior; syntax, focused/full regressions, and replay/load pass.
+- 20/20 reconciliation: 2 distinct evidence-backed items were reconciled: `UPSTREAM-QA-OPS-001` remains externally blocked, and `UPSTREAM-PATH-PARAMETER-003` was completed. Finding shortfall: 18 because no additional distinct issue had sufficient fresh evidence after the scoped route/roadmap audit. Fix shortfall: 19; item 1 is blocked by absent current canonical-mainnet provider/exporter/warehouse/backup/recovery evidence, and items 2-19 were not created because padding, duplicate splitting, speculative fixes, and fabricated evidence are forbidden.
+- Validation: syntax and focused malformed-path regression passed; full suite passed 347/347; canonical 1,000-block replay passed all invariants at 6,052.17 blocks/second with 9,412,944 bytes heap growth under the 536,870,912-byte bound.
+- Blockers: live operational qualification needs redacted, fresh canonical-mainnet evidence and cannot be manufactured by this repository run.
+- NEXT_WEB_ACTION: treat the new malformed-path HTTP 400 as a terminal client-input error; do not retry it as upstream availability failure.
