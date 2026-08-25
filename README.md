@@ -365,7 +365,7 @@ automatically.
 - `GET /api/health`
 - `GET /metrics` (Prometheus format; keep private or behind mTLS)
 - `GET /api/stats`
-- `GET /api/blocks?limit=100`
+- `GET /api/blocks?limit=100` (allowlisted canonical block facts)
 - `GET /api/transactions?limit=100` (allowlisted canonical transaction facts)
 - `GET /api/transaction/:signature` (allowlisted canonical transaction facts)
 - `GET /api/account/:address?limit=100` (allowlisted account aggregate, canonical transaction facts, and native-transfer evidence; mutable internals are not echoed)
@@ -375,7 +375,7 @@ automatically.
 Every trending window, including `all`, is derived from retained verified swap
 and transfer events, returns the same buy/sell/trader/protocol count schema, and
 excludes future-dated observations. It does not infer USD volume or holder count.
-- `GET /api/v1/blocks?limit=100&cursor=...` (stable exact versioned scope-bound response envelope)
+- `GET /api/v1/blocks?limit=100&cursor=...` (stable exact versioned scope-bound envelope of allowlisted canonical block facts)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable scope-bound envelope of allowlisted canonical transaction facts)
 - `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (allowlisted verified decoded swaps; cursors bind the exact filter scope and mutable persisted extras are not echoed)
 - `GET /api/v1/tokens?limit=100&cursor=...` (compact canonical token catalog)
