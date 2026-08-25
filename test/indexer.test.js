@@ -2413,8 +2413,9 @@ test("JSON POST routes reject malformed UTF-8 without normalizing identity bytes
 });
 
 test("resource routes reject malformed or delimiter-decoding path parameters", async (t) => {
-  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
-  for (const pathname of ["/api/v1/token-account/%ZZ", "/api/v1/token-account/account%2Fchild"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "path parameter must use canonical percent encoding" }); }
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`, expected = { error: "bad_request", detail: "path parameter must use canonical percent encoding" };
+  for (const pathname of ["/api/v1/token-account/%ZZ", "/api/v1/token-account/account%2Fchild", "/api/transaction/%ZZ", "/api/transaction/signature%2Fchild"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), expected); }
+  store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")))); for (const pathname of ["/api/transaction/%ZZ", "/api/transaction/signature%2Fchild"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), expected); }
 });
 
 test("HTTP routes enforce methods after quota admission and never ignore request bodies", async (t) => {
