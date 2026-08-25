@@ -377,7 +377,7 @@ and transfer events, returns the same buy/sell/trader/protocol count schema, and
 excludes future-dated observations. It does not infer USD volume or holder count.
 - `GET /api/v1/blocks?limit=100&cursor=...` (stable exact versioned scope-bound response envelope)
 - `GET /api/v1/transactions?limit=100&cursor=...` (stable scope-bound response envelope)
-- `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (verified decoded swaps; cursors bind the exact filter scope)
+- `GET /api/v1/swaps?mint=&pool=&protocol=&limit=100&cursor=...` (allowlisted verified decoded swaps; cursors bind the exact filter scope and mutable persisted extras are not echoed)
 - `GET /api/v1/tokens?limit=100&cursor=...` (compact canonical token catalog)
 - `GET /api/v1/pools?protocol=&mint=&status=&limit=100&cursor=...` (compact lifecycle-aware pool catalog; `status` is `active`, `completed`, `migrated`, or `unknown`)
 - `GET /api/v1/pool/:pool` (allowlisted exact reserve and execution-price evidence; mutable aggregate internals are not echoed)
