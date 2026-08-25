@@ -2413,9 +2413,15 @@ test("JSON POST routes reject malformed UTF-8 without normalizing identity bytes
 });
 
 test("resource routes reject malformed or delimiter-decoding path parameters", async (t) => {
-  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`, expected = { error: "bad_request", detail: "path parameter must use canonical percent encoding" };
+  const store = new IndexStore("unused"); await store.load(); const diagnostics = [], server = createServer({ onDiagnostic: (diagnostic) => diagnostics.push(diagnostic) }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`, expected = { error: "bad_request", detail: "path parameter must use canonical percent encoding" };
   for (const pathname of ["/api/v1/token-account/%ZZ", "/api/v1/token-account/account%2Fchild", "/api/transaction/%ZZ", "/api/transaction/signature%2Fchild"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), expected); }
-  store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")))); for (const pathname of ["/api/transaction/%ZZ", "/api/transaction/signature%2Fchild"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), expected); }
+  store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")))); isolateManualDecisionFixture(store);
+  const consumers = [
+    { route: "/internal/pools/:value/prepare-swap", method: "POST" }, { route: "/internal/tokens/:value/prepare-swap", method: "POST" }, { route: "/internal/pools/:value/quote" }, { route: "/internal/evidence/:value" }, { route: "/internal/tokens/:value" }, { route: "/internal/wallets/:value" }, { route: "/api/v1/price/:value" }, { route: "/api/v1/volume/:value" }, { route: "/api/transaction/:value" }, { route: "/api/account/:value" }, { route: "/api/mint/:value" }, { route: "/api/v1/holders/:value" }, { route: "/api/v1/token-account/:value" }, { route: "/api/v1/pool/:value" }, { route: "/api/v1/candles/:value" }, { route: "/api/v1/risk/:value" },
+  ];
+  for (const consumer of consumers) for (const value of ["%ZZ", "identity%2Fchild"]) { const response = await fetch(`${base}${consumer.route.replace(":value", value)}`, consumer.method === "POST" ? { method: "POST", headers: { "content-type": "application/json" }, body: "{}" } : undefined); assert.equal(response.status, 400, `${consumer.method ?? "GET"} ${consumer.route} ${value}`); assert.deepEqual(await response.json(), expected); }
+  const transaction = await fetch(`${base}/api/transaction/signature-1`); assert.equal(transaction.status, 200); assert.equal((await transaction.json()).signature, "signature-1"); assert.deepEqual(diagnostics, []);
+  const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_internal_failures_total\{operation="http_internal_error"\} 0/); assert.deepEqual(diagnostics, []);
 });
 
 test("HTTP routes enforce methods after quota admission and never ignore request bodies", async (t) => {
