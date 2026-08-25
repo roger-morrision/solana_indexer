@@ -581,7 +581,7 @@ test("indexes loaded-address token balance changes and rebuilds partial holders 
   assert.equal(store.holders("holder-mint").observedRaw, "5"); assert.equal(store.holders("holder-mint").complete, false);
   const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   const holders = await (await fetch(`${base}/api/v1/holders/holder-mint`)).json(); assert.equal(holders.coverage, "observed_changes_only"); assert.equal(holders.safeForAutomation, false);
-  assert.equal((await (await fetch(`${base}/api/v1/token-account/loaded-token-account`)).json()).amountRaw, "5");
+  store.state.tokenAccounts["loaded-token-account"].providerCredential = "must-not-escape"; store.state.tokenAccounts["loaded-token-account"].provenance.providerCredential = "nested-must-not-escape"; const tokenAccount = await (await fetch(`${base}/api/v1/token-account/loaded-token-account`)).json(), serialized = JSON.stringify(tokenAccount); assert.deepEqual({ address: tokenAccount.tokenAccount, mint: tokenAccount.mint, owner: tokenAccount.owner, amount: tokenAccount.amountRaw, slot: tokenAccount.lastSlot, closed: tokenAccount.closed }, { address: "loaded-token-account", mint: "holder-mint", owner: "wallet-a", amount: "5", slot: 100, closed: false }); assert.doesNotMatch(serialized, /providerCredential|must-not-escape|nested-must-not-escape|provenance/);
 });
 
 test("rejects malformed and conflicting token balance changes per account", () => {
