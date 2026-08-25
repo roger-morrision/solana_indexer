@@ -369,7 +369,7 @@ automatically.
 - `GET /api/transactions?limit=100`
 - `GET /api/transaction/:signature`
 - `GET /api/account/:address?limit=100` (allowlisted account aggregate, canonical transaction facts, and native-transfer evidence; mutable internals are not echoed)
-- `GET /api/mint/:mint?limit=100`
+- `GET /api/mint/:mint?limit=100` (allowlisted mint aggregate, exact token-transfer evidence, and decoded swaps; mutable persisted extras are not echoed)
 - `GET /api/trending?window=5m|1h|6h|24h|all&limit=50`
 
 Every trending window, including `all`, is derived from retained verified swap
