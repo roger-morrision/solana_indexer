@@ -1,14 +1,73 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-26T19:35:33+07:00`
+- Run: `2026-08-26T20:35:34+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `ca78cd33b9a4e8c491fac1493223628158b44a37`
-- Compared with QA baseline: `6885ff0` (2 commits, 3 changed files)
-- Compared with `origin/main`: 7 ahead, 0 behind
-- Latest DEV handoffs: `UPSTREAM-HTTP-QUERY-ALLOWLIST-001` and `UPSTREAM-HTTP-EMPTY-QUERY-001`
-- Overall result: 43 of 44 available HTTP outcomes pass. `UPSTREAM-HTTP-QUERY-ALLOWLIST-001-07` fails because executable depth still admits ignored `limit`; the same broad token rule admits ignored `limit` on market, security, and liquidity. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `16e97923b2b220dd4b68f5dbdd3bf5db9a95548e`
+- Compared with QA baseline: `b0c99ec` (2 DEV commits, 5 changed files)
+- Compared with `origin/main`: 10 ahead, 0 behind before this evidence report
+- Latest DEV handoffs: `UPSTREAM-QUERY-PARITY-001` and `UPSTREAM-QUERY-ENCODING-001`
+- Overall result: 42 of 43 available DEV outcomes pass. The prior token allowlist defect is closed and all 23 parity outcomes pass. `UPSTREAM-QUERY-ENCODING-001-01` fails because both `?limit=10&protocol=x` and `?protocol=x&limit=10` pass the canonical check despite having identical decoded semantics, so the claimed single cache/signature identity is not enforced. Live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (44/20)
+## Reviewed DEV delta (43/20)
+
+### `UPSTREAM-QUERY-PARITY-001` (23/23 PASS)
+
+| Item | Status | Independent evidence |
+|---|---|---|
+| `UPSTREAM-QUERY-PARITY-001-01` | `PASS` | Token market rejects ignored `limit`. |
+| `UPSTREAM-QUERY-PARITY-001-02` | `PASS` | Token security rejects ignored `limit`. |
+| `UPSTREAM-QUERY-PARITY-001-03` | `PASS` | Token liquidity rejects ignored `limit`. |
+| `UPSTREAM-QUERY-PARITY-001-04` | `PASS` | Token executable depth rejects ignored `limit` while retaining `side` and `amountRaw`. |
+| `UPSTREAM-QUERY-PARITY-001-05` | `PASS` | Duplicate WebSocket `cursor` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-06` | `PASS` | Duplicate WebSocket `topic` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-07` | `PASS` | Duplicate WebSocket `mint` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-08` | `PASS` | Duplicate WebSocket `pool` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-09` | `PASS` | Duplicate WebSocket `protocol` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-10` | `PASS` | Duplicate WebSocket `eventType` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-11` | `PASS` | Duplicate WebSocket `ack` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-12` | `PASS` | Unknown WebSocket query names are rejected. |
+| `UPSTREAM-QUERY-PARITY-001-13` | `PASS` | Oversized `mint` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-14` | `PASS` | Empty `pool` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-15` | `PASS` | Control-bearing `protocol` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-16` | `PASS` | Empty lifecycle `eventType` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-17` | `PASS` | Block-topic `mint` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-18` | `PASS` | Block-topic `pool` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-19` | `PASS` | Block-topic `protocol` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-20` | `PASS` | Block-topic `eventType` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-21` | `PASS` | Swap-topic `eventType` is rejected. |
+| `UPSTREAM-QUERY-PARITY-001-22` | `PASS` | Unknown topic values are rejected. |
+| `UPSTREAM-QUERY-PARITY-001-23` | `PASS` | Unsupported acknowledgement values are rejected after admission. |
+
+### `UPSTREAM-QUERY-ENCODING-001` (19 PASS, 1 FAIL)
+
+| Item | Status | Independent evidence |
+|---|---|---|
+| `UPSTREAM-QUERY-ENCODING-001-01` | `FAIL` | Noncanonical pagination escapes are rejected, but two valid parameter orders with identical decoded semantics are both accepted, contradicting the declared single wire/cache/signature identity. |
+| `UPSTREAM-QUERY-ENCODING-001-02` | `PASS` | Token `mint` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-03` | `PASS` | Pool filter percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-04` | `PASS` | Protocol filter percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-05` | `PASS` | Status filter percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-06` | `PASS` | Trending window percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-07` | `PASS` | Candle interval percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-08` | `PASS` | Quote `amountRaw` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-09` | `PASS` | Quote `inputMint` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-10` | `PASS` | Token-depth `side` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-11` | `PASS` | Wallet `limit` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-12` | `PASS` | Diagnostic `pool` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-13` | `PASS` | WebSocket `cursor` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-14` | `PASS` | WebSocket `topic` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-15` | `PASS` | WebSocket `mint` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-16` | `PASS` | WebSocket `pool` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-17` | `PASS` | WebSocket `protocol` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-18` | `PASS` | WebSocket `eventType` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-19` | `PASS` | WebSocket `ack` percent-encoding variant is rejected. |
+| `UPSTREAM-QUERY-ENCODING-001-20` | `PASS` | Shared HTTP/WebSocket canonical-escape boundary preserves ordinary documented ASCII controls. |
+
+- Available DEV delta: exactly 43 distinct fixes/enhancements after `b0c99ec`; the complete delta was exhausted.
+- Verification result: 42 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 0; the reviewed delta exceeds the 20-item contract by 23 without duplicating or cosmetically splitting evidence.
+
+## Prior reviewed DEV delta (44/20; retained)
 
 ### `UPSTREAM-HTTP-QUERY-ALLOWLIST-001` (21 PASS, 1 FAIL)
 
@@ -134,7 +193,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 26-domain reconciliation
+## Independent 27-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -160,12 +219,13 @@
 | Operational readiness diagnostics | `PASS` | The schema-v2 report contains all twenty ordered redacted dimensions; local provider validation rejects missing, public, cardinality-mismatched, canonically duplicate, credential-bearing, path-bearing, query-bearing, and fragment-bearing topologies while accepting a distinct loopback pair set. Canonical real-path entrypoint comparison preserves CLI execution through workspace aliases. |
 | CLI entrypoint execution | `PASS` | All 32 direct operator CLI consumers use the shared real-path guard and zero legacy lexical guards remain. Seven representative aliased commands execute with nonempty output and correct exit behavior. |
 | HTTP query cardinality | `PASS` | Twenty independent duplicate-key route requests return the stable redacted HTTP 400 contract; a valid four-parameter control remains accepted by the validator. |
-| HTTP query allowlists | `FAIL` | The selected 22-route unknown-key matrix passes, but the shared token rule independently admits ignored `limit` on market, security, liquidity, and executable-depth views; selected outcome `-07` is incomplete. |
+| HTTP query allowlists | `PASS` | The exact token-subview correction rejects all four previously ignored `limit` inputs; the 4/4 token correction matrix and 19/19 WebSocket parity matrix pass. |
 | Empty-query HTTP contracts | `PASS` | Twenty-two independent real HTTP requests reject query input with the stable redacted HTTP 400 contract; six query-free controls remain accepted by the validator. |
-| Bounded performance | `PASS` | Full suite passes 352/352; syntax passes 85/85; replay completes at 5,254.98 blocks/s with 9,650,320-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 377,615,865 ms old at the trigger time. |
+| Canonical query identity | `FAIL` | Twenty percent-encoding variants fail closed, but the shared check accepts both `?limit=10&protocol=x` and `?protocol=x&limit=10`; decoded semantics match while wire/cache/signature identities differ. |
+| Bounded performance | `PASS` | Full suite passes 355/355; syntax passes 86/86; replay completes at 2,803.99 blocks/s with 9,768,512-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 381,216,762 ms old at the trigger time. |
 
-The contract minimum is satisfied with 26 distinct evidence domains: 24 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 27 distinct evidence domains: 25 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -270,18 +330,33 @@ The contract minimum is satisfied with 26 distinct evidence domains: 24 PASS, 1 
 
 ## UPSTREAM-QA-HTTP-QUERY-ALLOWLIST-002
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `f81cae3`)
 - Owner: `DEV`
 - Reproduction: call `validateAllowedQueryParameters` with `limit=1` on `/internal/tokens/:mint/market`, `/security`, `/liquidity`, and `/executable-depth`; compare the route implementation and documented executable-depth contract.
-- Evidence: all four ignored `limit` inputs are admitted. The token regex initializes every subview with `allowed = ["limit", ...]`, while market, security, liquidity, and executable-depth responses do not use `limit`; executable depth documents and consumes only `side` and `amountRaw`. The selected unknown-key matrix still passes 22/22 because it tests `direction`, not an over-admitted key.
+- Evidence: all four formerly ignored `limit` inputs now throw `BAD_REQUEST`. Market, security, and liquidity admit no query keys; executable depth admits only `side` and `amountRaw`; five documented token controls remain accepted.
 - Affected contracts: authenticated token market/security/liquidity views, executable-depth bot input, cache and request-signature identity, client typo detection, fail-closed query semantics, and `UPSTREAM-HTTP-QUERY-ALLOWLIST-001-07`.
 - Expected behavior: allowlists are view-specific: token/base, holders, trades, and OHLCV admit their used `limit`; OHLCV additionally admits `interval`; executable depth admits only `side` and `amountRaw`; market, security, and liquidity admit no query keys.
-- Actual behavior: a shared broad token allowlist permits a response-irrelevant `limit` on four subviews, allowing semantically identical responses to retain divergent request identities.
+- Actual behavior: the token allowlist is now derived from the exact subview and matches the documented inputs.
 - Acceptance criteria: derive the allowed set from the exact token subview; reject `limit` with stable redacted HTTP 400 on market, security, liquidity, and executable depth; add real HTTP regressions for all four; preserve valid base/holders/trades/OHLCV limits, OHLCV interval, depth side/amountRaw, authentication/quota order, and response schemas.
-- Validation results: reviewed outcomes 43 PASS and 1 FAIL; independent unsupported-key HTTP matrix 22/22 PASS; empty-query matrix 22/22 PASS; direct four-view over-admission reproduction 4/4 FAIL; authentication-before-validation and quota-before-validation controls PASS as 401, 400, then 429; focused query regressions 3/3 PASS; full suite 352/352 PASS; syntax 85/85 PASS; replay PASS at 5,254.98 blocks/s with 9,650,320-byte heap growth.
+- Validation results: all 4 token corrections and all 19 WebSocket parity outcomes PASS; focused query/WebSocket regressions 7/7 PASS; full suite 355/355 PASS; syntax 86/86 PASS; replay PASS at 2,803.99 blocks/s with 9,768,512-byte heap growth.
 - Compatibility impact: fixing the defect rejects only ignored token-subview keys; documented token limits and executable-depth inputs remain compatible.
 - Performance impact: view-specific constant allowlists remain bounded to the number of query keys; no steady-state ingestion, persistence, or replay impact is expected.
-- Blockers: none; the exact source boundary and four reproductions are available.
+- Blockers: none; the prior finding is closed.
+
+## UPSTREAM-QA-QUERY-ENCODING-001
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: call `hasCanonicalQueryEncoding` for `/api/v1/pools?limit=10&protocol=x` and `/api/v1/pools?protocol=x&limit=10`; compare the decoded parameter entries after sorting.
+- Evidence: both raw query strings return `true`; their decoded key/value sets are identical, and route behavior reads parameters by name. `URLSearchParams.toString()` preserves insertion order, so comparing it with `url.search` normalizes escaping but does not select one parameter order.
+- Affected contracts: REST and WebSocket request identity, cache keys, request signing, audit correlation, replay selection, client serialization guidance, and `UPSTREAM-QUERY-ENCODING-001-01`.
+- Expected behavior: when the handoff promises one canonical wire spelling for semantically identical query input, the boundary admits only one deterministic parameter ordering in addition to canonical percent encoding.
+- Actual behavior: alternate orderings remain admitted and can produce identical application behavior under different wire, cache, signature, and audit identities.
+- Acceptance criteria: define a deterministic query-key order, reject or normalize alternate orders before signing/caching, apply the same rule to HTTP and WebSocket inputs, add multi-parameter real HTTP and WebSocket regressions, and preserve authentication/quota order plus established response/event schemas.
+- Validation results: committed noncanonical escape matrix 20/20 PASS; independent parity matrix 23/23 PASS; ordering reproduction FAIL with two accepted spellings; focused query/WebSocket regressions 7/7 PASS; full suite 355/355 PASS; syntax 86/86 PASS; replay PASS at 2,803.99 blocks/s with 9,768,512-byte heap growth.
+- Compatibility impact: clients using noncanonical parameter order must migrate to the documented deterministic encoder; decoded parameter values and response/event schemas remain unchanged.
+- Performance impact: bounded comparison or sorting over the already bounded query-key set; no ingestion, persistence, or replay change is expected.
+- Blockers: none; the source boundary and two-string reproduction are available.
 
 ## UPSTREAM-QA-HTTP-EMPTY-QUERY-001
 
@@ -301,7 +376,7 @@ The contract minimum is satisfied with 26 distinct evidence domains: 24 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 377,615,865 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 381,216,762 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -310,4 +385,4 @@ The contract minimum is satisfied with 26 distinct evidence domains: 24 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: make token query allowlists exact per subview and add real HTTP regressions rejecting ignored `limit` on market, security, liquidity, and executable depth while preserving every documented token query.
+- NEXT_DEV_ACTION: enforce one deterministic query-key order for HTTP and WebSocket requests and add real multi-parameter regressions proving alternate orderings fail closed while preserving authentication, quota, and response/event contracts.
