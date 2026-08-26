@@ -1,30 +1,31 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T05:36:12+07:00`
+- Run: `2026-08-27T06:36:14+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `6cc23c01348f12ba9262032c4f93c5f74cb3e54a`
-- Compared with QA baseline: `7ee96ba929957a2c7fa7da79aca75e1b7f76e7e0` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 37 ahead, 0 behind before this evidence report
-- Latest DEV commits: `6fce410` (`UPSTREAM-HTTP-ERROR-SCHEMA-DISCOVERY-001`) and `6cc23c0` (`UPSTREAM-HTTP-UNAVAILABLE-SCHEMA-001`)
-- Overall result: both schema families match their declared references and representative runtime bodies, but both DEV outcomes fail deterministic snapshot isolation. `queryContractSnapshot()` returns the shared mutable schema registry; mutating either an error schema or the unavailable schema changes later snapshots, digest, ETag, and published HTTP discovery without a source change. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `de49e23e1f3881e870daf3833c88aee7224e765e`
+- Compared with QA baseline: `beffb9813805be692223cc2fe135c779cbfe0b46` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 40 ahead, 0 behind before this evidence report
+- Latest DEV commits: `bc1de1d` (`UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001`) and `de49e23` (`UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001`)
+- Overall result: both reviewed DEV outcomes pass. Returned query-contract snapshots are detached across nested schemas, constraints, route outcomes, digest, ETag, and published HTTP discovery. Both preparation routes publish and emit the closed preparation-specific 503 envelope without exposing structural field names. Live qualification remains blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-HTTP-ERROR-SCHEMA-DISCOVERY-001` (FAIL)
+### `UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001` (PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-HTTP-ERROR-SCHEMA-DISCOVERY-001` | `FAIL` | The nine client-error and six not-found references match representative real bodies, but mutating `route_client_error_v1.required` on one returned snapshot poisons the next snapshot and changes its digest. The exported snapshot is not detached from the module registry. |
+| `UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001` | `PASS` | Independent mutation of nested client-error, basic-unavailable, preparation-unavailable, value-constraint, and route-outcome surfaces leaves a fresh snapshot byte-structurally equal to baseline with the same digest. HTTP revalidation with the baseline ETag remains 304 and a new 200 response contains no injected fields. |
 
-### `UPSTREAM-HTTP-UNAVAILABLE-SCHEMA-001` (FAIL)
+### `UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001` (PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-HTTP-UNAVAILABLE-SCHEMA-001` | `FAIL` | All eight intended unavailable outcomes reference the exact three-field schema and a real blocks failure matches it, but mutating `basic_unavailable_v1.required` on one returned snapshot poisons later snapshots and public discovery. |
+| `UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001` | `PASS` | Exactly the pool and bonding-curve preparation 503 outcomes reference `preparation_unavailable_v1`. Independent structurally unhealthy POSTs to both real routes return exactly `schemaVersion:1`, `prepared:false`, `automationSafe:false`, and the non-empty reason, with no injected internal structure field; the optional `missing` array is the only extra allowed field. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `7ee96ba`; the complete delta was exhausted.
-- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `beffb98`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema properties or route references would be padding.
+- Validation: independent isolation/HTTP/schema matrix 2/2 DEV outcomes PASS; focused response/schema suite 12/12 PASS; full suite 371/371 PASS; syntax 83/83 PASS; replay invariants PASS at 5,583.68 blocks/s with 7,436,584-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (21/20; retained)
 
@@ -369,7 +370,7 @@
 | HTTP route response discovery | `PASS` | All five cursor-paginated routes now publish non-retryable JSON 400 outcomes matching independent real `invalid_cursor` responses against canonical indexed state. |
 | HTTP response representation discovery | `PASS` | All 95 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 94 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response body schemas | `FAIL` | Declared reference coverage and representative bodies pass, but the exported snapshot shares its nested schema registry: caller mutation poisons subsequent snapshots and changes the public digest/ETag without a source change. |
+| HTTP response body schemas | `PASS` | The closed error, unavailable, and preparation schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -398,10 +399,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 369/369; syntax passes 83/83; replay completes at 3,461.72 blocks/s with 9,887,336-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 413,655,693 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 371/371; syntax passes 83/83; replay completes at 5,583.68 blocks/s with 7,436,584-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 417,256,797 ms old at the trigger time. |
 
-The contract minimum is satisfied with 36 distinct evidence domains: 34 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 36 distinct evidence domains: 35 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -476,18 +477,32 @@ The contract minimum is satisfied with 36 distinct evidence domains: 34 PASS, 1 
 
 ## UPSTREAM-QA-HTTP-SCHEMA-SNAPSHOT-001
 
-- Severity: `FAIL` / `MEDIUM`
+- Severity: `PASS` (resolved by `bc1de1d`)
 - Owner: `DEV`
 - Reproduction: obtain a snapshot from exported `queryContractSnapshot()`, mutate a nested array in `responseBodySchemas.route_client_error_v1` or `basic_unavailable_v1`, then obtain another snapshot and conditionally fetch `/api/v1/query-contracts` with the pre-mutation ETag.
-- Evidence: both nested mutations persist into later snapshots because every result exposes the same schema-registry object. Each mutation changes the contract digest; after unavailable-schema mutation, an HTTP request carrying the original ETag returns 200 with a new ETag and publishes the injected field instead of returning unchanged 304.
+- Evidence: independent mutations across three nested response schemas, a value constraint, and a route representation remain isolated to the caller-owned result. The next snapshot is deep-equal to baseline with digest `7a3104d4684f46e6f65112cdc9e856d5fbcd4a3c045b330149bbaa28dcc181f0`; the original HTTP ETag still revalidates to 304 and a fresh public 200 payload excludes injected fields.
 - Affected contracts: deterministic discovery, schema fail-closed behavior, error/unavailable validators, contract digest, cache identity, ETag revalidation, and in-process callers of the exported snapshot API.
 - Expected behavior: a returned snapshot cannot mutate module state or any later snapshot; nested schema objects and arrays are detached or recursively immutable, and the public digest/ETag changes only when authoritative contract source changes.
-- Actual behavior: `contract.responseBodySchemas = RESPONSE_BODY_SCHEMAS` aliases the shared nested registry; caller mutation silently becomes authoritative public discovery state.
-- Acceptance criteria: deep-clone the complete schema registry into every snapshot or recursively freeze the authoritative registry before exposure; prove nested mutations for both error and unavailable schemas cannot alter later snapshots, digest, ETag, or HTTP payload; retain all 9 client-error, 6 not-found, 8 basic-unavailable, and 72 null references plus real-body parity.
-- Validation results: reference coverage and four representative bodies PASS; error-schema isolation 0/1 and unavailable-schema isolation 0/1; cached revalidation after mutation returns poisoned 200 instead of 304; focused 18/18 PASS and full 369/369 PASS because committed tests do not mutate returned snapshots; syntax 83/83 and replay PASS.
+- Actual behavior: `queryContractSnapshot()` hashes and returns a structured clone of the complete assembled contract; caller mutation does not escape that snapshot.
+- Acceptance criteria: deep-clone the complete schema registry into every snapshot or recursively freeze the authoritative registry before exposure; prove nested mutations for error, unavailable, and preparation schemas cannot alter later snapshots, digest, ETag, or HTTP payload; retain exact route-reference and real-body parity.
+- Validation results: independent nested isolation and ETag controls PASS; focused response/schema suite 12/12 PASS; full suite 371/371 PASS; syntax 83/83 PASS; replay PASS at 5,583.68 blocks/s.
 - Compatibility impact: runtime response bodies need not change; the fix restores stable discovery and may make mutation attempts throw or affect only the caller-owned copy.
-- Performance impact: three small bounded schemas; recursive freeze once or bounded deep copy per snapshot has negligible expected cost.
-- Blockers: none; deterministic offline reproduction.
+- Performance impact: four small bounded schemas plus the existing bounded discovery artifact are cloned per snapshot; full/replay checks show no bounded-performance regression.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-PREPARATION-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS`
+- Owner: `DEV`
+- Reproduction: inspect all response-schema references, then inject noncanonical structure evidence containing an internal field name and POST JSON to both pool and bonding-curve preparation routes.
+- Evidence: exactly two published 503 outcomes reference `preparation_unavailable_v1`. Both real routes return the exact required four-field fail-closed body and omit injected `fields`; the schema is closed, fixes both boolean values to false, requires a non-empty reason, and permits only an optional non-empty-string `missing` array.
+- Affected contracts: pool and bonding-curve preparation 503 discovery, generated validators, structural-admission redaction, bot retry classification, and non-signable/non-submittable failure handling.
+- Expected versus actual: every post-admission 503 on either preparation route must fit one closed preparation-specific envelope; observed structural failures and published route references match that contract.
+- Acceptance criteria: assign the schema only to both preparation routes; require version/prepared/automationSafe/reason; allow only optional missing; normalize structural failure without exposing internal fields; preserve success, 400, and 404 behavior. All criteria are met.
+- Validation results: independent reference cardinality 2/2 PASS; pool and token structural-envelope probes 2/2 PASS; focused suite 12/12 PASS; full suite 371/371 PASS; syntax and replay PASS.
+- Compatibility impact: preparation structural 503 bodies intentionally migrate from generic `available:false` to preparation-specific `prepared:false, automationSafe:false`; other outcomes and routes are unchanged.
+- Performance impact: one bounded static schema and a constant route-family branch; no suite or replay regression observed.
+- Blockers: none.
 
 ## UPSTREAM-QA-HTTP-REPRESENTATION-DISCOVERY-001
 
@@ -735,4 +750,4 @@ The contract minimum is satisfied with 36 distinct evidence domains: 34 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: detach or recursively freeze the complete response-schema registry so mutating any returned snapshot cannot alter later snapshots, digest, ETag, or published HTTP discovery, with nested isolation regressions for both error and unavailable schemas.
+- NEXT_DEV_ACTION: perform a fresh BA/PO-ranked reconciliation of the remaining heterogeneous HTTP success/unavailable bodies, select one dependency-ready closed schema family, and implement its discovery/runtime parity with generated-validator regressions.
