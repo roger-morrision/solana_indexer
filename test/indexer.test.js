@@ -233,29 +233,26 @@ test("query contracts publish route-specific post-admission response outcomes", 
   const contract = queryContractSnapshot(), routes = new Map(contract.http.map((route) => [route.path, route.responseOutcomes]));
   assert.equal(routes.size, 54);
   for (const [path, outcomes] of routes) {
-    assert.deepEqual(outcomes[0], { outcome: "success", status: 200, retryable: false }, path);
+    assert.equal(outcomes[0].outcome, "success", path); assert.equal(outcomes[0].status, 200, path); assert.equal(outcomes[0].retryable, false, path);
     assert.equal(new Set(outcomes.map((outcome) => outcome.status)).size, outcomes.length, path);
   }
-  assert.deepEqual(routes.get("/api/v1/query-contracts"), [
-    { outcome: "success", status: 200, retryable: false },
-    { outcome: "not_modified", status: 304, retryable: false }
-  ]);
-  assert.deepEqual(routes.get("/internal/pools/{pool}/quote"), [
-    { outcome: "success", status: 200, retryable: false },
-    { outcome: "route_client_error", status: 400, retryable: false },
-    { outcome: "not_found", status: 404, retryable: false },
-    { outcome: "unavailable", status: 503, retryable: true }
-  ]);
-  assert.deepEqual(routes.get("/api/transaction/{signature}"), [
-    { outcome: "success", status: 200, retryable: false },
-    { outcome: "not_found", status: 404, retryable: false },
-    { outcome: "unavailable", status: 503, retryable: true }
-  ]);
-  assert.deepEqual(routes.get("/internal/trending"), [{ outcome: "success", status: 200, retryable: false }]);
-  assert.deepEqual(routes.get("/api/health"), [
-    { outcome: "success", status: 200, retryable: false },
-    { outcome: "unavailable", status: 503, retryable: true }
-  ]);
+  assert.deepEqual(routes.get("/api/v1/query-contracts").map(({ outcome, status, retryable }) => ({ outcome, status, retryable })), [{ outcome: "success", status: 200, retryable: false }, { outcome: "not_modified", status: 304, retryable: false }]);
+  assert.deepEqual(routes.get("/internal/pools/{pool}/quote").map(({ outcome, status, retryable }) => ({ outcome, status, retryable })), [{ outcome: "success", status: 200, retryable: false }, { outcome: "route_client_error", status: 400, retryable: false }, { outcome: "not_found", status: 404, retryable: false }, { outcome: "unavailable", status: 503, retryable: true }]);
+  assert.deepEqual(routes.get("/api/transaction/{signature}").map(({ outcome, status, retryable }) => ({ outcome, status, retryable })), [{ outcome: "success", status: 200, retryable: false }, { outcome: "not_found", status: 404, retryable: false }, { outcome: "unavailable", status: 503, retryable: true }]);
+  assert.deepEqual(routes.get("/internal/trending").map(({ outcome, status, retryable }) => ({ outcome, status, retryable })), [{ outcome: "success", status: 200, retryable: false }]);
+  assert.deepEqual(routes.get("/api/health").map(({ outcome, status, retryable }) => ({ outcome, status, retryable })), [{ outcome: "success", status: 200, retryable: false }, { outcome: "unavailable", status: 503, retryable: true }]);
+});
+
+test("published response representations match JSON, metrics, HTML, and empty HTTP bodies", async (t) => {
+  const contract = queryContractSnapshot(), routes = new Map(contract.http.map((route) => [route.path, route.responseOutcomes]));
+  const jsonRepresentation = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true };
+  assert.deepEqual(routes.get("/api/health")[0].representation, jsonRepresentation);
+  assert.deepEqual(routes.get("/metrics")[0].representation, { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true });
+  assert.deepEqual(routes.get("/")[0].representation, { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true });
+  assert.deepEqual(routes.get("/api/v1/query-contracts")[1].representation, { bodyKind: "empty", contentType: null, bodyRequired: false });
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  for (const [path, profile] of [["/api/health", jsonRepresentation], ["/metrics", routes.get("/metrics")[0].representation], ["/", routes.get("/")[0].representation]]) { const response = await fetch(`${base}${path}`); assert.equal(response.headers.get("content-type"), profile.contentType, path); assert.equal((await response.text()).length > 0, profile.bodyRequired, path); }
+  const fresh = await fetch(`${base}/api/v1/query-contracts`), cached = await fetch(`${base}/api/v1/query-contracts`, { headers: { "if-none-match": fresh.headers.get("etag") } }); assert.equal(cached.status, 304); assert.equal(cached.headers.get("content-type"), null); assert.equal(await cached.text(), "");
 });
 test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });

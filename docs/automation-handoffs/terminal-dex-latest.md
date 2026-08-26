@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-REPRESENTATION-DISCOVERY-001
+
+- BA/PO decision: a fresh 24-area review ranked response representation discovery above credential-blocked live qualification and fixture-blocked protocol expansion. Route status/retry metadata was available, but generated clients still had to guess whether successful or cached outcomes contained JSON, Prometheus text, HTML, or no body.
+- Selected ID: `UPSTREAM-HTTP-REPRESENTATION-DISCOVERY-001`.
+- Implemented contract: every published `responseOutcomes` entry now includes `representation.bodyKind`, exact `contentType`, and `bodyRequired`. JSON is explicit across API outcomes, metrics advertises Prometheus text, static index routes advertise HTML, and query-contract 304 advertises an empty body with no content type. The discovery digest and ETag bind the new metadata.
+- Compatibility/migration: additive discovery only; runtime status codes, response bytes, content types, endpoints, RPC, and WebSocket contracts are unchanged. Consumers can select parsers before reading a response and must not attempt JSON parsing for metrics, HTML, or 304.
+- Validation: all 54 routes retain unique ordered statuses; contract profiles match real JSON health, Prometheus metrics, HTML root, and bodyless 304 responses.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; authoritative fixtures for additional protocol coverage—BA/PO.
+- NEXT_WEB_ACTION: select response parsers from `responseOutcomes[].representation` and treat `bodyRequired: false` as a valid bodyless completion rather than a transport failure.
+
 ## UPSTREAM-HTTP-RESPONSE-DISCOVERY-001
 
 - BA/PO decision: a fresh 24-area review retained more than 20 concrete opportunities and ranked generated-client response classification highest among dependency-ready offline-safe work. Admission failures were discoverable, but route success, cache, client-error, absence, and availability outcomes still required hard-coded consumer knowledge.
