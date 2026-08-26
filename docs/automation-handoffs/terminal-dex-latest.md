@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh review found unavailable bodies span several incompatible shapes, so a universal schema would be unsafe. Eight retained-data routes share one exact fail-closed envelope and form the highest-value dependency-ready structural batch.
+- Selected ID: `UPSTREAM-HTTP-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: discovery now publishes closed `basic_unavailable_v1` for the exact `{schemaVersion:1, available:false, reason:string}` envelope used by v1 blocks/transactions/swaps, legacy blocks/transactions, transaction detail, holders, and token-account detail. Only those eight outcomes reference it; heterogeneous health, stats, quote, preparation, pricing, operational, and static failures remain explicitly `bodySchema:null`.
+- Compatibility/migration: additive discovery only; runtime responses, statuses, headers, endpoints, RPC, and WebSocket behavior are unchanged. Consumers may validate the eight referenced failures and must not assume the schema applies to untyped unavailable outcomes.
+- Validation: all eight exact-envelope routes reference the schema, four heterogeneous controls do not, and a real HTTP blocks response with an injected unavailable canonical view contains exactly the three required fields with canonical constant values.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; remaining heterogeneous success/unavailable schemas and additional-protocol fixtures—BA/PO.
+- NEXT_WEB_ACTION: generate `basic_unavailable_v1` validation only for outcomes that reference it, preserving route-specific handling for every `bodySchema:null` unavailable response.
+
 ## UPSTREAM-HTTP-ERROR-SCHEMA-DISCOVERY-001
 
 - BA/PO decision: fresh QC passed cursor and body-identity discovery, leaving structural validation as the highest-value offline-safe response-contract gap. Generated clients could identify error payload families but still had to hard-code their required fields and bounded error vocabulary.
