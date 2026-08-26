@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
 import process from "node:process";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assessBackupStatus } from "./backup-status.js";
 import { readBoundedJsonFile } from "./bounded-json-file.js";
@@ -13,6 +12,7 @@ import { validateLocalWsUrl } from "./local-validator-stream.js";
 import { assessRecoveryQualification } from "./recovery-qualification.js";
 import { IndexStore } from "./store.js";
 import { applyWarehouseFailureStatus, assessWarehouseCheckpoint } from "./warehouse-sync.js";
+import { isInvokedFile } from "./invoked-file.js";
 
 const CHECK_NAMES = ["provider", "index_structure", "index_chain", "index_events", "index_transactions", "index_instructions", "decoder_registry", "decoder_output", "indexed_swaps", "program_events", "derived_ledger", "aggregate_projections", "snapshot_projections", "metadata_projections", "recovery_state", "index_freshness", "exporter", "warehouse", "backup", "recovery"];
 const INDEX_REASONS = new Set(["no_indexed_blocks", "indexed_state_file_invalid", "indexed_state_json_invalid", "indexed_state_structure_invalid", "indexed_execution_qualification_invalid", "indexed_block_identity_invalid", "indexed_block_time_invalid", "latest_block_has_no_timestamp", "indexed_parent_hash_mismatch", "indexed_block_mainnet_identity_missing_or_invalid", "indexed_event_log_invalid", "indexed_event_evidence_invalid", "indexed_transaction_evidence_invalid", "indexed_instruction_evidence_invalid", "decoder_changed", "indexed_decoder_output_incomplete", "indexed_swap_evidence_invalid", "indexed_program_event_evidence_invalid", "indexed_derived_ledger_evidence_invalid", "indexed_aggregate_projection_invalid", "indexed_snapshot_projection_invalid", "indexed_metadata_projection_invalid", "indexed_recovery_evidence_invalid", "dead_letter_capacity_exceeded", "latest_block_time_is_in_future", "latest_block_is_stale"]);
@@ -51,6 +51,5 @@ export async function operationalReadinessCheck({ config = loadConfig(), env = p
 }
 
 async function main() { const result = await operationalReadinessCheck(); console.log(JSON.stringify(result)); if (!result.ready) process.exitCode = 1; }
-export function isInvokedFile(invoked, moduleFile = fileURLToPath(import.meta.url), realpath = fs.realpathSync.native) { if (!invoked) return false; try { return realpath(path.resolve(invoked)).toLowerCase() === realpath(moduleFile).toLowerCase(); } catch { return path.resolve(invoked).toLowerCase() === path.resolve(moduleFile).toLowerCase(); } }
 const invoked = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (isInvokedFile(invoked)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invoked, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseBoundedInteger } from "./config.js";
 import { parseBlock } from "./parser.js";
 import { IndexStore } from "./store.js";
+import { isInvokedFile } from "./invoked-file.js";
 
 function canonicalJson(value) { if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`; if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`; return JSON.stringify(value); }
 function digest(value) { return crypto.createHash("sha256").update(canonicalJson(value)).digest("hex"); }
@@ -35,4 +36,4 @@ export async function runReplayLoadValidation(template, { blocks = 10_000, dupli
 }
 
 async function main() { const fixtureFlag = process.argv.indexOf("--fixture"), blocksFlag = process.argv.indexOf("--blocks"); if (fixtureFlag < 0 || !process.argv[fixtureFlag + 1] || (blocksFlag >= 0 && !process.argv[blocksFlag + 1])) throw new Error("usage: replay-load-validation.js --fixture <canonical-block.json> [--blocks N]"); const filename = path.resolve(process.argv[fixtureFlag + 1]), blocks = parseBoundedInteger(blocksFlag >= 0 ? process.argv[blocksFlag + 1] : undefined, 10_000, 1, 1_000_000), template = JSON.parse(await fs.readFile(filename, "utf8")); console.log(JSON.stringify(await runReplayLoadValidation(template, { blocks })) ); }
-const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
+const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
