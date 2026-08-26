@@ -1,70 +1,70 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-26T21:37:05+07:00`
+- Run: `2026-08-26T22:36:36+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `418504f8d407a93a821e856142de7e02c70570a9`
-- Compared with QA baseline: `ae975f4` (2 DEV commits, 4 changed files)
-- Compared with `origin/main`: 13 ahead, 0 behind before this evidence report
-- Latest DEV handoffs: `UPSTREAM-QUERY-ORDER-001` and `UPSTREAM-QUERY-DISCOVERY-001`
-- Overall result: all 40 available DEV outcomes pass and the prior canonical query-order finding is closed. Independent discovery review found `UPSTREAM-QA-QUERY-DISCOVERY-001`: the published WebSocket artifact omits topic-specific filter compatibility, so generated builders can emit canonically encoded requests that the server rejects. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `bf83fac9a8567cabcdac5728e1e3cd46a4a29d23`
+- Compared with QA baseline: `81d6a61` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 16 ahead, 0 behind before this evidence report
+- Latest DEV handoffs: `UPSTREAM-WS-DISCOVERY-001` and `UPSTREAM-QUERY-CACHE-001`
+- Overall result: all 40 available DEV outcomes pass and the prior topic-compatibility finding is closed. Independent discovery review found `UPSTREAM-QA-WS-DISCOVERY-002`: the artifact publishes the maximum filter length but omits its nonempty and control-character rules, so generated builders can still emit canonical requests rejected by runtime. Live qualification remains blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (40/20)
 
-### `UPSTREAM-QUERY-ORDER-001` (20/20 PASS)
+### `UPSTREAM-WS-DISCOVERY-001` (20/20 PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-QUERY-ORDER-001-01` | `PASS` | Alternate internal trending order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-02` | `PASS` | Alternate candidate-window order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-03` | `PASS` | Alternate block pagination order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-04` | `PASS` | Alternate transaction pagination order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-05` | `PASS` | Alternate swap pagination/filter order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-06` | `PASS` | Alternate token pagination order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-07` | `PASS` | Alternate pool pagination/filter order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-08` | `PASS` | Alternate legacy trending order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-09` | `PASS` | Alternate quote-input order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-10` | `PASS` | Alternate OHLCV order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-11` | `PASS` | Alternate executable-depth order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-12` | `PASS` | Alternate candle order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-13` | `PASS` | Alternate WebSocket cursor/topic order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-14` | `PASS` | Alternate WebSocket mint/topic order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-15` | `PASS` | Alternate WebSocket pool/topic order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-16` | `PASS` | Alternate WebSocket protocol/topic order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-17` | `PASS` | Alternate WebSocket event-type/topic order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-18` | `PASS` | Alternate WebSocket acknowledgement/topic order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-19` | `PASS` | Alternate three-key WebSocket order is rejected. |
-| `UPSTREAM-QUERY-ORDER-001-20` | `PASS` | Alternate six-key WebSocket order is rejected. |
+| `UPSTREAM-WS-DISCOVERY-001-01` | `PASS` | Blocks without filters are advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-02` | `PASS` | Block `mint` is absent from the topic contract and rejected. |
+| `UPSTREAM-WS-DISCOVERY-001-03` | `PASS` | Block `pool` is absent and rejected. |
+| `UPSTREAM-WS-DISCOVERY-001-04` | `PASS` | Block `protocol` is absent and rejected. |
+| `UPSTREAM-WS-DISCOVERY-001-05` | `PASS` | Block `eventType` is absent and rejected. |
+| `UPSTREAM-WS-DISCOVERY-001-06` | `PASS` | Swaps without filters are advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-07` | `PASS` | Swap `mint` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-08` | `PASS` | Swap `pool` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-09` | `PASS` | Swap `protocol` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-10` | `PASS` | Swap `eventType` is absent and rejected. |
+| `UPSTREAM-WS-DISCOVERY-001-11` | `PASS` | Lifecycle without filters is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-12` | `PASS` | Lifecycle `eventType` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-13` | `PASS` | Lifecycle `mint` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-14` | `PASS` | Lifecycle `pool` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-15` | `PASS` | Lifecycle `protocol` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-16` | `PASS` | Snapshots without filters are advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-17` | `PASS` | Snapshot `eventType` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-18` | `PASS` | Snapshot `mint` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-19` | `PASS` | Snapshot `pool` is advertised and admitted. |
+| `UPSTREAM-WS-DISCOVERY-001-20` | `PASS` | Snapshot `protocol` is advertised and admitted. |
 
-### `UPSTREAM-QUERY-DISCOVERY-001` (20/20 PASS)
+### `UPSTREAM-QUERY-CACHE-001` (20/20 PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-QUERY-DISCOVERY-001-01` | `PASS` | Versioned block parameters and GET method are published and match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-02` | `PASS` | Versioned transaction parameters and GET method match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-03` | `PASS` | Versioned swap parameters and GET method match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-04` | `PASS` | Versioned token parameters and GET method match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-05` | `PASS` | Versioned pool parameters and GET method match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-06` | `PASS` | Internal trending parameters are published in canonical order. |
-| `UPSTREAM-QUERY-DISCOVERY-001-07` | `PASS` | Candidate parameters are published in canonical order. |
-| `UPSTREAM-QUERY-DISCOVERY-001-08` | `PASS` | New-pair parameters match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-09` | `PASS` | Legacy trending parameters match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-10` | `PASS` | Candle template and parameter order match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-11` | `PASS` | Quote template and parameter order match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-12` | `PASS` | Executable-depth template and parameters match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-13` | `PASS` | OHLCV template and parameters match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-14` | `PASS` | Token-holder template and limit parameter match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-15` | `PASS` | Wallet-funding template and limit parameter match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-16` | `PASS` | Volume template and window parameter match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-17` | `PASS` | Versioned holder template and limit parameter match runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-18` | `PASS` | Bot-readiness pool parameter matches runtime admission. |
-| `UPSTREAM-QUERY-DISCOVERY-001-19` | `PASS` | Discovery endpoint returns schema/version 1, rejects query input, and remains available on empty index state. |
-| `UPSTREAM-QUERY-DISCOVERY-001-20` | `PASS` | RPC publishes POST with an empty query contract and rejects the wrong method. |
+| `UPSTREAM-QUERY-CACHE-001-01` | `PASS` | `contractSha256` is canonical lowercase SHA-256. |
+| `UPSTREAM-QUERY-CACHE-001-02` | `PASS` | Independent digest recomputation over the artifact excluding the digest matches. |
+| `UPSTREAM-QUERY-CACHE-001-03` | `PASS` | Repeated snapshots return the same digest. |
+| `UPSTREAM-QUERY-CACHE-001-04` | `PASS` | Strong `ETag` equals the quoted contract digest. |
+| `UPSTREAM-QUERY-CACHE-001-05` | `PASS` | Matching strong validator returns 304. |
+| `UPSTREAM-QUERY-CACHE-001-06` | `PASS` | Matching weak validator returns 304. |
+| `UPSTREAM-QUERY-CACHE-001-07` | `PASS` | Matching validator in a list returns 304. |
+| `UPSTREAM-QUERY-CACHE-001-08` | `PASS` | Wildcard validator returns 304 for the existing resource. |
+| `UPSTREAM-QUERY-CACHE-001-09` | `PASS` | Mismatched validator returns the full 200 representation. |
+| `UPSTREAM-QUERY-CACHE-001-10` | `PASS` | Every 304 response is bodyless. |
+| `UPSTREAM-QUERY-CACHE-001-11` | `PASS` | Every 304 retains the current ETag. |
+| `UPSTREAM-QUERY-CACHE-001-12` | `PASS` | Every 304 retains API version 1. |
+| `UPSTREAM-QUERY-CACHE-001-13` | `PASS` | Every 304 publishes the private five-minute cache policy. |
+| `UPSTREAM-QUERY-CACHE-001-14` | `PASS` | Full 200 response publishes the same private cache policy. |
+| `UPSTREAM-QUERY-CACHE-001-15` | `PASS` | Full 200 response retains API version 1. |
+| `UPSTREAM-QUERY-CACHE-001-16` | `PASS` | Query input on the discovery route still fails with 400. |
+| `UPSTREAM-QUERY-CACHE-001-17` | `PASS` | Wrong method still fails with 405. |
+| `UPSTREAM-QUERY-CACHE-001-18` | `PASS` | Authentication precedes wildcard cache validation and returns 401. |
+| `UPSTREAM-QUERY-CACHE-001-19` | `PASS` | Base quota precedes cache validation and returns 429 after one admitted request. |
+| `UPSTREAM-QUERY-CACHE-001-20` | `PASS` | Full cached representation preserves the complete HTTP/WebSocket discovery artifact. |
 
-- Available DEV delta: exactly 40 distinct fixes/enhancements after `ae975f4`; the complete delta was exhausted.
+- Available DEV delta: exactly 40 distinct fixes/enhancements after `81d6a61`; the complete delta was exhausted.
 - Verification result: 40 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 0; the reviewed delta exceeds the 20-item contract by 20 without duplicating or cosmetically splitting evidence.
 
-## Prior reviewed DEV delta (43/20; retained)
+## Prior reviewed DEV delta (40/20; retained)
 
 ### `UPSTREAM-QUERY-PARITY-001` (23/23 PASS)
 
@@ -249,7 +249,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 28-domain reconciliation
+## Independent 29-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -278,11 +278,12 @@
 | HTTP query allowlists | `PASS` | The exact token-subview correction rejects all four previously ignored `limit` inputs; the 4/4 token correction matrix and 19/19 WebSocket parity matrix pass. |
 | Empty-query HTTP contracts | `PASS` | Twenty-two independent real HTTP requests reject query input with the stable redacted HTTP 400 contract; six query-free controls remain accepted by the validator. |
 | Canonical query identity | `PASS` | All twenty alternate-order cases fail the shared sorted encoding boundary; canonical controls, HTTP wiring, WebSocket parsing, authentication, and quota ordering remain compatible. |
-| Machine-readable query discovery | `FAIL` | All 54 HTTP contracts are self-consistent, but WebSocket metadata omits topic-specific filter rules; a metadata-driven builder can emit block `mint` or swap `eventType` filters that runtime rejects. |
-| Bounded performance | `PASS` | Full suite passes 357/357; syntax passes 86/86; replay completes at 5,388.77 blocks/s with 9,379,464-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 384,907,808 ms old at the trigger time. |
+| Machine-readable query discovery | `PASS` | All twenty topic/filter compatibility cases match the deterministic per-topic artifact and runtime parser; the prior hidden compatibility rules are now published. |
+| WebSocket filter-value discovery | `FAIL` | The artifact publishes a maximum length but omits nonempty and control-character rules; canonical empty and newline-bearing filters generated from published metadata are rejected by runtime. |
+| Bounded performance | `PASS` | Full suite passes 357/357; syntax passes 86/86; replay completes at 3,905.30 blocks/s with 9,903,768-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 388,479,063 ms old at the trigger time. |
 
-The contract minimum is satisfied with 28 distinct evidence domains: 26 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 29 distinct evidence domains: 27 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -417,18 +418,33 @@ The contract minimum is satisfied with 28 distinct evidence domains: 26 PASS, 1 
 
 ## UPSTREAM-QA-QUERY-DISCOVERY-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `efd6b5d`)
 - Owner: `DEV`
 - Reproduction: load `GET /api/v1/query-contracts`, generate a sorted subscription from its published global WebSocket parameter list, and try `/ws?mint=m&topic=blocks` or `/ws?eventType=e&topic=swaps`.
-- Evidence: the artifact publishes global parameters, topic names, acknowledgement values, and a filter length, but no topic-to-filter compatibility map. Both generated examples are canonically encoded and use published names yet `parseWebSocketSubscription` rejects them because blocks admit no filters and swaps reject `eventType`.
+- Evidence: `topicContracts` now publishes blocks with no filters, swaps with mint/pool/protocol, and lifecycle/snapshots with eventType/mint/pool/protocol. All twenty discovery-to-parser combinations match independently.
 - Affected contracts: WebSocket builder generation, SDK startup compatibility, cache/signature identity, subscription error handling, schema-version gating, and the stated drift-prevention purpose of `UPSTREAM-QUERY-DISCOVERY-001`.
 - Expected behavior: the machine-readable artifact describes every rule required to construct an admissible subscription, including the allowed filter names per topic and any topic-specific exclusions.
-- Actual behavior: consumers must still duplicate hidden topic-specific rules from prose or source, so generated requests can be deterministically rejected despite conforming to the published metadata.
+- Actual behavior: the topic-to-filter compatibility map now matches runtime admission for all four topics.
 - Acceptance criteria: publish a deterministic per-topic filter map for blocks, swaps, lifecycle, and snapshots; preserve global bounds and acknowledgement values; add real generated-builder regressions for valid and invalid topic/filter combinations; version the schema if compatibility requires it.
-- Validation results: all 20 selected discovery outcomes PASS; all 54 published HTTP rows accept their declared parameters, reject an unknown parameter, preserve sorted arrays, and match their published method; discovery HTTP status/version/query-free controls PASS; two metadata-generated WebSocket cases reproduce the omission; focused suite 8/8 PASS; full suite 357/357 PASS; syntax 86/86 PASS; replay PASS at 5,388.77 blocks/s.
+- Validation results: independent topic compatibility matrix 20/20 PASS; focused query/discovery/WebSocket suite 6/6 PASS; full suite 357/357 PASS; syntax 86/86 PASS; replay PASS at 3,905.30 blocks/s with 9,903,768-byte heap growth.
 - Compatibility impact: additive metadata is sufficient if schema version 1 remains extensible; otherwise publish schema version 2 and require clients to reject unsupported versions. Existing WebSocket runtime behavior and events need not change.
 - Performance impact: four bounded topic entries with small parameter arrays; negligible response and validation cost.
-- Blockers: none; the published artifact and runtime parser provide a complete offline reproduction.
+- Blockers: none; the prior finding is closed.
+
+## UPSTREAM-QA-WS-DISCOVERY-002
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: generate `/ws?mint=&topic=swaps` and `/ws?mint=a%0Ab&topic=swaps` from the published swap filter name, canonical key order, and 64-character maximum; compare with `parseWebSocketSubscription`.
+- Evidence: `webSocket.maximumFilterLength` is 64, but the artifact has no minimum length or control-character policy. Both requests use a published topic/filter combination and canonical encoding yet runtime rejects them because filters must be nonempty and contain no U+0000 through U+001F characters.
+- Affected contracts: generated WebSocket builders, SDK validation, startup schema gating, retry/error classification, cache/signature identity, and the drift-prevention purpose of query discovery.
+- Expected behavior: the discovery artifact publishes every generic filter-value boundary needed to decide whether a generated subscription is admissible before connection.
+- Actual behavior: clients must still duplicate the hidden nonempty and control-character rules from source or prose, so schema-conforming builders can emit deterministic runtime rejections.
+- Acceptance criteria: publish minimum filter length 1 and an explicit control-character exclusion or equivalent character policy; apply it to every topic filter; add generated-builder parity cases for empty, control-bearing, maximum-length, and over-maximum values; preserve current runtime/event behavior and version deliberately if required.
+- Validation results: both omission reproductions fail runtime admission; all 20 topic compatibility outcomes and all 20 cache outcomes PASS; independent cache checks pass 22/22 including digest, validators, headers, method, query, authentication, and quota order; focused suite 6/6 PASS; full suite 357/357 PASS; syntax 86/86 PASS; replay PASS at 3,905.30 blocks/s.
+- Compatibility impact: additive generic value constraints are sufficient if schema version 1 is extensible; otherwise publish a new version and require clients to reject unsupported schemas. Valid subscriptions and event payloads need not change.
+- Performance impact: two bounded scalar metadata fields or one compact character-policy value; negligible response and validation cost.
+- Blockers: none; the artifact and parser provide an offline reproduction.
 
 ## UPSTREAM-QA-HTTP-EMPTY-QUERY-001
 
@@ -448,7 +464,7 @@ The contract minimum is satisfied with 28 distinct evidence domains: 26 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 384,907,808 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 388,479,063 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -457,4 +473,4 @@ The contract minimum is satisfied with 28 distinct evidence domains: 26 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: publish deterministic per-topic WebSocket filter rules in the query-discovery schema and add generated-builder regressions proving every advertised topic/filter combination matches runtime admission.
+- NEXT_DEV_ACTION: publish generic WebSocket filter-value constraints for nonempty and control-character-safe values and add generated-builder regressions covering empty, control-bearing, maximum-length, and over-maximum filters.
