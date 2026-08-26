@@ -174,7 +174,15 @@ test("machine-readable query contracts publish canonical HTTP and WebSocket buil
   assert.deepEqual(contract.canonicalization, { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true });
   const published = new Map(contract.http.map((row) => [row.path, row.parameters]));
   for (const [path, parameters] of expected) assert.deepEqual(published.get(path), parameters, path);
-  assert.deepEqual(contract.webSocket, { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], acknowledgementValues: ["0", "1"], maximumFilterLength: 64 });
+  assert.deepEqual(contract.webSocket, { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], topicContracts: [{ topic: "blocks", filters: [] }, { topic: "lifecycle", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "snapshots", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "swaps", filters: ["mint", "pool", "protocol"] }], acknowledgementValues: ["0", "1"], maximumFilterLength: 64 });
+  const topicCases = [
+    ["/ws?topic=blocks", true], ["/ws?mint=m&topic=blocks", false], ["/ws?pool=p&topic=blocks", false], ["/ws?protocol=x&topic=blocks", false], ["/ws?eventType=e&topic=blocks", false],
+    ["/ws?topic=swaps", true], ["/ws?mint=m&topic=swaps", true], ["/ws?pool=p&topic=swaps", true], ["/ws?protocol=x&topic=swaps", true], ["/ws?eventType=e&topic=swaps", false],
+    ["/ws?topic=lifecycle", true], ["/ws?eventType=e&topic=lifecycle", true], ["/ws?mint=m&topic=lifecycle", true], ["/ws?pool=p&topic=lifecycle", true], ["/ws?protocol=x&topic=lifecycle", true],
+    ["/ws?topic=snapshots", true], ["/ws?eventType=e&topic=snapshots", true], ["/ws?mint=m&topic=snapshots", true], ["/ws?pool=p&topic=snapshots", true], ["/ws?protocol=x&topic=snapshots", true]
+  ];
+  const topicContracts = new Map(contract.webSocket.topicContracts.map((row) => [row.topic, new Set(row.filters)]));
+  for (const [target, accepted] of topicCases) { const url = new URL(target, "ws://indexer.test"), topic = url.searchParams.get("topic"), filters = [...url.searchParams.keys()].filter((name) => !["ack", "cursor", "topic"].includes(name)); assert.equal(filters.every((name) => topicContracts.get(topic)?.has(name)), accepted, target); assert.equal(parseWebSocketSubscription(url) != null, accepted, target); }
 
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`), body = await response.json();

@@ -60,7 +60,7 @@ const TEMPLATE_QUERY_CONTRACTS = [
 ];
 export function queryContractSnapshot() {
   const http = [...EXACT_QUERY_CONTRACTS, ...TEMPLATE_QUERY_CONTRACTS].map(([path, parameters]) => ({ method: path === "/rpc" || path.endsWith("/prepare-swap") ? "POST" : "GET", path, parameters: [...parameters].sort() })).sort((left, right) => left.path.localeCompare(right.path));
-  return { schemaVersion: 1, canonicalization: { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true }, http, webSocket: { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], acknowledgementValues: ["0", "1"], maximumFilterLength: 64 } };
+  return { schemaVersion: 1, canonicalization: { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true }, http, webSocket: { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], topicContracts: [{ topic: "blocks", filters: [] }, { topic: "lifecycle", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "snapshots", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "swaps", filters: ["mint", "pool", "protocol"] }], acknowledgementValues: ["0", "1"], maximumFilterLength: 64 } };
 }
 export function validateAllowedQueryParameters(url) {
   let allowed = EXACT_QUERY_CONTRACTS.get(url.pathname) ?? null;
