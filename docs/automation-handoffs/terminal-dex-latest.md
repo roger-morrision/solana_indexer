@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-ERROR-SCHEMA-DISCOVERY-001
+
+- BA/PO decision: fresh QC passed cursor and body-identity discovery, leaving structural validation as the highest-value offline-safe response-contract gap. Generated clients could identify error payload families but still had to hard-code their required fields and bounded error vocabulary.
+- Selected ID: `UPSTREAM-HTTP-ERROR-SCHEMA-DISCOVERY-001`.
+- Implemented contract: query discovery now publishes closed `route_client_error_v1` and `not_found_v1` object schemas with required/optional fields, string constraints, and bounded error values. Applicable outcomes reference them through `representation.bodySchema`; success, unavailable, non-JSON, and bodyless outcomes explicitly publish `null` until independently defined.
+- Compatibility/migration: additive discovery only; runtime payloads, statuses, headers, endpoints, RPC, and WebSocket behavior are unchanged. Consumers may validate referenced schemas and must fail closed on an unknown schema ID or an undeclared field/value.
+- Validation: malformed cursor, missing transaction, and missing quote-pool responses satisfy the published closed schemas; route references cover cursor and quote client errors plus transaction and pool not-found outcomes.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; success/unavailable structural schemas and authoritative additional-protocol fixtures—BA/PO.
+- NEXT_WEB_ACTION: generate closed validators for `route_client_error_v1` and `not_found_v1`, rejecting undeclared fields and error values before application handling.
+
 ## UPSTREAM-HTTP-BODY-CONTRACT-IDENTITY-001
 
 - BA/PO decision: a fresh 24-area review confirmed the cursor discovery defect is corrected at HEAD and ranked versioned response-body identity as the next offline-safe commercial contract gap. Status and representation discovery selected transport handling but could not bind generated validators or compatibility caches to a particular route/outcome payload family.

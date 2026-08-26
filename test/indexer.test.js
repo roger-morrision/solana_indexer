@@ -245,11 +245,11 @@ test("query contracts publish route-specific post-admission response outcomes", 
 
 test("published response representations match JSON, metrics, HTML, and empty HTTP bodies", async (t) => {
   const contract = queryContractSnapshot(), routes = new Map(contract.http.map((route) => [route.path, route.responseOutcomes]));
-  const jsonRepresentation = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.api.health.success.v1" };
+  const jsonRepresentation = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.api.health.success.v1", bodySchema: null };
   assert.deepEqual(routes.get("/api/health")[0].representation, jsonRepresentation);
-  assert.deepEqual(routes.get("/metrics")[0].representation, { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.metrics.success.v1" });
-  assert.deepEqual(routes.get("/")[0].representation, { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.root.success.v1" });
-  assert.deepEqual(routes.get("/api/v1/query-contracts")[1].representation, { bodyKind: "empty", contentType: null, bodyRequired: false, bodyContract: null });
+  assert.deepEqual(routes.get("/metrics")[0].representation, { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.metrics.success.v1", bodySchema: null });
+  assert.deepEqual(routes.get("/")[0].representation, { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.root.success.v1", bodySchema: null });
+  assert.deepEqual(routes.get("/api/v1/query-contracts")[1].representation, { bodyKind: "empty", contentType: null, bodyRequired: false, bodyContract: null, bodySchema: null });
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   for (const [path, profile] of [["/api/health", jsonRepresentation], ["/metrics", routes.get("/metrics")[0].representation], ["/", routes.get("/")[0].representation]]) { const response = await fetch(`${base}${path}`); assert.equal(response.headers.get("content-type"), profile.contentType, path); assert.equal((await response.text()).length > 0, profile.bodyRequired, path); }
   const fresh = await fetch(`${base}/api/v1/query-contracts`), cached = await fetch(`${base}/api/v1/query-contracts`, { headers: { "if-none-match": fresh.headers.get("etag") } }); assert.equal(cached.status, 304); assert.equal(cached.headers.get("content-type"), null); assert.equal(await cached.text(), "");
@@ -267,6 +267,14 @@ test("every response body publishes a unique stable versioned contract identity"
   const identities = outcomes.filter(({ outcome }) => outcome.representation.bodyRequired).map(({ path, outcome }) => { assert.match(outcome.representation.bodyContract, /^solana-indexer\.http\.[a-z0-9._-]+\.(success|route_client_error|not_found|unavailable)\.v1$/, `${path}:${outcome.outcome}`); return outcome.representation.bodyContract; });
   assert.equal(new Set(identities).size, identities.length);
   for (const { path, outcome } of outcomes.filter(({ outcome }) => !outcome.representation.bodyRequired)) assert.deepEqual({ path, status: outcome.status, bodyContract: outcome.representation.bodyContract }, { path: "/api/v1/query-contracts", status: 304, bodyContract: null });
+});
+
+test("shared client-error and not-found body schemas match real bounded responses", async (t) => {
+  const contract = queryContractSnapshot(), schemas = contract.responseBodySchemas, validate = (body, schema) => { const keys = Object.keys(body).sort(), allowed = [...schema.required, ...schema.optional].sort(); assert.ok(schema.required.every((key) => key in body)); assert.ok(keys.every((key) => allowed.includes(key))); assert.ok(schema.properties.error.values.includes(body.error)); if (body.detail != null) assert.ok(typeof body.detail === "string" && body.detail.length >= schema.properties.detail.minimumLength); };
+  assert.deepEqual(Object.keys(schemas).sort(), ["not_found_v1", "route_client_error_v1"]);
+  const routes = new Map(contract.http.map((route) => [route.path, route.responseOutcomes])); for (const path of ["/api/v1/blocks", "/internal/pools/{pool}/quote"]) assert.equal(routes.get(path).find(({ status }) => status === 400).representation.bodySchema, "route_client_error_v1"); for (const path of ["/api/transaction/{signature}", "/api/v1/pool/{pool}"]) assert.equal(routes.get(path).find(({ status }) => status === 404).representation.bodySchema, "not_found_v1");
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  validate(await (await fetch(`${base}/api/v1/blocks?cursor=x`)).json(), schemas.route_client_error_v1); validate(await (await fetch(`${base}/api/transaction/missing`)).json(), schemas.not_found_v1); validate(await (await fetch(`${base}/internal/pools/missing/quote?amountRaw=1&inputMint=mint-address`)).json(), schemas.not_found_v1);
 });
 test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });
