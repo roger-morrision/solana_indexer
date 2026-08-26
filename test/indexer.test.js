@@ -236,6 +236,14 @@ test("quote query admission rejects missing and non-u64 inputs before unhealthy 
   for (const target of ["/internal/pools/pool/quote", "/internal/pools/pool/quote?amountRaw=1", "/internal/tokens/mint/executable-depth", "/internal/tokens/mint/executable-depth?amountRaw=0", "/internal/tokens/mint/executable-depth?amountRaw=18446744073709551616"]) assert.equal((await fetch(`${base}${target}`)).status, 400, target);
   assert.equal((await fetch(`${base}/internal/tokens/mint/executable-depth?amountRaw=18446744073709551615`)).status, 503);
 });
+test("every published HTTP route shares one runtime allowlist contract", () => {
+  const value = { amountRaw: "1", cursor: "eyJrZXkiOiJrIiwic2NvcGUiOm51bGwsInZlcnNpb24iOjF9", inputMint: "m", interval: "60", limit: "1", limitTick: "0", mint: "m", pool: "p", protocol: "x", side: "sell", status: "active", window: "1h" };
+  for (const route of queryContractSnapshot().http) {
+    const concrete = route.path.replace(/\{[^}]+\}/g, "resource"), query = new URLSearchParams(route.parameters.map((name) => [name, value[name]])); query.sort(); const url = new URL(`${concrete}${query.size ? `?${query}` : ""}`, "http://indexer.test");
+    assert.doesNotThrow(() => validateAllowedQueryParameters(url), route.path);
+    const unsupported = new URL(url); unsupported.searchParams.set("unsupported", "1"); unsupported.searchParams.sort(); assert.throws(() => validateAllowedQueryParameters(unsupported), (error) => error.code === "BAD_REQUEST", route.path);
+  }
+});
 test("pool execution evidence slot covers every venue dependency family", () => {
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, openOrdersSlot: 11, marketSlot: 12, bookSlot: 13, oracleSlot: 14, balanceSlot: 15, configSlot: 16, mintSlot: 17, tickArraySlot: 18, binArraySlot: 19, bitmapExtensionSlot: 20, binArrayBitmapExtensionSlot: 21, ammConfigSlot: 22, feeConfigSlot: 23, globalConfigSlot: 24, mintEvidenceSlot: 25 }), 25);
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, binArrayBitmapExtensionSlot: 26, evidenceSlot: 99 }), 26);

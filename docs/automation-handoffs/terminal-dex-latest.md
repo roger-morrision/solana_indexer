@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-ROUTE-PARITY-001
+
+- BA/PO decision: a fresh 24-area review found runtime query admission duplicated the 54-route discovery catalog across eleven hand-maintained path branches. That architectural drift already produced prior token-subview and required-parameter defects, making consolidation the highest-value offline-safe increment.
+- Selected ID: `UPSTREAM-HTTP-ROUTE-PARITY-001`.
+- Implemented contract: exact and template HTTP routes now resolve through the same catalog used by `GET /api/v1/query-contracts`. Allowed values and required-parameter lookup consume that resolved contract, eliminating the duplicate route allowlist implementation while retaining existing authentication, quota, method, canonical-path, and decision-state ordering.
+- Compatibility/migration: no endpoint, parameter, response, RPC, or WebSocket behavior changes are intended; no configuration or data migration is required.
+- Validation: every published route is materialized with all documented parameters and must pass shared admission, then independently reject an added unsupported key. Existing route-specific, malformed-path, required-input, and value-boundary regressions remain mandatory.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; additional protocol selection and authoritative ABI fixtures—BA/PO.
+- NEXT_WEB_ACTION: no WEB behavior change; continue generating request builders from the discovery artifact, which now shares its route source with runtime admission.
+
 ## UPSTREAM-HTTP-ADMISSION-PARITY-001
 
 - BA/PO decision: fresh source and QC evidence ranked malformed trading-input classification above credential-blocked live qualification. Published `amountRaw` accepted zero and overflow values, while missing required quote/depth inputs could be masked by unhealthy decision state.

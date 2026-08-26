@@ -70,6 +70,11 @@ const CONDITIONAL_QUERY_REQUIREMENTS = new Map([
 ]);
 function queryConstraintProfile(name) { return ["mint", "pool", "protocol"].includes(name) ? "collectionFilter" : name in QUERY_VALUE_CONSTRAINTS ? name : null; }
 function queryValueValid(profile, value) { const rule = QUERY_VALUE_CONSTRAINTS[profile]; if (!rule || typeof value !== "string") return false; if (rule.kind === "enum") return rule.values.includes(value); if (rule.pattern && !new RegExp(rule.pattern).test(value)) return false; if (rule.minimumLength != null && value.length < rule.minimumLength || rule.maximumLength != null && value.length > rule.maximumLength || rule.controlCharactersAllowed === false && /[\u0000-\u001f]/.test(value)) return false; if (profile === "amountRaw") { const amount = BigInt(value); return amount >= BigInt(rule.minimumRaw) && amount <= BigInt(rule.maximumRaw); } if (profile === "limit") { const number = Number(value); return Number.isSafeInteger(number) && number >= rule.minimum && number <= rule.maximum; } if (profile === "limitTick") return Number.isSafeInteger(Number(value)); return true; }
+function queryContractForPath(pathname) {
+  if (EXACT_QUERY_CONTRACTS.has(pathname)) return { path: pathname, parameters: EXACT_QUERY_CONTRACTS.get(pathname) };
+  for (const [path, parameters] of TEMPLATE_QUERY_CONTRACTS) if (new RegExp(`^${path.replace(/\{[^}]+\}/g, "[^/]+")}$`).test(pathname)) return { path, parameters };
+  return null;
+}
 export function queryContractSnapshot() {
   const http = [...EXACT_QUERY_CONTRACTS, ...TEMPLATE_QUERY_CONTRACTS].map(([path, parameters]) => { const ordered = [...parameters].sort(), requiredParameters = [...(REQUIRED_QUERY_PARAMETERS.get(path) ?? [])].sort(), required = new Set(requiredParameters); return { method: path === "/rpc" || path.endsWith("/prepare-swap") ? "POST" : "GET", path, parameters: ordered, requiredParameters, optionalParameters: ordered.filter((name) => !required.has(name)), parameterDefaults: Object.fromEntries(ordered.filter((name) => !required.has(name) && QUERY_VALUE_CONSTRAINTS[queryConstraintProfile(name)]?.default != null).map((name) => [name, QUERY_VALUE_CONSTRAINTS[queryConstraintProfile(name)].default])), conditionalRequirements: CONDITIONAL_QUERY_REQUIREMENTS.get(path) ?? [], parameterConstraints: Object.fromEntries(ordered.map((name) => [name, queryConstraintProfile(name)])) }; }).sort((left, right) => left.path.localeCompare(right.path));
   const contract = { schemaVersion: 1, canonicalization: { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true }, valueConstraints: QUERY_VALUE_CONSTRAINTS, http, webSocket: { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], topicContracts: [{ topic: "blocks", filters: [] }, { topic: "lifecycle", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "snapshots", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "swaps", filters: ["mint", "pool", "protocol"] }], filterConstraints: { names: ["eventType", "mint", "pool", "protocol"], optional: true, minimumLength: 1, maximumLength: 64, lengthUnit: "utf16_code_units", controlCharactersAllowed: false }, acknowledgementValues: ["0", "1"] } };
@@ -77,21 +82,11 @@ export function queryContractSnapshot() {
 }
 function matchesIfNoneMatch(value, etag) { return typeof value === "string" && value.split(",").some((token) => { const candidate = token.trim(); return candidate === "*" || candidate.replace(/^W\//, "") === etag; }); }
 export function validateAllowedQueryParameters(url) {
-  let allowed = EXACT_QUERY_CONTRACTS.get(url.pathname) ?? null;
-  if (/^\/internal\/(?:pools|tokens)\/[^/]+\/prepare-swap$/.test(url.pathname)) allowed = [];
-  if (/^\/internal\/pools\/[^/]+\/quote$/.test(url.pathname)) allowed = ["amountRaw", "inputMint", "limitTick"];
-  if (/^\/internal\/evidence\/[^/]+$/.test(url.pathname)) allowed = [];
-  const token = url.pathname.match(/^\/internal\/tokens\/[^/]+(?:\/(market|security|holders|trades|ohlcv|liquidity|executable-depth))?$/); if (token) allowed = token[1] === "executable-depth" ? ["side", "amountRaw"] : ["market", "security", "liquidity"].includes(token[1]) ? [] : ["limit", ...(token[1] === "ohlcv" ? ["interval"] : [])];
-  const wallet = url.pathname.match(/^\/internal\/wallets\/[^/]+(?:\/(performance|profile|funding|funding-cluster))?$/); if (wallet) allowed = ["funding", "funding-cluster"].includes(wallet[1]) || wallet[1] == null ? ["limit"] : [];
-  if (/^\/api\/v1\/volume\/[^/]+$/.test(url.pathname)) allowed = ["window"];
-  if (/^\/api\/v1\/(?:price|token-account|pool|risk)\/[^/]+$/.test(url.pathname) || /^\/api\/transaction\/[^/]+$/.test(url.pathname)) allowed = [];
-  if (/^\/api\/(?:account|mint)\/[^/]+$/.test(url.pathname) || /^\/api\/v1\/holders\/[^/]+$/.test(url.pathname)) allowed = ["limit"];
-  if (/^\/api\/v1\/candles\/[^/]+$/.test(url.pathname)) allowed = ["interval", "limit"];
-  if (allowed == null) return;
+  const contract = queryContractForPath(url.pathname); if (contract == null) return; const allowed = contract.parameters;
   const admitted = new Set(allowed); for (const [name, value] of url.searchParams) { if (!admitted.has(name)) { const error = new Error("query parameter is not supported by this route"); error.code = "BAD_REQUEST"; throw error; } const profile = queryConstraintProfile(name); if (profile && !queryValueValid(profile, value)) { const error = new Error(`${name} query value is invalid`); error.code = "BAD_REQUEST"; throw error; } }
 }
 function validateRequiredQueryParameters(url) {
-  const quote = url.pathname.match(/^\/internal\/pools\/([^/]+)\/quote$/), depth = url.pathname.match(/^\/internal\/tokens\/([^/]+)\/executable-depth$/), required = quote ? ["amountRaw", "inputMint"] : depth ? ["amountRaw"] : [];
+  const contract = queryContractForPath(url.pathname), quote = url.pathname.match(/^\/internal\/pools\/([^/]+)\/quote$/), depth = url.pathname.match(/^\/internal\/tokens\/([^/]+)\/executable-depth$/), required = REQUIRED_QUERY_PARAMETERS.get(contract?.path) ?? [];
   if (quote || depth) decodePathParameter((quote ?? depth)[1]);
   for (const name of required) if (!url.searchParams.has(name)) { const error = new Error(`${name} query parameter is required`); error.code = "BAD_REQUEST"; throw error; }
 }
