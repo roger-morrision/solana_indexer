@@ -1213,6 +1213,7 @@ test("validator exporter accepts only loopback RPC", () => {
   assert.equal(validateLocalRpcUrl("http://127.0.0.1:8899"), "http://127.0.0.1:8899/");
   assert.throws(() => validateLocalRpcUrl("https://api.mainnet-beta.solana.com"), /must use http/);
   assert.throws(() => validateLocalRpcUrl("http://192.168.1.10:8899"), /non-loopback/);
+  for (const endpoint of ["http://user:secret@127.0.0.1:8899", "http://127.0.0.1:8899/rpc", "http://127.0.0.1:8899?token=secret", "http://127.0.0.1:8899/#fragment"]) assert.throws(() => validateLocalRpcUrl(endpoint), /credential-free root URL/);
   assert.throws(() => new LocalValidatorClient(undefined, { timeoutMs: 0 }), /timeout must be a positive integer/);
 });
 
@@ -1365,6 +1366,7 @@ test("mainnet verification rejects a private validator genesis", async () => {
 test("validator stream accepts only loopback WebSocket endpoints", () => {
   assert.equal(validateLocalWsUrl("ws://127.0.0.1:8900"), "ws://127.0.0.1:8900/");
   assert.throws(() => validateLocalWsUrl("wss://example.com"), /must use ws/); assert.throws(() => validateLocalWsUrl("ws://192.168.1.2:8900"), /non-loopback/);
+  for (const endpoint of ["ws://user:secret@127.0.0.1:8900", "ws://127.0.0.1:8900/socket", "ws://127.0.0.1:8900?token=secret", "ws://127.0.0.1:8900/#fragment"]) assert.throws(() => validateLocalWsUrl(endpoint), /credential-free root URL/);
   assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", reconnectMinMs: 1_000, reconnectMaxMs: 500 }), /positive ordered integers/); assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", expectedGenesisHash: "" }), /genesis hash is required/); assert.throws(() => new LocalValidatorStream({ rpcClient: {}, inbox: "unused", statusFile: "unused", maxMessageBytes: 65_535 }), /message limit/);
 });
 

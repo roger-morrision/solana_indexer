@@ -16,6 +16,7 @@ export function validateLocalRpcUrl(value) {
   const url = new URL(value);
   if (url.protocol !== "http:") throw new Error("Local validator RPC must use http://");
   if (!["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)) throw new Error("Refusing non-loopback validator RPC endpoint");
+  if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error("Local validator RPC endpoint must use a credential-free root URL");
   return url.href;
 }
 

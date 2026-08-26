@@ -1,5 +1,14 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-PROVIDER-URL-004
+
+- BA/PO decision: across 22 reviewed domains, local endpoint authority hardening ranked highest because validator URLs accepted embedded credentials and ambiguous path/query/fragment variants.
+- Implemented contract: RPC and WebSocket validators now require credential-free loopback root URLs with no query or fragment; runtime clients and operational readiness share this boundary.
+- Compatibility/migration: remove userinfo, path, query, and fragment components from local validator URLs. No downstream response/event change.
+- Validation: focused RPC/WS authority matrix, full regression, replay/load, and fail-closed operational health.
+- Blockers/owners: live qualification evidence—OPERATOR; additional protocol ABI selection/fixtures—BA/PO.
+- NEXT_WEB_ACTION: no WEB change; local validator configuration must use credential-free root URLs.
+
 ## UPSTREAM-PROVIDER-PREFLIGHT-003
 
 - BA/PO decision: among 22 reconciled domains, canonical provider identity ranked highest because raw-string uniqueness allowed equivalent URL spellings to masquerade as failover diversity.
