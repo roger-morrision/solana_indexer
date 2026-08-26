@@ -1,5 +1,14 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-PROVIDER-PREFLIGHT-002
+
+- BA/PO decision: the ranked 22-domain review selected provider identity uniqueness because duplicate endpoint strings falsely represent failover redundancy and can concentrate both logical nodes on one connection.
+- Implemented contract: local readiness rejects duplicate RPC identities and duplicate WebSocket identities after trimming, while retaining the 1-4 endpoint, loopback, and cardinality rules.
+- Compatibility/migration: additive fail-closed validation; operators must remove duplicate list entries. No downstream API/event change.
+- Validation: focused duplicate-RPC and duplicate-WebSocket regressions plus full suite.
+- Blockers/owners: live provider and operational evidence remain externally blocked/OPERATOR; broader protocols remain blocked on authoritative ABI fixtures/BA-PO.
+- NEXT_WEB_ACTION: no WEB change; treat duplicate local endpoints as invalid operator configuration.
+
 ## UPSTREAM-PROVIDER-PREFLIGHT-001
 
 - BA/PO decision: fresh QC evidence identified a production-significant false-positive in the local streaming readiness gate. This outranked speculative protocol work because it could incorrectly report an unusable provider topology healthy.
