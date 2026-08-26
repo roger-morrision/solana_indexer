@@ -12,7 +12,7 @@ import { SNAPSHOT_ARTIFACT_REGISTRY, SNAPSHOT_ARTIFACT_TYPES } from "../src/snap
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmPoolInitializations, decodeMeteoraDlmmSwapEvents, decodeOpenBookV2SwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePhoenixSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumAmmV4PoolInitializations, decodeRaydiumAmmV4SwapEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedLifecycleInstructionEvidence, recognizedLifecycleInstructionOutput, recognizedSwapInstructionEvidence, recognizedSwapInstructionProtocol } from "../src/parser.js";
 import { createServer, gateBotReadiness, validateAllowedQueryParameters, validateUniqueQueryParameters } from "../src/server.js";
-import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
+import { createInboundFrameParser, parseWebSocketSubscription, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
 import { canonicalLifecycleTransition, canonicalPersistedEvent, canonicalSwapShape, canonicalTokenAccountProjections, IndexStore, isCanonicalAccountSnapshotEvidence, poolExecutionEvidenceSlot, validOpenBookOracleEvidence } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
 import { LocalValidatorStream, validateLocalWsUrl } from "../src/local-validator-stream.js";
@@ -2524,6 +2524,11 @@ test("HTTP no-query contracts reject ignored query input", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/health?verbose=1`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "query parameter is not supported by this route" });
 });
 
+test("internal token views expose only parameters that affect their projection", () => {
+  for (const view of ["market", "security", "liquidity", "executable-depth"]) assert.throws(() => validateAllowedQueryParameters(new URL(`/internal/tokens/mint/${view}?limit=10`, "http://localhost")), (error) => error.code === "BAD_REQUEST", view);
+  for (const requestTarget of ["/internal/tokens/mint?limit=10", "/internal/tokens/mint/holders?limit=10", "/internal/tokens/mint/trades?limit=10", "/internal/tokens/mint/ohlcv?limit=10&interval=60", "/internal/tokens/mint/executable-depth?side=buy&amountRaw=1"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(requestTarget, "http://localhost")), requestTarget);
+});
+
 test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
   const canonicalize = (value) => value.endsWith("readiness.js") ? "C:\\canonical\\readiness.js" : value; assert.equal(isInvokedFile("alias:/repo/readiness.js", "canonical:/repo/readiness.js", canonicalize), true); assert.equal(isInvokedFile("alias:/repo/other.js", "canonical:/repo/readiness.js", canonicalize), false); assert.equal(isInvokedFile("", "canonical:/repo/readiness.js", canonicalize), false);
   const readinessNames = ["provider", "index_structure", "index_chain", "index_events", "index_transactions", "index_instructions", "decoder_registry", "decoder_output", "indexed_swaps", "program_events", "derived_ledger", "aggregate_projections", "snapshot_projections", "metadata_projections", "recovery_state", "index_freshness", "exporter", "warehouse", "backup", "recovery"];
@@ -3102,6 +3107,18 @@ test("WebSocket inbound parser handles TCP fragmentation and rejects invalid cli
 test("WebSocket handshake requires canonical RFC 6455 upgrade evidence", () => {
   const request = { method: "GET", headers: { upgrade: "websocket", connection: "keep-alive, Upgrade", "sec-websocket-version": "13", "sec-websocket-key": Buffer.alloc(16, 7).toString("base64") } }; assert.equal(validWebSocketHandshake(request), true);
   for (const invalid of [{ ...request, method: "POST" }, { ...request, headers: { ...request.headers, upgrade: "h2c" } }, { ...request, headers: { ...request.headers, connection: "keep-alive" } }, { ...request, headers: { ...request.headers, "sec-websocket-version": "12" } }, { ...request, headers: { ...request.headers, "sec-websocket-key": "not-a-key" } }, { ...request, headers: { ...request.headers, "sec-websocket-key": Buffer.alloc(15).toString("base64") } }]) assert.equal(validWebSocketHandshake(invalid), false);
+});
+
+test("WebSocket subscription query identity is unique, bounded, and topic-compatible", () => {
+  const invalid = [
+    "/ws?cursor=0&cursor=1", "/ws?topic=blocks&topic=swaps", "/ws?mint=a&mint=b", "/ws?pool=a&pool=b", "/ws?protocol=a&protocol=b", "/ws?eventType=a&eventType=b", "/ws?ack=0&ack=1", "/ws?unknown=1",
+    `/ws?topic=swaps&mint=${"m".repeat(65)}`, "/ws?topic=swaps&pool=", "/ws?topic=swaps&protocol=a%0Ab", "/ws?topic=lifecycle&eventType=",
+    "/ws?topic=blocks&mint=m", "/ws?topic=blocks&pool=p", "/ws?topic=blocks&protocol=x", "/ws?topic=blocks&eventType=e", "/ws?topic=swaps&eventType=e", "/ws?topic=unknown", "/ws?ack=2"
+  ];
+  for (const requestTarget of invalid) assert.equal(parseWebSocketSubscription(new URL(requestTarget, "http://localhost")), null, requestTarget);
+  assert.deepEqual(parseWebSocketSubscription(new URL("/ws?cursor=0&topic=swaps&mint=m&pool=p&protocol=x&ack=1", "http://localhost")), { topic: "swaps", mint: "m", pool: "p", protocol: "x", eventType: null, acknowledgements: true });
+  assert.deepEqual(parseWebSocketSubscription(new URL("/ws?topic=lifecycle&mint=m&pool=p&protocol=x&eventType=e", "http://localhost")), { topic: "lifecycle", mint: "m", pool: "p", protocol: "x", eventType: "e", acknowledgements: false });
+  assert.deepEqual(parseWebSocketSubscription(new URL("/ws", "http://localhost")), { topic: "blocks", mint: null, pool: null, protocol: null, eventType: null, acknowledgements: false });
 });
 
 test("WebSocket snapshot projection covers every persisted snapshot family with strict filters", () => {

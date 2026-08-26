@@ -52,11 +52,16 @@ function send(socket, value, maximumBufferedBytes, onEviction = () => {}) {
   if (message.length > maximumBufferedBytes || socket.writableLength + message.length > maximumBufferedBytes) { onEviction(); socket.end(frame(0x8, Buffer.from([0x03, 0xf5]))); return false; }
   socket.write(message); return true;
 }
-function subscription(url) {
+const WEBSOCKET_QUERY_KEYS = new Set(["cursor", "topic", "mint", "pool", "protocol", "eventType", "ack"]);
+export function parseWebSocketSubscription(url) {
+  const names = new Set(); for (const name of url.searchParams.keys()) { if (!WEBSOCKET_QUERY_KEYS.has(name) || names.has(name)) return null; names.add(name); }
   const topic = url.searchParams.get("topic") ?? "blocks";
   const acknowledgements = url.searchParams.get("ack") ?? "0";
   if (!new Set(["blocks", "swaps", "lifecycle", "snapshots"]).has(topic) || !["0", "1"].includes(acknowledgements)) return null;
-  return { topic, mint: url.searchParams.get("mint"), pool: url.searchParams.get("pool"), protocol: url.searchParams.get("protocol"), eventType: url.searchParams.get("eventType"), acknowledgements: acknowledgements === "1" };
+  const filters = Object.fromEntries(["mint", "pool", "protocol", "eventType"].map((name) => [name, url.searchParams.get(name)]));
+  for (const [name, value] of Object.entries(filters)) if (url.searchParams.has(name) && (!value || value.length > 64 || /[\u0000-\u001f]/.test(value))) return null;
+  if (topic === "blocks" && Object.values(filters).some((value) => value != null) || topic === "swaps" && filters.eventType != null) return null;
+  return { topic, ...filters, acknowledgements: acknowledgements === "1" };
 }
 export function validWebSocketHandshake(request) {
   const key = request.headers?.["sec-websocket-key"], connection = String(request.headers?.connection ?? "").split(",").map((value) => value.trim().toLowerCase());
@@ -100,9 +105,9 @@ export function attachWebSocket(server, store, config, authorize = () => true, {
   server.on("upgrade", (request, socket) => { upgradeStarted.set(request, process.hrtime.bigint()); void (async () => {
     const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
     if (url.pathname !== "/ws") return rejectUpgrade(request, socket, "404 Not Found", "not_found");
-    const filter = subscription(url); if (!filter) return rejectUpgrade(request, socket, "400 Bad Request", "invalid_topic");
     const authorization = await authorize(request); if (!authorization || authorization?.authorized === false) return rejectUpgrade(request, socket, authorization?.status ?? "401 Unauthorized", authorization?.reason ?? "unauthorized", authorization);
     let admission; try { admission = await admit(request, authorization); } catch { admission = { allowed: false, status: "503 Service Unavailable", reason: "quota_unavailable" }; } if (!admission?.allowed) return rejectUpgrade(request, socket, admission?.status ?? "503 Service Unavailable", admission?.reason ?? "quota_unavailable", authorization, admission?.rateLimit);
+    const filter = parseWebSocketSubscription(url); if (!filter) return rejectUpgrade(request, socket, "400 Bad Request", "invalid_subscription", authorization, admission.rateLimit);
     if (!store.structureQuality().canonical) return rejectUpgrade(request, socket, "503 Service Unavailable", "index_state_unavailable", authorization);
     if (filter.topic !== "blocks") { const quality = recovery(); if (!quality.canonical || quality.capacityExceeded) { stats.recoveryRejections++; return rejectUpgrade(request, socket, "503 Service Unavailable", quality.reason ?? "indexed_recovery_evidence_invalid", authorization); } }
     if (clients.size >= maximumClients) { stats.capacityRejections++; return rejectUpgrade(request, socket, "503 Service Unavailable", "websocket_capacity_exceeded", authorization); }

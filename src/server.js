@@ -56,7 +56,7 @@ export function validateAllowedQueryParameters(url) {
   if (/^\/internal\/(?:pools|tokens)\/[^/]+\/prepare-swap$/.test(url.pathname)) allowed = [];
   if (/^\/internal\/pools\/[^/]+\/quote$/.test(url.pathname)) allowed = ["amountRaw", "inputMint", "limitTick"];
   if (/^\/internal\/evidence\/[^/]+$/.test(url.pathname)) allowed = [];
-  const token = url.pathname.match(/^\/internal\/tokens\/[^/]+(?:\/(market|security|holders|trades|ohlcv|liquidity|executable-depth))?$/); if (token) allowed = ["limit", ...(token[1] === "ohlcv" ? ["interval"] : []), ...(token[1] === "executable-depth" ? ["side", "amountRaw"] : [])];
+  const token = url.pathname.match(/^\/internal\/tokens\/[^/]+(?:\/(market|security|holders|trades|ohlcv|liquidity|executable-depth))?$/); if (token) allowed = token[1] === "executable-depth" ? ["side", "amountRaw"] : ["market", "security", "liquidity"].includes(token[1]) ? [] : ["limit", ...(token[1] === "ohlcv" ? ["interval"] : [])];
   const wallet = url.pathname.match(/^\/internal\/wallets\/[^/]+(?:\/(performance|profile|funding|funding-cluster))?$/); if (wallet) allowed = ["funding", "funding-cluster"].includes(wallet[1]) || wallet[1] == null ? ["limit"] : [];
   if (/^\/api\/v1\/volume\/[^/]+$/.test(url.pathname)) allowed = ["window"];
   if (/^\/api\/v1\/(?:price|token-account|pool|risk)\/[^/]+$/.test(url.pathname) || /^\/api\/transaction\/[^/]+$/.test(url.pathname)) allowed = [];
