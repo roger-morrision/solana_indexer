@@ -1,14 +1,51 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-26T23:36:37+07:00`
+- Run: `2026-08-27T00:36:38+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `69c78cde96c5346db9216542183e3ea24bd6c520`
-- Compared with QA baseline: `078c34370b0aeea5d3b9e3337cb2164536b90ba9` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 19 ahead, 0 behind before this evidence report
-- Latest DEV commits: `2e17f41` (`UPSTREAM-WS-FILTER-CONSTRAINTS-001`) and `69c78cd` (`UPSTREAM-HTTP-VALUE-DISCOVERY-001`)
-- Overall result: 38 of 40 available DEV outcomes pass. The WebSocket discovery defect is closed, but independent generated-validator parity found two HTTP value-contract failures: candles accept canonical numeric spellings omitted from the advertised enum and bot readiness does not enforce its advertised pool filter bounds. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `6969f2799b6e5403a41c7907b5097f5ee0c3ab03`
+- Compared with QA baseline: `678c33fcdc2c04c67a4ad55442b3c105cec60928` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 22 ahead, 0 behind before this evidence report
+- Latest DEV commits: `6f71c6a` (`UPSTREAM-HTTP-VALUE-PARITY-001`) and `6969f27` (`UPSTREAM-HTTP-REQUIREMENT-DISCOVERY-001`)
+- Overall result: 20 of 21 available DEV outcomes pass. Both prior HTTP value mismatches are closed, but independent discovery review found two remaining fail-open metadata gaps: `amountRaw` advertises any decimal string although runtime requires a positive u64, and missing required quote/depth inputs are still masked by unhealthy decision state before route validation. Live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (40/20)
+## Reviewed DEV delta (21/20)
+
+### `UPSTREAM-HTTP-VALUE-PARITY-001` (20/20 PASS)
+
+| Item | Status | Independent evidence |
+|---|---|---|
+| `UPSTREAM-HTTP-VALUE-PARITY-001-01` | `PASS` | Minimum documented candle interval `60` is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-02` | `PASS` | Maximum documented candle interval `86400` is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-03` | `PASS` | Decimal alias `60.0` is rejected before state evaluation. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-04` | `PASS` | Exponent alias `6e1` is rejected before state evaluation. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-05` | `PASS` | Leading-zero interval alias `060` is rejected. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-06` | `PASS` | Minimum-valid bot pool filter is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-07` | `PASS` | Maximum-valid 64-code-unit bot pool filter is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-08` | `PASS` | Empty bot pool filter is rejected before readiness evaluation. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-09` | `PASS` | Control-bearing bot pool filter is rejected before readiness evaluation. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-10` | `PASS` | Oversized bot pool filter is rejected before readiness evaluation. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-11` | `PASS` | Minimum limit `1` is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-12` | `PASS` | Maximum limit `500` is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-13` | `PASS` | Zero limit is rejected. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-14` | `PASS` | Over-maximum limit `501` is rejected. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-15` | `PASS` | Decimal limit alias `1.0` is rejected. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-16` | `PASS` | Minimum published trending window is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-17` | `PASS` | Published all-time window is admitted. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-18` | `PASS` | Case-variant unpublished window is rejected. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-19` | `PASS` | Published executable-depth side `buy` is admitted with required amount. |
+| `UPSTREAM-HTTP-VALUE-PARITY-001-20` | `PASS` | Unpublished executable-depth side is rejected. |
+
+### `UPSTREAM-HTTP-REQUIREMENT-DISCOVERY-001` (FAIL)
+
+| Item | Status | Independent evidence |
+|---|---|---|
+| `UPSTREAM-HTTP-REQUIREMENT-DISCOVERY-001` | `FAIL` | All 54 route partitions are deterministic, but missing required quote/depth inputs return 503 instead of 400 when injected decision-state quality is noncanonical, contradicting the handoff's pre-state rejection guarantee. |
+
+- Available DEV delta: exactly 21 distinct fixes/enhancements after `678c33f`; the complete delta was exhausted.
+- Verification result: 20 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 0; the reviewed delta exceeds the 20-item contract by 1 without duplicating or cosmetically splitting evidence.
+
+## Prior reviewed DEV delta (40/20; retained)
 
 ### `UPSTREAM-WS-FILTER-CONSTRAINTS-001` (20/20 PASS)
 
@@ -305,7 +342,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 30-domain reconciliation
+## Independent 31-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -336,11 +373,12 @@
 | Canonical query identity | `PASS` | All twenty alternate-order cases fail the shared sorted encoding boundary; canonical controls, HTTP wiring, WebSocket parsing, authentication, and quota ordering remain compatible. |
 | Machine-readable query discovery | `PASS` | All twenty topic/filter compatibility cases match the deterministic per-topic artifact and runtime parser; the prior hidden compatibility rules are now published. |
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
-| HTTP query value discovery | `FAIL` | Eighteen representative route profiles match runtime. Candles still accept canonical `60.0` and `6e1` despite publishing an exact string enum, and bot readiness admits empty, control-bearing, and 65-code-unit `pool` values despite publishing `collectionFilter`. |
-| Bounded performance | `PASS` | Full suite passes 357/357; syntax passes 86/86; replay completes at 5,649.10 blocks/s with 9,562,808-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 392,079,863 ms old at the trigger time. |
+| HTTP query value discovery | `FAIL` | The selected 20-case value parity matrix passes and both prior defects are closed, but `amountRaw` still advertises every decimal string while runtime rejects zero and values above unsigned-64 range. |
+| HTTP parameter requirement discovery | `FAIL` | All 54 route partitions, defaults, and conditional metadata entries are deterministic, but missing quote/depth required parameters are evaluated only after the decision-state gate and return 503 under injected noncanonical state rather than stable pre-state 400. |
+| Bounded performance | `PASS` | Full suite passes 359/359; syntax passes 86/86; replay completes at 4,478.81 blocks/s with 9,764,640-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 395,681,323 ms old at the trigger time. |
 
-The contract minimum is satisfied with 30 distinct evidence domains: 28 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 31 distinct evidence domains: 28 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -505,33 +543,63 @@ The contract minimum is satisfied with 30 distinct evidence domains: 28 PASS, 1 
 
 ## UPSTREAM-QA-HTTP-VALUE-DISCOVERY-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `6f71c6a`)
 - Owner: `DEV`
-- Reproduction: read the published `interval` profile for `/api/v1/candles/{pool}`, then compare canonical requests containing `interval=60.0` or `interval=6e1` with the route's `Number(...)` coercion and numeric membership check.
-- Evidence: the artifact advertises only `60`, `300`, `900`, `3600`, `14400`, and `86400`; both additional spellings pass canonical query encoding, coerce to 60, and satisfy the runtime interval set.
+- Reproduction: generate the documented minimum/maximum candle intervals plus `60.0`, `6e1`, and `060`, then compare published metadata, the shared query-value validator, and real pre-state HTTP responses.
+- Evidence: the interval profile is now an exact enum with leading zeros forbidden. The two documented values are admitted while all three aliases are rejected; `60.0` and `6e1` return HTTP 400 before state evaluation.
 - Affected contracts: generated HTTP validators/builders, candle/OHLCV query identity, cache and signature keys, startup compatibility checks, and retry/error classification.
 - Expected behavior: the published interval value domain decides runtime admission exactly.
-- Actual behavior: a validator generated from the advertised string enum rejects requests that runtime accepts, so the artifact is not an exact admission contract.
-- Acceptance criteria: either validate raw interval strings against the published enum before numeric conversion or publish an exact grammar covering every accepted spelling; add generated-validator/runtime parity regressions for decimal and exponent spellings; keep established documented values compatible.
-- Validation results: `60.0` and `6e1` are absent from published values, pass canonical encoding, and coerce to the admitted runtime value 60; full/focused/syntax/replay checks otherwise pass.
-- Compatibility impact: raw-string validation would intentionally reject previously accepted undocumented spellings; expanding the grammar would preserve them but broadens client complexity and cache identities.
-- Performance impact: bounded scalar validation only; no ingestion, persistence, or replay impact expected.
-- Blockers: none; source and deterministic URL inputs reproduce offline.
+- Actual behavior: raw interval spelling is validated against the advertised enum before route state or numeric conversion.
+- Acceptance criteria: either validate raw interval strings against the published enum before numeric conversion or publish an exact grammar covering every accepted spelling; add generated-validator/runtime parity regressions for decimal and exponent spellings; keep established documented values compatible. All criteria are met.
+- Validation results: independent selected value matrix 20/20 PASS, including 5/5 interval boundaries; focused suite 4/4 PASS; full suite 359/359 PASS; syntax 86/86 PASS; replay PASS at 4,478.81 blocks/s.
+- Compatibility impact: undocumented numeric aliases now fail with stable HTTP 400; documented candle interval values and response schemas remain compatible.
+- Performance impact: one bounded enum lookup before route evaluation; no replay, heap, or throughput regression was observed.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-QA-HTTP-VALUE-DISCOVERY-002
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `6f71c6a`)
 - Owner: `DEV`
-- Reproduction: read the published `/api/v1/bot/readiness` `pool: collectionFilter` mapping, then pass empty, control-bearing, and 65-code-unit pool values through route validation and inspect the readiness route's pool access.
-- Evidence: all three invalid values are admitted by `validateAllowedQueryParameters`; the route passes `url.searchParams.get("pool")` directly to `store.botReadiness` instead of using the shared bounded `optionalFilter` enforced by collection routes.
+- Reproduction: pass minimum-valid, maximum-valid, empty, control-bearing, and 65-code-unit pool values through generated validation and real bot-readiness HTTP admission.
+- Evidence: valid 1- and 64-code-unit values are admitted; empty, control-bearing, and oversized values throw `BAD_REQUEST` and return HTTP 400 before readiness evaluation. The route also uses the shared `optionalFilter` boundary.
 - Affected contracts: bot-readiness gating, generated HTTP validators/builders, client error classification, cache/signature identity, and automation input safety.
 - Expected behavior: a route advertising `collectionFilter` enforces nonempty, at-most-64 UTF-16-code-unit, control-free values before business logic.
-- Actual behavior: metadata-generated clients reject values that the HTTP route accepts and processes, contradicting the published value contract.
-- Acceptance criteria: apply the shared collection-filter validation to bot-readiness `pool` before calling the store; add real HTTP parity regressions for empty, control-bearing, 64-code-unit, and oversized values; retain absent-pool and valid-pool behavior.
-- Validation results: independent validator probes admit all three advertised-invalid inputs; focused/full/syntax/replay checks otherwise pass.
-- Compatibility impact: invalid pool filters would change from readiness processing/503 behavior to stable redacted HTTP 400; valid and absent pool requests remain compatible.
-- Performance impact: one bounded length/control check before readiness evaluation; negligible relative to readiness evidence loading.
-- Blockers: none; source and deterministic query inputs reproduce offline.
+- Actual behavior: metadata-generated admission and runtime now agree across the complete selected filter boundary.
+- Acceptance criteria: apply the shared collection-filter validation to bot-readiness `pool` before calling the store; add real HTTP parity regressions for empty, control-bearing, 64-code-unit, and oversized values; retain absent-pool and valid-pool behavior. All criteria are met.
+- Validation results: independent selected value matrix 20/20 PASS, including 5/5 bot pool boundaries; focused suite 4/4 PASS; full suite 359/359 PASS; syntax 86/86 PASS; replay PASS at 4,478.81 blocks/s.
+- Compatibility impact: invalid pool filters now fail with stable HTTP 400; valid and absent pool requests remain compatible.
+- Performance impact: one bounded length/control check before readiness evaluation; no performance regression observed.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-HTTP-VALUE-DISCOVERY-003
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: generate executable-depth requests with `amountRaw=0` and `amountRaw=18446744073709551616` from the published `decimal_string` profile, then compare shared admission and the real route.
+- Evidence: both values match `^[0-9]+$` and pass `validateAllowedQueryParameters`, but the real executable-depth route returns HTTP 400 because `IndexStore` requires a positive unsigned-64 raw amount. Pool quote implementations impose the same positive/bounded integer family after state selection.
+- Affected contracts: generated quote/depth validators, amount precision and overflow safety, pre-state error classification, cache/signature identity, and the claim that published value profiles match runtime.
+- Expected behavior: `amountRaw` metadata and shared admission publish and enforce the positive-u64 boundary used by quote execution.
+- Actual behavior: generated clients can emit metadata-valid zero or above-u64 amounts that runtime rejects later and that unhealthy decision state can mask with HTTP 503.
+- Acceptance criteria: publish minimum 1 and maximum `18446744073709551615` or an equivalent exact positive-u64 contract; enforce it before decision-state evaluation on every query consumer; add zero, one, u64-max, and u64-max-plus-one generated-validator and real HTTP regressions.
+- Validation results: both invalid values pass metadata-derived admission and return HTTP 400 at the executable-depth runtime; focused/full/syntax/replay checks otherwise pass.
+- Compatibility impact: only values already unusable for quotes become early stable 400 responses; valid positive-u64 values and success schemas remain unchanged.
+- Performance impact: bounded length/integer validation before state access; no ingestion, persistence, or replay impact expected.
+- Blockers: none; deterministic offline inputs reproduce the mismatch.
+
+## UPSTREAM-QA-HTTP-REQUIREMENT-DISCOVERY-001
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: inject a noncanonical `derivedLedgerQuality` result into an otherwise structurally valid store, then request pool quote and executable depth without their published required inputs.
+- Evidence: all 54 routes partition parameters exactly once and defaults reference optional inputs, but both missing-input requests return HTTP 503 `injected_decision_state_failure`; the decision-state gate executes before route handlers check required inputs.
+- Affected contracts: generated required/optional HTTP builders, deterministic client-error classification, retry behavior, quote/depth safety, and the handoff's pre-state rejection guarantee.
+- Expected behavior: missing advertised required parameters return stable redacted HTTP 400 after authentication/quota admission but before index or decision-state evaluation.
+- Actual behavior: unhealthy state masks malformed requests with HTTP 503, encouraging retries and contradicting the published/pre-state requirement contract.
+- Acceptance criteria: enforce route-specific required query parameters before structure/decision-state gates; cover quote and executable-depth under injected noncanonical structure-compatible decision state; preserve authentication, quota, method, and valid-request ordering.
+- Validation results: metadata partition 54/54 PASS; missing-input healthy-empty controls return 400, but both injected-unhealthy controls return 503; committed focused/full tests remain green because they cover only canonical empty state.
+- Compatibility impact: malformed requests under unhealthy state change from retryable 503 to client-error 400; valid requests and response-success schemas remain unchanged.
+- Performance impact: two bounded route/name checks before state evaluation; negligible expected cost.
+- Blockers: none; deterministic injected quality reproduces offline.
 
 ## UPSTREAM-QA-HTTP-EMPTY-QUERY-001
 
@@ -551,7 +619,7 @@ The contract minimum is satisfied with 30 distinct evidence domains: 28 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 392,079,863 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 395,681,323 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -560,4 +628,4 @@ The contract minimum is satisfied with 30 distinct evidence domains: 28 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: make published HTTP value profiles exact with runtime by enforcing `collectionFilter` on bot-readiness `pool` and either restricting candle intervals to documented strings or publishing every accepted numeric spelling, with real generated-validator parity regressions.
+- NEXT_DEV_ACTION: enforce published query contracts before decision-state access by adding an exact positive-u64 `amountRaw` profile and centralized required-parameter validation, with zero/max/overflow and injected-unhealthy quote/depth HTTP regressions.
