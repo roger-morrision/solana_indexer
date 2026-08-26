@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh reconciliation across 24 product and operational areas retained preparation failure discovery as the highest-value offline-safe contract gap. Inspection found its two routes advertised one 503 outcome while structural admission emitted an incompatible generic availability envelope, preventing any honest closed schema.
+- Selected ID: `UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: both pool and bonding-curve `POST .../prepare-swap` unavailable outcomes now reference closed `preparation_unavailable_v1`. It requires `schemaVersion:1`, `prepared:false`, `automationSafe:false`, and a non-empty `reason`; `missing` is the only optional field and is a string array. Structural admission now preserves this preparation-specific fail-closed envelope and does not expose internal structure field names.
+- Acceptance evidence: discovery assigns the schema only to both preparation routes; a real structurally unhealthy pool-preparation request returns the exact four-field body, excludes injected internal field evidence, and satisfies all required/allowed-key constraints.
+- Compatibility/migration/configuration: additive discovery plus normalization of preparation-route structural 503 bodies from generic `available:false` to `prepared:false, automationSafe:false`. Successful, 400, and 404 responses are unchanged. Consumers should branch on `prepared`, not `available`, for every preparation 503. No configuration or storage migration is required.
+- Blockers/owners: live canonical-mainnet qualification remains blocked by absent fresh provider, exporter, warehouse, backup, and recovery evidence—OPERATOR. Remaining heterogeneous HTTP success/unavailable schemas—BA/PO.
+- NEXT_WEB_ACTION: validate preparation 503 bodies through `preparation_unavailable_v1` and treat every `prepared:false` response as non-signable and non-submittable.
+
 ## UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001
 
 - BA/PO decision: a fresh 24-area review of discovery/trending, token and pool detail, holder/whale and wallet intelligence, replay/reorg, API/RPC/WebSocket parity, provenance/freshness, recovery, provider resilience, performance, operability, security, and commercial-readiness evidence ranked the new QC mutation proof above the retained preparation-envelope enhancement. A caller could mutate either published response schema and thereby alter later snapshots, hashes, ETags, and HTTP discovery without a source revision.
