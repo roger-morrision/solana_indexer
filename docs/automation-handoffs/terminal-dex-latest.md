@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-VALUE-PARITY-001
+
+- BA/PO decision: a fresh 24-domain review and independent QC found two discovery/runtime mismatches: candle intervals accepted numeric-coercion aliases omitted by the enum, and bot-readiness pool filters bypassed advertised bounds.
+- Selected IDs: `UPSTREAM-HTTP-VALUE-PARITY-001-01` through `-20`, covering valid/invalid interval, pool, limit, window, and depth-side boundaries plus pre-state HTTP rejection.
+- Implemented contract: the shared allowlist boundary now enforces published value profiles before route state evaluation. Candle intervals require exact advertised strings; bot readiness uses the bounded collection-filter path. Invalid values return redacted HTTP 400 before unavailable index evidence can mask client errors.
+- Compatibility/migration: `interval=60.0`, `interval=6e1`, leading-zero interval aliases, and invalid bot pool filters are newly rejected; documented values and response/event schemas are unchanged.
+- Validation: twenty direct profile cases, five real pre-state HTTP regressions, exact discovery metadata/digest coverage, focused/full tests, replay/load, fail-closed readiness, syntax, and diff review.
+- Blockers/owners: fresh live qualification evidence—OPERATOR; authoritative fixtures for additional protocols—BA/PO.
+- NEXT_WEB_ACTION: remove numeric coercion from candle builders and apply the published collection-filter validator to bot-readiness pool inputs.
+
 ## UPSTREAM-HTTP-VALUE-DISCOVERY-001
 
 - BA/PO decision: a fresh 25-domain review found HTTP discovery exposed parameter names but not accepted value domains. Generated builders could still send invalid limits, windows, intervals, cursors, quote inputs, sides, statuses, or collection filters.

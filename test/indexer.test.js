@@ -186,6 +186,7 @@ test("machine-readable query contracts publish canonical HTTP and WebSocket buil
   ]);
   for (const [path, profiles] of expectedProfiles) assert.deepEqual(constraintMappings.get(path), profiles, path);
   assert.deepEqual(contract.valueConstraints.limit, { kind: "integer_string", pattern: "^[0-9]+$", minimum: 1, maximum: 500, leadingZerosAllowed: true, default: "100" });
+  assert.deepEqual(contract.valueConstraints.interval, { kind: "enum", values: ["60", "300", "900", "3600", "14400", "86400"], leadingZerosAllowed: false, default: "60" });
   assert.deepEqual(contract.valueConstraints.window.values, ["5m", "1h", "6h", "24h", "all"]); assert.deepEqual(contract.valueConstraints.interval.values, ["60", "300", "900", "3600", "14400", "86400"]); assert.deepEqual(contract.valueConstraints.side.values, ["buy", "sell"]); assert.deepEqual(contract.valueConstraints.status.values, ["active", "completed", "migrated", "unknown"]);
   assert.deepEqual(contract.webSocket, { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], topicContracts: [{ topic: "blocks", filters: [] }, { topic: "lifecycle", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "snapshots", filters: ["eventType", "mint", "pool", "protocol"] }, { topic: "swaps", filters: ["mint", "pool", "protocol"] }], filterConstraints: { names: ["eventType", "mint", "pool", "protocol"], optional: true, minimumLength: 1, maximumLength: 64, lengthUnit: "utf16_code_units", controlCharactersAllowed: false }, acknowledgementValues: ["0", "1"] });
   const topicCases = [
@@ -206,6 +207,17 @@ test("machine-readable query contracts publish canonical HTTP and WebSocket buil
   for (const ifNoneMatch of [`"${contractSha256}"`, `W/"${contractSha256}"`, `"unrelated", "${contractSha256}"`, "*"]) { const cached = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`, { headers: { "if-none-match": ifNoneMatch } }); assert.equal(cached.status, 304, ifNoneMatch); assert.equal(await cached.text(), ""); assert.equal(cached.headers.get("etag"), `"${contractSha256}"`); }
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`, { headers: { "if-none-match": '"unrelated"' } })).status, 200);
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts?version=1`)).status, 400);
+});
+test("published HTTP value profiles are enforced before route state", async (t) => {
+  const cases = [
+    ["/api/v1/candles/pool?interval=60", true], ["/api/v1/candles/pool?interval=86400", true], ["/api/v1/candles/pool?interval=60.0", false], ["/api/v1/candles/pool?interval=6e1", false], ["/api/v1/candles/pool?interval=060", false],
+    ["/api/v1/bot/readiness?pool=p", true], [`/api/v1/bot/readiness?pool=${"p".repeat(64)}`, true], ["/api/v1/bot/readiness?pool=", false], ["/api/v1/bot/readiness?pool=p%0Aq", false], [`/api/v1/bot/readiness?pool=${"p".repeat(65)}`, false],
+    ["/api/trending?limit=1", true], ["/api/trending?limit=500", true], ["/api/trending?limit=0", false], ["/api/trending?limit=501", false], ["/api/trending?limit=1.0", false],
+    ["/api/trending?window=5m", true], ["/api/trending?window=all", true], ["/api/trending?window=5M", false], ["/internal/tokens/mint/executable-depth?side=buy", true], ["/internal/tokens/mint/executable-depth?side=hold", false]
+  ];
+  for (const [target, accepted] of cases) { const url = new URL(target, "http://indexer.test"); if (accepted) assert.doesNotThrow(() => validateAllowedQueryParameters(url), target); else assert.throws(() => validateAllowedQueryParameters(url), (error) => error.code === "BAD_REQUEST", target); }
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  for (const target of ["/api/v1/candles/pool?interval=60.0", "/api/v1/candles/pool?interval=6e1", "/api/v1/bot/readiness?pool=", "/api/v1/bot/readiness?pool=p%0Aq", `/api/v1/bot/readiness?pool=${"p".repeat(65)}`]) assert.equal((await fetch(`${base}${target}`)).status, 400, target);
 });
 test("pool execution evidence slot covers every venue dependency family", () => {
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, openOrdersSlot: 11, marketSlot: 12, bookSlot: 13, oracleSlot: 14, balanceSlot: 15, configSlot: 16, mintSlot: 17, tickArraySlot: 18, binArraySlot: 19, bitmapExtensionSlot: 20, binArrayBitmapExtensionSlot: 21, ammConfigSlot: 22, feeConfigSlot: 23, globalConfigSlot: 24, mintEvidenceSlot: 25 }), 25);
