@@ -84,8 +84,47 @@ import { assessBackfillQualification, qualifyIsolatedBackfill, validateBackfillP
 import { shutdownIndexer } from "../src/graceful-shutdown.js";
 import { acquirePoolMintEvidence, bindPoolMintEvidence, deriveTransferHookValidationAccount, POOL_MINT_EVIDENCE_CONSTANTS, validateBoundPoolMintEvidence } from "../src/pool-mint-evidence.js";
 import { redactDiagnostic } from "../src/diagnostic-redaction.js";
+import { hasCanonicalQueryEncoding } from "../src/query-encoding.js";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/block.json");
+test("HTTP and WebSocket query strings require canonical wire encoding", async (t) => {
+  const noncanonical = [
+    "/api/v1/blocks?limit=%31%30",
+    "/api/v1/blocks?cursor=%61",
+    "/api/v1/swaps?mint=%6D",
+    "/api/v1/swaps?pool=%70",
+    "/api/v1/swaps?protocol=raydium%2Dcpmm",
+    "/api/v1/pools?status=%61ctive",
+    "/api/trending?window=%31h",
+    "/api/v1/candles/pool?interval=%36%30",
+    "/internal/pools/pool/quote?amountRaw=%31",
+    "/internal/pools/pool/quote?inputMint=%6D",
+    "/internal/tokens/mint/executable-depth?side=%62uy",
+    "/internal/wallets/wallet/funding?limit=%31%30",
+    "/internal/bot/pools/pool?pool=%70",
+    "/ws?cursor=%30",
+    "/ws?topic=%73waps",
+    "/ws?topic=swaps&mint=%6D",
+    "/ws?topic=swaps&pool=%70",
+    "/ws?topic=swaps&protocol=raydium%2Dcpmm",
+    "/ws?topic=lifecycle&eventType=migration%5Fcompleted",
+    "/ws?ack=%31"
+  ];
+  for (const target of noncanonical) assert.equal(hasCanonicalQueryEncoding(new URL(target, "http://indexer.test")), false, target);
+  for (const target of ["/api/v1/blocks", "/api/v1/blocks?limit=10&cursor=a", "/ws?topic=swaps&mint=m&ack=1"])
+    assert.equal(hasCanonicalQueryEncoding(new URL(target, "http://indexer.test")), true, target);
+  for (const target of noncanonical.filter((value) => value.startsWith("/ws")))
+    assert.equal(parseWebSocketSubscription(new URL(target, "ws://indexer.test")), null, target);
+
+  const store = new IndexStore("unused");
+  await store.load();
+  const server = createServer({}, store);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/blocks?limit=%31%30`);
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "bad_request", detail: "query string must use canonical encoding" });
+});
 test("pool execution evidence slot covers every venue dependency family", () => {
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, openOrdersSlot: 11, marketSlot: 12, bookSlot: 13, oracleSlot: 14, balanceSlot: 15, configSlot: 16, mintSlot: 17, tickArraySlot: 18, binArraySlot: 19, bitmapExtensionSlot: 20, binArrayBitmapExtensionSlot: 21, ammConfigSlot: 22, feeConfigSlot: 23, globalConfigSlot: 24, mintEvidenceSlot: 25 }), 25);
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, binArrayBitmapExtensionSlot: 26, evidenceSlot: 99 }), 26);

@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { isUtf8 } from "node:buffer";
+import { hasCanonicalQueryEncoding } from "./query-encoding.js";
 
 function frame(opcode, payload = Buffer.alloc(0)) {
   const body = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
@@ -54,6 +55,7 @@ function send(socket, value, maximumBufferedBytes, onEviction = () => {}) {
 }
 const WEBSOCKET_QUERY_KEYS = new Set(["cursor", "topic", "mint", "pool", "protocol", "eventType", "ack"]);
 export function parseWebSocketSubscription(url) {
+  if (!hasCanonicalQueryEncoding(url)) return null;
   const names = new Set(); for (const name of url.searchParams.keys()) { if (!WEBSOCKET_QUERY_KEYS.has(name) || names.has(name)) return null; names.add(name); }
   const topic = url.searchParams.get("topic") ?? "blocks";
   const acknowledgements = url.searchParams.get("ack") ?? "0";

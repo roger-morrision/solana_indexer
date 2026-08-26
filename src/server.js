@@ -35,6 +35,7 @@ import { preparePumpBuyExactQuoteInV2Simulation, preparePumpSellV2Simulation } f
 import { bindExecutionHandoff, EXECUTION_HANDOFF_POLICY } from "./execution-handoff-policy.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { decodeUtf8, readBoundedFile, readBoundedJsonFile as readJsonFile } from "./bounded-json-file.js";
+import { hasCanonicalQueryEncoding } from "./query-encoding.js";
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const INTERNAL_FAILURE_EVENTS = ["http_internal_error", "pool_quote_failed", "pool_swap_preparation_failed", "curve_swap_preparation_failed"];
@@ -363,6 +364,11 @@ export function createServer(config, store) {
       if (protectedRoute && !config.apiTenants && apiKeys.length && !keyMatches(presented, apiKeys)) return json(response, 401, { error: "unauthorized" }, { "www-authenticate": "Bearer" });
       const preparePoolPath = url.pathname.match(/^\/internal\/pools\/([^/]+)\/prepare-swap$/), prepareCurvePath = url.pathname.match(/^\/internal\/tokens\/([^/]+)\/prepare-swap$/), postOnlyRoute = Boolean(url.pathname === "/rpc" || preparePoolPath || prepareCurvePath), methodAllowed = request.method === (postOnlyRoute ? "POST" : "GET"), preparePoolSwap = request.method === "POST" ? preparePoolPath : null, prepareCurveSwap = request.method === "POST" ? prepareCurvePath : null, bodyRoute = request.method === "POST" && postOnlyRoute, requestLimit = tenant?.rateLimitPerMinute ?? config.rateLimitPerMinute, quotaIdentity = tenant?.id ?? (apiKeys.length ? identity : request.socket.remoteAddress ?? "unknown"); let quota = null, baseAdmitted = false;
       if (protectedRoute && requestLimit) { try { quota = await admitQuota(quotaIdentity, requestLimit, 1); } catch { return json(response, 503, { error: "distributed_quota_unavailable" }); } baseAdmitted = true; response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", quota.remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); } if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) }); }
+      if (!hasCanonicalQueryEncoding(url)) {
+        const error = new Error("query string must use canonical encoding");
+        error.code = "BAD_REQUEST";
+        throw error;
+      }
       validateUniqueQueryParameters(url); validateAllowedQueryParameters(url);
       if (!methodAllowed) return json(response, 405, { error: "method_not_allowed" }, { allow: postOnlyRoute ? "POST" : "GET", connection: "close" });
       let rpcPayload = null, preparePayload = null; if (bodyRoute) validateJsonBodyHeaders(request); if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request, config.rpcMaxBodyBytes ?? 65_536); else if (preparePoolSwap || prepareCurveSwap) preparePayload = await readJsonBody(request, config.executionMaxBodyBytes ?? 524_288); const requestWeight = Array.isArray(rpcPayload) ? Math.max(1, Math.min(100, rpcPayload.length)) : 1;
