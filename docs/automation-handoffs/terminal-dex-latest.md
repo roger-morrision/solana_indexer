@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-VALUE-DISCOVERY-001
+
+- BA/PO decision: a fresh 25-domain review found HTTP discovery exposed parameter names but not accepted value domains. Generated builders could still send invalid limits, windows, intervals, cursors, quote inputs, sides, statuses, or collection filters.
+- Selected IDs: `UPSTREAM-HTTP-VALUE-DISCOVERY-001-01` through `-20`, mapping five versioned collections, four discovery/analytics routes, candles, quotes, depth, token views, wallet funding, volume, holders, bot readiness, discovery, and RPC to reusable value profiles.
+- Implemented contract: `GET /api/v1/query-contracts` now publishes deterministic `valueConstraints` and per-route `parameterConstraints`. Profiles describe exact numeric/string patterns, bounds, defaults, enums, cursor encoding/scope binding, filter length/control rules, and quote/depth inputs; the artifact digest and ETag cover the additions.
+- Compatibility/migration: additive schema-version-1 metadata only. Existing requests are unchanged; clients can resolve each parameter name through its route profile before serialization.
+- Validation: twenty route/profile mappings, exact limit/window/interval/side/status definitions, digest/ETag coverage, focused/full tests, replay/load, fail-closed readiness, syntax, and diff review.
+- Blockers/owners: fresh live qualification evidence—OPERATOR; authoritative fixtures for additional protocols—BA/PO.
+- NEXT_WEB_ACTION: generate HTTP parameter validators from each route's `parameterConstraints` and fail startup on unknown profiles.
+
 ## UPSTREAM-WS-FILTER-CONSTRAINTS-001
 
 - BA/PO decision: a fresh 21-domain review and independent QC reproduction found WebSocket discovery exposed only a maximum filter length. Generated builders could still emit empty or control-bearing canonical filters rejected by runtime.
