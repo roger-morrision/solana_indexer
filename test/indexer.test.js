@@ -11,7 +11,7 @@ import { applySnapshotArtifacts, indexInbox, watchInbox } from "../src/indexer.j
 import { SNAPSHOT_ARTIFACT_REGISTRY, SNAPSHOT_ARTIFACT_TYPES } from "../src/snapshot-artifact-registry.js";
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmPoolInitializations, decodeMeteoraDlmmSwapEvents, decodeOpenBookV2SwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePhoenixSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumAmmV4PoolInitializations, decodeRaydiumAmmV4SwapEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedLifecycleInstructionEvidence, recognizedLifecycleInstructionOutput, recognizedSwapInstructionEvidence, recognizedSwapInstructionProtocol } from "../src/parser.js";
-import { createServer, gateBotReadiness } from "../src/server.js";
+import { createServer, gateBotReadiness, validateUniqueQueryParameters } from "../src/server.js";
 import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
 import { canonicalLifecycleTransition, canonicalPersistedEvent, canonicalSwapShape, canonicalTokenAccountProjections, IndexStore, isCanonicalAccountSnapshotEvidence, poolExecutionEvidenceSlot, validOpenBookOracleEvidence } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -2487,6 +2487,18 @@ test("every direct operator CLI uses canonical file identity", async () => {
   }
   const allSources = await Promise.all((await fs.readdir(path.join(rootDir, "src"))).filter((name) => name.endsWith(".js")).map((name) => fs.readFile(path.join(rootDir, "src", name), "utf8")));
   assert.equal(allSources.some((source) => /fileURLToPath\(import\.meta\.url\)\.toLowerCase\(\)\s*===|path\.resolve\(process\.argv\[1\]\)\s*===\s*fileURLToPath/.test(source)), false);
+});
+
+test("HTTP query contracts reject duplicate parameter ambiguity", async (t) => {
+  const duplicateQueries = [
+    "/internal/trending?limit=10&limit=20", "/internal/trending?window=1h&window=24h", "/internal/new-pairs?limit=10&limit=20", "/internal/candidates?limit=10&limit=20", "/internal/candidates?window=1h&window=24h",
+    "/internal/pools/pool/quote?amountRaw=1&amountRaw=2", "/internal/pools/pool/quote?inputMint=a&inputMint=b", "/internal/pools/pool/quote?limitTick=1&limitTick=2", "/internal/tokens/mint/trades?limit=10&limit=20", "/internal/tokens/mint/ohlcv?interval=60&interval=300",
+    "/internal/tokens/mint/executable-depth?side=buy&side=sell", "/internal/tokens/mint/executable-depth?amountRaw=1&amountRaw=2", "/internal/wallets/wallet/funding?limit=10&limit=20", "/api/v1/blocks?cursor=a&cursor=b", "/api/v1/transactions?limit=10&limit=20",
+    "/api/v1/swaps?mint=a&mint=b", "/api/v1/swaps?protocol=a&protocol=b", "/api/v1/tokens?cursor=a&cursor=b", "/api/v1/pools?status=active&status=migrated", "/api/v1/candles/pool?interval=60&interval=300"
+  ];
+  for (const requestTarget of duplicateQueries) assert.throws(() => validateUniqueQueryParameters(new URL(requestTarget, "http://localhost")), (error) => error.code === "BAD_REQUEST" && error.message === "query parameters must appear at most once", requestTarget);
+  assert.doesNotThrow(() => validateUniqueQueryParameters(new URL("/api/v1/swaps?mint=a&pool=b&protocol=c&limit=10", "http://localhost")));
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/blocks?limit=1&limit=2`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "query parameters must appear at most once" });
 });
 
 test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
