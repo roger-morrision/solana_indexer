@@ -1,5 +1,14 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-PROVIDER-PREFLIGHT-003
+
+- BA/PO decision: among 22 reconciled domains, canonical provider identity ranked highest because raw-string uniqueness allowed equivalent URL spellings to masquerade as failover diversity.
+- Implemented contract: validated RPC and WebSocket URLs are canonicalized before duplicate detection; equivalent trailing-slash forms now fail closed.
+- Compatibility/migration: additive local configuration validation; use genuinely distinct canonical endpoint URLs. No consumer API/event change.
+- Validation: focused canonical duplicate controls, full regression, replay/load, and fail-closed health smoke.
+- Blockers/owners: live evidence—OPERATOR; additional protocol selection and authoritative fixtures—BA/PO.
+- NEXT_WEB_ACTION: no WEB change; local endpoint lists must contain unique canonical URLs.
+
 ## UPSTREAM-PROVIDER-PREFLIGHT-002
 
 - BA/PO decision: the ranked 22-domain review selected provider identity uniqueness because duplicate endpoint strings falsely represent failover redundancy and can concentrate both logical nodes on one connection.
