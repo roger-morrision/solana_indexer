@@ -1,30 +1,30 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T03:35:11+07:00`
+- Run: `2026-08-27T04:35:12+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `308b9b1e6fdbd974f1f83249be58f774660e9b1e`
-- Compared with QA baseline: `5de8eeef168250818137c648e1f69057580a35e4` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 31 ahead, 0 behind before this evidence report
-- Latest DEV commits: `b0162fd` (`UPSTREAM-HTTP-RESPONSE-DISCOVERY-001`) and `308b9b1` (`UPSTREAM-HTTP-REPRESENTATION-DISCOVERY-001`)
-- Overall result: response representation discovery passes across all 90 published outcomes and representative JSON, Prometheus, HTML, and empty responses. Route response discovery fails completeness: five paginated routes return post-admission HTTP 400 `invalid_cursor`, but their published `responseOutcomes` omit status 400. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `baf77ce365cfc3ecc70661fdf2ba88b529312d51`
+- Compared with QA baseline: `8a0b19d46c408d865c94a86e15e616d6c0cdec34` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 34 ahead, 0 behind before this evidence report
+- Latest DEV commits: `1b38246` (`UPSTREAM-HTTP-CURSOR-OUTCOME-001`) and `baf77ce` (`UPSTREAM-HTTP-BODY-CONTRACT-IDENTITY-001`)
+- Overall result: both available DEV outcomes pass. All five cursor-paginated routes now advertise the observed non-retryable HTTP 400 response and close `UPSTREAM-QA-HTTP-RESPONSE-DISCOVERY-002`. All 94 body-bearing outcomes publish unique stable version-1 body-contract identities, while the sole bodyless 304 explicitly publishes no identity. Live qualification remains blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-HTTP-RESPONSE-DISCOVERY-001` (FAIL)
+### `UPSTREAM-HTTP-CURSOR-OUTCOME-001` (PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-HTTP-RESPONSE-DISCOVERY-001` | `FAIL` | All 54 routes publish unique ordered lists, but `/api/v1/blocks`, `/api/v1/transactions`, `/api/v1/swaps`, `/api/v1/tokens`, and `/api/v1/pools` each return post-admission HTTP 400 `invalid_cursor` for `cursor=x` while advertising no 400 route outcome. |
+| `UPSTREAM-HTTP-CURSOR-OUTCOME-001` | `PASS` | `/api/v1/blocks`, `/api/v1/transactions`, `/api/v1/swaps`, `/api/v1/tokens`, and `/api/v1/pools` each advertise non-retryable JSON 400 `route_client_error` and independently return HTTP 400 `invalid_cursor` for `cursor=x` against canonical indexed state. |
 
-### `UPSTREAM-HTTP-REPRESENTATION-DISCOVERY-001` (PASS)
+### `UPSTREAM-HTTP-BODY-CONTRACT-IDENTITY-001` (PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-HTTP-REPRESENTATION-DISCOVERY-001` | `PASS` | All 90 published outcomes contain bounded representation metadata. Independent real responses match JSON, Prometheus text, HTML, and bodyless 304 profiles exactly, including content type and body-required semantics. |
+| `UPSTREAM-HTTP-BODY-CONTRACT-IDENTITY-001` | `PASS` | All 94 body-bearing outcomes publish unique derived version-1 identities (maximum 79 characters), all identities are stable across repeated snapshots, and the sole bodyless query-contract 304 publishes `bodyContract: null`. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `5de8eee`; the complete delta was exhausted.
-- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting response profiles or cursor-route probes would be padding.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `8a0b19d`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting body identities or cursor-route probes would be padding.
 
 ## Prior reviewed DEV delta (21/20; retained)
 
@@ -360,14 +360,15 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 34-domain reconciliation
+## Independent 35-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
 | Path-parameter boundary | `PASS` | All 27 published template routes expose exact placeholder maps; 54 combined encoded-slash/noncanonical-unreserved probes and the prior `%ZZ` plus invalid-amount reproduction now return the canonical path error before query-value admission. |
 | HTTP admission discovery | `PASS` | The published 14-stage order and status/retry/header outcomes match source and independent HTTP precedence probes across authentication, base quota, canonical path, query, and method boundaries. |
-| HTTP route response discovery | `FAIL` | Five cursor-paginated routes return stable post-admission HTTP 400 `invalid_cursor` for `cursor=x`, but each published outcome list omits status 400; generated response classifiers are therefore incomplete. |
-| HTTP response representation discovery | `PASS` | All 90 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
+| HTTP route response discovery | `PASS` | All five cursor-paginated routes now publish non-retryable JSON 400 outcomes matching independent real `invalid_cursor` responses against canonical indexed state. |
+| HTTP response representation discovery | `PASS` | All 95 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
+| HTTP body-contract identity | `PASS` | All 94 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated snapshot digests are stable. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -396,10 +397,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 365/365; syntax passes 83/83; replay completes at 5,292.84 blocks/s with 5,010,104-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 406,393,743 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 367/367; syntax passes 83/83; replay completes at 4,860.14 blocks/s with 9,656,000-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 409,994,789 ms old at the trigger time. |
 
-The contract minimum is satisfied with 34 distinct evidence domains: 32 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 35 distinct evidence domains: 34 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -446,29 +447,42 @@ The contract minimum is satisfied with 34 distinct evidence domains: 32 PASS, 1 
 
 ## UPSTREAM-QA-HTTP-RESPONSE-DISCOVERY-002
 
-- Severity: `FAIL` / `MEDIUM`
+- Severity: `PASS` (resolved by `1b38246`)
 - Owner: `DEV`
 - Reproduction: start the API with canonical structure/decision evidence and available empty indexed collections; send `cursor=x` to `/api/v1/blocks`, `/api/v1/transactions`, `/api/v1/swaps`, `/api/v1/tokens`, and `/api/v1/pools`; compare each response status with that route's published `responseOutcomes`.
-- Evidence: all five requests pass admission because `x` satisfies the published cursor character/length profile, then fail route-level cursor decoding with HTTP 400 `invalid_cursor`. The first three routes advertise only 200/503 and the latter two advertise only 200, so none advertises the observed post-admission 400.
+- Evidence: all five requests pass admission because `x` satisfies the published cursor character/length profile, then fail route-level cursor decoding with HTTP 400 `invalid_cursor`. Each route now publishes one matching non-retryable JSON 400 `route_client_error` outcome with a stable body-contract identity.
 - Affected contracts: generated post-admission response classifiers, retry policy, cursor pagination, discovery digest/ETag identity, and the claim that all route-emitted status families are machine-readable.
 - Expected behavior: every stable route-level outcome emitted after the published admission stages appears once in that route's ordered `responseOutcomes`, with 400 classified non-retryable.
-- Actual behavior: the five stable invalid-cursor outcomes are omitted; a generated consumer must retain hard-coded knowledge or treat an undeclared response as a contract violation.
-- Acceptance criteria: publish non-retryable `route_client_error` status 400 for all five cursor-paginated routes; add discovery-driven real HTTP parity tests using syntactically admitted but undecodable cursors; retain unique ordered statuses, admission semantics, representations, digest/ETag coverage, and existing success/unavailable behavior.
-- Validation results: independent invalid-cursor parity matrix 0/5; committed focused cursor/response suite 11/11 PASS because it tests runtime rejection and catalog shape separately, not their intersection; full suite 365/365 PASS; syntax 83/83 PASS; replay PASS at 5,292.84 blocks/s.
+- Actual behavior: the five observed HTTP 400 outcomes and published classifier entries agree on status, retryability, and JSON representation.
+- Acceptance criteria: publish non-retryable `route_client_error` status 400 for all five cursor-paginated routes; add discovery-driven real HTTP parity tests using syntactically admitted but undecodable cursors; retain unique ordered statuses, admission semantics, representations, digest/ETag coverage, and existing success/unavailable behavior. All criteria are met.
+- Validation results: independent invalid-cursor parity matrix 5/5 PASS; focused cursor/response suite 13/13 PASS; full suite 367/367 PASS; syntax 83/83 PASS; replay PASS at 4,860.14 blocks/s.
 - Compatibility impact: additive metadata correction only; runtime already returns stable HTTP 400 and existing response bytes need not change.
-- Performance impact: five static outcome entries and bounded parity checks; negligible expected cost.
-- Blockers: none; deterministic offline reproduction.
+- Performance impact: five static outcome entries and bounded parity checks; no performance regression observed.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-HTTP-BODY-CONTRACT-IDENTITY-001
+
+- Severity: `PASS`
+- Owner: `DEV`
+- Reproduction: enumerate all response outcomes from two independently generated query-contract snapshots; derive the expected route/outcome/version identity for every body-bearing entry, check uniqueness and length bounds, and inspect the bodyless 304 identity.
+- Evidence: all 94 body-bearing entries match their deterministic `solana-indexer.http.&lt;route&gt;.&lt;outcome&gt;.v1` identity, all 94 identities are unique, maximum length is 79 characters, repeated snapshots have the same digest, and `/api/v1/query-contracts` status 304 alone has `bodyContract: null`.
+- Affected contracts: generated response validators, compatibility caches, route/outcome schema identity, discovery digest/ETag, JSON/Prometheus/HTML parser selection, and bodyless completion handling.
+- Expected versus actual: every body-bearing outcome must carry one stable versioned identity and every bodyless outcome must explicitly carry no identity; actual discovery matches.
+- Acceptance criteria: publish unique bounded route/outcome/version identities for all body-bearing outcomes; publish null only for bodyless outcomes; preserve representation/status parity and deterministic digest coverage. All criteria are met.
+- Validation results: derived identity matrix 94/94 PASS; uniqueness 94/94 PASS; one bodyless 304 PASS; focused response/cursor suite 13/13 PASS; full suite 367/367 PASS; syntax and replay PASS.
+- Compatibility/performance impact: additive discovery metadata changes the digest/ETag without changing runtime bytes; bounded string generation adds no observed replay or API regression.
+- Blockers: none.
 
 ## UPSTREAM-QA-HTTP-REPRESENTATION-DISCOVERY-001
 
 - Severity: `PASS`
 - Owner: `DEV`
 - Reproduction: inspect all published outcome entries, then compare declared body kind, exact content type, and body-required flag with real query-contract JSON, Prometheus metrics, static HTML, and cached 304 responses.
-- Evidence: all 90 published outcome entries carry complete representation objects. Real JSON, Prometheus, and HTML responses use the exact declared content types with nonempty bodies; query-contract 304 has no content type and an empty body as declared.
+- Evidence: all 95 current published outcome entries carry complete representation objects. Real JSON, Prometheus, and HTML responses use the exact declared content types with nonempty bodies; query-contract 304 has no content type and an empty body as declared.
 - Affected contracts: generated response parser selection, content negotiation assumptions, cached discovery handling, artifact digest, and ETag identity.
 - Expected versus actual: every published outcome must select a deterministic parser or explicitly declare an empty body; actual published entries and representative runtime responses agree.
 - Acceptance criteria: attach representation metadata to every published outcome; distinguish JSON, Prometheus text, HTML, and empty bodies; bind it into the digest; verify real response headers and body presence. All criteria are met.
-- Validation results: 90/90 published entries structurally complete; four representation families match real HTTP; focused response/cursor suite 11/11 PASS; full suite 365/365 PASS; syntax and replay PASS.
+- Validation results: 95/95 published entries structurally complete; four representation families match real HTTP; focused response/cursor suite 13/13 PASS; full suite 367/367 PASS; syntax and replay PASS.
 - Compatibility/performance impact: additive metadata changes the discovery digest/ETag only; runtime representations are unchanged and no bounded-performance regression was observed.
 - Blockers: none.
 
@@ -696,7 +710,7 @@ The contract minimum is satisfied with 34 distinct evidence domains: 32 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 406,393,743 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 409,994,789 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -705,4 +719,4 @@ The contract minimum is satisfied with 34 distinct evidence domains: 32 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: add non-retryable HTTP 400 `route_client_error` outcomes for all five cursor-paginated routes and prove discovery/runtime parity with syntactically admitted but undecodable cursor requests.
+- NEXT_DEV_ACTION: perform a fresh BA/PO-ranked review and implement the highest-value dependency-ready response-schema contract gap while preserving stable `bodyContract` identities and fail-closed handling of unknown schemas.
