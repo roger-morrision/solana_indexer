@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001
+
+- BA/PO decision: a fresh 24-outcome route audit found that the shared decision-quality gate can return fail-closed 503 responses before 24 consumer handlers, yet discovery advertised success only. This was the highest-value dependency-ready gap because generated clients could incorrectly treat data-quality refusal as an undocumented transport failure across discovery, intelligence, and catalog journeys.
+- Selected compatible batch: `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-01` through `-24`, covering internal trending, new pairs, candidates, public trending, token/pool catalogs, evidence, seven token views, five wallet views, account detail, mint detail, risk, pool detail, and candles. Five already-correct decision consumers—pool quote, executable depth, price, volume, and bot readiness—remain in the same invariant set and were regression-checked but not counted as new outcomes.
+- Implemented contract: all 29 decision-quality consumers now advertise a retryable 503 `unavailable` outcome. The 24 newly corrected outcomes retain `bodySchema:null` because later route-specific bodies are not yet proven structurally identical; no schema is fabricated.
+- Acceptance evidence: discovery proves all 29 routes carry exactly one retryable unavailable outcome, while real injected decision-evidence failure requests verify representative discovery, evidence, wallet, catalog, and risk routes return the documented 503 envelope.
+- Compatibility/migration/configuration: additive discovery only; runtime status, payload, endpoint, RPC, WebSocket, persistence, and configuration behavior is unchanged. Consumers should handle the newly advertised 503 outcomes with bounded retry and fail closed until the route returns fresh canonical evidence.
+- Blockers/owners: live canonical-mainnet qualification remains blocked by absent fresh provider and durable operational evidence—OPERATOR. Structural schemas for heterogeneous success and diagnostic responses—BA/PO.
+- NEXT_WEB_ACTION: regenerate HTTP clients so every newly advertised decision-quality 503 is handled as retryable unavailable rather than an unknown response.
+
 ## UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh reconciliation across 24 product and operational areas retained preparation failure discovery as the highest-value offline-safe contract gap. Inspection found its two routes advertised one 503 outcome while structural admission emitted an incompatible generic availability envelope, preventing any honest closed schema.
