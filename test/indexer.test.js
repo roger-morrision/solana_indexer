@@ -11,7 +11,7 @@ import { applySnapshotArtifacts, indexInbox, watchInbox } from "../src/indexer.j
 import { SNAPSHOT_ARTIFACT_REGISTRY, SNAPSHOT_ARTIFACT_TYPES } from "../src/snapshot-artifact-registry.js";
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmPoolInitializations, decodeMeteoraDlmmSwapEvents, decodeOpenBookV2SwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePhoenixSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumAmmV4PoolInitializations, decodeRaydiumAmmV4SwapEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedLifecycleInstructionEvidence, recognizedLifecycleInstructionOutput, recognizedSwapInstructionEvidence, recognizedSwapInstructionProtocol } from "../src/parser.js";
-import { createServer, gateBotReadiness, validateUniqueQueryParameters } from "../src/server.js";
+import { createServer, gateBotReadiness, validateAllowedQueryParameters, validateUniqueQueryParameters } from "../src/server.js";
 import { createInboundFrameParser, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
 import { canonicalLifecycleTransition, canonicalPersistedEvent, canonicalSwapShape, canonicalTokenAccountProjections, IndexStore, isCanonicalAccountSnapshotEvidence, poolExecutionEvidenceSlot, validOpenBookOracleEvidence } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -2499,6 +2499,18 @@ test("HTTP query contracts reject duplicate parameter ambiguity", async (t) => {
   for (const requestTarget of duplicateQueries) assert.throws(() => validateUniqueQueryParameters(new URL(requestTarget, "http://localhost")), (error) => error.code === "BAD_REQUEST" && error.message === "query parameters must appear at most once", requestTarget);
   assert.doesNotThrow(() => validateUniqueQueryParameters(new URL("/api/v1/swaps?mint=a&pool=b&protocol=c&limit=10", "http://localhost")));
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/blocks?limit=1&limit=2`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "query parameters must appear at most once" });
+});
+
+test("HTTP query contracts reject unsupported parameter names", async (t) => {
+  const routeContracts = [
+    "/internal/trending?widnow=1h", "/internal/new-pairs?page=2", "/internal/candidates?score=1", "/internal/pools/pool/quote?amount=1", "/internal/tokens/mint/trades?page=2",
+    "/internal/tokens/mint/ohlcv?bucket=60", "/internal/tokens/mint/executable-depth?direction=buy", "/internal/wallets/wallet/funding?page=2", "/api/v1/blocks?page=2", "/api/v1/transactions?after=x",
+    "/api/v1/swaps?venue=x", "/api/v1/tokens?page=2", "/api/v1/pools?state=active", "/api/v1/volume/mint?period=1h", "/api/v1/bot/readiness?address=pool",
+    "/api/blocks?page=2", "/api/transactions?page=2", "/api/trending?period=1h", "/api/account/wallet?page=2", "/api/mint/mint?page=2", "/api/v1/holders/mint?page=2", "/api/v1/candles/pool?window=1h"
+  ];
+  for (const requestTarget of routeContracts) assert.throws(() => validateAllowedQueryParameters(new URL(requestTarget, "http://localhost")), (error) => error.code === "BAD_REQUEST" && error.message === "query parameter is not supported by this route", requestTarget);
+  for (const requestTarget of ["/internal/trending?limit=10&window=1h", "/internal/pools/pool/quote?amountRaw=1&inputMint=m&limitTick=2", "/api/v1/swaps?mint=m&pool=p&protocol=x&limit=10", "/api/v1/candles/pool?interval=60&limit=10"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(requestTarget, "http://localhost")), requestTarget);
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/blocks?page=2`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "query parameter is not supported by this route" });
 });
 
 test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
