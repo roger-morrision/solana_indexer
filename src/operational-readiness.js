@@ -13,6 +13,14 @@ import { IndexStore } from "./store.js";
 import { applyWarehouseFailureStatus, assessWarehouseCheckpoint } from "./warehouse-sync.js";
 
 const CHECK_NAMES = ["provider", "index", "exporter", "warehouse", "backup", "recovery"];
+const PUBLIC_REASONS = {
+  provider: new Set(["provider_configuration_unavailable", "provider_configuration_incomplete", "provider_configuration_invalid"]),
+  index: new Set(["no_indexed_blocks", "indexed_state_file_invalid", "indexed_state_json_invalid", "indexed_state_structure_invalid", "indexed_execution_qualification_invalid", "indexed_block_identity_invalid", "indexed_block_time_invalid", "latest_block_has_no_timestamp", "indexed_parent_hash_mismatch", "indexed_block_mainnet_identity_missing_or_invalid", "indexed_event_evidence_invalid", "indexed_transaction_evidence_invalid", "indexed_instruction_evidence_invalid", "decoder_changed", "indexed_decoder_output_incomplete", "indexed_swap_evidence_invalid", "indexed_program_event_evidence_invalid", "indexed_derived_ledger_evidence_invalid", "indexed_aggregate_projection_invalid", "indexed_snapshot_projection_invalid", "indexed_metadata_projection_invalid", "indexed_recovery_evidence_invalid", "dead_letter_capacity_exceeded", "latest_block_time_is_in_future", "latest_block_is_stale"]),
+  exporter: new Set(["status_unavailable", "invalid_source", "stream_disconnected", "invalid_failure_count", "exporter_failure", "not_finalized", "invalid_cursor", "invalid_lag", "invalid_skipped_slots", "cursor_ahead_of_tip", "inconsistent_progress", "exporter_lagging", "invalid_observed_at", "observed_at_in_future", "exporter_stale", "invalid_status_version", "wrong_network"]),
+  warehouse: new Set(["checkpoint_unavailable", "checkpoint_invalid", "checkpoint_network_mismatch", "sink_evidence_unavailable", "sink_sequence_mismatch", "content_reconciliation_unavailable", "checkpoint_ahead_of_index", "checkpoint_clock_skew", "checkpoint_behind_replay_history", "warehouse_lag_exceeded", "warehouse_checkpoint_stale", "warehouse_status_invalid", "warehouse_sync_failed"]),
+  backup: new Set(["backup_status_unavailable", "backup_status_invalid", "backup_status_future", "backup_status_stale"]),
+  recovery: new Set(["recovery_qualification_unavailable", "recovery_qualification_invalid", "recovery_qualification_future", "recovery_qualification_stale"]),
+};
 
 export function assessProviderConfiguration(env = process.env) {
   const localValue = env.LOCAL_VALIDATOR_RPCS || env.LOCAL_VALIDATOR_RPC, external = Boolean(env.HELIUS_RPC_URL && env.ALCHEMY_RPC_URL), partialExternal = Boolean(env.HELIUS_RPC_URL || env.ALCHEMY_RPC_URL);
@@ -21,7 +29,7 @@ export function assessProviderConfiguration(env = process.env) {
   return { available: partialExternal, healthy: false, reason: partialExternal ? "provider_configuration_incomplete" : "provider_configuration_unavailable", mode: null };
 }
 
-function publicCheck(name, value) { return { name, healthy: value?.healthy === true, reason: value?.healthy === true ? null : typeof value?.reason === "string" ? value.reason : `${name}_unavailable` }; }
+function publicCheck(name, value) { const healthy = value?.healthy === true, reason = PUBLIC_REASONS[name].has(value?.reason) ? value.reason : `${name}_evidence_invalid`; return { name, healthy, reason: healthy ? null : reason }; }
 
 export function compileOperationalReadiness({ provider, index, exporter, warehouse, backup, recovery }) {
   const values = { provider, index, exporter, warehouse, backup, recovery }, checks = CHECK_NAMES.map((name) => publicCheck(name, values[name])), blockers = checks.filter((check) => !check.healthy).map((check) => ({ check: check.name, reason: check.reason }));
