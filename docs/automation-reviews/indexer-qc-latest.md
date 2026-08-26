@@ -1,31 +1,30 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T01:35:09+07:00`
+- Run: `2026-08-27T02:36:10+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `2ab6e41e7c6d178923d6331391ae3205e79fa51c`
-- Compared with QA baseline: `d07b0a481eed58aa08b6970bc73d9c29d91bc1d5` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 25 ahead, 0 behind before this evidence report
-- Latest DEV commits: `32f86d2` (`UPSTREAM-HTTP-ADMISSION-PARITY-001`) and `2ab6e41` (`UPSTREAM-HTTP-ROUTE-PARITY-001`)
-- Overall result: all 3 available DEV outcomes pass their selected acceptance criteria and both prior HTTP discovery findings are closed. Independent combined-boundary review found `UPSTREAM-QA-PATH-PARAMETER-004`: an invalid amount is reported before a malformed quote path, contradicting the handoff's explicit canonical-path precedence guarantee. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `f64ed29e543b050e767b7c7868521b1f9ce7f4b3`
+- Compared with QA baseline: `310da6b2953bef11ceb291f83b0b7e271f5c7802` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 28 ahead, 0 behind before this evidence report
+- Latest DEV commits: `cb0a425` (`UPSTREAM-HTTP-PATH-IDENTITY-001`) and `f64ed29` (`UPSTREAM-HTTP-ADMISSION-DISCOVERY-001`)
+- Overall result: both available DEV outcomes pass their selected acceptance criteria. `UPSTREAM-QA-PATH-PARAMETER-004` is closed: canonical template-path validation now precedes query allowlist/value and method checks while preserving authentication and quota precedence. The new machine-readable HTTP admission contract matches observed runtime ordering. Live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-HTTP-ADMISSION-PARITY-001` (2/2 PASS)
-
-| Item | Status | Independent evidence |
-|---|---|---|
-| `UPSTREAM-HTTP-ADMISSION-PARITY-001-A` | `PASS` | Published positive-u64 `amountRaw` rejects zero, u64-max-plus-one, and overlength values while admitting 1 and u64 max before decision-state access. |
-| `UPSTREAM-HTTP-ADMISSION-PARITY-001-B` | `PASS` | Missing quote amount/mint and missing depth amount return stable HTTP 400 under injected noncanonical decision state; a valid u64-max request proceeds to the expected 503 state gate. |
-
-### `UPSTREAM-HTTP-ROUTE-PARITY-001` (PASS)
+### `UPSTREAM-HTTP-PATH-IDENTITY-001` (PASS)
 
 | Item | Status | Independent evidence |
 |---|---|---|
-| `UPSTREAM-HTTP-ROUTE-PARITY-001` | `PASS` | All 54 published exact/template routes admit every documented parameter through the shared catalog and independently reject an added unsupported key. |
+| `UPSTREAM-HTTP-PATH-IDENTITY-001` | `PASS` | All 27 template routes publish exact placeholder maps and all 54 encoded-slash/noncanonical-unreserved probes return the canonical path error before a simultaneous unsupported query. The prior `%ZZ` quote plus invalid-amount reproduction now returns the path error. |
 
-- Available DEV delta: exactly 3 distinct fixes/enhancements after `d07b0a4`; the complete delta was exhausted.
-- Verification result: 3 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 17; no additional distinct DEV outcome exists after the prior QA baseline, and splitting route cases would be padding.
+### `UPSTREAM-HTTP-ADMISSION-DISCOVERY-001` (PASS)
+
+| Item | Status | Independent evidence |
+|---|---|---|
+| `UPSTREAM-HTTP-ADMISSION-DISCOVERY-001` | `PASS` | The published 14-stage order matches source and real HTTP: unauthenticated malformed path 401; authenticated malformed path combined with wrong method and unsupported query 400 path error; canonical wrong method 405 plus `Allow: GET`; exhausted base quota 429 plus `Retry-After` before path processing. |
+
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `310da6b`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting route probes or admission stages would be padding.
 
 ## Prior reviewed DEV delta (21/20; retained)
 
@@ -361,11 +360,12 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 31-domain reconciliation
+## Independent 32-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
-| Path-parameter boundary | `FAIL` | The established 32/32 malformed/delimiter matrix still passes, but a malformed quote path combined with invalid `amountRaw` returns the query-value detail before path decoding, contradicting the new canonical-path precedence guarantee. |
+| Path-parameter boundary | `PASS` | All 27 published template routes expose exact placeholder maps; 54 combined encoded-slash/noncanonical-unreserved probes and the prior `%ZZ` plus invalid-amount reproduction now return the canonical path error before query-value admission. |
+| HTTP admission discovery | `PASS` | The published 14-stage order and status/retry/header outcomes match source and independent HTTP precedence probes across authentication, base quota, canonical path, query, and method boundaries. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -394,10 +394,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 361/361; syntax passes 86/86; replay completes at 3,015.28 blocks/s with 9,782,808-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 399,191,832 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 363/363; syntax passes 83/83; replay completes at 5,901.82 blocks/s with 7,297,856-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 402,852,818 ms old at the trigger time. |
 
-The contract minimum is satisfied with 31 distinct evidence domains: 29 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 32 distinct evidence domains: 31 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -416,18 +416,31 @@ The contract minimum is satisfied with 31 distinct evidence domains: 29 PASS, 1 
 
 ## UPSTREAM-QA-PATH-PARAMETER-004
 
-- Severity: `FAIL` / `MEDIUM`
+- Severity: `PASS` (resolved by `cb0a425`)
 - Owner: `DEV`
 - Reproduction: request `/internal/pools/%ZZ/quote?amountRaw=0&inputMint=m` using canonical query ordering and compare the response with the handoff guarantee that malformed canonical-path errors retain precedence.
-- Evidence: the server returns HTTP 400 detail `amountRaw query value is invalid`; `validateAllowedQueryParameters` resolves the malformed template and validates values before `validateRequiredQueryParameters` calls `decodePathParameter`.
+- Evidence: the prior reproduction now returns HTTP 400 detail `path parameter must use canonical percent encoding`. Independent discovery-driven probes confirm exact placeholder maps for all 27 template routes and canonical path precedence for all 54 encoded-slash/noncanonical-unreserved combinations with a simultaneous unsupported query.
 - Affected contracts: path canonicalization, HTTP error precedence, audit/retry classification, route-catalog consolidation, and malformed request observability.
 - Expected behavior: malformed path identity is rejected before query-value or required-parameter interpretation, consistently with the explicit compatibility guarantee.
-- Actual behavior: an invalid query value masks the malformed path; malformed path alone and malformed path with missing required values still receive the path error, so precedence depends on the accompanying query.
-- Acceptance criteria: validate/decode recognized template path parameters before value and required-query checks; add combined malformed-path plus invalid-value/unsupported-key cases for quote and depth; preserve authentication, quota, method, and redacted 400 behavior.
-- Validation results: deterministic combined case reproduces the wrong detail; the existing 32/32 malformed/delimiter route matrix and focused 7/7 suite pass because they do not combine malformed paths with invalid query values.
-- Compatibility impact: status remains HTTP 400, but clients and audit classification currently observe a query error instead of the canonical path error promised by the handoff.
-- Performance impact: one bounded path decode before catalog-value validation; negligible expected cost.
-- Blockers: none; deterministic offline request reproduces.
+- Actual behavior: recognized template segments are decoded after authentication/base quota and unique-name admission, then before query allowlist/value, method, required-input, body, or state evaluation; runtime and the published admission contract agree.
+- Acceptance criteria: validate/decode recognized template path parameters before value and required-query checks; add combined malformed-path plus invalid-value/unsupported-key cases for quote and depth; preserve authentication, quota, method, and redacted 400 behavior. All criteria are met.
+- Validation results: independent path matrix 54/54 PASS plus prior reproduction PASS; admission precedence probes PASS; focused 9/9 PASS; full suite 363/363 PASS; syntax 83/83 PASS; replay PASS at 5,901.82 blocks/s.
+- Compatibility impact: noncanonical path aliases now fail deterministically at the documented path boundary; canonical paths and response/RPC/WebSocket schemas remain compatible.
+- Performance impact: one bounded decode/re-encode check per template placeholder; replay throughput and heap remain within contract.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-HTTP-ADMISSION-DISCOVERY-001
+
+- Severity: `PASS`
+- Owner: `DEV`
+- Reproduction: load `GET /api/v1/query-contracts`, inspect `httpAdmission`, and issue overlapping malformed-path requests across unauthenticated, authenticated wrong-method/unsupported-query, canonical wrong-method, and exhausted-quota states.
+- Evidence: the artifact publishes 14 ordered stages with deterministic status, retry, `Allow`, and `Retry-After` semantics. Independent HTTP results are 401 before path without credentials, 400 canonical-path detail before method/query with credentials, 405 plus `Allow: GET` for a canonical wrong method, and 429 plus `Retry-After` before malformed-path handling after quota exhaustion.
+- Affected contracts: generated HTTP clients, retry classification, authentication/quota precedence, canonical request identity, method handling, body/state gates, discovery digest, and ETag identity.
+- Expected versus actual: machine-readable admission metadata must match runtime gate order and retry/header behavior; actual metadata and observed runtime agree.
+- Acceptance criteria: publish every pre-route gate in execution order; publish stable status/retry/header semantics; bind metadata into the discovery digest; independently verify representative overlapping failures. All criteria are met.
+- Validation results: 14/14 ordered stages inspected; four independent precedence outcomes PASS; focused 9/9 PASS; full suite 363/363 PASS; syntax 83/83 PASS; replay PASS.
+- Compatibility/performance impact: additive discovery metadata changes the artifact digest/ETag but not runtime endpoint schemas; bounded static metadata adds no observed replay or request-path regression.
+- Blockers: none.
 
 ## UPSTREAM-QA-HEALTH-001
 
@@ -653,7 +666,7 @@ The contract minimum is satisfied with 31 distinct evidence domains: 29 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 399,191,832 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 402,852,818 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -662,4 +675,4 @@ The contract minimum is satisfied with 31 distinct evidence domains: 29 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: enforce canonical path-parameter decoding before query-value and unsupported-key validation for recognized template routes, with combined malformed-path/query precedence regressions for quote and executable-depth.
+- NEXT_DEV_ACTION: perform a fresh BA/PO-ranked review and implement the highest-value dependency-ready upstream indexer gap, while retaining the published path and HTTP-admission contracts and leaving live qualification blocked until fresh operator evidence arrives.
