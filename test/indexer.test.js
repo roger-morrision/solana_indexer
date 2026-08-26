@@ -284,6 +284,19 @@ test("shared basic unavailable schema covers only exact fail-closed envelopes", 
   const store = new IndexStore("unused"); await store.load(); store.indexedBlocks = () => ({ available: false, reason: "indexed_block_evidence_invalid" }); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const body = await (await fetch(`http://127.0.0.1:${server.address().port}/api/v1/blocks`)).json(), keys = Object.keys(body).sort();
   assert.deepEqual(keys, [...schema.required].sort()); assert.equal(body.schemaVersion, 1); assert.equal(body.available, false); assert.ok(typeof body.reason === "string" && body.reason.length >= schema.properties.reason.minimumLength);
 });
+test("query contract snapshots are detached from shared schema and constraint registries", () => {
+  const baseline = queryContractSnapshot(), mutated = queryContractSnapshot();
+  mutated.responseBodySchemas.route_client_error_v1.required.push("poisoned");
+  mutated.responseBodySchemas.basic_unavailable_v1.properties.reason.minimumLength = 999;
+  mutated.valueConstraints.limit.maximum = 1;
+  mutated.http.find(({ path }) => path === "/api/v1/blocks").responseOutcomes[0].representation.bodySchema = "poisoned";
+  const fresh = queryContractSnapshot();
+  assert.deepEqual(fresh, baseline);
+  assert.equal(fresh.responseBodySchemas.route_client_error_v1.required.includes("poisoned"), false);
+  assert.equal(fresh.responseBodySchemas.basic_unavailable_v1.properties.reason.minimumLength, 1);
+  assert.equal(fresh.valueConstraints.limit.maximum, 500);
+  assert.match(fresh.contractSha256, /^[0-9a-f]{64}$/);
+});
 test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });
   for (const amount of ["1", "18446744073709551615"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(`/internal/tokens/mint/executable-depth?amountRaw=${amount}`, "http://indexer.test")));

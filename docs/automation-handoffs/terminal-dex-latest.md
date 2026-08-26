@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001
+
+- BA/PO decision: a fresh 24-area review of discovery/trending, token and pool detail, holder/whale and wallet intelligence, replay/reorg, API/RPC/WebSocket parity, provenance/freshness, recovery, provider resilience, performance, operability, security, and commercial-readiness evidence ranked the new QC mutation proof above the retained preparation-envelope enhancement. A caller could mutate either published response schema and thereby alter later snapshots, hashes, ETags, and HTTP discovery without a source revision.
+- Selected ID: `UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001`; this resolves both QC failures against `route_client_error_v1` and `basic_unavailable_v1` as one shared-root-cause increment.
+- Implemented contract: `queryContractSnapshot()` now returns and hashes a detached structured clone of the complete contract. Mutating a returned response schema, value constraint, route outcome, or nested representation cannot poison module registries or later snapshots.
+- Acceptance evidence: a regression mutates four independently nested surfaces in one returned snapshot, then proves a fresh snapshot is byte-structurally equal to the baseline with the canonical digest and original constraints intact.
+- Compatibility/migration/configuration: no endpoint, field, status, schema ID, runtime payload, configuration, RPC, or WebSocket change; deterministic discovery is restored without consumer migration.
+- Blockers/owners: live canonical-mainnet qualification remains blocked by absent operator-provided fresh provider and durable-state evidence—OPERATOR. Preparation unavailable-body schema remains the next offline-safe contract gap—BA/PO.
+- NEXT_WEB_ACTION: remove any defensive deep clone around query-contract discovery after consuming a revision containing `UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001`.
+
 ## UPSTREAM-HTTP-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh review found unavailable bodies span several incompatible shapes, so a universal schema would be unsafe. Eight retained-data routes share one exact fail-closed envelope and form the highest-value dependency-ready structural batch.
