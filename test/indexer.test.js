@@ -52,6 +52,7 @@ import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-health.js";
+import { assessProviderConfiguration, compileOperationalReadiness, operationalReadinessCheck } from "../src/operational-readiness.js";
 import { readBoundedJsonFile } from "../src/bounded-json-file.js";
 import { readBoundedDirectoryNames } from "../src/bounded-directory.js";
 import { readSecretFile } from "../src/secret-file.js";
@@ -2471,6 +2472,20 @@ test("gap feed never echoes unknown persisted recovery fields", async (t) => {
 test("ingestion and metrics fail closed for stale exporter status", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-stale-exporter-")), statusFile = path.join(root, "status.json"); await fs.writeFile(statusFile, JSON.stringify({ version: 2, source: "local-agave-rpc", commitment: "finalized", observedAt: "2020-01-01T00:00:00.000Z", lagSlots: 9, consecutiveFailures: 3 })); const store = new IndexStore("unused"); await store.load(); const server = createServer({ staleAfterMs: 120_000, exporterStatusFile: statusFile }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   const ingestion = await fetch(`${base}/api/v1/ingestion`); assert.equal(ingestion.status, 503); assert.equal((await ingestion.json()).reason, "exporter_failure"); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_exporter_healthy 0/); assert.match(metrics, /terminal_dex_exporter_lag_slots 9/); assert.match(metrics, /terminal_dex_exporter_consecutive_failures 3/);
+});
+
+test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
+  assert.deepEqual(assessProviderConfiguration({}), { available: false, healthy: false, reason: "provider_configuration_unavailable", mode: null });
+  assert.deepEqual(assessProviderConfiguration({ HELIUS_RPC_URL: "must-not-escape" }), { available: true, healthy: false, reason: "provider_configuration_incomplete", mode: null });
+  assert.deepEqual(assessProviderConfiguration({ LOCAL_VALIDATOR_RPC: "not-a-loopback-url" }), { available: true, healthy: false, reason: "provider_configuration_invalid", mode: null });
+  assert.deepEqual(assessProviderConfiguration({ LOCAL_VALIDATOR_RPC: "http://127.0.0.1:8899" }), { available: true, healthy: true, reason: null, mode: "local_validator" });
+  assert.deepEqual(assessProviderConfiguration({ HELIUS_RPC_URL: "https://mainnet.helius-rpc.com/?api-key=must-not-escape", ALCHEMY_RPC_URL: "https://solana-mainnet.g.alchemy.com/v2/must-not-escape" }), { available: true, healthy: true, reason: null, mode: "external_failover" });
+  const healthy = { healthy: true, reason: null, providerCredential: "must-not-escape" }, ready = compileOperationalReadiness({ provider: healthy, index: healthy, exporter: healthy, warehouse: healthy, backup: healthy, recovery: healthy });
+  assert.deepEqual(ready, { schemaVersion: 1, kind: "upstream_operational_readiness", ready: true, blockerCount: 0, checks: ["provider", "index", "exporter", "warehouse", "backup", "recovery"].map((name) => ({ name, healthy: true, reason: null })), blockers: [], productionMutationAuthorized: false }); assert.doesNotMatch(JSON.stringify(ready), /providerCredential|must-not-escape/);
+  const blocked = compileOperationalReadiness({ provider: { healthy: false, reason: "provider_configuration_unavailable", endpoint: "must-not-escape" }, index: healthy, exporter: { healthy: false, reason: "exporter_stale" }, warehouse: healthy, backup: { healthy: false, reason: "backup_status_unavailable" }, recovery: healthy });
+  assert.deepEqual(blocked.blockers, [{ check: "provider", reason: "provider_configuration_unavailable" }, { check: "exporter", reason: "exporter_stale" }, { check: "backup", reason: "backup_status_unavailable" }]); assert.equal(blocked.ready, false); assert.equal(blocked.blockerCount, 3); assert.doesNotMatch(JSON.stringify(blocked), /endpoint|must-not-escape/);
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "solana-operational-readiness-")); t.after(() => fs.rm(root, { recursive: true, force: true })); const config = loadConfig({}, root), report = await operationalReadinessCheck({ config, env: { HELIUS_RPC_URL: "must-not-escape" }, now: Date.parse("2026-08-26T00:00:00.000Z") });
+  assert.equal(report.ready, false); assert.deepEqual(report.checks.map(({ name }) => name), ["provider", "index", "exporter", "warehouse", "backup", "recovery"]); assert.deepEqual(report.blockers.map(({ check }) => check), ["provider", "index", "exporter", "warehouse", "backup", "recovery"]); assert.doesNotMatch(JSON.stringify(report), /must-not-escape|HELIUS|RPC_URL/);
 });
 
 test("malformed diagnostic evidence keeps metrics available and every dependent contract fail closed", async (t) => {

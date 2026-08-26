@@ -650,6 +650,14 @@ snapshot boundary and return redacted unhealthy evidence until an atomic valid
 replacement appears. Warehouse publication rejects an invalid checkpoint before
 contacting downstream sinks, and both polling and streaming ingestion reject an
 invalid resume status before any network request or inbox mutation.
+`npm run health:operational` performs no network
+or production mutation: it reads the same bounded evidence, validates explicit
+loopback-local or complete allowlisted Helius/Alchemy provider configuration
+without projecting endpoint values, and emits one
+ordered redacted report for provider, canonical index, exporter, warehouse,
+backup, and recovery readiness. A blocked report exits nonzero, lists stable check
+names and exact public reasons, and always sets `productionMutationAuthorized` to
+false.
 Commercial authorization and holder-risk registries cross the same bounded
 regular-file boundary before they can affect tenant admission or automation risk;
 the independent USD/depeg artifact does likewise before influencing price confidence.

@@ -10,6 +10,7 @@
     "export:external": "node src/external-rpc.js",
     "health:public-rpc": "node src/external-rpc.js --health-public",
     "health:exporter": "node src/exporter-health.js",
+    "health:operational": "node src/operational-readiness.js",
     "retention:inbox": "node src/inbox-retention.js",
     "retention:audit": "node src/api-audit-retention.js",
     "sync:commercial": "node src/postgres-commercial-sync.js",
