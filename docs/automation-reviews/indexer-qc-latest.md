@@ -1,26 +1,24 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-26T16:37:14+07:00`
+- Run: `2026-08-26T17:36:30+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `a6eb293ab2e7f31599bc96542b7c757958643d15`
-- Compared with QA baseline: `c76cfa2` (3 commits, 5 changed files)
-- Compared with `origin/main`: 5 ahead, 0 behind
-- Latest DEV handoffs: `UPSTREAM-PROVIDER-PREFLIGHT-003`, `UPSTREAM-PROVIDER-URL-004`, and `UPSTREAM-CLI-ENTRYPOINT-005`
-- Overall result: all three available readiness/provider changes pass independent verification. Canonically equivalent local provider identities and credential/path/query/fragment-bearing local URLs now fail closed, and aliased readiness invocation executes instead of silently succeeding. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `879c420ebc8434ae6897ed956ef30445b2faa9d3`
+- Compared with QA baseline: `e048067` (1 commit, 5 changed files)
+- Compared with `origin/main`: 1 ahead, 0 behind
+- Latest DEV handoff: `UPSTREAM-CLI-ENTRYPOINT-006`
+- Overall result: the reviewed replay/readiness shared-helper change passes, but independent alias execution finds thirty other CLI entrypoints still silently no-op. `UPSTREAM-QA-CLI-ENTRYPOINT-004` is a new HIGH-severity failure; live qualification also remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (1/20)
 
 | Item | Status | Evidence |
 |---|---|---|
-| `UPSTREAM-PROVIDER-PREFLIGHT-003` | `PASS` | Commit `7e78632` compares the canonical URLs returned by the RPC and WebSocket validators. Independent mixed-case/default-port/trailing-slash controls reject two effective `localhost` identities as `provider_configuration_invalid`, while a distinct IPv4/IPv6 two-pair topology remains healthy. |
-| `UPSTREAM-PROVIDER-URL-004` | `PASS` | Commit `e8fb4c7` rejects userinfo, non-root paths, queries, and fragments for both local RPC and WebSocket endpoints. The committed focused matrix passes, and eight independent authority cases are rejected without disclosing their values. Root loopback URLs remain compatible. |
-| `UPSTREAM-CLI-ENTRYPOINT-005` | `PASS` | Commit `a6eb293` compares canonical real paths for the invoked and module files, retaining a deterministic lexical fallback when resolution fails. The injected alias-identity regression passes; direct health smoke emits schema v2 and the expected blocked exit 1 instead of silent success. |
+| `UPSTREAM-CLI-ENTRYPOINT-006` | `PASS` | Commit `879c420` extracts the canonical real-path helper and applies it to both operational readiness and replay/load. A real Windows junction test makes aliased replay emit its schema-v1 result at 7,495.76 blocks/s and aliased readiness emit schema v2 with blocked exit 1; direct/import identity regression and the complete suite pass. |
 
-- Available DEV delta: exactly 3 distinct fixes after `c76cfa2`; the complete delta was exhausted.
-- Verification result: 3 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 17 because no other distinct DEV outcome exists after the prior QA commit. No evidence was duplicated or split to manufacture the count.
+- Available DEV delta: exactly 1 distinct fix after `e048067`; the complete delta was exhausted.
+- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 19 because no other distinct DEV outcome exists after the prior QA commit. No evidence was duplicated or split to manufacture the count.
 
-## Independent 22-domain reconciliation
+## Independent 23-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -44,10 +42,11 @@
 | Warehouse and schema compatibility | `PASS` | Ordered retry-safe dual-sink checkpointing, canonical event/content hashes, PostgreSQL projection preimages, Redis hot-state bounds, and ClickHouse UInt256 raw amounts pass repository tests. |
 | Fail-closed redaction | `PASS` | Explicit public projection allowlists, dead-letter/diagnostic credential redaction, bounded operational JSON, malformed evidence, and secret-file tests pass. |
 | Operational readiness diagnostics | `PASS` | The schema-v2 report contains all twenty ordered redacted dimensions; local provider validation rejects missing, public, cardinality-mismatched, canonically duplicate, credential-bearing, path-bearing, query-bearing, and fragment-bearing topologies while accepting a distinct loopback pair set. Canonical real-path entrypoint comparison preserves CLI execution through workspace aliases. |
-| Bounded performance | `PASS` | Full suite passes 348/348; syntax passes 84/84; replay completes at 7,547.45 blocks/s with 8,902,232-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 366,917,519 ms old at the trigger time. |
+| CLI entrypoint execution | `FAIL` | Only readiness and replay/load use the shared real-path helper. Thirty other direct CLI modules retain lexical path equality. Through a real workspace junction, `exporter-health` exits 0 with zero output while the canonical invocation emits evidence and exits 1. |
+| Bounded performance | `PASS` | Full suite passes 348/348; syntax passes 85/85; replay completes at 6,510.53 blocks/s with 9,374,248-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 370,473,529 ms old at the trigger time. |
 
-The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 23 distinct evidence domains: 21 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -120,6 +119,21 @@ The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 
 - Performance impact: one bounded pair of filesystem real-path resolutions at CLI startup only; no replay/heap/throughput regression observed.
 - Blockers: none; the finding is closed.
 
+## UPSTREAM-QA-CLI-ENTRYPOINT-004
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: create a filesystem junction to the repository and invoke `src/exporter-health.js` through that alias. Compare it with canonical-path invocation, then enumerate direct CLI guards that still compare `fileURLToPath(import.meta.url)` and `process.argv[1]` lexically.
+- Evidence: the aliased exporter-health invocation exits 0 with zero output; canonical invocation emits a 216-character fail-closed health result and exits 1. Source enumeration finds exactly 30 legacy direct-entrypoint files, including exporter/stream health, backup/recovery/backfill, warehouse/commercial/operational workers, retention/archive/reconciliation, provider exporters, oracle/snapshot producers, and reduced/Geyser preflights. Only readiness and replay/load currently consume `isInvokedFile`.
+- Affected contracts: scheduled job execution, health and qualification evidence, backup/recovery safety gates, ingestion/exporter activation, warehouse convergence, retention/reconciliation, all snapshot producers, automation exit status, and visible per-run reporting under workspace aliases.
+- Expected behavior: every supported direct CLI executes exactly once through canonical or aliased workspace paths, imported modules remain side-effect free, and blocked commands emit their documented evidence with a nonzero exit.
+- Actual behavior: the two migrated CLIs behave correctly, but thirty remaining CLIs can silently skip `main()` and falsely exit 0 when Node resolves the module through a junction or sandbox alias.
+- Acceptance criteria: migrate all 30 enumerated legacy direct-entrypoint guards to the shared helper; add a table-driven inventory regression proving no legacy lexical guard remains; exercise representative health, recovery/preflight, worker/sync, exporter/stream, retention/reconciliation, and snapshot commands through a real or injected alias; preserve direct and import behavior, output schemas, redaction, and blocked exit codes.
+- Validation results: real junction replay PASS with schema v1; real junction readiness PASS with schema v2 and exit 1; real junction exporter-health FAIL with empty output and exit 0 versus direct evidence and exit 1; focused readiness 1/1 PASS; full suite 348/348 PASS; syntax 85/85 PASS; direct replay PASS at 6,510.53 blocks/s with 9,374,248-byte heap growth; stable HEAD `879c420` and no DEV lock before or after validation.
+- Compatibility impact: fixing the remaining guards changes only incorrectly silent aliased direct invocations; canonical direct invocation, imported-module behavior, command arguments, output schemas, and consumers must remain stable.
+- Performance impact: at most one bounded real-path comparison at each CLI startup; no steady-state ingestion, API, persistence, or replay cost is expected.
+- Blockers: none; the repository already contains the shared helper and a working two-command migration pattern.
+
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
@@ -134,4 +148,4 @@ The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: provide the redacted current canonical-mainnet provider, exporter, exact warehouse-convergence, backup, and recovery evidence bundle required to qualify live operation.
+- NEXT_DEV_ACTION: migrate all 30 legacy direct CLI entrypoint guards to `isInvokedFile` and add an inventory plus representative alias-execution regression that proves blocked commands cannot silently exit 0.
