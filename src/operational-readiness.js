@@ -8,6 +8,7 @@ import { loadConfig } from "./config.js";
 import { assessExporterStatus } from "./exporter-health.js";
 import { validateProviderUrl } from "./external-rpc.js";
 import { validateLocalRpcUrl } from "./local-validator-exporter.js";
+import { validateLocalWsUrl } from "./local-validator-stream.js";
 import { assessRecoveryQualification } from "./recovery-qualification.js";
 import { IndexStore } from "./store.js";
 import { applyWarehouseFailureStatus, assessWarehouseCheckpoint } from "./warehouse-sync.js";
@@ -25,8 +26,8 @@ const PUBLIC_REASONS = {
 };
 
 export function assessProviderConfiguration(env = process.env) {
-  const localValue = env.LOCAL_VALIDATOR_RPCS || env.LOCAL_VALIDATOR_RPC, external = Boolean(env.HELIUS_RPC_URL && env.ALCHEMY_RPC_URL), partialExternal = Boolean(env.HELIUS_RPC_URL || env.ALCHEMY_RPC_URL);
-  if (localValue) { try { const endpoints = localValue.split(",").map((value) => value.trim()).filter(Boolean); if (!endpoints.length || endpoints.length > 4) throw new Error("invalid local provider count"); endpoints.forEach(validateLocalRpcUrl); return { available: true, healthy: true, reason: null, mode: "local_validator" }; } catch { return { available: true, healthy: false, reason: "provider_configuration_invalid", mode: null }; } }
+  const localValue = env.LOCAL_VALIDATOR_RPCS || env.LOCAL_VALIDATOR_RPC, localWsValue = env.LOCAL_VALIDATOR_WSS || env.LOCAL_VALIDATOR_WS, external = Boolean(env.HELIUS_RPC_URL && env.ALCHEMY_RPC_URL), partialExternal = Boolean(env.HELIUS_RPC_URL || env.ALCHEMY_RPC_URL);
+  if (localValue || localWsValue) { try { const endpoints = String(localValue ?? "").split(",").map((value) => value.trim()).filter(Boolean), wsEndpoints = String(localWsValue ?? "").split(",").map((value) => value.trim()).filter(Boolean); if (!endpoints.length || endpoints.length > 4 || endpoints.length !== wsEndpoints.length) throw new Error("invalid local provider count"); endpoints.forEach(validateLocalRpcUrl); wsEndpoints.forEach(validateLocalWsUrl); return { available: true, healthy: true, reason: null, mode: "local_validator" }; } catch { return { available: true, healthy: false, reason: "provider_configuration_invalid", mode: null }; } }
   if (external) { try { validateProviderUrl("helius", env.HELIUS_RPC_URL); validateProviderUrl("alchemy", env.ALCHEMY_RPC_URL); return { available: true, healthy: true, reason: null, mode: "external_failover" }; } catch { return { available: true, healthy: false, reason: "provider_configuration_invalid", mode: null }; } }
   return { available: partialExternal, healthy: false, reason: partialExternal ? "provider_configuration_incomplete" : "provider_configuration_unavailable", mode: null };
 }
