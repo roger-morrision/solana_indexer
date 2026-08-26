@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import process from "node:process";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assessBackupStatus } from "./backup-status.js";
 import { readBoundedJsonFile } from "./bounded-json-file.js";
@@ -50,5 +51,6 @@ export async function operationalReadinessCheck({ config = loadConfig(), env = p
 }
 
 async function main() { const result = await operationalReadinessCheck(); console.log(JSON.stringify(result)); if (!result.ready) process.exitCode = 1; }
+export function isInvokedFile(invoked, moduleFile = fileURLToPath(import.meta.url), realpath = fs.realpathSync.native) { if (!invoked) return false; try { return realpath(path.resolve(invoked)).toLowerCase() === realpath(moduleFile).toLowerCase(); } catch { return path.resolve(invoked).toLowerCase() === path.resolve(moduleFile).toLowerCase(); } }
 const invoked = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invoked)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

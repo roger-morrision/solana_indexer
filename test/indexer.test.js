@@ -52,7 +52,7 @@ import { retainInbox } from "../src/inbox-retention.js";
 import { completeArchiveReceipt, createInboxManifest } from "../src/archive-receipt.js";
 import { reconcileDeadLetters } from "../src/dead-letter-reconcile.js";
 import { assessExporterStatus, exporterHealthCheck } from "../src/exporter-health.js";
-import { assessProviderConfiguration, compileOperationalReadiness, operationalReadinessCheck } from "../src/operational-readiness.js";
+import { assessProviderConfiguration, compileOperationalReadiness, isInvokedFile, operationalReadinessCheck } from "../src/operational-readiness.js";
 import { readBoundedJsonFile } from "../src/bounded-json-file.js";
 import { readBoundedDirectoryNames } from "../src/bounded-directory.js";
 import { readSecretFile } from "../src/secret-file.js";
@@ -2477,6 +2477,7 @@ test("ingestion and metrics fail closed for stale exporter status", async (t) =>
 });
 
 test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
+  const canonicalize = (value) => value.endsWith("readiness.js") ? "C:\\canonical\\readiness.js" : value; assert.equal(isInvokedFile("alias:/repo/readiness.js", "canonical:/repo/readiness.js", canonicalize), true); assert.equal(isInvokedFile("alias:/repo/other.js", "canonical:/repo/readiness.js", canonicalize), false); assert.equal(isInvokedFile("", "canonical:/repo/readiness.js", canonicalize), false);
   const readinessNames = ["provider", "index_structure", "index_chain", "index_events", "index_transactions", "index_instructions", "decoder_registry", "decoder_output", "indexed_swaps", "program_events", "derived_ledger", "aggregate_projections", "snapshot_projections", "metadata_projections", "recovery_state", "index_freshness", "exporter", "warehouse", "backup", "recovery"];
   assert.deepEqual(assessProviderConfiguration({}), { available: false, healthy: false, reason: "provider_configuration_unavailable", mode: null });
   assert.deepEqual(assessProviderConfiguration({ HELIUS_RPC_URL: "must-not-escape" }), { available: true, healthy: false, reason: "provider_configuration_incomplete", mode: null });

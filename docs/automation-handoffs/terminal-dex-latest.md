@@ -1,5 +1,14 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-CLI-ENTRYPOINT-005
+
+- BA/PO decision: a fresh sandbox-alias run demonstrated that readiness could silently skip its CLI body because entrypoint detection compared lexical paths rather than file identity.
+- Implemented contract: operational readiness compares canonical real paths, with a deterministic lexical fallback only when resolution fails; aliased invocation now emits evidence and returns the correct blocked exit code.
+- Compatibility/migration: no schema/configuration change. Direct and imported-module behavior remains unchanged.
+- Validation: injected alias identity regression, focused readiness tests, full suite, canonical-path health smoke, and replay/load.
+- Blockers/owners: live qualification evidence—OPERATOR; additional protocol ABI selection/fixtures—BA/PO.
+- NEXT_WEB_ACTION: no WEB change; operator automation may invoke readiness through a workspace alias without a silent success.
+
 ## UPSTREAM-PROVIDER-URL-004
 
 - BA/PO decision: across 22 reviewed domains, local endpoint authority hardening ranked highest because validator URLs accepted embedded credentials and ambiguous path/query/fragment variants.
