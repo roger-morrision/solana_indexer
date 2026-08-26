@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-REQUIREMENT-DISCOVERY-001
+
+- BA/PO decision: a fresh 24-area review selected query requirement discovery over credential-blocked live qualification and ABI-blocked protocol expansion. The existing artifact exposed names and value profiles but could not distinguish mandatory quote/depth inputs, defaulted options, or the protocol-dependent CLMM/Whirlpool tick boundary.
+- Selected ID: `UPSTREAM-HTTP-REQUIREMENT-DISCOVERY-001`, covering the route partition invariant, quote/depth required inputs, limit/window/interval/side defaults, conditional tick semantics, deterministic digest coverage, and pre-state rejection evidence.
+- Implemented contract: every HTTP route now publishes deterministic `requiredParameters`, `optionalParameters`, `parameterDefaults`, and `conditionalRequirements`. Pool quotes require `amountRaw` and `inputMint`; executable depth requires `amountRaw`; `limitTick` is declared conditional for Raydium CLMM and Orca Whirlpool programs. Existing route handlers reject missing mandatory inputs before index state evaluation.
+- Compatibility/migration: response and event schemas are unchanged. Generated clients should consume the additive fields; requests already valid at runtime remain valid. Missing mandatory inputs retain their existing HTTP 400 behavior.
+- Validation: all declared routes must partition names exactly once; defaults must belong only to optional inputs; quote, depth, and trending profiles have exact assertions; real missing-input HTTP probes run before state access.
+- Blockers/owners: current mainnet operational evidence—OPERATOR; additional protocol selection plus authoritative ABI fixtures—BA/PO.
+- NEXT_WEB_ACTION: generate required and optional HTTP builder arguments from the new route metadata and conditionally require `limitTick` for Raydium CLMM and Orca Whirlpool quotes.
+
 ## UPSTREAM-HTTP-VALUE-PARITY-001
 
 - BA/PO decision: a fresh 24-domain review and independent QC found two discovery/runtime mismatches: candle intervals accepted numeric-coercion aliases omitted by the enum, and bot-readiness pool filters bypassed advertised bounds.
