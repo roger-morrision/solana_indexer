@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-WS-FILTER-CONSTRAINTS-001
+
+- BA/PO decision: a fresh 21-domain review and independent QC reproduction found WebSocket discovery exposed only a maximum filter length. Generated builders could still emit empty or control-bearing canonical filters rejected by runtime.
+- Selected IDs: `UPSTREAM-WS-FILTER-CONSTRAINTS-001-01` through `-20`: minimum-valid, maximum-valid, empty, control-bearing, and oversized cases for eventType, mint, pool, and protocol.
+- Implemented contract: `GET /api/v1/query-contracts` replaces the ambiguous maximum-only field with `filterConstraints`, declaring the four filter names, optionality, 1..64 UTF-16-code-unit length, and forbidden control characters. Runtime behavior and WebSocket event shapes are unchanged.
+- Compatibility/migration: additive/detail-refining schema-version-1 metadata. Consumers using the removed `maximumFilterLength` convenience field must read `filterConstraints.maximumLength`; no valid subscription changes.
+- Validation: twenty generated-builder/runtime parity cases, exact discovery artifact equality and digest coverage, focused/full tests, replay/load, fail-closed readiness, syntax, and diff review.
+- Blockers/owners: fresh live qualification evidence—OPERATOR; authoritative fixtures for additional protocols—BA/PO.
+- NEXT_WEB_ACTION: validate all generated WebSocket filter values against `filterConstraints` before connection.
+
 ## UPSTREAM-QUERY-CACHE-001
 
 - BA/PO decision: a fresh 22-domain review found the machine-readable query artifact lacked a content identity and conditional retrieval contract. WEB/SDK startup checks therefore had to download and compare the full payload on every refresh and could not bind generated builders to exact discovery evidence.
