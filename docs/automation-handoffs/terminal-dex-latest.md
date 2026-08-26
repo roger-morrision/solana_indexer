@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-ADMISSION-DISCOVERY-001
+
+- BA/PO decision: fresh review found authentication, quota, canonicalization, path, query, method, body, state, and route gates were individually tested but their precedence and retry semantics were not machine-readable. Generated clients could therefore misclassify deterministic 4xx errors or retry the wrong boundary.
+- Selected ID: `UPSTREAM-HTTP-ADMISSION-DISCOVERY-001`.
+- Implemented contract: `GET /api/v1/query-contracts` now publishes the ordered HTTP admission stages and stable status/retry/header semantics for every pre-route gate. The artifact digest and ETag cover this metadata.
+- Compatibility/migration: additive discovery only; runtime request ordering and all response, RPC, and WebSocket schemas are unchanged. Consumers should retry only advertised retryable quota/state failures and honor `Retry-After` where declared.
+- Validation: unauthenticated malformed paths resolve to 401; authenticated malformed paths beat simultaneous wrong-method/unsupported-query inputs with 400; canonical wrong methods return 405 plus `Allow`; exhausted quota returns 429 plus `Retry-After` before malformed-path processing.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; additional protocol ABI fixtures—BA/PO.
+- NEXT_WEB_ACTION: generate retry classification from `httpAdmission.outcomes` and stop retrying deterministic authentication, canonicalization, path, query, method, required-input, and body failures.
+
 ## UPSTREAM-HTTP-PATH-IDENTITY-001
 
 - BA/PO decision: fresh QC and source evidence found malformed template identities were decoded after query admission, so an invalid amount or unsupported key could mask the canonical path error. Path constraints were also absent from discovery despite 27 resource templates.
