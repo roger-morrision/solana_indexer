@@ -228,6 +228,35 @@ test("query contracts partition required, optional, defaulted, and conditional i
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await fetch(`${base}/internal/pools/pool/quote`)).status, 400); assert.equal((await fetch(`${base}/internal/tokens/mint/executable-depth`)).status, 400);
 });
+
+test("query contracts publish route-specific post-admission response outcomes", () => {
+  const contract = queryContractSnapshot(), routes = new Map(contract.http.map((route) => [route.path, route.responseOutcomes]));
+  assert.equal(routes.size, 54);
+  for (const [path, outcomes] of routes) {
+    assert.deepEqual(outcomes[0], { outcome: "success", status: 200, retryable: false }, path);
+    assert.equal(new Set(outcomes.map((outcome) => outcome.status)).size, outcomes.length, path);
+  }
+  assert.deepEqual(routes.get("/api/v1/query-contracts"), [
+    { outcome: "success", status: 200, retryable: false },
+    { outcome: "not_modified", status: 304, retryable: false }
+  ]);
+  assert.deepEqual(routes.get("/internal/pools/{pool}/quote"), [
+    { outcome: "success", status: 200, retryable: false },
+    { outcome: "route_client_error", status: 400, retryable: false },
+    { outcome: "not_found", status: 404, retryable: false },
+    { outcome: "unavailable", status: 503, retryable: true }
+  ]);
+  assert.deepEqual(routes.get("/api/transaction/{signature}"), [
+    { outcome: "success", status: 200, retryable: false },
+    { outcome: "not_found", status: 404, retryable: false },
+    { outcome: "unavailable", status: 503, retryable: true }
+  ]);
+  assert.deepEqual(routes.get("/internal/trending"), [{ outcome: "success", status: 200, retryable: false }]);
+  assert.deepEqual(routes.get("/api/health"), [
+    { outcome: "success", status: 200, retryable: false },
+    { outcome: "unavailable", status: 503, retryable: true }
+  ]);
+});
 test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });
   for (const amount of ["1", "18446744073709551615"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(`/internal/tokens/mint/executable-depth?amountRaw=${amount}`, "http://indexer.test")));

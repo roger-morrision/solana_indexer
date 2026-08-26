@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-RESPONSE-DISCOVERY-001
+
+- BA/PO decision: a fresh 24-area review retained more than 20 concrete opportunities and ranked generated-client response classification highest among dependency-ready offline-safe work. Admission failures were discoverable, but route success, cache, client-error, absence, and availability outcomes still required hard-coded consumer knowledge.
+- Selected ID: `UPSTREAM-HTTP-RESPONSE-DISCOVERY-001`.
+- Implemented contract: every one of the 54 entries from `GET /api/v1/query-contracts` now publishes ordered `responseOutcomes`. Each outcome includes its stable name, HTTP status, and retryability; route-specific 304, 400, 404, and 503 families are included only where the handler can emit them after admission. The contract digest and ETag cover this metadata.
+- Compatibility/migration: additive discovery only; runtime status codes, bodies, endpoints, RPC, and WebSocket schemas are unchanged. Generated consumers may replace endpoint-specific status tables with this contract while continuing to apply the earlier `httpAdmission` outcomes first.
+- Validation: all 54 routes publish one unique-status ordered outcome list beginning with non-retryable 200. Discovery caching publishes 304; quote publishes 400/404/503; transaction detail publishes 404/503; health publishes 503; a deterministic trending route publishes only 200.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; authoritative fixtures for additional protocol coverage—BA/PO.
+- NEXT_WEB_ACTION: generate post-admission response classifiers from each route's `responseOutcomes`, treating only advertised `retryable: true` outcomes as candidates for retry.
+
 ## UPSTREAM-HTTP-ADMISSION-DISCOVERY-001
 
 - BA/PO decision: fresh review found authentication, quota, canonicalization, path, query, method, body, state, and route gates were individually tested but their precedence and retry semantics were not machine-readable. Generated clients could therefore misclassify deterministic 4xx errors or retry the wrong boundary.
