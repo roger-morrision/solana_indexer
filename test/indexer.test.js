@@ -245,11 +245,11 @@ test("query contracts publish route-specific post-admission response outcomes", 
 
 test("published response representations match JSON, metrics, HTML, and empty HTTP bodies", async (t) => {
   const contract = queryContractSnapshot(), routes = new Map(contract.http.map((route) => [route.path, route.responseOutcomes]));
-  const jsonRepresentation = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true };
+  const jsonRepresentation = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.api.health.success.v1" };
   assert.deepEqual(routes.get("/api/health")[0].representation, jsonRepresentation);
-  assert.deepEqual(routes.get("/metrics")[0].representation, { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true });
-  assert.deepEqual(routes.get("/")[0].representation, { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true });
-  assert.deepEqual(routes.get("/api/v1/query-contracts")[1].representation, { bodyKind: "empty", contentType: null, bodyRequired: false });
+  assert.deepEqual(routes.get("/metrics")[0].representation, { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.metrics.success.v1" });
+  assert.deepEqual(routes.get("/")[0].representation, { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true, bodyContract: "solana-indexer.http.root.success.v1" });
+  assert.deepEqual(routes.get("/api/v1/query-contracts")[1].representation, { bodyKind: "empty", contentType: null, bodyRequired: false, bodyContract: null });
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   for (const [path, profile] of [["/api/health", jsonRepresentation], ["/metrics", routes.get("/metrics")[0].representation], ["/", routes.get("/")[0].representation]]) { const response = await fetch(`${base}${path}`); assert.equal(response.headers.get("content-type"), profile.contentType, path); assert.equal((await response.text()).length > 0, profile.bodyRequired, path); }
   const fresh = await fetch(`${base}/api/v1/query-contracts`), cached = await fetch(`${base}/api/v1/query-contracts`, { headers: { "if-none-match": fresh.headers.get("etag") } }); assert.equal(cached.status, 304); assert.equal(cached.headers.get("content-type"), null); assert.equal(await cached.text(), "");
@@ -257,9 +257,16 @@ test("published response representations match JSON, metrics, HTML, and empty HT
 
 test("paginated route discovery advertises post-admission invalid cursor responses", async (t) => {
   const paths = ["/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/tokens", "/api/v1/pools"], routes = new Map(queryContractSnapshot().http.map((route) => [route.path, route.responseOutcomes]));
-  for (const path of paths) assert.deepEqual(routes.get(path).find(({ status }) => status === 400), { outcome: "route_client_error", status: 400, retryable: false, representation: { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true } }, path);
+  for (const path of paths) { const outcome = routes.get(path).find(({ status }) => status === 400); assert.equal(outcome.outcome, "route_client_error", path); assert.equal(outcome.retryable, false, path); assert.equal(outcome.representation.bodyKind, "json", path); assert.match(outcome.representation.bodyContract, /^solana-indexer\.http\.[a-z0-9._-]+\.route_client_error\.v1$/, path); }
   const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   for (const path of paths) { const response = await fetch(`${base}${path}?cursor=x`), body = await response.json(); assert.equal(response.status, 400, path); assert.equal(body.error, "invalid_cursor", path); }
+});
+
+test("every response body publishes a unique stable versioned contract identity", () => {
+  const outcomes = queryContractSnapshot().http.flatMap((route) => route.responseOutcomes.map((outcome) => ({ path: route.path, outcome })));
+  const identities = outcomes.filter(({ outcome }) => outcome.representation.bodyRequired).map(({ path, outcome }) => { assert.match(outcome.representation.bodyContract, /^solana-indexer\.http\.[a-z0-9._-]+\.(success|route_client_error|not_found|unavailable)\.v1$/, `${path}:${outcome.outcome}`); return outcome.representation.bodyContract; });
+  assert.equal(new Set(identities).size, identities.length);
+  for (const { path, outcome } of outcomes.filter(({ outcome }) => !outcome.representation.bodyRequired)) assert.deepEqual({ path, status: outcome.status, bodyContract: outcome.representation.bodyContract }, { path: "/api/v1/query-contracts", status: 304, bodyContract: null });
 });
 test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });

@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-BODY-CONTRACT-IDENTITY-001
+
+- BA/PO decision: a fresh 24-area review confirmed the cursor discovery defect is corrected at HEAD and ranked versioned response-body identity as the next offline-safe commercial contract gap. Status and representation discovery selected transport handling but could not bind generated validators or compatibility caches to a particular route/outcome payload family.
+- Selected ID: `UPSTREAM-HTTP-BODY-CONTRACT-IDENTITY-001`.
+- Implemented contract: every body-bearing response outcome now publishes a unique stable `representation.bodyContract` identity derived from its route template, outcome family, and version. Bodyless 304 explicitly publishes `null`, preventing consumers from expecting a schema where no payload exists. The query-contract digest and ETag bind all identities.
+- Compatibility/migration: additive discovery only; response bytes, headers, status codes, endpoints, RPC, and WebSocket contracts remain unchanged. Consumers may key generated validators and compatibility caches by `bodyContract`; an unknown identity must fail closed rather than being treated as a known payload.
+- Validation: every body-bearing outcome across all 54 routes has a unique bounded version-1 identity matching its route and outcome; the sole bodyless 304 has no identity. Existing JSON, Prometheus, HTML, cursor, caching, and status parity checks remain mandatory.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; structural JSON Schema publication and authoritative additional-protocol fixtures—BA/PO.
+- NEXT_WEB_ACTION: bind each generated response validator and cache entry to `representation.bodyContract`, rejecting unknown or changed identities until the client contract is regenerated.
+
 ## UPSTREAM-HTTP-CURSOR-OUTCOME-001
 
 - BA/PO decision: fresh QC independently reproduced a response-discovery completeness defect on every cursor-paginated collection. This concrete generated-client retry/classification mismatch outranked schema-identity enhancement and externally blocked live qualification.

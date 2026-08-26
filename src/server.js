@@ -71,18 +71,19 @@ const CONDITIONAL_QUERY_REQUIREMENTS = new Map([
 const ROUTE_NOT_FOUND = new Set(["/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/api/transaction/{signature}", "/api/v1/token-account/{account}", "/api/v1/pool/{pool}"]);
 const ROUTE_UNAVAILABLE = new Set(["/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/internal/feed/health", "/internal/feed/gaps", "/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/internal/tokens/{mint}/executable-depth", "/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/price/{mint}", "/api/v1/volume/{mint}", "/api/v1/bot/readiness", "/api/blocks", "/api/transactions", "/api/transaction/{signature}", "/api/v1/holders/{mint}", "/api/v1/token-account/{account}", "/", "/index.html"]);
 const ROUTE_CLIENT_ERROR = new Set(["/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/internal/tokens/{mint}/executable-depth", "/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/tokens", "/api/v1/pools"]);
-const JSON_REPRESENTATION = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true };
+function bodyContractId(path, outcome) { const route = path === "/" ? "root" : path.slice(1).replaceAll("/", ".").replace(/[{}]/g, ""); return `solana-indexer.http.${route}.${outcome}.v1`; }
+function jsonRepresentation(path, outcome) { return { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true, bodyContract: bodyContractId(path, outcome) }; }
 function successRepresentation(path) {
-  if (path === "/metrics") return { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true };
-  if (path === "/" || path === "/index.html") return { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true };
-  return JSON_REPRESENTATION;
+  if (path === "/metrics") return { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true, bodyContract: bodyContractId(path, "success") };
+  if (path === "/" || path === "/index.html") return { bodyKind: "html", contentType: "text/html; charset=utf-8", bodyRequired: true, bodyContract: bodyContractId(path, "success") };
+  return jsonRepresentation(path, "success");
 }
 function routeResponseOutcomes(path) {
   const outcomes = [{ outcome: "success", status: 200, retryable: false, representation: successRepresentation(path) }];
-  if (path === "/api/v1/query-contracts") outcomes.push({ outcome: "not_modified", status: 304, retryable: false, representation: { bodyKind: "empty", contentType: null, bodyRequired: false } });
-  if (ROUTE_CLIENT_ERROR.has(path)) outcomes.push({ outcome: "route_client_error", status: 400, retryable: false, representation: JSON_REPRESENTATION });
-  if (ROUTE_NOT_FOUND.has(path)) outcomes.push({ outcome: "not_found", status: 404, retryable: false, representation: JSON_REPRESENTATION });
-  if (ROUTE_UNAVAILABLE.has(path)) outcomes.push({ outcome: "unavailable", status: 503, retryable: true, representation: JSON_REPRESENTATION });
+  if (path === "/api/v1/query-contracts") outcomes.push({ outcome: "not_modified", status: 304, retryable: false, representation: { bodyKind: "empty", contentType: null, bodyRequired: false, bodyContract: null } });
+  if (ROUTE_CLIENT_ERROR.has(path)) outcomes.push({ outcome: "route_client_error", status: 400, retryable: false, representation: jsonRepresentation(path, "route_client_error") });
+  if (ROUTE_NOT_FOUND.has(path)) outcomes.push({ outcome: "not_found", status: 404, retryable: false, representation: jsonRepresentation(path, "not_found") });
+  if (ROUTE_UNAVAILABLE.has(path)) outcomes.push({ outcome: "unavailable", status: 503, retryable: true, representation: jsonRepresentation(path, "unavailable") });
   return outcomes;
 }
 function queryConstraintProfile(name) { return ["mint", "pool", "protocol"].includes(name) ? "collectionFilter" : name in QUERY_VALUE_CONSTRAINTS ? name : null; }
