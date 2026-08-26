@@ -45,16 +45,21 @@ function publicReorgCorrection(value) { return { slot: value.slot, replacedBlock
 function reportDiagnostic(config, metrics, event, error) { metrics.internalFailures[event]++; if (typeof config.onDiagnostic !== "function") return; try { const result = config.onDiagnostic({ event, error: redactDiagnostic(error, "internal server failure") }); if (result?.then) result.catch(() => {}); } catch {} }
 export function validateUniqueQueryParameters(url) { const names = new Set(); for (const name of url.searchParams.keys()) { if (names.has(name)) { const error = new Error("query parameters must appear at most once"); error.code = "BAD_REQUEST"; throw error; } names.add(name); } }
 const EXACT_QUERY_CONTRACTS = new Map([
+  ["/rpc", []], ["/metrics", []], ["/api/health", []], ["/api/stats", []], ["/api/v1/ingestion", []], ["/api/v1/warehouse", []], ["/api/v1/backup", []], ["/api/v1/recovery", []],
+  ["/internal/registry", []], ["/internal/feed/health", []], ["/internal/feed/gaps", []], ["/internal/execution-policy", []], ["/", []], ["/index.html", []],
   ["/internal/trending", ["limit", "window"]], ["/internal/new-pairs", ["limit"]], ["/internal/candidates", ["limit", "window"]],
   ["/api/v1/blocks", ["limit", "cursor"]], ["/api/v1/transactions", ["limit", "cursor"]], ["/api/v1/swaps", ["mint", "pool", "protocol", "limit", "cursor"]], ["/api/v1/tokens", ["limit", "cursor"]], ["/api/v1/pools", ["protocol", "mint", "status", "limit", "cursor"]], ["/api/v1/bot/readiness", ["pool"]],
   ["/api/blocks", ["limit"]], ["/api/transactions", ["limit"]], ["/api/trending", ["limit", "window"]]
 ]);
 export function validateAllowedQueryParameters(url) {
   let allowed = EXACT_QUERY_CONTRACTS.get(url.pathname) ?? null;
+  if (/^\/internal\/(?:pools|tokens)\/[^/]+\/prepare-swap$/.test(url.pathname)) allowed = [];
   if (/^\/internal\/pools\/[^/]+\/quote$/.test(url.pathname)) allowed = ["amountRaw", "inputMint", "limitTick"];
+  if (/^\/internal\/evidence\/[^/]+$/.test(url.pathname)) allowed = [];
   const token = url.pathname.match(/^\/internal\/tokens\/[^/]+(?:\/(market|security|holders|trades|ohlcv|liquidity|executable-depth))?$/); if (token) allowed = ["limit", ...(token[1] === "ohlcv" ? ["interval"] : []), ...(token[1] === "executable-depth" ? ["side", "amountRaw"] : [])];
   const wallet = url.pathname.match(/^\/internal\/wallets\/[^/]+(?:\/(performance|profile|funding|funding-cluster))?$/); if (wallet) allowed = ["funding", "funding-cluster"].includes(wallet[1]) || wallet[1] == null ? ["limit"] : [];
   if (/^\/api\/v1\/volume\/[^/]+$/.test(url.pathname)) allowed = ["window"];
+  if (/^\/api\/v1\/(?:price|token-account|pool|risk)\/[^/]+$/.test(url.pathname) || /^\/api\/transaction\/[^/]+$/.test(url.pathname)) allowed = [];
   if (/^\/api\/(?:account|mint)\/[^/]+$/.test(url.pathname) || /^\/api\/v1\/holders\/[^/]+$/.test(url.pathname)) allowed = ["limit"];
   if (/^\/api\/v1\/candles\/[^/]+$/.test(url.pathname)) allowed = ["interval", "limit"];
   if (allowed == null) return;

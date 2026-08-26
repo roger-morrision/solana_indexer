@@ -2513,6 +2513,17 @@ test("HTTP query contracts reject unsupported parameter names", async (t) => {
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/blocks?page=2`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "query parameter is not supported by this route" });
 });
 
+test("HTTP no-query contracts reject ignored query input", async (t) => {
+  const noQueryContracts = [
+    "/rpc?debug=1", "/metrics?format=json", "/api/health?verbose=1", "/api/stats?details=1", "/api/v1/ingestion?refresh=1", "/api/v1/warehouse?refresh=1", "/api/v1/backup?refresh=1", "/api/v1/recovery?refresh=1",
+    "/internal/registry?version=1", "/internal/feed/health?verbose=1", "/internal/feed/gaps?limit=1", "/internal/execution-policy?version=1", "/internal/pools/pool/prepare-swap?dryRun=1", "/internal/tokens/mint/prepare-swap?dryRun=1", "/internal/evidence/mint?verbose=1",
+    "/api/v1/price/mint?currency=usd", "/api/transaction/signature?verbose=1", "/api/v1/token-account/account?slot=1", "/api/v1/pool/pool?verbose=1", "/api/v1/risk/pool?model=v2", "/?preview=1", "/index.html?preview=1"
+  ];
+  for (const requestTarget of noQueryContracts) assert.throws(() => validateAllowedQueryParameters(new URL(requestTarget, "http://localhost")), (error) => error.code === "BAD_REQUEST" && error.message === "query parameter is not supported by this route", requestTarget);
+  for (const requestTarget of ["/rpc", "/metrics", "/api/health", "/internal/pools/pool/prepare-swap", "/api/v1/price/mint", "/index.html"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(requestTarget, "http://localhost")), requestTarget);
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/api/health?verbose=1`); assert.equal(response.status, 400); assert.deepEqual(await response.json(), { error: "bad_request", detail: "query parameter is not supported by this route" });
+});
+
 test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
   const canonicalize = (value) => value.endsWith("readiness.js") ? "C:\\canonical\\readiness.js" : value; assert.equal(isInvokedFile("alias:/repo/readiness.js", "canonical:/repo/readiness.js", canonicalize), true); assert.equal(isInvokedFile("alias:/repo/other.js", "canonical:/repo/readiness.js", canonicalize), false); assert.equal(isInvokedFile("", "canonical:/repo/readiness.js", canonicalize), false);
   const readinessNames = ["provider", "index_structure", "index_chain", "index_events", "index_transactions", "index_instructions", "decoder_registry", "decoder_output", "indexed_swaps", "program_events", "derived_ledger", "aggregate_projections", "snapshot_projections", "metadata_projections", "recovery_state", "index_freshness", "exporter", "warehouse", "backup", "recovery"];
