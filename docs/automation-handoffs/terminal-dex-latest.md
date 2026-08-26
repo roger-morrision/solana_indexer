@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-CURSOR-OUTCOME-001
+
+- BA/PO decision: fresh QC independently reproduced a response-discovery completeness defect on every cursor-paginated collection. This concrete generated-client retry/classification mismatch outranked schema-identity enhancement and externally blocked live qualification.
+- Selected ID: `UPSTREAM-HTTP-CURSOR-OUTCOME-001`.
+- Implemented contract: `/api/v1/blocks`, `/api/v1/transactions`, `/api/v1/swaps`, `/api/v1/tokens`, and `/api/v1/pools` now advertise their post-admission non-retryable JSON 400 outcome for malformed, stale, crossed-scope, or otherwise invalid cursors.
+- Compatibility/migration: discovery-only correction; runtime cursor validation, status codes, bodies, pagination, RPC, and WebSocket behavior are unchanged. Consumers should classify advertised cursor 400 responses as terminal request failures and obtain a fresh collection cursor.
+- Validation: all five routes advertise the same bounded client-error representation and independently return HTTP 400 `invalid_cursor` for a malformed cursor against a canonical in-memory index.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; authoritative fixtures for additional protocol coverage—BA/PO.
+- NEXT_WEB_ACTION: regenerate the five paginated route classifiers and replace invalid cursors with a fresh first-page request rather than retrying the rejected cursor.
+
 ## UPSTREAM-HTTP-REPRESENTATION-DISCOVERY-001
 
 - BA/PO decision: a fresh 24-area review ranked response representation discovery above credential-blocked live qualification and fixture-blocked protocol expansion. Route status/retry metadata was available, but generated clients still had to guess whether successful or cached outcomes contained JSON, Prometheus text, HTML, or no body.

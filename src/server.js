@@ -70,7 +70,7 @@ const CONDITIONAL_QUERY_REQUIREMENTS = new Map([
 ]);
 const ROUTE_NOT_FOUND = new Set(["/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/api/transaction/{signature}", "/api/v1/token-account/{account}", "/api/v1/pool/{pool}"]);
 const ROUTE_UNAVAILABLE = new Set(["/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/internal/feed/health", "/internal/feed/gaps", "/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/internal/tokens/{mint}/executable-depth", "/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/price/{mint}", "/api/v1/volume/{mint}", "/api/v1/bot/readiness", "/api/blocks", "/api/transactions", "/api/transaction/{signature}", "/api/v1/holders/{mint}", "/api/v1/token-account/{account}", "/", "/index.html"]);
-const ROUTE_CLIENT_ERROR = new Set(["/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/internal/tokens/{mint}/executable-depth"]);
+const ROUTE_CLIENT_ERROR = new Set(["/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap", "/internal/pools/{pool}/quote", "/internal/tokens/{mint}/executable-depth", "/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/tokens", "/api/v1/pools"]);
 const JSON_REPRESENTATION = { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true };
 function successRepresentation(path) {
   if (path === "/metrics") return { bodyKind: "prometheus_text", contentType: "text/plain; version=0.0.4; charset=utf-8", bodyRequired: true };

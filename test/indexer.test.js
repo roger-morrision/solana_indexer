@@ -254,6 +254,13 @@ test("published response representations match JSON, metrics, HTML, and empty HT
   for (const [path, profile] of [["/api/health", jsonRepresentation], ["/metrics", routes.get("/metrics")[0].representation], ["/", routes.get("/")[0].representation]]) { const response = await fetch(`${base}${path}`); assert.equal(response.headers.get("content-type"), profile.contentType, path); assert.equal((await response.text()).length > 0, profile.bodyRequired, path); }
   const fresh = await fetch(`${base}/api/v1/query-contracts`), cached = await fetch(`${base}/api/v1/query-contracts`, { headers: { "if-none-match": fresh.headers.get("etag") } }); assert.equal(cached.status, 304); assert.equal(cached.headers.get("content-type"), null); assert.equal(await cached.text(), "");
 });
+
+test("paginated route discovery advertises post-admission invalid cursor responses", async (t) => {
+  const paths = ["/api/v1/blocks", "/api/v1/transactions", "/api/v1/swaps", "/api/v1/tokens", "/api/v1/pools"], routes = new Map(queryContractSnapshot().http.map((route) => [route.path, route.responseOutcomes]));
+  for (const path of paths) assert.deepEqual(routes.get(path).find(({ status }) => status === 400), { outcome: "route_client_error", status: 400, retryable: false, representation: { bodyKind: "json", contentType: "application/json; charset=utf-8", bodyRequired: true } }, path);
+  const store = new IndexStore("unused"); await store.load(); const block = parseBlock(JSON.parse(await fs.readFile(fixture, "utf8"))); store.apply(block); store.state.updatedAt = new Date().toISOString(); const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  for (const path of paths) { const response = await fetch(`${base}${path}?cursor=x`), body = await response.json(); assert.equal(response.status, 400, path); assert.equal(body.error, "invalid_cursor", path); }
+});
 test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });
   for (const amount of ["1", "18446744073709551615"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(`/internal/tokens/mint/executable-depth?amountRaw=${amount}`, "http://indexer.test")));
