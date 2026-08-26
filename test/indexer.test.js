@@ -244,6 +244,12 @@ test("every published HTTP route shares one runtime allowlist contract", () => {
     const unsupported = new URL(url); unsupported.searchParams.set("unsupported", "1"); unsupported.searchParams.sort(); assert.throws(() => validateAllowedQueryParameters(unsupported), (error) => error.code === "BAD_REQUEST", route.path);
   }
 });
+test("template path contracts reject noncanonical identities before query admission", async (t) => {
+  const contract = queryContractSnapshot(); assert.deepEqual(contract.pathValueConstraints.resourceIdentifier, { kind: "canonical_percent_encoded_segment", decodedMinimumLength: 1, decodedMaximumLength: 256, decodedSlashAllowed: false, decodedControlCharactersAllowed: false });
+  for (const route of contract.http) assert.deepEqual(Object.keys(route.pathParameters), [...route.path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]), route.path);
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
+  for (const route of contract.http.filter((row) => row.path.includes("{"))) for (const invalid of ["identity%2Fchild", "identity%41"]) { const target = route.path.replace(/\{[^}]+\}/g, invalid), init = route.method === "POST" ? { method: "POST", headers: { "content-type": "application/json" }, body: "{}" } : undefined, response = await fetch(`${base}${target}?unsupported=1`, init); assert.equal(response.status, 400, route.path); assert.deepEqual(await response.json(), { error: "bad_request", detail: "path parameter must use canonical percent encoding" }, route.path); }
+});
 test("pool execution evidence slot covers every venue dependency family", () => {
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, openOrdersSlot: 11, marketSlot: 12, bookSlot: 13, oracleSlot: 14, balanceSlot: 15, configSlot: 16, mintSlot: 17, tickArraySlot: 18, binArraySlot: 19, bitmapExtensionSlot: 20, binArrayBitmapExtensionSlot: 21, ammConfigSlot: 22, feeConfigSlot: 23, globalConfigSlot: 24, mintEvidenceSlot: 25 }), 25);
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, binArrayBitmapExtensionSlot: 26, evidenceSlot: 99 }), 26);

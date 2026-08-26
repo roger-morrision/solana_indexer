@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-PATH-IDENTITY-001
+
+- BA/PO decision: fresh QC and source evidence found malformed template identities were decoded after query admission, so an invalid amount or unsupported key could mask the canonical path error. Path constraints were also absent from discovery despite 27 resource templates.
+- Selected ID: `UPSTREAM-HTTP-PATH-IDENTITY-001`.
+- Implemented contract: every route now publishes `pathParameters` plus a shared canonical percent-encoded segment profile: decoded length 1..256, no slash/control characters, and exactly one canonical wire spelling. Recognized template paths are decoded after authentication/quota and unique-query admission but before query allowlist/value checks, methods, or decision state.
+- Compatibility/migration: noncanonical escapes such as an encoded unreserved character are newly rejected; ordinary canonical resource paths and all response/RPC/WebSocket schemas remain unchanged. Generated clients should encode each path segment exactly once.
+- Validation: all declared path maps match template placeholders; every template route rejects encoded slash and noncanonical unreserved escapes before a simultaneous unsupported query key; existing malformed-path controls remain green.
+- Blockers/owners: live canonical-mainnet qualification evidence—OPERATOR; additional protocol ABI fixtures—BA/PO.
+- NEXT_WEB_ACTION: generate path-segment encoders from `pathParameters` and `pathValueConstraints`, rejecting double encoding and encoded unreserved aliases locally.
+
 ## UPSTREAM-HTTP-ROUTE-PARITY-001
 
 - BA/PO decision: a fresh 24-area review found runtime query admission duplicated the 54-route discovery catalog across eleven hand-maintained path branches. That architectural drift already produced prior token-subview and required-parameter defects, making consolidation the highest-value offline-safe increment.
