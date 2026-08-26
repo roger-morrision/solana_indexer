@@ -11,7 +11,7 @@ import { applySnapshotArtifacts, indexInbox, watchInbox } from "../src/indexer.j
 import { SNAPSHOT_ARTIFACT_REGISTRY, SNAPSHOT_ARTIFACT_TYPES } from "../src/snapshot-artifact-registry.js";
 import { loadConfig, parseBoundedInteger } from "../src/config.js";
 import { decodeMeteoraDlmmPoolInitializations, decodeMeteoraDlmmSwapEvents, decodeOpenBookV2SwapEvents, decodeOrcaWhirlpoolPoolInitializations, decodeOrcaWhirlpoolSwapEvents, decodePhoenixSwapEvents, decodePumpBondingCurveInitializations, decodePumpCompletionEvents, decodePumpMigrations, decodePumpSwapEvents, decodePumpSwapPoolInitializations, decodePumpTradeEvents, decodeRaydiumAmmV4PoolInitializations, decodeRaydiumAmmV4SwapEvents, decodeRaydiumClmmPoolInitializations, decodeRaydiumClmmSwapEvents, decodeRaydiumCpmmPoolInitializations, decodeRaydiumSwapEvents, parseBlock, recognizedLifecycleInstructionEvidence, recognizedLifecycleInstructionOutput, recognizedSwapInstructionEvidence, recognizedSwapInstructionProtocol } from "../src/parser.js";
-import { createServer, gateBotReadiness, validateAllowedQueryParameters, validateUniqueQueryParameters } from "../src/server.js";
+import { createServer, gateBotReadiness, queryContractSnapshot, validateAllowedQueryParameters, validateUniqueQueryParameters } from "../src/server.js";
 import { createInboundFrameParser, parseWebSocketSubscription, projectWebSocketEvent, validWebSocketHandshake, webSocketRateLimitHeaders } from "../src/websocket.js";
 import { canonicalLifecycleTransition, canonicalPersistedEvent, canonicalSwapShape, canonicalTokenAccountProjections, IndexStore, isCanonicalAccountSnapshotEvidence, poolExecutionEvidenceSlot, validOpenBookOracleEvidence } from "../src/store.js";
 import { exportFinalizedBlocks, LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH, recordExporterFailure, validateLocalRpcUrl } from "../src/local-validator-exporter.js";
@@ -162,6 +162,24 @@ test("canonical query identity rejects alternate parameter order", async (t) => 
   assert.equal(rejected.status, 400);
   assert.equal((await rejected.json()).detail, "query string must use canonical encoding");
   assert.notEqual((await fetch(`${base}/api/trending?limit=10&window=1h`)).status, 400);
+});
+test("machine-readable query contracts publish canonical HTTP and WebSocket builders", async (t) => {
+  const contract = queryContractSnapshot(), expected = new Map([
+    ["/api/v1/blocks", ["cursor", "limit"]], ["/api/v1/transactions", ["cursor", "limit"]], ["/api/v1/swaps", ["cursor", "limit", "mint", "pool", "protocol"]], ["/api/v1/tokens", ["cursor", "limit"]], ["/api/v1/pools", ["cursor", "limit", "mint", "protocol", "status"]],
+    ["/internal/trending", ["limit", "window"]], ["/internal/candidates", ["limit", "window"]], ["/internal/new-pairs", ["limit"]], ["/api/trending", ["limit", "window"]], ["/api/v1/candles/{pool}", ["interval", "limit"]],
+    ["/internal/pools/{pool}/quote", ["amountRaw", "inputMint", "limitTick"]], ["/internal/tokens/{mint}/executable-depth", ["amountRaw", "side"]], ["/internal/tokens/{mint}/ohlcv", ["interval", "limit"]], ["/internal/tokens/{mint}/holders", ["limit"]], ["/internal/wallets/{wallet}/funding", ["limit"]],
+    ["/api/v1/volume/{mint}", ["window"]], ["/api/v1/holders/{mint}", ["limit"]], ["/api/v1/bot/readiness", ["pool"]], ["/api/v1/query-contracts", []], ["/rpc", []]
+  ]);
+  assert.equal(contract.schemaVersion, 1);
+  assert.deepEqual(contract.canonicalization, { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true });
+  const published = new Map(contract.http.map((row) => [row.path, row.parameters]));
+  for (const [path, parameters] of expected) assert.deepEqual(published.get(path), parameters, path);
+  assert.deepEqual(contract.webSocket, { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], acknowledgementValues: ["0", "1"], maximumFilterLength: 64 });
+
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`), body = await response.json();
+  assert.equal(response.status, 200); assert.deepEqual(body, contract); assert.equal(response.headers.get("x-api-version"), "1");
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts?version=1`)).status, 400);
 });
 test("pool execution evidence slot covers every venue dependency family", () => {
   assert.equal(poolExecutionEvidenceSlot({ stateSlot: 10, openOrdersSlot: 11, marketSlot: 12, bookSlot: 13, oracleSlot: 14, balanceSlot: 15, configSlot: 16, mintSlot: 17, tickArraySlot: 18, binArraySlot: 19, bitmapExtensionSlot: 20, binArrayBitmapExtensionSlot: 21, ammConfigSlot: 22, feeConfigSlot: 23, globalConfigSlot: 24, mintEvidenceSlot: 25 }), 25);

@@ -46,12 +46,22 @@ function publicReorgCorrection(value) { return { slot: value.slot, replacedBlock
 function reportDiagnostic(config, metrics, event, error) { metrics.internalFailures[event]++; if (typeof config.onDiagnostic !== "function") return; try { const result = config.onDiagnostic({ event, error: redactDiagnostic(error, "internal server failure") }); if (result?.then) result.catch(() => {}); } catch {} }
 export function validateUniqueQueryParameters(url) { const names = new Set(); for (const name of url.searchParams.keys()) { if (names.has(name)) { const error = new Error("query parameters must appear at most once"); error.code = "BAD_REQUEST"; throw error; } names.add(name); } }
 const EXACT_QUERY_CONTRACTS = new Map([
-  ["/rpc", []], ["/metrics", []], ["/api/health", []], ["/api/stats", []], ["/api/v1/ingestion", []], ["/api/v1/warehouse", []], ["/api/v1/backup", []], ["/api/v1/recovery", []],
+  ["/rpc", []], ["/metrics", []], ["/api/health", []], ["/api/stats", []], ["/api/v1/ingestion", []], ["/api/v1/warehouse", []], ["/api/v1/backup", []], ["/api/v1/recovery", []], ["/api/v1/query-contracts", []],
   ["/internal/registry", []], ["/internal/feed/health", []], ["/internal/feed/gaps", []], ["/internal/execution-policy", []], ["/", []], ["/index.html", []],
   ["/internal/trending", ["limit", "window"]], ["/internal/new-pairs", ["limit"]], ["/internal/candidates", ["limit", "window"]],
   ["/api/v1/blocks", ["limit", "cursor"]], ["/api/v1/transactions", ["limit", "cursor"]], ["/api/v1/swaps", ["mint", "pool", "protocol", "limit", "cursor"]], ["/api/v1/tokens", ["limit", "cursor"]], ["/api/v1/pools", ["protocol", "mint", "status", "limit", "cursor"]], ["/api/v1/bot/readiness", ["pool"]],
   ["/api/blocks", ["limit"]], ["/api/transactions", ["limit"]], ["/api/trending", ["limit", "window"]]
 ]);
+const TEMPLATE_QUERY_CONTRACTS = [
+  ["/internal/pools/{pool}/prepare-swap", []], ["/internal/tokens/{mint}/prepare-swap", []], ["/internal/pools/{pool}/quote", ["amountRaw", "inputMint", "limitTick"]], ["/internal/evidence/{mint}", []],
+  ["/internal/tokens/{mint}", ["limit"]], ["/internal/tokens/{mint}/market", []], ["/internal/tokens/{mint}/security", []], ["/internal/tokens/{mint}/holders", ["limit"]], ["/internal/tokens/{mint}/trades", ["limit"]], ["/internal/tokens/{mint}/ohlcv", ["interval", "limit"]], ["/internal/tokens/{mint}/liquidity", []], ["/internal/tokens/{mint}/executable-depth", ["amountRaw", "side"]],
+  ["/internal/wallets/{wallet}", ["limit"]], ["/internal/wallets/{wallet}/performance", []], ["/internal/wallets/{wallet}/profile", []], ["/internal/wallets/{wallet}/funding", ["limit"]], ["/internal/wallets/{wallet}/funding-cluster", ["limit"]],
+  ["/api/v1/volume/{mint}", ["window"]], ["/api/v1/price/{mint}", []], ["/api/v1/token-account/{account}", []], ["/api/v1/pool/{pool}", []], ["/api/v1/risk/{pool}", []], ["/api/transaction/{signature}", []], ["/api/account/{address}", ["limit"]], ["/api/mint/{mint}", ["limit"]], ["/api/v1/holders/{mint}", ["limit"]], ["/api/v1/candles/{pool}", ["interval", "limit"]]
+];
+export function queryContractSnapshot() {
+  const http = [...EXACT_QUERY_CONTRACTS, ...TEMPLATE_QUERY_CONTRACTS].map(([path, parameters]) => ({ method: path === "/rpc" || path.endsWith("/prepare-swap") ? "POST" : "GET", path, parameters: [...parameters].sort() })).sort((left, right) => left.path.localeCompare(right.path));
+  return { schemaVersion: 1, canonicalization: { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true }, http, webSocket: { path: "/ws", parameters: ["ack", "cursor", "eventType", "mint", "pool", "protocol", "topic"], topics: ["blocks", "lifecycle", "snapshots", "swaps"], acknowledgementValues: ["0", "1"], maximumFilterLength: 64 } };
+}
 export function validateAllowedQueryParameters(url) {
   let allowed = EXACT_QUERY_CONTRACTS.get(url.pathname) ?? null;
   if (/^\/internal\/(?:pools|tokens)\/[^/]+\/prepare-swap$/.test(url.pathname)) allowed = [];
@@ -378,7 +388,7 @@ export function createServer(config, store) {
         response.setHeader("x-ratelimit-limit", requestLimit); response.setHeader("x-ratelimit-remaining", remaining); if (tenant) { response.setHeader("x-tenant-plan", tenant.plan); response.setHeader("x-retention-days", tenant.retentionDays); }
         if (quota.count > requestLimit) return json(response, 429, { error: "rate_limit_exceeded" }, { "retry-after": String(quota.retryAfterSeconds) });
       }
-      const structure = store.structureQuality(), diagnosticRoute = new Set(["/metrics", "/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/internal/registry", "/internal/feed/health", "/internal/execution-policy"]).has(url.pathname);
+      const structure = store.structureQuality(), diagnosticRoute = new Set(["/metrics", "/api/health", "/api/stats", "/api/v1/ingestion", "/api/v1/warehouse", "/api/v1/backup", "/api/v1/recovery", "/api/v1/query-contracts", "/internal/registry", "/internal/feed/health", "/internal/execution-policy"]).has(url.pathname);
       if (protectedRoute && url.pathname !== "/rpc" && !diagnosticRoute && !structure.canonical) return json(response, 503, { schemaVersion: 1, available: false, reason: structure.reason, fields: structure.fields });
       if (request.method === "POST" && url.pathname === "/rpc") return json(response, 200, dispatchRpcEnvelope(rpcPayload, config, store));
       if (preparePoolSwap || prepareCurveSwap) { const quality = decisionStateQuality(store); if (!quality.canonical || quality.capacityExceeded) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: quality.reason }); }
@@ -417,6 +427,7 @@ export function createServer(config, store) {
       if (url.pathname === "/metrics") { const [exporter, warehouseCheckpoint, warehouseFailureStatus, backup, recovery] = await Promise.all([readJsonFile(config.exporterStatusFile), readJsonFile(config.warehouseCheckpointFile), readJsonFile(config.warehouseStatusFile), readJsonFile(config.backupStatusFile), readJsonFile(config.recoveryReportFile)]), body = prometheus(metrics, store, config.staleAfterMs, exporter, config.maxExporterLagSlots, warehouseCheckpoint, warehouseFailureStatus, config.warehouseStaleAfterMs, config.maxWarehouseLagEvents, backup, config.backupMaximumAgeMs, recovery, config.recoveryMaximumAgeMs, auditSink.failures, server.webSocketStats); response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "content-length": Buffer.byteLength(body), "cache-control": "no-store" }); return response.end(body); }
       if (url.pathname === "/api/health") { const health = { network: "offline-local", ...publicHealth(store.health(config.staleAfterMs)) }; return json(response, health.healthy ? 200 : 503, health); }
       if (url.pathname === "/api/stats") { const structure = publicStructure(store.structureQuality()), payload = { ...publicStats(store.stats()), structure, chain: structure.canonical ? publicChain(store.chainQuality()) : { canonical: false, conflicts: [], conflictCount: 0, invalidStateStructure: true } }; return json(response, structure.canonical ? 200 : 503, payload); }
+      if (url.pathname === "/api/v1/query-contracts") return json(response, 200, queryContractSnapshot());
       if (url.pathname === "/api/v1/ingestion") {
         const exporter = await readJsonFile(config.exporterStatusFile);
         const status = assessExporterStatus(exporter, config.staleAfterMs, Date.now(), config.maxExporterLagSlots), payload = { ...status, exporter: status, index: publicStats(store.stats()).ingestion };
