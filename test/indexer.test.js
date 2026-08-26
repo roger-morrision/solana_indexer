@@ -171,6 +171,9 @@ test("machine-readable query contracts publish canonical HTTP and WebSocket buil
     ["/api/v1/volume/{mint}", ["window"]], ["/api/v1/holders/{mint}", ["limit"]], ["/api/v1/bot/readiness", ["pool"]], ["/api/v1/query-contracts", []], ["/rpc", []]
   ]);
   assert.equal(contract.schemaVersion, 1);
+  assert.match(contract.contractSha256, /^[0-9a-f]{64}$/);
+  const { contractSha256, ...digestEvidence } = contract;
+  assert.equal(contractSha256, crypto.createHash("sha256").update(JSON.stringify(digestEvidence)).digest("hex"));
   assert.deepEqual(contract.canonicalization, { algorithm: "url-search-params-sort-v1", uniqueNames: true, alternateEncodingRejected: true, alternateOrderRejected: true });
   const published = new Map(contract.http.map((row) => [row.path, row.parameters]));
   for (const [path, parameters] of expected) assert.deepEqual(published.get(path), parameters, path);
@@ -186,7 +189,9 @@ test("machine-readable query contracts publish canonical HTTP and WebSocket buil
 
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`), body = await response.json();
-  assert.equal(response.status, 200); assert.deepEqual(body, contract); assert.equal(response.headers.get("x-api-version"), "1");
+  assert.equal(response.status, 200); assert.deepEqual(body, contract); assert.equal(response.headers.get("x-api-version"), "1"); assert.equal(response.headers.get("etag"), `"${contractSha256}"`); assert.equal(response.headers.get("cache-control"), "private, max-age=300");
+  for (const ifNoneMatch of [`"${contractSha256}"`, `W/"${contractSha256}"`, `"unrelated", "${contractSha256}"`, "*"]) { const cached = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`, { headers: { "if-none-match": ifNoneMatch } }); assert.equal(cached.status, 304, ifNoneMatch); assert.equal(await cached.text(), ""); assert.equal(cached.headers.get("etag"), `"${contractSha256}"`); }
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`, { headers: { "if-none-match": '"unrelated"' } })).status, 200);
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts?version=1`)).status, 400);
 });
 test("pool execution evidence slot covers every venue dependency family", () => {
