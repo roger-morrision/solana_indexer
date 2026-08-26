@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-HTTP-ADMISSION-PARITY-001
+
+- BA/PO decision: fresh source and QC evidence ranked malformed trading-input classification above credential-blocked live qualification. Published `amountRaw` accepted zero and overflow values, while missing required quote/depth inputs could be masked by unhealthy decision state.
+- Selected IDs: `UPSTREAM-HTTP-ADMISSION-PARITY-001-A` and `UPSTREAM-HTTP-ADMISSION-PARITY-001-B`.
+- Implemented contract: `amountRaw` is now an exact positive-u64 decimal-string profile (`1..18446744073709551615`, maximum 20 characters). Shared query admission enforces the profile, and route-specific required parameters are checked after authentication/quota/method admission but before decision-state access. Canonical path errors retain precedence.
+- Compatibility/migration: zero, overflow, and missing mandatory trading inputs now return stable HTTP 400 even when index decision evidence is unhealthy. Valid positive-u64 requests, authentication, quotas, methods, successful responses, RPC, and WebSocket contracts are unchanged.
+- Validation: generated-profile boundaries cover zero, one, u64 maximum, maximum plus one, and overlength input; real unhealthy-state probes cover missing quote amount/mint, missing depth amount, zero/overflow rejection, and valid-maximum progression to the expected fail-closed 503 state gate.
+- Blockers/owners: live canonical-mainnet provider/exporter/warehouse/backup/recovery evidence—OPERATOR; additional protocol ABI fixtures—BA/PO.
+- NEXT_WEB_ACTION: enforce the published positive-u64 amount profile locally and classify missing, zero, and overflow trading inputs as non-retryable client errors.
+
 ## UPSTREAM-HTTP-REQUIREMENT-DISCOVERY-001
 
 - BA/PO decision: a fresh 24-area review selected query requirement discovery over credential-blocked live qualification and ABI-blocked protocol expansion. The existing artifact exposed names and value profiles but could not distinguish mandatory quote/depth inputs, defaulted options, or the protocol-dependent CLMM/Whirlpool tick boundary.
