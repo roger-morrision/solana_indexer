@@ -1,22 +1,24 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-26T15:35:45+07:00`
+- Run: `2026-08-26T16:37:14+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `a5d60f6b4afed8da470bbf0385f0591da2821189`
-- Compared with QA baseline: `edf6f82` (1 commit, 3 changed files)
-- Compared with `origin/main`: 1 ahead, 0 behind
-- Latest DEV handoff: `UPSTREAM-PROVIDER-PREFLIGHT-002`
-- Overall result: the duplicate provider-identity correction passes independent verification and closes `UPSTREAM-QA-OPS-PROVIDER-002`. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `a6eb293ab2e7f31599bc96542b7c757958643d15`
+- Compared with QA baseline: `c76cfa2` (3 commits, 5 changed files)
+- Compared with `origin/main`: 5 ahead, 0 behind
+- Latest DEV handoffs: `UPSTREAM-PROVIDER-PREFLIGHT-003`, `UPSTREAM-PROVIDER-URL-004`, and `UPSTREAM-CLI-ENTRYPOINT-005`
+- Overall result: all three available readiness/provider changes pass independent verification. Canonically equivalent local provider identities and credential/path/query/fragment-bearing local URLs now fail closed, and aliased readiness invocation executes instead of silently succeeding. Live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (1/20)
+## Reviewed DEV delta (3/20)
 
 | Item | Status | Evidence |
 |---|---|---|
-| `UPSTREAM-PROVIDER-PREFLIGHT-002` | `PASS` | Commit `a5d60f6` rejects duplicate trimmed RPC and WebSocket identities while retaining presence, 1-4 count, loopback, cardinality, valid-pair, external-failover, and redaction behavior. Independent duplicate-RPC and duplicate-WebSocket controls both return `provider_configuration_invalid`; a distinct two-pair topology remains healthy. |
+| `UPSTREAM-PROVIDER-PREFLIGHT-003` | `PASS` | Commit `7e78632` compares the canonical URLs returned by the RPC and WebSocket validators. Independent mixed-case/default-port/trailing-slash controls reject two effective `localhost` identities as `provider_configuration_invalid`, while a distinct IPv4/IPv6 two-pair topology remains healthy. |
+| `UPSTREAM-PROVIDER-URL-004` | `PASS` | Commit `e8fb4c7` rejects userinfo, non-root paths, queries, and fragments for both local RPC and WebSocket endpoints. The committed focused matrix passes, and eight independent authority cases are rejected without disclosing their values. Root loopback URLs remain compatible. |
+| `UPSTREAM-CLI-ENTRYPOINT-005` | `PASS` | Commit `a6eb293` compares canonical real paths for the invoked and module files, retaining a deterministic lexical fallback when resolution fails. The injected alias-identity regression passes; direct health smoke emits schema v2 and the expected blocked exit 1 instead of silent success. |
 
-- Available DEV delta: exactly 1 distinct fix after `edf6f82`; the complete delta was exhausted.
-- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 19 because no other distinct DEV outcome exists after the prior QA commit. No evidence was duplicated or split to manufacture the count.
+- Available DEV delta: exactly 3 distinct fixes after `c76cfa2`; the complete delta was exhausted.
+- Verification result: 3 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 17 because no other distinct DEV outcome exists after the prior QA commit. No evidence was duplicated or split to manufacture the count.
 
 ## Independent 22-domain reconciliation
 
@@ -41,9 +43,9 @@
 | Persistence and atomic recovery | `PASS` | Durable concurrent writes/appends, snapshot batch validation-before-mutation, fingerprint replacement, quarantine, and exact checkpoint tests pass. |
 | Warehouse and schema compatibility | `PASS` | Ordered retry-safe dual-sink checkpointing, canonical event/content hashes, PostgreSQL projection preimages, Redis hot-state bounds, and ClickHouse UInt256 raw amounts pass repository tests. |
 | Fail-closed redaction | `PASS` | Explicit public projection allowlists, dead-letter/diagnostic credential redaction, bounded operational JSON, malformed evidence, and secret-file tests pass. |
-| Operational readiness diagnostics | `PASS` | The schema-v2 report contains all twenty ordered redacted dimensions; local provider validation now rejects missing, public, cardinality-mismatched, duplicate RPC, and duplicate WebSocket topologies while accepting a distinct loopback pair set. |
-| Bounded performance | `PASS` | Full suite passes 348/348; syntax passes 84/84; replay completes at 5,391.32 blocks/s with 9,929,752-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 388,428,448 ms old. |
+| Operational readiness diagnostics | `PASS` | The schema-v2 report contains all twenty ordered redacted dimensions; local provider validation rejects missing, public, cardinality-mismatched, canonically duplicate, credential-bearing, path-bearing, query-bearing, and fragment-bearing topologies while accepting a distinct loopback pair set. Canonical real-path entrypoint comparison preserves CLI execution through workspace aliases. |
+| Bounded performance | `PASS` | Full suite passes 348/348; syntax passes 84/84; replay completes at 7,547.45 blocks/s with 8,902,232-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 366,917,519 ms old at the trigger time. |
 
 The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -57,7 +59,7 @@ The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 
 - Expected behavior: the source correction and committed regression together cover empty/populated transaction state, all 16 malformed/delimiter consumer boundaries, valid-route preservation, and unchanged internal-failure telemetry.
 - Actual behavior: the committed regression now matches the expected controlled HTTP 400 and telemetry contracts across the complete scoped matrix.
 - Acceptance criteria: committed table-driven 16-consumer malformed/delimiter matrix; retained empty and populated transaction checks; preserved valid transaction route; zero internal-failure counter and diagnostic callbacks. All criteria are met.
-- Validation results: focused committed regression 1/1 PASS; malformed/delimiter matrix 32/32 PASS plus retained empty/populated transaction checks; valid transaction preservation PASS; diagnostics 0 PASS; internal-failure metric 0 PASS; full suite 348/348 PASS; syntax 84/84 PASS; replay invariants PASS at 5,391.32 blocks/s and 9,929,752-byte heap growth.
+- Validation results: focused committed regression 1/1 PASS; malformed/delimiter matrix 32/32 PASS plus retained empty/populated transaction checks; valid transaction preservation PASS; diagnostics 0 PASS; internal-failure metric 0 PASS; full suite 348/348 PASS; syntax 84/84 PASS; replay invariants PASS at 7,547.45 blocks/s and 8,902,232-byte heap growth.
 - Compatibility impact: source behavior is compatible for valid paths and deterministically rejects malformed paths; the regression enhancement changes no runtime or consumer contract.
 - Performance impact: validation remains bounded to 256 decoded characters before lookup; no replay/heap/throughput regression was observed.
 - Blockers: none; the prior regression gap is closed.
@@ -90,17 +92,32 @@ The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 
 
 ## UPSTREAM-QA-OPS-PROVIDER-002
 
-- Severity: `PASS` (resolved by `a5d60f6`)
+- Severity: `PASS` (resolved by `a5d60f6`, hardened by `7e78632` and `e8fb4c7`)
 - Owner: `DEV`
-- Reproduction: call `assessProviderConfiguration` with two identical loopback values in `LOCAL_VALIDATOR_RPCS` and two distinct loopback values in `LOCAL_VALIDATOR_WSS`; then repeat with distinct RPC values and duplicate WebSocket values.
-- Evidence: both duplicate configurations now return `{ available: true, healthy: false, reason: "provider_configuration_invalid", mode: null }`; a control containing two distinct RPC and two distinct WebSocket endpoints returns healthy local-validator mode. The committed regression covers duplicate RPC and duplicate WebSocket identities after trimming.
+- Reproduction: call `assessProviderConfiguration` with canonically equivalent loopback identities such as `http://LOCALHOST:80` and `http://localhost/`; directly validate RPC and WebSocket URLs containing userinfo, a non-root path, a query, or a fragment.
+- Evidence: canonically equivalent RPC or WebSocket identities return `{ available: true, healthy: false, reason: "provider_configuration_invalid", mode: null }`. All eight independent authority cases throw the redacted `credential-free root URL` error, while a distinct IPv4/IPv6 two-pair topology returns healthy local-validator mode. Three focused committed regressions pass.
 - Affected contracts: `npm run health:operational`, `upstream_operational_readiness` schema v2 `provider` check, aggregate `ready`, local polling/streaming qualification, operator incident response, and any QC/automation gate consuming the report.
-- Expected behavior: local provider readiness is healthy only when the selected RPC and WebSocket endpoint sets are both canonical loopback URLs, unique, within supported bounds, and cardinality-compatible.
-- Actual behavior: duplicate identities fail closed consistently with runtime constructors; valid distinct endpoint sets and external provider behavior remain available.
-- Acceptance criteria: reject duplicate effective RPC and WebSocket endpoint sets with stable redacted `provider_configuration_invalid`; add focused duplicate-RPC and duplicate-WebSocket regressions; preserve missing/public/mismatched/valid topology coverage, external Helius/Alchemy behavior, and secret redaction. All criteria are met.
-- Validation results: independent duplicate-RPC, duplicate-WebSocket, and valid-distinct-pair controls PASS; focused committed readiness regression PASS; full suite 348/348 PASS; syntax 84/84 PASS; replay invariants PASS at 5,391.32 blocks/s with 9,929,752-byte heap growth.
-- Compatibility impact: false-positive local `provider.healthy=true` results now fail closed; no REST/RPC/WebSocket payload changed.
+- Expected behavior: local provider readiness is healthy only when RPC and WebSocket endpoint sets contain unique canonical credential-free loopback root URLs, remain within supported bounds, and are cardinality-compatible.
+- Actual behavior: raw and canonical duplicate identities plus credential/path/query/fragment-bearing endpoints fail closed consistently with runtime constructors; valid distinct endpoint sets and external provider behavior remain available.
+- Acceptance criteria: reject raw and canonical duplicate effective RPC/WebSocket endpoint sets; reject userinfo, non-root paths, queries, and fragments with a stable redacted reason; preserve root loopback, missing/public/mismatched/valid topology, external Helius/Alchemy, and secret-redaction behavior. All criteria are met.
+- Validation results: independent canonical-duplicate, eight-case authority, and valid IPv4/IPv6 controls PASS; focused committed provider regressions 3/3 PASS; full suite 348/348 PASS; syntax 84/84 PASS; replay invariants PASS at 7,547.45 blocks/s with 8,902,232-byte heap growth.
+- Compatibility impact: false-positive local `provider.healthy=true` results now fail closed; operators using credentials or non-root URL components must move those values out of local validator URLs. No REST/RPC/WebSocket payload changed.
 - Performance impact: bounded parsing of at most four configured RPC and WebSocket endpoints; negligible relative to state/evidence loading.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-CLI-ENTRYPOINT-003
+
+- Severity: `PASS` (resolved by `a6eb293`)
+- Owner: `DEV`
+- Reproduction: invoke `src/operational-readiness.js` through a workspace alias whose lexical path differs from the module file path but resolves to the same file; the prior lexical comparison could skip `main()` and return a silent success.
+- Evidence: `isInvokedFile` now compares canonical real paths and falls back to deterministic resolved lexical paths only when file resolution fails. The injected same-file alias control returns true, a different-file control and empty invocation return false, and direct health smoke emits schema v2 with nine redacted blockers and exit 1.
+- Affected contracts: scheduled `health:operational` execution, sandbox/workspace aliases, user-visible automation evidence, process exit status, and fail-closed readiness reporting.
+- Expected behavior: every direct invocation of the readiness module executes `main()`, emits one bounded schema-v2 report, and exits nonzero when readiness is blocked, independent of equivalent workspace aliases.
+- Actual behavior: canonical file identity selects direct invocation correctly while imported-module behavior and deterministic failure fallback remain unchanged.
+- Acceptance criteria: compare file identity through canonical real paths; retain a deterministic non-throwing fallback; cover alias, different-file, and empty-invocation cases; demonstrate emitted fail-closed health evidence and nonzero blocked exit. All criteria are met.
+- Validation results: focused readiness/provider regressions 3/3 PASS; direct health smoke emits twenty ordered checks, nine blockers, and exit 1; full suite 348/348 PASS; syntax 84/84 PASS; replay invariants PASS at 7,547.45 blocks/s with 8,902,232-byte heap growth; HEAD remained `a6eb293` and the DEV lock remained absent throughout the stable validation pass.
+- Compatibility impact: no schema, configuration, REST, RPC, or WebSocket contract changed; direct aliased invocations that previously returned no evidence now correctly execute and can return blocked status.
+- Performance impact: one bounded pair of filesystem real-path resolutions at CLI startup only; no replay/heap/throughput regression observed.
 - Blockers: none; the finding is closed.
 
 ## UPSTREAM-QA-OPS-001
@@ -108,7 +125,7 @@ The contract minimum is satisfied with 22 distinct evidence domains: 21 PASS, 0 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 388,428,448 ms age.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/failure, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 366,917,519 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
