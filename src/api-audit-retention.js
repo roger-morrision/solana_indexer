@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { durableAtomicRewriteIfUnchanged } from "./durable-file.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
@@ -25,4 +26,4 @@ export async function retainApiAudit({ filename, defaultRetentionDays = 30, now 
 }
 
 async function main() { const config = loadConfig(), confirm = process.argv.includes("--confirm-delete"), writerQuiesced = process.argv.includes("--writer-quiesced"), expectedSha256 = process.argv.find((value) => value.startsWith("--expected-sha256="))?.slice("--expected-sha256=".length) ?? null, result = await retainApiAudit({ filename: config.auditLogFile, defaultRetentionDays: config.auditRetentionDays, confirm, writerQuiesced, expectedSha256 }); if (!confirm) console.warn("dry run only; stop the API writer, then pass --confirm-delete --writer-quiesced and the reviewed --expected-sha256 digest"); console.log(JSON.stringify(result, null, 2)); }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (process.argv[1] && isInvokedFile(process.argv[1], fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

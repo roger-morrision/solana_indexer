@@ -2,6 +2,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig, parseBoundedInteger } from "./config.js";
 import { LocalValidatorClient, LocalValidatorPool, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
 import { durableAtomicWrite } from "./durable-file.js";
@@ -127,4 +128,4 @@ async function main() {
   await stream.start(); const stop = async () => { await stream.stop(); process.exit(0); }; process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
+if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

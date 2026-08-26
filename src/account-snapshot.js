@@ -2,6 +2,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { IndexStore } from "./store.js";
@@ -78,4 +79,4 @@ async function main() {
   const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), expected = process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH, genesisHash = await client.assertGenesis(expected); const snapshot = await createAccountSnapshot({ client, mints, genesisHash }); if (!artifactOnly) { store.applyAccountSnapshot(snapshot); await store.save(); } await atomicWrite(config.accountSnapshotFile, snapshot); console.log(JSON.stringify({ slot: snapshot.slot, mints: snapshot.mints.length, accounts: snapshot.mints.reduce((sum, row) => sum + row.accounts.length, 0), artifactOnly }));
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
+if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

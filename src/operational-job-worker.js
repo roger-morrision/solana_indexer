@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
 import { runBoundedProcess } from "./bounded-process.js";
@@ -46,4 +47,4 @@ export async function runOperationalJobCycle({ workerId = crypto.randomUUID(), l
 }
 
 async function main() { const config = loadConfig(), result = await runOperationalJobCycle({ leaseSeconds: config.operationalJobLeaseSeconds, maxAttempts: config.operationalJobMaxAttempts, baseBackoffSeconds: config.operationalJobBackoffSeconds }); console.log(JSON.stringify(result)); if (result.succeeded === false) process.exitCode = 1; }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(redact(error.message)); process.exitCode = 1; });
+if (process.argv[1] && isInvokedFile(process.argv[1], fileURLToPath(import.meta.url))) main().catch((error) => { console.error(redact(error.message)); process.exitCode = 1; });

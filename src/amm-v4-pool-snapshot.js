@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { IndexStore } from "./store.js";
@@ -109,4 +110,4 @@ async function main() {
   await durableAtomicWrite(config.ammV4PoolSnapshotFile, `${JSON.stringify(snapshot)}\n`);
   console.log(JSON.stringify({ stateSlot: snapshot.stateSlot, openOrdersSlot: snapshot.openOrdersSlot, marketSlot: snapshot.marketSlot, balanceSlot: snapshot.balanceSlot, pools: snapshot.pools.length, artifactOnly }));
 }
-const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
+const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

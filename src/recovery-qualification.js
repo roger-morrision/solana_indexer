@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { preflightBackup } from "./backup-preflight.js";
 import { loadConfig } from "./config.js";
 import { assessExporterStatus } from "./exporter-health.js";
@@ -86,4 +87,4 @@ export async function qualifyRecoveryEnvironment(backupDirectory, startedAt, rep
 }
 
 async function main() { if (process.argv.length !== 5) throw new Error("usage: recovery-qualification.js /absolute/backup-directory STARTED_AT_ISO /absolute/report.json"); console.log(JSON.stringify(await qualifyRecoveryEnvironment(process.argv[2], process.argv[3], process.argv[4]))); }
-const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invoked, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

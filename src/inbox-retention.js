@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { canonicalPersistedRecoveryState } from "./store.js";
@@ -37,4 +38,4 @@ export async function retainInbox({ inbox, dataFile, archiveReceiptFile = path.r
 
 async function main() { const config = loadConfig(), retentionSeconds = config.retentionSeconds, archiveReceiptFile = path.resolve(process.env.INBOX_ARCHIVE_RECEIPT_FILE ?? "data/inbox-archive-receipt.json"); if (!process.argv.includes("--confirm-delete")) console.warn("dry run only; deletion also requires a verified self-hosted archive receipt"); console.log(JSON.stringify(await retainInbox({ inbox: config.inbox, dataFile: config.dataFile, archiveReceiptFile, retentionSeconds, confirmDelete: process.argv.includes("--confirm-delete"), maximumEntries: config.maxInboxEntries }), null, 2)); }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

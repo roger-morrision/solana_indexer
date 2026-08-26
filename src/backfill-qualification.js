@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { readBoundedDirectoryNames } from "./bounded-directory.js";
 import { readBoundedFile } from "./bounded-json-file.js";
 import { durableExclusiveWrite } from "./durable-file.js";
@@ -81,4 +82,4 @@ async function main() {
   if (process.argv.length !== 5) throw new Error("usage: backfill-qualification.js /absolute/inbox /absolute/output-index.json /absolute/report.json");
   const report = await qualifyIsolatedBackfill({ inbox: process.argv[2], outputFile: process.argv[3], reportFile: process.argv[4], activeDataFile: process.env.INDEXER_DATA_FILE ? path.resolve(process.env.INDEXER_DATA_FILE) : path.resolve("data/index.json") }); console.log(JSON.stringify(report)); if (!report.qualified) process.exitCode = 1;
 }
-const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invoked, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

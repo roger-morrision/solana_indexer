@@ -5,6 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { gzip, gunzip } from "node:zlib";
 import { canonicalInboxNames, completeArchiveReceipt, createInboxManifest, readCanonicalInboxFile } from "./archive-receipt.js";
 import { readBoundedFile } from "./bounded-json-file.js";
@@ -39,4 +40,4 @@ export async function archiveInbox({ inbox, archiveRoot, receiptFile, archiveId 
 
 async function main() { const config = loadConfig(), result = await archiveInbox({ inbox: config.inbox, archiveRoot: path.resolve(process.env.INBOX_ARCHIVE_ROOT ?? "archive-mainnet"), receiptFile: path.resolve(process.env.INBOX_ARCHIVE_RECEIPT_FILE ?? "data/inbox-archive-receipt.json"), maximumEntries: config.maxInboxEntries }); console.log(JSON.stringify({ archiveId: result.archiveId, files: result.files, originalBytes: result.originalBytes, archiveDirectory: result.archiveDirectory }, null, 2)); }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

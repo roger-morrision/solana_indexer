@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { fetchOffchainTokenMetadata } from "./offchain-token-metadata.js";
@@ -15,4 +16,4 @@ export async function createOffchainMetadataSnapshot({ mint, onchainMetadataHash
 
 async function main() { const [, , artifactOnly, mint, onchainMetadataHash, uri] = process.argv; if (artifactOnly !== "--artifact-only") throw new Error("off-chain metadata snapshots require --artifact-only"); const snapshot = await createOffchainMetadataSnapshot({ mint, onchainMetadataHash, uri }), config = loadConfig(); await atomicWrite(config.offchainMetadataSnapshotFile, snapshot); console.log(JSON.stringify({ mint, observedAt: snapshot.observedAt, artifactOnly: true })); }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { canonicalInboxName } from "./archive-receipt.js";
@@ -69,4 +70,4 @@ export async function preflightBackup(directory, { now = Date.now(), maximumAgeM
 export async function createBackupManifest(directory, { backupId, createdAt = new Date().toISOString(), writersQuiesced = false } = {}) { const createdAtMs = Date.parse(createdAt); if (!path.isAbsolute(directory) || !BACKUP_ID.test(backupId ?? "") || !Number.isFinite(createdAtMs) || new Date(createdAtMs).toISOString() !== createdAt || writersQuiesced !== true) throw new Error("invalid backup manifest parameters or missing writer-quiescence evidence"); const root = path.resolve(directory); if (root === path.parse(root).root) throw new Error("invalid backup manifest parameters"); const artifacts = {}; for (const name of ARTIFACTS) artifacts[name] = await artifactEvidence(root, name); const manifest = { schemaVersion: BACKUP_SCHEMA_VERSION, backupId, createdAt, chain: CHAIN, scope: "postgres-clickhouse-redis-indexer-state", writersQuiesced, artifacts }; await writeAtomic(path.join(root, "manifest.json"), manifest); return manifest; }
 
 async function main() { if (process.argv[2] === "--create" && process.argv.length === 5) return console.log(JSON.stringify(await createBackupManifest(process.argv[3], { backupId: process.argv[4], writersQuiesced: process.env.BACKUP_WRITERS_QUIESCED === "yes" }))); if (process.argv[2] === "--expect-id" && process.argv.length === 5) return console.log(JSON.stringify(await preflightBackup(process.argv[3], { expectedBackupId: process.argv[4] }))); if (process.argv.length !== 3) throw new Error("usage: backup-preflight.js /absolute/backup-directory | --create /absolute/backup-directory YYYYMMDDTHHMMSSZ | --expect-id /absolute/backup-directory YYYYMMDDTHHMMSSZ"); console.log(JSON.stringify(await preflightBackup(process.argv[2]))); }
-const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
+const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invoked, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

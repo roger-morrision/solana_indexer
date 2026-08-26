@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
@@ -45,4 +46,4 @@ async function main() {
   console.log(JSON.stringify(await createBackupStatus({ manifestFile: process.argv[2], archiveReceiptFile: process.argv[3], output: process.argv[4] })));
 }
 const invoked = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invoked, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

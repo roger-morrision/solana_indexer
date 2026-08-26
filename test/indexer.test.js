@@ -2477,6 +2477,18 @@ test("ingestion and metrics fail closed for stale exporter status", async (t) =>
   const ingestion = await fetch(`${base}/api/v1/ingestion`); assert.equal(ingestion.status, 503); assert.equal((await ingestion.json()).reason, "exporter_failure"); const metrics = await (await fetch(`${base}/metrics`)).text(); assert.match(metrics, /terminal_dex_exporter_healthy 0/); assert.match(metrics, /terminal_dex_exporter_lag_slots 9/); assert.match(metrics, /terminal_dex_exporter_consecutive_failures 3/);
 });
 
+test("every direct operator CLI uses canonical file identity", async () => {
+  const expected = ["account-snapshot.js", "amm-v4-pool-snapshot.js", "api-audit-retention.js", "archive-receipt.js", "backfill-qualification.js", "backup-preflight.js", "backup-status.js", "clmm-pool-snapshot.js", "cpmm-pool-snapshot.js", "dead-letter-reconcile.js", "exporter-health.js", "external-rpc.js", "geyser-abi-preflight.js", "inbox-archive.js", "inbox-retention.js", "local-validator-exporter.js", "local-validator-stream.js", "meteora-dlmm-pool-snapshot.js", "offchain-metadata-snapshot.js", "openbook-market-snapshot.js", "operational-job-worker.js", "orca-pool-snapshot.js", "phoenix-market-snapshot.js", "postgres-commercial-sync.js", "pump-bonding-curve-snapshot.js", "pump-swap-pool-snapshot.js", "recovery-qualification.js", "reduced-preflight.js", "usdc-oracle-snapshot.js", "warehouse-sync.js"];
+  const sources = await Promise.all(expected.map(async (name) => [name, await fs.readFile(path.join(rootDir, "src", name), "utf8")]));
+  for (const [name, source] of sources) {
+    assert.match(source, /import \{ isInvokedFile \} from "\.\/invoked-file\.js";/, `${name} imports canonical identity`);
+    assert.match(source, /isInvokedFile\([^\n]+fileURLToPath\(import\.meta\.url\)\)/, `${name} gates its main function canonically`);
+    assert.doesNotMatch(source, /fileURLToPath\(import\.meta\.url\)\.toLowerCase\(\)\s*===|path\.resolve\(process\.argv\[1\]\)\s*===\s*fileURLToPath/, `${name} has no lexical entrypoint guard`);
+  }
+  const allSources = await Promise.all((await fs.readdir(path.join(rootDir, "src"))).filter((name) => name.endsWith(".js")).map((name) => fs.readFile(path.join(rootDir, "src", name), "utf8")));
+  assert.equal(allSources.some((source) => /fileURLToPath\(import\.meta\.url\)\.toLowerCase\(\)\s*===|path\.resolve\(process\.argv\[1\]\)\s*===\s*fileURLToPath/.test(source)), false);
+});
+
 test("aggregate operational readiness is ordered, redacted, and fail closed", async (t) => {
   const canonicalize = (value) => value.endsWith("readiness.js") ? "C:\\canonical\\readiness.js" : value; assert.equal(isInvokedFile("alias:/repo/readiness.js", "canonical:/repo/readiness.js", canonicalize), true); assert.equal(isInvokedFile("alias:/repo/other.js", "canonical:/repo/readiness.js", canonicalize), false); assert.equal(isInvokedFile("", "canonical:/repo/readiness.js", canonicalize), false);
   const readinessNames = ["provider", "index_structure", "index_chain", "index_events", "index_transactions", "index_instructions", "decoder_registry", "decoder_output", "indexed_swaps", "program_events", "derived_ledger", "aggregate_projections", "snapshot_projections", "metadata_projections", "recovery_state", "index_freshness", "exporter", "warehouse", "backup", "recovery"];

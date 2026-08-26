@@ -2,6 +2,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { canonicalAggregateProjections, canonicalMetadataProjections, canonicalPersistedDerivedLedger, canonicalPersistedEvent, canonicalPersistedEventLog, canonicalPersistedInstructionLog, canonicalPersistedProgramEventLog, canonicalPersistedSwapLog, canonicalSnapshotProjections, completeExecutionSnapshot, IndexStore, isCanonicalAccountSnapshotEvidence, metadataEvidenceProjection, poolExecutionEvidenceSlot, validClmmBitmap, validClmmBitmapExtension, validMeteoraBitmapExtension, validOpenBookOracleEvidence } from "./store.js";
 import { isCanonicalTokenMetadata } from "./token-metadata.js";
@@ -458,4 +459,4 @@ async function main() {
   catch (error) { if (checkpoint?.updatedAt) await writeWarehouseFailureStatus(config.warehouseStatusFile, checkpoint.updatedAt, { stage, invalidPostgresPreimages: error.invalidPostgresPreimages }); throw error; }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (process.argv[1] && isInvokedFile(process.argv[1], fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

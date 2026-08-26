@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig } from "./config.js";
 import { durableAtomicWrite } from "./durable-file.js";
 import { LocalValidatorClient, MAINNET_GENESIS_HASH } from "./local-validator-exporter.js";
@@ -33,4 +34,4 @@ export async function createUsdDepegReference({ client, genesisHash, sourceProgr
 
 async function atomicWrite(filename, value) { await durableAtomicWrite(filename, `${JSON.stringify(value)}\n`); }
 async function main() { const config = loadConfig(), sourceProgram = process.env.USDC_ORACLE_SOURCE_PROGRAM, sourceAccount = process.env.USDC_ORACLE_SOURCE_ACCOUNT, feedId = process.env.USDC_ORACLE_FEED_ID?.replace(/^0x/, "").toLowerCase(); if (!ADDRESS.test(sourceProgram ?? "") || !ADDRESS.test(sourceAccount ?? "") || !FEED_ID.test(feedId ?? "")) throw new Error("USDC oracle source program, account, and feed ID are required"); const client = new LocalValidatorClient(process.env.LOCAL_VALIDATOR_RPC || "http://127.0.0.1:8899"), genesisHash = await client.assertGenesis(process.env.INDEXER_EXPECTED_GENESIS_HASH || MAINNET_GENESIS_HASH), reference = await createUsdDepegReference({ client, genesisHash, sourceProgram, sourceAccount, feedId, maximumAgeSeconds: config.usdcOracleMaximumAgeSeconds }); await atomicWrite(config.usdDepegReferenceFile, reference); console.log(JSON.stringify({ sourceSlot: reference.sourceSlot, postedSlot: reference.oracleEvidence.postedSlot, publishTime: reference.oracleEvidence.publishTime, expiresAt: reference.expiresAt })); }
-const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -6,6 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { runBoundedProcess } from "./bounded-process.js";
 import { parseCanonicalUtcTimestamp } from "./canonical-time.js";
 import { redactDiagnostic } from "./diagnostic-redaction.js";
@@ -50,4 +51,4 @@ export async function preflightGeyser({ manifestFile, agaveBinary, pluginLibrary
 
 function option(name) { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : null; }
 async function main() { const result = await preflightGeyser({ manifestFile: option("--manifest"), agaveBinary: option("--agave"), pluginLibrary: option("--plugin") }); console.log(JSON.stringify(result)); }
-const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (fileURLToPath(import.meta.url).toLowerCase() === invoked.toLowerCase()) main().catch((error) => { console.error(redactDiagnostic(error, "Yellowstone preflight failed")); process.exitCode = 1; });
+const invoked = process.argv[1] ? path.resolve(process.argv[1]) : ""; if (isInvokedFile(invoked, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(redactDiagnostic(error, "Yellowstone preflight failed")); process.exitCode = 1; });

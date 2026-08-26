@@ -1,6 +1,7 @@
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { decodeUtf8, readBoundedFile } from "./bounded-json-file.js";
 import { loadApiTenants } from "./api-tenants.js";
 import { loadConfig } from "./config.js";
@@ -33,4 +34,4 @@ export async function runCommercialSync(sql, spawnProcess = spawn, processOption
 }
 
 async function main() { const config = loadConfig(), registry = await loadApiTenants(config.apiTenantsFile); if (!config.auditLogFile) throw new Error("INDEXER_AUDIT_LOG_FILE is required"); const audit = await readCommercialAuditFile(config.auditLogFile), sql = buildCommercialSyncSql(registry, audit.text); await runCommercialSync(sql); console.log(JSON.stringify({ tenants: registry.tenants.length, auditRecords: audit.records, synced: true })); }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (process.argv[1] && isInvokedFile(process.argv[1], fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -2,6 +2,7 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isInvokedFile } from "./invoked-file.js";
 import { loadConfig, parseBoundedInteger } from "./config.js";
 import { exportFinalizedBlocks, MAINNET_GENESIS_HASH, recordExporterFailure } from "./local-validator-exporter.js";
 import { parseRetryAfterMs } from "./provider-retry.js";
@@ -31,4 +32,4 @@ async function main() {
   do { try { const result = await exportFinalizedBlocks({ client, inbox: config.inbox, cursorFile, statusFile: config.exporterStatusFile, batchSize, expectedGenesisHash: MAINNET_GENESIS_HASH }); console.log(JSON.stringify({ ...result, providers: client.telemetry() })); } catch (error) { await recordExporterFailure(config.exporterStatusFile, error, { source: client.provenanceSource }); throw error; } if (!once) await new Promise((resolve) => setTimeout(resolve, pollMs)); } while (!once);
 }
 const invokedFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (fileURLToPath(import.meta.url).toLowerCase() === invokedFile.toLowerCase()) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+if (isInvokedFile(invokedFile, fileURLToPath(import.meta.url))) main().catch((error) => { console.error(error.message); process.exitCode = 1; });
