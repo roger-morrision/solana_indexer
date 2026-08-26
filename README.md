@@ -653,9 +653,11 @@ invalid resume status before any network request or inbox mutation.
 `npm run health:operational` performs no network
 or production mutation: it reads the same bounded evidence, validates explicit
 loopback-local or complete allowlisted Helius/Alchemy provider configuration
-without projecting endpoint values, and emits one
-ordered redacted report for provider, canonical index, exporter, warehouse,
-backup, and recovery readiness. A blocked report exits nonzero, lists stable check
+without projecting endpoint values, and emits schema v2 with twenty ordered,
+redacted readiness dimensions: provider; index structure, chain, events,
+transactions and instructions; decoder registry and output; swaps, program events,
+derived ledger, aggregate/snapshot/metadata projections, recovery state and index
+freshness; exporter, warehouse, backup and isolated recovery. A blocked report exits nonzero, lists stable check
 names and exact public reasons, and always sets `productionMutationAuthorized` to
 false.
 Commercial authorization and holder-risk registries cross the same bounded

@@ -1,14 +1,42 @@
 # Terminal DEX upstream handoff
 
-- UPSTREAM-ID: `UPSTREAM-OPS-PREFLIGHT-002`
-- BA/PO decision: among 21 reconciled opportunities, readiness-boundary hardening ranked highest on urgency, security risk reduction, dependency readiness, and low implementation effort. The aggregate preflight projected fixed field names but accepted an unexpected assessor reason verbatim, so corrupted or future evidence could escape the documented redaction boundary.
-- Problem/evidence: readiness reasons were not explicitly allowlisted per check. A crafted reason could cross the otherwise fixed public projection.
-- Consumer impact: WEB contracts and runtime endpoints are unchanged. Operators now get deterministic evidence for whether provider configuration, canonical index health, exporter freshness, warehouse convergence, backup freshness, and recovery qualification are simultaneously ready.
-- Changed contracts: `npm run health:operational` retains schema `upstream_operational_readiness` v1 and its ordered fields; known reasons are preserved while unknown reasons now collapse to stable `<check>_evidence_invalid` values.
-- In scope: read-only bounded evidence acquisition, endpoint-free provider configuration assessment, stable public projections, fail-closed exit status, redaction, and tests. Out of scope: contacting providers, creating evidence, starting services, deployment, restore, promotion, signing, submission, or production mutation.
-- Compatibility: additive local tooling only; no REST/RPC/WebSocket/event field changes. Migration/config: none. Valid loopback-local RPC configuration or both allowlisted `HELIUS_RPC_URL` and `ALCHEMY_RPC_URL` satisfy only the configuration gate; live identity and health remain independently required.
-- Acceptance criteria: six stable ordered checks; known reasons remain exact; unknown reason text, fields, and endpoint values never escape; hostile reasons fail closed; blocked CLI exits nonzero; production mutation is never authorized.
-- 20/20 reconciliation: 21 genuine BA/PO candidates were reconciled across completeness, correctness, provenance, freshness, finality, pagination, compatibility, provider resilience, recovery, observability, performance, security, operability, developer experience, commercial readiness, discovery, token detail, holders, wallet intelligence, AI safety, and replay/reorg. This security item was NEW and DELIVERED; 19 retained safe domains remain verified, and live operational qualification remains BLOCKED. Material-outcome shortfall: 19 because this was the only compatible dependency-ready code outcome supported by fresh evidence.
-- Validation: source syntax passed 81/81; focused regression passed; current-evidence smoke check exited 1 with six exact blockers and no endpoint values; full suite passed 348/348; canonical 1,000-block replay passed every invariant at 5,480.91 blocks/second with 9,647,528 bytes heap growth under the 536,870,912-byte bound.
-- Blockers: current evidence reports provider configuration unavailable, wrong-network retained index identity, and unavailable exporter, warehouse, backup, and recovery evidence; the preflight diagnoses but cannot manufacture these inputs.
-- NEXT_WEB_ACTION: no consumer migration required. Treat this command as operator/QC readiness evidence only; do not infer live data readiness until `ready` is true.
+## BA/PO decision
+
+- Batch: `UPSTREAM-OPS-DIAGNOSTICS-001` through `UPSTREAM-OPS-DIAGNOSTICS-020`.
+- Evidence: schema-v1 readiness collapsed every retained-index failure into one `index` check although `IndexStore` exposes independent canonical quality boundaries. Operators could not distinguish structure, chain, event, transaction, instruction, decoder, projection, recovery, or freshness failure without unrelated internals.
+- Selection: this twenty-check batch ranked highest for qualification, incident response, offline verification, compatibility containment, and low migration risk. It contacts no provider and mutates no production state.
+- Scope: expand only the local `health:operational` contract and regression evidence. REST, RPC, WebSocket, warehouse, and persisted-index contracts remain unchanged.
+
+## 20-finding and implementation ledger
+
+| ID | Evidence-backed need and implemented outcome | Acceptance evidence |
+|---|---|---|
+| `UPSTREAM-OPS-DIAGNOSTICS-001` | Independent redacted provider gate: ordered `provider`. | Absent, partial, invalid local, valid loopback and allowlisted failover cases. |
+| `UPSTREAM-OPS-DIAGNOSTICS-002` | State structure corruption was hidden: added `index_structure`. | `structureQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-003` | Parent/hash conflict was hidden: added `index_chain`. | `chainQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-004` | Event-log corruption was hidden: added `index_events`. | `eventQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-005` | Transaction corruption was hidden: added `index_transactions`. | `indexedTransactions().available`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-006` | Instruction corruption was hidden: added `index_instructions`. | `instructionQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-007` | Decoder registry drift lacked a gate: added `decoder_registry`. | `decoderRegistryQuality().current`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-008` | Decoder coverage lacked a gate: added `decoder_output`. | `decoderOutputCoverageQuality().complete`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-009` | Swap-log corruption lacked a gate: added `indexed_swaps`. | `indexedSwaps().available`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-010` | Lifecycle event corruption lacked a gate: added `program_events`. | `programEventQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-011` | Derived ledger corruption lacked a gate: added `derived_ledger`. | `derivedLedgerQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-012` | Aggregate corruption lacked a gate: added `aggregate_projections`. | `aggregateQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-013` | Snapshot corruption lacked a gate: added `snapshot_projections`. | `snapshotQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-014` | Metadata corruption lacked a gate: added `metadata_projections`. | `metadataQuality().canonical`. |
+| `UPSTREAM-OPS-DIAGNOSTICS-015` | Recovery overflow lacked a gate: added `recovery_state`. | Canonical recovery with no capacity overflow. |
+| `UPSTREAM-OPS-DIAGNOSTICS-016` | Freshness/mainnet identity needed separation: added `index_freshness`. | Existing fail-closed `health()` reason. |
+| `UPSTREAM-OPS-DIAGNOSTICS-017` | Exporter evidence remains independently actionable: retained `exporter`. | Bounded exporter assessor. |
+| `UPSTREAM-OPS-DIAGNOSTICS-018` | Warehouse convergence remains independently actionable: retained `warehouse`. | Checkpoint/failure assessors. |
+| `UPSTREAM-OPS-DIAGNOSTICS-019` | Backup freshness remains independently actionable: retained `backup`. | Bounded backup assessor. |
+| `UPSTREAM-OPS-DIAGNOSTICS-020` | Recovery qualification remains independently actionable: retained `recovery`. | Bounded recovery assessor. |
+
+## Contract and compatibility
+
+- Changed command: `npm run health:operational` emits `upstream_operational_readiness` schema v2 with exactly twenty stable ordered checks and blocker entries.
+- Compatibility: intentional local-tool schema bump from v1 to v2; no REST/RPC/WebSocket/event change. Operators parsing v1 check names must accept the v2 catalog.
+- Migration/configuration: no new configuration. Endpoint values and unknown reason text remain redacted; unknown reasons collapse to `<check>_evidence_invalid`.
+- Validation: source syntax and focused v2 order/redaction passed; full regression passed 348/348; current-evidence smoke returned schema v2 with twenty checks and failed closed; canonical 1,000-block replay/load completed successfully.
+- Blockers: provider configuration and fresh canonical operational evidence remain unavailable; the tool diagnoses but cannot manufacture them.
+- NEXT_WEB_ACTION: no WEB code change; treat schema v2 as operator/QC evidence and enable consumers only when `ready` is true.
