@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-STATIC-ASSET-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across contract parity, recovery, observability, provider resilience, performance, commercial readiness, and downstream journeys. The `/` and `/index.html` failure contracts ranked highest among dependency-ready offline-safe items because both return a bounded JSON 503 while discovery exposed no schema.
+- Selected IDs: `UPSTREAM-ROOT-ASSET-UNAVAILABLE-SCHEMA-001`, `UPSTREAM-INDEX-ASSET-UNAVAILABLE-SCHEMA-001`.
+- Implemented contracts: both retryable outcomes now reference closed `static_asset_unavailable_v1`, requiring only the constant `static_asset_unavailable` error sentinel.
+- Acceptance evidence: replacing the configured asset with a directory makes both real routes return 503; each body contains its sole required field, no undeclared field, and the advertised constant.
+- Compatibility/migration/configuration: additive discovery only; successful HTML responses, failure bodies, asset limits, configuration, REST status, RPC, WebSocket, and persistence remain unchanged.
+- Blockers/owners: live operational qualification remains blocked by absent provider and canonical environment evidence—OPERATOR. Exact implementation shortfall is 18 because two independently consumable route outcomes were dependency-ready; splitting one shared schema or assertions would be padding.
+- NEXT_WEB_ACTION: generate one shared `static_asset_unavailable_v1` validator and use it for both root document routes.
+
 # UPSTREAM-BACKUP-RECOVERY-STALE-THRESHOLD-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across recovery, contract parity, data correctness, finality, operability, performance, downstream safety, and commercial readiness. Independent QC elevated `UPSTREAM-BACKUP-STALE-THRESHOLD-001` and `UPSTREAM-RECOVERY-STALE-THRESHOLD-001` because each stale schema admitted evidence the runtime still considers fresh.
