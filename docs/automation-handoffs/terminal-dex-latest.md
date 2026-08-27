@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the HIGH execution-policy sequence defect because generated AI/trading-safety and commercial clients could accept approval, submission, and finalized verification out of order or duplicated.
+- Selected ID: `UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001`.
+- Implemented contract: `execution_policy_success_v1.requiredSteps` now publishes the exact unique four-stage canonical sequence while retaining its length and item-vocabulary constraints.
+- Acceptance evidence: generated-style validation accepts the canonical policy and rejects reordered, reversed, duplicate, and omitted-stage variants.
+- Compatibility/migration/configuration: discovery-only semantic hardening; runtime bytes, preparation, simulation, external signing/submission boundaries, persistence, RPC/WebSocket, database, and configuration are unchanged. Generated validators must enforce `exactItems` and `uniqueItems`.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Current live qualification remains OPERATOR-blocked by absent fresh canonical-mainnet evidence; independent verification remains QC-owned.
+- NEXT_WEB_ACTION: regenerate the execution-policy validator with exact ordered-item and uniqueness enforcement before admitting any trading workflow.
+
 # UPSTREAM-EXECUTION-POLICY-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected execution-policy success discovery because AI/trading-safety and commercial clients could fetch the external handoff boundary but could not generate a validator for it.

@@ -590,6 +590,19 @@ test("execution policy endpoint satisfies its closed non-authorizing success sch
   const response = await fetch(`http://127.0.0.1:${server.address().port}/internal/execution-policy`), body = await response.json(); assert.equal(response.status, 200); assert.equal(outcome.representation.bodySchema, "execution_policy_success_v1"); assert.deepEqual(Object.keys(body).sort(), [...schema.required].sort()); for (const property of ["simulationRequirements", "signerRequirements", "confirmationRequirements"]) assert.deepEqual(Object.keys(body[property]).sort(), [...schema.properties[property].required].sort()); assert.equal(body.indexerSigns, false); assert.equal(body.indexerSubmits, false); assert.deepEqual(body.requiredSteps, EXECUTION_HANDOFF_POLICY.requiredSteps);
 });
 
+test("execution policy schema rejects unsafe step sequences", () => {
+  const rule = queryContractSnapshot().responseBodySchemas.execution_policy_success_v1.properties.requiredSteps;
+  const validate = (steps) => steps.length >= rule.minimumItems && steps.length <= rule.maximumItems && steps.every((step) => rule.items.values.includes(step)) && (!rule.uniqueItems || new Set(steps).size === steps.length) && (!rule.exactItems || steps.every((step, index) => step === rule.exactItems[index]));
+  const canonical = [...EXECUTION_HANDOFF_POLICY.requiredSteps];
+  assert.deepEqual(rule.exactItems, canonical);
+  assert.equal(rule.uniqueItems, true);
+  assert.equal(validate(canonical), true);
+  assert.equal(validate([canonical[1], canonical[0], canonical[2], canonical[3]]), false);
+  assert.equal(validate(canonical.toReversed()), false);
+  assert.equal(validate(Array(4).fill(canonical[0])), false);
+  assert.equal(validate(canonical.slice(0, 3)), false);
+});
+
 test("simulation receipts verify exact mint-bound token effects", async () => {
   const transactionBase64 = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1])]).toString("base64"), mint = "11111111111111111111111111111111", tokenBytes = Buffer.alloc(165); tokenBytes.writeBigUInt64LE(900n, 64); const account = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: [tokenBytes.toString("base64"), "base64"] }; assert.equal(decodeSimulatedTokenAccount(account, mint).amountRaw, "900"); let options;
   const expectation = { address: "token-account", mint, preAmountRaw: "1000", minDeltaRaw: "-101", maxDeltaRaw: "-99" }, receipt = await simulateUnsignedTransaction({ endpoint: "http://localhost:8899", call: async (_method, params) => { options = params[1]; return { context: { slot: 600 }, value: { err: null, logs: [], unitsConsumed: 100, accounts: [account] } }; } }, { transactionBase64, minContextSlot: 600, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, accountExpectations: [expectation] }); assert.deepEqual(receipt.tokenEffects[0], { ...expectation, programId: account.owner, postAmountRaw: "900", deltaRaw: "-100" }); assert.deepEqual(options.accounts, { encoding: "base64", addresses: ["token-account"] });
