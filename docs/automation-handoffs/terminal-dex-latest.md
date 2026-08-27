@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-BACKUP-RECOVERY-STALE-THRESHOLD-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across recovery, contract parity, data correctness, finality, operability, performance, downstream safety, and commercial readiness. Independent QC elevated `UPSTREAM-BACKUP-STALE-THRESHOLD-001` and `UPSTREAM-RECOVERY-STALE-THRESHOLD-001` because each stale schema admitted evidence the runtime still considers fresh.
+- Selected IDs: `UPSTREAM-BACKUP-STALE-THRESHOLD-001`, `UPSTREAM-RECOVERY-STALE-THRESHOLD-001`.
+- Implemented contracts: both stale variants now declare `ageMs` as strictly greater than the sibling `maximumAgeMs` using the discoverable `exclusiveMinimumProperty` relation. The runtime boundary remains healthy at equality and stale only above it.
+- Acceptance evidence: real stale bodies still select exactly one union branch; synthetic bodies at the configured maximum age now select none for both backup and recovery.
+- Compatibility/migration/configuration: additive contract precision only. Generated validators must implement the declared sibling-property comparison; runtime responses, persistence, configuration, REST status, RPC, and WebSocket remain unchanged.
+- Blockers/owners: live backup/recovery qualification remains blocked by absent fresh isolated evidence—OPERATOR. Exact implementation shortfall is 18 because two distinct threshold contracts were dependency-ready; splitting boundaries or examples would be padding.
+- NEXT_WEB_ACTION: regenerate both failure-union validators with `exclusiveMinimumProperty` support and reject stale responses whose age is not above the advertised maximum.
+
 # UPSTREAM-STATS-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across data completeness, contract parity, finality/reorg, provider resilience, recovery, observability, performance, developer experience, and commercial readiness. `/api/stats` ranked highest among dependency-ready offline-safe items because commercial monitoring clients could discover its retryable 503 but not validate the quarantined-state body.
