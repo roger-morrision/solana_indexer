@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-PRICE-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across downstream discovery, pricing, volume, trading safety, contract parity, provider resilience, recovery, replay, observability, performance, and protocol coverage. Price failure discovery was the highest-value dependency-ready offline-safe gap because consumers could not validate the route's fail-closed 503 family despite its bounded runtime union.
+- Selected ID: `UPSTREAM-PRICE-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/api/v1/price/{mint}` now references closed `price_unavailable_v1`, requiring `schemaVersion:1`, `available:false`, and non-empty `reason`, with bounded optional mint, constant unsafe flag, nominal-USDC reference identity, and missing-evidence list.
+- Acceptance evidence: discovery references the schema; a real missing-path response validates its detailed form; an injected structural failure validates the minimal form and excludes internal field names.
+- Compatibility/migration/configuration: additive discovery only; runtime payloads, endpoint, status, storage, RPC, WebSocket, and configuration remain unchanged. Consumers must not infer price availability from any optional field.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. Volume and bot-readiness unavailable schemas remain BA/PO candidates.
+- NEXT_WEB_ACTION: generate a closed validator for `price_unavailable_v1` and keep every matching response unavailable for pricing and automation.
+
 ## UPSTREAM-EXECUTABLE-DEPTH-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current product areas across contract parity, index integrity, recovery, provider resilience, replay, observability, performance, protocol coverage, and downstream journeys. Executable-depth was the highest-value dependency-ready offline-safe gap: its 503 discovery outcome remained untyped even though structural, decision-quality, buy, and sell failures form one bounded closed union.
