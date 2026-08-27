@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-INDEX-HEALTH-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected healthy public index status because every discovery, intelligence, replay, AI safety, and commercial journey depends on this primary availability gate.
+- Selected ID: `UPSTREAM-INDEX-HEALTH-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/api/health` success now binds a closed schema for finalized freshness, canonical chain identity, complete aggregate counts, zero unresolved dead letters, bounded retry/exclusion telemetry, and ingestion provenance.
+- Acceptance evidence: focused discovery verifies healthy constants and nested closure; a current finalized block HTTP fixture proves exact response-key parity, canonical chain evidence, and finalized ingestion.
+- Compatibility/migration/configuration: additive discovery only; health calculation, response body, persistence, RPC/WebSocket, readiness policy, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Feed-health success discovery remains; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: generate the public health validator and fail closed unless every nested chain, retry, exclusion, and ingestion field validates.
+
 # UPSTREAM-OPERATIONAL-SCHEMA-HARDENING-001
 
 - BA/PO decision: fresh 20+ reconciliation prioritized two independent QC failures because permissive nested operational schemas could let generated clients accept credential-bearing, safety-contradictory, or nonconverged evidence.
