@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-LEGACY-COLLECTION-SCHEMAS-001
+
+- BA/PO decision: a fresh 20+ opportunity reconciliation selected the two legacy collection contracts because compatibility clients could discover that JSON was returned but not that the successful body remains a bare array rather than the cursor-v1 envelope.
+- Selected IDs: `UPSTREAM-LEGACY-BLOCKS-SCHEMA-001`, `UPSTREAM-LEGACY-TRANSACTIONS-SCHEMA-001`.
+- Implemented contracts: `/api/blocks` and `/api/transactions` now publish `legacy_collection_success_v1` with an array body shape; versioned collection schemas are unchanged.
+- Acceptance evidence: focused discovery asserts the schema and both route bindings; full, replay, and operational validation are recorded by the automation report.
+- Compatibility/migration/configuration: additive discovery only; legacy response bodies, persistence, configuration, RPC, and WebSocket behavior are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, two material outcomes completed, exact shortfall 18. Healthy operational fixtures remain separate; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: keep parsing these two compatibility endpoints as bare arrays and prefer versioned endpoints when cursor metadata is required.
+
 # UPSTREAM-AUTOMATION-BOUNDARY-SCHEMAS-001
 
 - BA/PO decision: fresh 20+ reconciliation selected quote and bot-readiness success discovery because AI trading consumers must distinguish analysis availability from complete operational readiness.
