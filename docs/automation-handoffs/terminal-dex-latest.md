@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-BOT-READINESS-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across discovery, price/volume, holder and wallet intelligence, trading safety, contract parity, recovery, replay, provider resilience, observability, performance, and protocol coverage. Bot-readiness was the highest-value dependency-ready offline-safe gap because automated consumers could identify 503 but not validate its fail-closed evidence union.
+- Selected ID: `UPSTREAM-BOT-READINESS-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/api/v1/bot/readiness` now references closed `bot_readiness_unavailable_v1`. It explicitly permits version-1 quality refusals with `available:false` and version-2 readiness refusals with `ready:false`, bounded market evidence, and ingestion/warehouse dependencies; a non-empty reason is always required.
+- Acceptance evidence: discovery references the schema; a real dependency-blocked response validates version 2 and its target/ingestion/warehouse missing gates; an injected structural failure validates the minimal version-1 form without leaking internal field names.
+- Compatibility/migration/configuration: additive discovery only; runtime payloads, statuses, persistence, RPC, WebSocket, and configuration remain unchanged. Consumers must branch on schema version and must never infer readiness from omitted optional evidence.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. Health and diagnostic unavailable schemas remain BA/PO candidates.
+- NEXT_WEB_ACTION: generate a version-aware closed validator for `bot_readiness_unavailable_v1` and deny automation for every matching response.
+
 ## UPSTREAM-VOLUME-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across trending, token/pool detail, holder and wallet intelligence, pricing, volume, trading safety, contract parity, recovery, replay, provider resilience, observability, performance, and protocol coverage. Volume failure discovery was the highest-value dependency-ready offline-safe gap because its bounded 503 union remained untyped for downstream analytics clients.
