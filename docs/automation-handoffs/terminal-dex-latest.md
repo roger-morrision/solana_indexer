@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-BOT-READINESS-DISCRIMINATOR-001
+
+- BA/PO decision: a fresh 20+ opportunity reconciliation retained bot-readiness contract correctness as the highest-value dependency-ready offline-safe item. Independent QC proved the flat schema accepted four impossible version/sentinel combinations, allowing generated safety clients to misclassify an unavailable response.
+- Selected ID: `UPSTREAM-BOT-READINESS-DISCRIMINATOR-001`.
+- Implemented contract: `bot_readiness_unavailable_v1` is now an exclusive two-branch union. Version 1 requires `available:false` and admits only its exact structural refusal; version 2 requires `ready:false` and admits only bounded readiness/dependency evidence. Cross-version sentinels are forbidden.
+- Acceptance evidence: real version-1 structural and version-2 dependency refusals each match exactly one branch; version 1 or 2 without its sentinel and both cross-version sentinel forms are rejected.
+- Compatibility/migration/configuration: discovery is corrected without changing runtime bodies, route status, persistence, RPC, WebSocket, or configuration. Schema consumers must support `oneOf` and select the branch by `schemaVersion`.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. The implementation shortfall is 19 because this coherent corrective batch contains one material behavior change; splitting four negative assertions or schema members would be padding.
+- NEXT_WEB_ACTION: regenerate the bot-readiness validator with exclusive union support and deny automation unless exactly one version branch validates.
+
 ## UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across authoritative data, finality, recovery, replay, provider resilience, downstream discovery and intelligence, trading safety, observability, performance, contract parity, and protocol coverage. Public index-health failure discovery ranked highest because operators and commercial clients could not validate its stable redacted 503 projection.
