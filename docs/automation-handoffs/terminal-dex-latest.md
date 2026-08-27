@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-FEED-HEALTH-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected combined feed-health success parity because replay/reorg, AI safety, and commercial monitoring consumers could discover only its unavailable body.
+- Selected ID: `UPSTREAM-FEED-HEALTH-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/internal/feed/health` HTTP 200 now references a closed schema combining healthy canonical index evidence with the complete healthy exporter projection and exact progress constraints.
+- Acceptance evidence: a deterministic finalized block plus concrete healthy exporter fixture returns HTTP 200 with exact top-level and nested ingestion key parity and fixed healthy constants.
+- Compatibility/migration/configuration: additive discovery only; runtime response bytes, ingestion/index policy, persistence, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: generate the combined feed-health validator and require both index and exporter evidence to satisfy their closed healthy schemas.
+
 # UPSTREAM-QA-WAREHOUSE-SUCCESS-PROJECTION-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the remaining HIGH warehouse QC failure because generated clients could accept healthy evidence that runtime classifies stale, excessively lagged, or behind retained replay history.
