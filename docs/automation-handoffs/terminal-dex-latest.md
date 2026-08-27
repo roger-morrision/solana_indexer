@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-VOLUME-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across trending, token/pool detail, holder and wallet intelligence, pricing, volume, trading safety, contract parity, recovery, replay, provider resilience, observability, performance, and protocol coverage. Volume failure discovery was the highest-value dependency-ready offline-safe gap because its bounded 503 union remained untyped for downstream analytics clients.
+- Selected ID: `UPSTREAM-VOLUME-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/api/v1/volume/{mint}` now references closed `volume_unavailable_v1`, requiring the minimal fail-closed availability envelope and permitting only its bounded window, count, completeness, reference, and missing-evidence fields.
+- Acceptance evidence: discovery references the schema; a real five-minute missing-reference response validates the detailed form and exact zero-valued count; an injected structural failure validates the minimal form while excluding internal field names.
+- Compatibility/migration/configuration: additive discovery only; runtime payloads, endpoint, status, persistence, RPC, WebSocket, and configuration remain unchanged. Consumers must treat incomplete or unvalued windows as unavailable.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. Bot-readiness and diagnostic unavailable schemas remain BA/PO candidates.
+- NEXT_WEB_ACTION: generate a closed validator for `volume_unavailable_v1` and keep unavailable windows out of volume, trending, and automation decisions.
+
 ## UPSTREAM-PRICE-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across downstream discovery, pricing, volume, trading safety, contract parity, provider resilience, recovery, replay, observability, performance, and protocol coverage. Price failure discovery was the highest-value dependency-ready offline-safe gap because consumers could not validate the route's fail-closed 503 family despite its bounded runtime union.
