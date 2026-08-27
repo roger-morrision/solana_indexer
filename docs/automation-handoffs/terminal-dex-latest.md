@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-FEED-PAGE-SCHEMA-CLOSURE-001
+
+- BA/PO decision: fresh inspection reconciled 46 remaining untyped success outcomes plus the broader correctness/recovery queue. Independent QC elevated six active schema defects: one nested feed-health redaction gap and five page-cursor semantic gaps.
+- Selected IDs: `UPSTREAM-FEED-HEALTH-NESTED-SCHEMA-001`, `UPSTREAM-BLOCKS-PAGE-CURSOR-SCHEMA-001`, `UPSTREAM-TRANSACTIONS-PAGE-CURSOR-SCHEMA-001`, `UPSTREAM-SWAPS-PAGE-CURSOR-SCHEMA-001`, `UPSTREAM-TOKENS-PAGE-CURSOR-SCHEMA-001`, `UPSTREAM-POOLS-PAGE-CURSOR-SCHEMA-001`.
+- Implemented contracts: feed health now closes its nested ingestion projection to the exact redacted exporter fields; paginated `nextCursor` now declares the same `canonical_cursor_v1` semantic kind enforced by request admission.
+- Acceptance evidence: the real feed response satisfies nested required/allowed fields while `providerCredential` is undeclared; each of the five routes independently rejects `cursor=A` with HTTP 400 while retaining valid terminal null cursors.
+- Compatibility/migration/configuration: additive contract precision only; runtime bodies, cursor encoding, pagination/filter scope, endpoint status, persistence, RPC/WebSocket, and configuration remain unchanged.
+- Blockers/owners: live operational qualification remains blocked by absent provider and canonical environment evidence—OPERATOR. Exact implementation shortfall is 14 because six independently reviewed contract outcomes were dependency-ready; splitting nested properties or cursor characters would be padding.
+- NEXT_WEB_ACTION: enforce the closed feed ingestion projection and canonical cursor decoder in generated clients before consuming these six contracts.
+
 # UPSTREAM-PAGINATED-SUCCESS-SCHEMAS-001
 
 - BA/PO decision: fresh inspection reconciled 51 untyped JSON success outcomes in addition to the retained recovery, correctness, performance, and operability queue. The five cursor-paginated event/catalog routes ranked highest as one dependency-ready batch because commercial clients already rely on their stable shared envelope.
