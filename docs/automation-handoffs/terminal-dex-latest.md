@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-QUOTE-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh reconciliation of 24+ product areas and all pool-quote 503 branches found one exact closed union: quality failures require the three-field availability envelope, while unsupported protocols and quote-engine failures add only `automationSafe:false`.
+- Selected ID: `UPSTREAM-QUOTE-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/internal/pools/{pool}/quote` now references `quote_unavailable_v1`, requiring `schemaVersion:1`, `available:false`, and non-empty `reason`, with only optional constant `automationSafe:false`. This covers structural, decision-quality, unsupported-protocol, and quote-engine refusal without weakening execution safety.
+- Acceptance evidence: discovery references the schema; real injected decision failure satisfies its required and allowed fields; existing analysis-only engine-failure regression proves the optional automation-safety form remains fail closed.
+- Compatibility/migration/configuration: additive discovery only; no runtime payload, endpoint, status, configuration, storage, RPC, or WebSocket change.
+- Blockers/owners: live qualification remains blocked by absent fresh operational/provider evidence—OPERATOR. Executable-depth, price, volume, and bot-readiness unavailable schemas—BA/PO.
+- NEXT_WEB_ACTION: validate pool-quote 503 bodies through `quote_unavailable_v1` and keep `automationSafe` defaulted to false when omitted.
+
 ## UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh review of the 24 newly advertised decision-quality outcomes proved each route has exactly one runtime 503 family after excluding five heterogeneous quote/pricing/readiness routes. Their earlier structural-quality refusal was the only shape mismatch and unnecessarily exposed internal invalid-field names.
