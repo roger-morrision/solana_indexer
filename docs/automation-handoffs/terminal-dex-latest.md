@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the new HIGH QC failure because generated replay/reorg consumers could accept five unsafe or contradictory gap-feed success projections.
+- Selected ID: `UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001`.
+- Implemented contract: gap-feed success discovery now enforces ingestion freshness, configured lag, cursor/tip ordering, exact lag arithmetic, unique strictly increasing skipped slots, and exact top-level/nested skipped-slot identity.
+- Acceptance evidence: the canonical success fixture remains valid while generated-style stale, excessive-lag, inconsistent-progress, descending-slot, and divergent-cache variants are all rejected.
+- Compatibility/migration/configuration: discovery-only semantic hardening; runtime bytes, ingestion/reorg behavior, persistence, REST/RPC/WebSocket versions, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: regenerate the gap-feed validator and reject cache invalidation unless both healthy ingestion semantics and skipped-slot identity validate.
+
 # UPSTREAM-GAP-FEED-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected gap-feed success discovery parity because replay/reorg and commercial consumers could discover only the unavailable body despite the healthy route carrying bounded checkpoint, skipped-slot, and correction evidence.

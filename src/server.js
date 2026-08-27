@@ -173,6 +173,13 @@ RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.localValidatorTip.type = "
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.durableSkippedSlots.uniqueItems = true;
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.durableSkippedSlots.strictlyIncreasing = true;
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.relationships.push({ kind: "difference", result: "lagSlots", minuend: "localValidatorTip", subtrahend: "cursor" });
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.properties.ingestion.properties.ageMs.maximumProperty = "staleAfterMs";
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.properties.ingestion.properties.lagSlots.maximumProperty = "maxLagSlots";
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.properties.ingestion.properties.cursor.maximumProperty = "localValidatorTip";
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.properties.ingestion.properties.durableSkippedSlots.uniqueItems = true;
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.properties.ingestion.properties.durableSkippedSlots.strictlyIncreasing = true;
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.properties.ingestion.relationships.push({ kind: "difference", result: "lagSlots", minuend: "localValidatorTip", subtrahend: "cursor" });
+RESPONSE_BODY_SCHEMAS.gap_feed_success_v1.relationships = [{ kind: "mirror", source: "$", target: "ingestion", properties: ["durableSkippedSlots"] }];
 RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.ageMs.maximumProperty = "staleAfterMs";
 RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.lagEvents.maximumProperty = "maxLagEvents";
 RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.sequence.minimumProperty = "oldestSequence";
