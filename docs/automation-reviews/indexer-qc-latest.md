@@ -1,38 +1,33 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T19:36:42+07:00`
+- Run: `2026-08-27T20:36:13+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `791a3b4ef60978845ffb090374b98fdfb4f694bc`
-- Compared with QA baseline: `ee3bbce11ad2d1adb79b549f7d8b1922e93f2906` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 23 ahead, 0 behind before this evidence report
-- Latest DEV commits: `6dee59f` (wallet-cluster nullability correction) and `791a3b4` (eight detail/valuation success outcomes)
-- Overall result: 8 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Wallet cluster now accepts canonical null classification, and seven of eight new detail/valuation outcomes match their real closed envelopes. Transaction detail advertises string `feeLamports` while the canonical runtime returns an exact integer. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `e8b7a6aed9a6bb23d2d5b2927f4ae7d9ecd83dd2`
+- Compared with QA baseline: `347a291a11b6bfb6d8a8402398bc0dc3b308af30` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 26 ahead, 0 behind before this evidence report
+- Latest DEV commits: `9cc4ba1` (transaction fee schema correction) and `e8b7a6a` (three decision-support success outcomes)
+- Overall result: 3 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Transaction fee metadata now matches the canonical integer, and registry/candle schemas pass. Pool-risk discovery advertises incompatible types for two canonical fields. Live qualification remains independently blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (9/20)
+## Reviewed DEV delta (4/20)
 
-### `UPSTREAM-WALLET-CLUSTER-NULLABILITY-001` (PASS)
-
-| Item | Route | Status | Independent evidence |
-|---|---|---|---|
-| `UPSTREAM-WALLET-CLUSTER-NULLABILITY-001` | `/internal/wallets/{wallet}/funding-cluster` | `PASS` | Canonical HTTP 200 emits `classification:null`; the corrected string-or-null schema accepts it, still rejects missing/unknown fields, and retains `safeForAutomation:false`. |
-
-### `UPSTREAM-DETAIL-VALUATION-SCHEMAS-001` (7/8 PASS)
+### `UPSTREAM-TRANSACTION-FEE-TYPE-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-EVIDENCE-SCHEMA-001` | `/internal/evidence/{mint}` | `PASS` | Real HTTP 200 matches the closed schema-v2 evidence envelope, including advisory `safeForAutomation:false`; missing and unknown fields are rejected. |
-| `UPSTREAM-INTERNAL-TOKEN-DETAIL-SCHEMA-001` | `/internal/tokens/{mint}` | `PASS` | Real HTTP 200 matches the shared closed token-detail projection; missing and unknown fields are rejected. |
-| `UPSTREAM-PUBLIC-MINT-DETAIL-SCHEMA-001` | `/api/mint/{mint}` | `PASS` | Real HTTP 200 matches the same closed token-detail projection without widening its top-level surface. |
-| `UPSTREAM-ACCOUNT-SCHEMA-001` | `/api/account/{address}` | `PASS` | Real HTTP 200 matches the reused wallet-detail schema and rejects missing/unknown top-level fields. |
-| `UPSTREAM-POOL-DETAIL-SCHEMA-001` | `/api/v1/pool/{pool}` | `PASS` | Real HTTP 200 matches the exact address/summary/swaps envelope and rejects missing/unknown fields. |
-| `UPSTREAM-TRANSACTION-SCHEMA-001` | `/api/transaction/{signature}` | `FAIL` | Canonical HTTP 200 emits exact integer `feeLamports:5000`, but `transaction_detail_success_v1` requires a string, so the advertised validator rejects the real response. |
-| `UPSTREAM-PRICE-SUCCESS-SCHEMA-001` | `/api/v1/price/{mint}` | `PASS` | A real HTTP 200 through the route projection matches required `available:true` valuation fields and rejects missing/unknown fields. |
-| `UPSTREAM-VOLUME-SUCCESS-SCHEMA-001` | `/api/v1/volume/{mint}` | `PASS` | A real HTTP 200 through the route projection matches required window/count/reference fields and rejects missing/unknown fields. |
+| `UPSTREAM-TRANSACTION-FEE-TYPE-001` | `/api/transaction/{signature}` | `PASS` | Canonical HTTP 200 emits exact integer `feeLamports:5000`; the corrected nonnegative-integer schema accepts it and still rejects missing/unknown fields. |
 
-- Available DEV delta: exactly 9 distinct route outcomes after `ee3bbce`; the complete delta was exhausted.
-- Verification result: 8 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 11; no additional distinct DEV outcome exists after the prior QA baseline, and splitting shared schemas, fields, nested values, constants, fixtures, or assertions would be padding.
-- Validation: real positive bodies 8/9 PASS; missing-required rejection 9/9 PASS; unknown top-level rejection 9/9 PASS; transaction fee type mismatch reproduced 1/1; focused committed metadata suite 4/4 PASS but does not validate the eight new real route bodies; 119 outcome representations, 118 unique body-contract identities, and 40 response schemas are structurally enumerated; digest independently recomputes to `d90b3836d7d47e2a29df552ee4c7079a210fd19d18543dac1f5fc268f1149537`; full suite 391/391 PASS; syntax 86/86 PASS; replay invariants PASS at 5,746.89 blocks/s with 9,631,976-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+### `UPSTREAM-DECISION-SUPPORT-SCHEMAS-001` (2/3 PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-REGISTRY-SCHEMA-001` | `/internal/registry` | `PASS` | Real HTTP 200 matches the closed version/programs envelope; missing and unknown fields are rejected. |
+| `UPSTREAM-POOL-RISK-SCHEMA-001` | `/api/v1/risk/{pool}` | `FAIL` | Canonical HTTP 200 emits integer `directions:1` and ISO `latestBlockTime`, while `pool_risk_success_v1` advertises an array and integer-or-null respectively; the generated validator rejects the real response. |
+| `UPSTREAM-CANDLES-SCHEMA-001` | `/api/v1/candles/{pool}` | `PASS` | Real HTTP 200 matches the closed pool/interval/price/rejection/data envelope; missing and unknown fields are rejected. |
+
+- Available DEV delta: exactly 4 distinct route outcomes after `347a291`; the complete delta was exhausted.
+- Verification result: 3 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 16; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema fields, nested families, fixtures, constants, or assertions would be padding.
+- Validation: real positive bodies 3/4 PASS; missing-required rejection 4/4 PASS; unknown top-level rejection 4/4 PASS; pool-risk type mismatch reproduced 1/1 with two incompatible fields in one outcome; focused committed metadata suite 5/5 PASS but does not validate the three new real route bodies; 119 outcome representations, 118 unique body-contract identities, and 43 response schemas are structurally enumerated; digest independently recomputes to `86009e4c1ed9a69ae748012b5353ca53d01cabb9c14603c856ae8eae39793518`; full suite 392/392 PASS; syntax 86/86 PASS; replay invariants PASS at 7,193.82 blocks/s with 9,523,480-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -471,7 +466,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 58-domain reconciliation
+## Independent 59-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -481,14 +476,15 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 40 closed schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 43 closed schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Paginated success schema | `PASS` | All five page envelopes declare the shared `canonical_cursor_v1` semantic; independent null, valid, short, padded, and wrong-JSON probes match runtime decode/re-encode/version/key/scope admission. |
 | Discovery/trending success schemas | `PASS` | Four distinct schemas match their real top-level envelopes, stable versions/constants, window vocabulary, ISO timestamp, methodology, and array fields; 16 positive/missing/extra/invalid-constant probes pass. |
 | Token intelligence success schemas | `PASS` | Real token market, security, holders, trades, OHLCV, and liquidity 200 responses satisfy their six newly advertised schemas; all six reject a missing required field and an unknown top-level field. |
 | Wallet intelligence success schemas | `PASS` | Real wallet detail, performance, profile, funding, and funding-cluster responses satisfy their five schemas. The corrected funding-cluster union accepts canonical `classification:null` without weakening top-level closure or `safeForAutomation:false`; all five reject missing required and unknown top-level fields. |
-| Detail and valuation success schemas | `FAIL` | Seven of eight newly typed real 200 responses satisfy their advertised schemas plus missing/unknown-field negatives. Transaction detail returns exact integer `feeLamports:5000`, while `transaction_detail_success_v1` requires a string, so generated validation rejects the canonical response. |
+| Detail and valuation success schemas | `PASS` | All eight real 200 responses satisfy their advertised schemas plus missing/unknown-field negatives. Transaction detail now advertises the canonical nonnegative integer `feeLamports` representation and accepts `5000` without a runtime change. |
+| Decision-support success schemas | `FAIL` | Registry and candle real 200 responses satisfy their new schemas, but pool risk returns integer `directions:1` and ISO `latestBlockTime` while the schema advertises an array and integer-or-null. All three still reject missing required and unknown top-level fields. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Executable-depth unavailable schema | `PASS` | `executable_depth_unavailable_v1` is referenced only by executable depth. Independent real sell and buy route refusals, injected structure refusal, and injected decision refusal all satisfy its required/allowed keys, preserve constant fail-closed flags, and redact internal field names. |
@@ -531,10 +527,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 391/391; syntax passes 86/86; replay completes at 5,746.89 blocks/s with 9,631,976-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 464,085,547 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 392/392; syntax passes 86/86; replay completes at 7,193.82 blocks/s with 9,523,480-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 467,656,449 ms old at the trigger time. |
 
-The contract minimum is satisfied with 58 distinct evidence domains: 56 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 59 distinct evidence domains: 57 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -1139,23 +1135,36 @@ The contract minimum is satisfied with 58 distinct evidence domains: 56 PASS, 1 
 
 ## UPSTREAM-QA-TRANSACTION-DETAIL-FEE-LAMPORTS-SCHEMA-001
 
-- Severity: `MEDIUM` (`FAIL`)
+- Severity: `PASS` (resolved by `9cc4ba1`)
 - Owner: `DEV`
 - Reproduction: request `/api/transaction/signature-1` from the canonical finalized fixture and validate the HTTP 200 body against `transaction_detail_success_v1` from the response-schema registry.
-- Evidence: the real response contains `feeLamports:5000` as an exact JSON integer, while the schema declares `feeLamports` as `type:"string"`; independent generated-style validation rejects the canonical body. The other eight reviewed route outcomes pass real-response, missing-required, and unknown-field checks. The committed new test inspects schema metadata only and therefore stays green without validating this real response.
+- Evidence: the real response contains `feeLamports:5000` as an exact JSON integer, and the corrected schema declares `type:"integer", minimum:0`; independent real-route validation now accepts the canonical body while missing-required and unknown-field variants remain rejected.
 - Affected contracts: transaction-detail REST success response, exact fee representation, generated validators and clients, schema registry, snapshot digest/ETag, provenance consumers, and commercial transaction inspection.
-- Expected versus actual behavior: discovery must advertise the longstanding canonical integer representation, or runtime and every consumer must be intentionally migrated together; actual metadata alone claims a string and breaks generated-client compatibility.
-- Acceptance criteria: change `transaction_detail_success_v1.feeLamports` to the exact canonical integer type with a nonnegative bound, unless a separately versioned coordinated runtime migration is chosen; add a real-route generated-validator regression for `signature-1`; retain required/closed-field and provenance checks.
-- Validation results: transaction real positive 0/1 FAIL; missing-required negative 1/1 PASS; unknown-field negative 1/1 PASS; focused metadata suite 4/4 PASS; full suite 391/391 PASS; syntax 86/86 PASS; replay invariants PASS at 5,746.89 blocks/s.
-- Compatibility/performance impact: correcting metadata to a nonnegative integer is additive compatibility with the existing response and bounded parser contract. No persistence, RPC, WebSocket, provider, database, or runtime payload change is needed.
-- Blockers: none; owner DEV can correct the schema and add runtime/schema parity coverage.
+- Expected versus actual behavior: discovery advertises the longstanding canonical nonnegative-integer representation; expected and actual behavior now match.
+- Acceptance criteria: require an exact nonnegative integer; validate canonical `signature-1`; retain required/closed-field and provenance checks. All criteria are met.
+- Validation results: transaction real positive 1/1 PASS; missing-required negative 1/1 PASS; unknown-field negative 1/1 PASS; focused suite PASS; full suite 392/392 PASS; syntax 86/86 PASS; replay invariants PASS.
+- Compatibility/performance impact: additive validator compatibility with the existing response; no persistence, RPC, WebSocket, provider, database, or runtime payload change occurred.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-POOL-RISK-SUCCESS-SCHEMA-001
+
+- Severity: `MEDIUM` (`FAIL`)
+- Owner: `DEV`
+- Reproduction: request `/api/v1/risk/pool-address` from the canonical finalized fixture and validate the HTTP 200 body against `pool_risk_success_v1` from the response-schema registry.
+- Evidence: the real response emits `directions:1` as a nonnegative integer and `latestBlockTime:"2023-11-14T22:13:20.000Z"` as an ISO timestamp. The advertised schema instead requires `directions` to be an array and `latestBlockTime` to be integer-or-null, so independent generated-style validation rejects the canonical body. Registry and candle responses pass, and all three new schemas reject missing-required and unknown top-level fields. The committed new test inspects schema metadata only and misses both runtime/type mismatches.
+- Affected contracts: pool-risk REST success response, trading decision support, generated validators and clients, risk/freshness interpretation, schema registry, snapshot digest/ETag, and commercial/AI consumers.
+- Expected versus actual behavior: discovery must advertise the canonical nonnegative direction count and ISO-or-null latest activity time while retaining `safeForAutomation:false`; actual metadata advertises incompatible container and time types.
+- Acceptance criteria: change `directions` to `type:"integer", minimum:0`; change `latestBlockTime` to `type:["string","null"]` with date-time semantics for non-null values; add a real-route generated-validator regression using `pool-address`; retain all required fields, top-level closure, and `safeForAutomation:false`.
+- Validation results: pool-risk real positive 0/1 FAIL with two type mismatches; missing-required negative 1/1 PASS; unknown-field negative 1/1 PASS; focused metadata suite 5/5 PASS; full suite 392/392 PASS; syntax 86/86 PASS; replay invariants PASS at 7,193.82 blocks/s.
+- Compatibility/performance impact: metadata-only corrections would make clients accept the established runtime response and do not require risk calculation, persistence, RPC, WebSocket, provider, or database changes. Validation remains bounded.
+- Blockers: none; owner DEV can correct both property types in one outcome and add runtime/schema parity coverage.
 
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 464,085,547 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 467,656,449 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1164,4 +1173,4 @@ The contract minimum is satisfied with 58 distinct evidence domains: 56 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: correct `transaction_detail_success_v1.feeLamports` to the canonical nonnegative integer representation and add a real-route generated-validator regression for `/api/transaction/{signature}`.
+- NEXT_DEV_ACTION: correct `pool_risk_success_v1.directions` to a nonnegative integer and `latestBlockTime` to ISO-string-or-null, then add a real-route generated-validator regression for `/api/v1/risk/{pool}`.
