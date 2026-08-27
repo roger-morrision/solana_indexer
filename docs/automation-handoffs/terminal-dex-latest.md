@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-BACKUP-RECOVERY-FAILURE-UNIONS-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across discovery, token/pool intelligence, holders/whales, trading safety, finality/reorg, provider resilience, recovery, observability, performance, and commercial contracts. Independent QC elevated `UPSTREAM-BACKUP-UNAVAILABLE-UNION-001` and `UPSTREAM-RECOVERY-UNAVAILABLE-UNION-001` above the retained stats-schema gap because both published flat schemas accepted impossible fail-open availability/reason/identity combinations.
+- Selected IDs: `UPSTREAM-BACKUP-UNAVAILABLE-UNION-001`, `UPSTREAM-RECOVERY-UNAVAILABLE-UNION-001`.
+- Implemented contracts: both 503 schemas are now closed three-variant unions. Missing/invalid evidence requires `available:false`, null age, and no identity; future evidence requires `available:true`, negative age, canonical backup identity and timestamp; stale evidence requires `available:true`, nonnegative age, canonical identity and timestamp. Recovery temporal variants additionally require nonnegative duration.
+- Acceptance evidence: real missing, invalid, and stale HTTP bodies match exactly one variant; eight impossible availability/identity/timestamp combinations match none. Runtime response bodies and status codes are unchanged.
+- Compatibility/migration/configuration: additive discovery precision only. Generated validators must regenerate against the union shape; no persistence, evidence, endpoint, RPC, WebSocket, or configuration migration.
+- Blockers/owners: live backup/recovery qualification remains blocked by absent fresh isolated operational evidence—OPERATOR. Exact implementation shortfall is 18 because two material QC-backed outcomes form this coherent offline-safe batch; splitting variants, fields, or assertions would be padding.
+- NEXT_WEB_ACTION: regenerate backup and recovery 503 validators and keep promotion disabled unless exactly one union variant matches.
+
 ## UPSTREAM-RECOVERY-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across recovery qualification, backup integrity, exact convergence, finality, contract parity, trading safety, operability, observability, performance, and commercial readiness. `/api/v1/recovery` ranked highest because promotion consumers could not machine-validate its bounded fail-closed 503 family.
