@@ -1,31 +1,31 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T10:35:47+07:00`
+- Run: `2026-08-27T11:35:32+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `959c43beb189b1304c04e698c913966505dc143c`
-- Compared with QA baseline: `eec8216574cf4285b9251005a92949eebb562ae9` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 5 ahead, 0 behind before this evidence report
-- Latest DEV commits: `056b4b0` (`UPSTREAM-BOT-READINESS-UNAVAILABLE-SCHEMA-001`) and `959c43b` (`UPSTREAM-GAP-FEED-UNAVAILABLE-SCHEMA-001`)
-- Overall result: 1 PASS and 1 FAIL across the complete DEV delta. Gap-feed discovery/runtime schema parity passes. Bot-readiness runtime bodies fit the advertised keys, but the schema cannot express its claimed version-conditional fail-closed sentinel and accepts impossible version-1/version-2 bodies without the applicable `available:false` or `ready:false` field. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `8eea5116b5c6f87bbc14e9e785d919c7eabe906f`
+- Compared with QA baseline: `3fb75cf85c3c83895a83f049010b8eec5d1cdca2` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 8 ahead, 0 behind before this evidence report
+- Latest DEV commits: `3f2858f` (`UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001`) and `8eea511` (`UPSTREAM-BOT-READINESS-DISCRIMINATOR-001`)
+- Overall result: 2 PASS across the complete DEV delta. Public health now publishes one closed failure schema for both empty and invalid retained index states. Bot readiness now uses an exclusive version-discriminated union: real version-1 and version-2 failures select exactly one branch, while missing, cross-version, and contradictory sentinels fail validation. Live qualification remains blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-BOT-READINESS-UNAVAILABLE-SCHEMA-001` (FAIL)
+### `UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-BOT-READINESS-UNAVAILABLE-SCHEMA-001` | `/api/v1/bot/readiness` | `FAIL` | Real version-2 dependency refusal and version-1 structure/decision refusals satisfy `bot_readiness_unavailable_v1`, but its only universally required fields are `schemaVersion` and `reason`. Independent generated validation therefore accepts four invalid forms: versions 1 and 2 with neither sentinel, v1 with only `ready:false`, and v2 with only `available:false`. The advertised schema cannot enforce the handoff's version-aware fail-closed union. |
+| `UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001` | `/api/health` | `PASS` | The 503 outcome references only `index_health_unavailable_v1`. Independently exercised empty and structurally invalid index stores both require nonempty `status`/`reason`, constant `healthy:false`, and only the explicit public health projection fields; both validate and retain fail-closed wrong/absent-state semantics. |
 
-### `UPSTREAM-GAP-FEED-UNAVAILABLE-SCHEMA-001` (PASS)
+### `UPSTREAM-BOT-READINESS-DISCRIMINATOR-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-GAP-FEED-UNAVAILABLE-SCHEMA-001` | `/internal/feed/gaps` | `PASS` | The sole 503 outcome references `gap_feed_unavailable_v1`. Independent real ingestion refusal, injected structural refusal with bounded field names, and injected recovery refusal all satisfy required/allowed keys and preserve the mandatory `available:false` sentinel. Unknown recovery fields remain absent. |
+| `UPSTREAM-BOT-READINESS-DISCRIMINATOR-001` | `/api/v1/bot/readiness` | `PASS` | The schema is now an exclusive two-branch `oneOf`: real version-1 and version-2 refusals each validate against exactly one applicable branch. Five independent invalid bodies covering missing, cross-version, and contradictory sentinels validate against zero branches. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `eec8216`; the complete delta was exhausted.
-- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `3fb75cf`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema fields, runtime forms, or test assertions would be padding.
-- Validation: independent bot detail/structure/decision runtime matrix PASS but false-positive schema matrix 0/4; independent gap ingestion/structure/recovery matrix PASS; 119 outcome representations, 118 unique body-contract identities, and ten response schemas remain structurally enumerated; digest independently recomputes to `6eb8db62a9d8e83f856eae66d8c1f51f358807cc6acc3c7e860fad300d7443b8`; focused response/schema suite 20/20 PASS; full suite 379/379 PASS; syntax 86/86 PASS; replay invariants PASS at 4,942.77 blocks/s with 10,194,680-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: independent public-health empty/invalid-state matrix PASS; real bot v1/v2 branch exclusivity 2/2 PASS and invalid missing/cross-version/contradictory sentinel matrix 5/5 rejected; 119 outcome representations, 118 unique body-contract identities, and 11 response schemas remain structurally enumerated; digest independently recomputes to `7c0cd90e989eb51022eb8849eaa27e668d91e38e8de814e7314943743be84288`; focused response/schema suite 21/21 PASS; full suite 380/380 PASS; syntax 86/86 PASS; replay invariants PASS at 7,229.18 blocks/s with 9,650,936-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -464,7 +464,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 44-domain reconciliation
+## Independent 45-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -474,14 +474,15 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response body schemas | `PASS` | All six closed response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
+| HTTP response body schemas | `PASS` | All 11 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Executable-depth unavailable schema | `PASS` | `executable_depth_unavailable_v1` is referenced only by executable depth. Independent real sell and buy route refusals, injected structure refusal, and injected decision refusal all satisfy its required/allowed keys, preserve constant fail-closed flags, and redact internal field names. |
 | Price unavailable schema | `PASS` | `price_unavailable_v1` is referenced only by price. Independent detailed nominal-reference refusal plus injected structure and decision refusals satisfy its closed top-level keys, constant unsafe flag, bounded reference identity, and redaction. |
 | Volume unavailable schema | `PASS` | `volume_unavailable_v1` is referenced only by volume. Five window variants plus injected structure and decision refusals satisfy its closed top-level keys, exact zero-valued count, bounded counts/window fields, constant incomplete/unsafe flags, and redaction. |
-| Bot-readiness unavailable schema | `FAIL` | All three real refusal forms fit the advertised top-level keys, but generated validation accepts four impossible or mis-versioned bodies because neither `available:false` nor `ready:false` is required conditionally by `schemaVersion`. |
+| Bot-readiness unavailable schema | `PASS` | The two-branch `oneOf` binds version 1 to required `available:false` and version 2 to required `ready:false`. Real version-1/version-2 bodies select exactly one branch; five missing, cross-version, or contradictory sentinel bodies select none. |
 | Gap-feed unavailable schema | `PASS` | Real ingestion refusal plus injected structure and recovery refusals satisfy `gap_feed_unavailable_v1`, retain mandatory `available:false`, use only advertised top-level fields, and exclude unknown recovery state. |
+| Public-health unavailable schema | `PASS` | Empty and structurally invalid retained indexes emit 503 bodies satisfying `index_health_unavailable_v1`: nonempty status/reason, constant `healthy:false`, and only explicitly typed public health projection fields. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -510,10 +511,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 379/379; syntax passes 86/86; replay completes at 4,942.77 blocks/s with 10,194,680-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 431,630,231 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 380/380; syntax passes 86/86; replay completes at 7,229.18 blocks/s with 9,650,936-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active warehouse checkpoint/status, backup, and recovery files are absent; the active exporter-status file is also absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 435,215,694 ms old at the trigger time. |
 
-The contract minimum is satisfied with 44 distinct evidence domains: 42 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 45 distinct evidence domains: 44 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -934,18 +935,30 @@ The contract minimum is satisfied with 44 distinct evidence domains: 42 PASS, 1 
 
 ## UPSTREAM-QA-BOT-READINESS-UNAVAILABLE-SCHEMA-001
 
-- Severity: `FAIL` (`HIGH`)
+- Severity: `PASS` (resolved by `8eea511`)
 - Owner: `DEV`
-- Reproduction: load `bot_readiness_unavailable_v1` from query discovery and validate `{schemaVersion:1,reason:"x"}`, `{schemaVersion:2,reason:"x"}`, `{schemaVersion:1,ready:false,reason:"x"}`, and `{schemaVersion:2,available:false,reason:"x"}` using its published required, optional, type, constant-value, and closed-key rules.
-- Evidence: all four invalid bodies pass the published schema. Only `schemaVersion` and `reason` are universally required; `available` and `ready` are both optional, and versions 1/2 are an undifferentiated value list. Real runtime controls still pass: version-2 dependency refusal contains `ready:false`, while version-1 structure and decision refusals contain `available:false`. The committed positive-only test does not exercise false-positive or cross-version bodies.
+- Reproduction: load `bot_readiness_unavailable_v1` from query discovery, validate real version-1 and version-2 refusals against every `oneOf` branch, then validate missing, cross-version, and contradictory sentinel bodies against the same branches.
+- Evidence: real version-1 and version-2 runtime bodies each select exactly one branch. `{schemaVersion:1,reason:"x"}`, `{schemaVersion:2,reason:"x"}`, `{schemaVersion:1,ready:false,reason:"x"}`, `{schemaVersion:2,available:false,reason:"x"}`, and the version-1 body containing both false sentinels select zero branches. Each branch is closed and binds its schema version to the applicable constant false sentinel.
 - Affected contracts: bot-readiness discovery, generated validators, schema-version branching, automation admission, dependency health gating, startup compatibility checks, and downstream handling of HTTP 503.
 - Expected behavior: version 1 requires `available:false` and excludes `ready`; version 2 requires `ready:false` and excludes `available`; a body with neither sentinel or the wrong sentinel for its version is rejected before application handling.
-- Actual behavior: the flat schema admits missing and cross-version sentinels, so it cannot implement the handoff's promised version-aware closed union.
-- Acceptance criteria: add a machine-readable discriminated-union or conditional-required construct; bind version 1 to required constant `available:false` and version 2 to required constant `ready:false`; reject missing, cross-version, and contradictory sentinel combinations; add negative generated-validator regressions plus real version-1/version-2 HTTP controls; preserve runtime payloads and fail-closed automation behavior.
-- Validation results: real runtime forms 3/3 PASS; independent false-positive matrix 0/4; focused response/schema suite 20/20 and full suite 379/379 pass but do not cover the defect; syntax 86/86 and replay invariants pass.
-- Compatibility impact: generated clients can accept invalid/mis-versioned 503 bodies as recognized bot-readiness failures. Correcting the discovery schema is additive or schema-versioned metadata but must cause invalid bodies to fail validation.
-- Performance impact: one bounded discriminator check per validation; no ingestion, replay, persistence, RPC, or WebSocket impact expected.
-- Blockers: none; the defect is reproducible offline.
+- Actual behavior: the published exclusive union enforces the expected version-aware sentinel and rejects every independently generated invalid form.
+- Acceptance criteria: publish a machine-readable exclusive union; bind version 1 to required constant `available:false` and version 2 to required constant `ready:false`; reject missing, cross-version, and contradictory sentinel combinations; retain real version-1/version-2 controls and fail-closed runtime behavior. All criteria are met.
+- Validation results: real branch exclusivity 2/2 PASS; independent invalid-body rejection 5/5 PASS; focused response/schema suite 21/21 PASS; full suite 380/380 PASS; syntax 86/86 PASS; replay invariants PASS at 7,229.18 blocks/s with 9,650,936-byte heap growth.
+- Compatibility/performance impact: discovery now requires `oneOf` support from generated clients and correctly rejects invalid legacy interpretations; runtime bodies are unchanged. Validation adds only a bounded two-branch check, with no replay or full-suite regression.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS` (implemented by `3f2858f`)
+- Owner: `DEV`
+- Reproduction: inspect the 503 outcome for `/api/health`, exercise an empty store and a structurally invalid retained store, and validate both response bodies against `index_health_unavailable_v1` including closed top-level keys and public projection types.
+- Evidence: discovery references only `index_health_unavailable_v1`. Both bodies contain nonempty status and reason with constant `healthy:false`; the empty-state body reports `no_indexed_blocks`, the invalid-state body reports `indexed_state_structure_invalid`, and both expose only the explicit public health projection allowlist. The 11-schema registry digest independently recomputes to `7c0cd90e989eb51022eb8849eaa27e668d91e38e8de814e7314943743be84288`.
+- Affected contracts: public health discovery, generated validators, retained-index structure/freshness/finality failure projection, fail-closed client admission, schema digest/ETag, and secret-safe operational diagnostics.
+- Expected versus actual behavior: every public-health 503 body requires nonempty status/reason, constant `healthy:false`, and only explicitly typed public projection fields; runtime and discovery match for both independent failure modes.
+- Acceptance criteria: publish one route-scoped closed schema; require status, healthy false, and reason; bound the optional public projection; cover empty and invalid retained-state failures; preserve redaction and additive compatibility. All criteria are met.
+- Validation results: independent empty/invalid-state matrix PASS; focused response/schema suite 21/21 PASS; full suite 380/380 PASS; syntax 86/86 PASS; replay invariants PASS at 7,229.18 blocks/s with 9,650,936-byte heap growth.
+- Compatibility/performance impact: additive discovery with one small static schema/reference check; runtime payloads and non-HTTP contracts are unchanged, and no regression was observed.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-QA-GAP-FEED-UNAVAILABLE-SCHEMA-001
 
@@ -965,7 +978,7 @@ The contract minimum is satisfied with 44 distinct evidence domains: 42 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 431,630,231 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 435,215,694 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -974,4 +987,4 @@ The contract minimum is satisfied with 44 distinct evidence domains: 42 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: make `bot_readiness_unavailable_v1` a discriminated version-aware union requiring `available:false` for schema version 1 and `ready:false` for version 2, with negative generated-validator regressions for missing and cross-version sentinels.
+- NEXT_DEV_ACTION: perform a fresh BA/PO compatibility audit of the remaining internal feed-health, statistics, ingestion, warehouse, backup, and recovery failure families, then select the single highest-value route family whose unavailable outcome still lacks an explicit closed response schema for the next DEV increment.
