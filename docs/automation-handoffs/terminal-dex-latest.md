@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-INDEX-HEALTH-SUCCESS-PROJECTION-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the new independent HIGH QC failure because a real healthy response did not satisfy its advertised schema and generated clients could accept stale healthy evidence.
+- Selected ID: `UPSTREAM-QA-INDEX-HEALTH-SUCCESS-PROJECTION-001`.
+- Implemented contract: `/api/health` preserves numeric instruction/program-event aggregates, permits resolved dead-letter history while requiring zero unresolved entries, and publishes `ageMs <= staleAfterMs`.
+- Acceptance evidence: the canonical finalized fixture now includes resolved history and proves HTTP 200, numeric counts, exact schema keys, zero unresolved entries, and the freshness bound.
+- Compatibility/migration/configuration: corrective discovery and projection change only; no persistence, provider, RPC method, WebSocket, database, or configuration migration.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Ingestion/warehouse semantic hardening remains DEV-ready; live qualification remains OPERATOR-blocked.
+- NEXT_WEB_ACTION: regenerate the public-health validator and require its property-relative freshness bound before accepting healthy evidence.
+
 # UPSTREAM-INDEX-HEALTH-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected healthy public index status because every discovery, intelligence, replay, AI safety, and commercial journey depends on this primary availability gate.
