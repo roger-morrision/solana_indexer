@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across ingestion, finality, recovery, contract parity, data completeness, downstream intelligence, trading safety, observability, performance, and commercial readiness. `/api/v1/ingestion` ranked highest because operators and bot-readiness consumers depend on its bounded redacted exporter evidence, while discovery left the retryable 503 body untyped.
+- Selected ID: `UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: the route's 503 outcome now references closed `ingestion_unavailable_v1`, requiring the fail-closed health/reason/progress limits plus bounded exporter and index projections. Unknown top-level provider diagnostics remain forbidden.
+- Acceptance evidence: a real absent status requires `available:false`, `healthy:false`, and `status_unavailable`; malformed provider identity requires `available:true`, `healthy:false`, `automationEligible:false`, and `invalid_source`. Both runtime bodies satisfy the required and allowed key sets.
+- Compatibility/migration/configuration: additive discovery only; runtime body, status, exporter files, persistence, RPC, WebSocket, and configuration remain unchanged. Consumers may replace ad hoc 503 parsing with the published schema.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. The implementation shortfall is 19 because one material contract outcome was dependency-ready in this coherent batch; field/assertion splitting would be padding.
+- NEXT_WEB_ACTION: generate a closed validator for `ingestion_unavailable_v1` and keep exporter-dependent views unavailable until the response is healthy.
+
 ## UPSTREAM-BOT-READINESS-DISCRIMINATOR-001
 
 - BA/PO decision: a fresh 20+ opportunity reconciliation retained bot-readiness contract correctness as the highest-value dependency-ready offline-safe item. Independent QC proved the flat schema accepted four impossible version/sentinel combinations, allowing generated safety clients to misclassify an unavailable response.
