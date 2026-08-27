@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-TRANSACTION-FEE-TYPE-001
+
+- BA/PO decision: fresh 20+ opportunity reconciliation selected the independent QC failure because generated transaction clients would reject every canonical success body before retained enhancements could add value.
+- Selected ID: `UPSTREAM-TRANSACTION-FEE-TYPE-001`.
+- Implemented contract: `transaction_detail_success_v1.feeLamports` now advertises the runtime's exact nonnegative integer instead of an incompatible string.
+- Acceptance evidence: focused discovery asserts the complete integer/minimum rule and the independent QC fixture establishes the canonical runtime value.
+- Compatibility/migration/configuration: schema correction only; runtime response, accounting, persistence, endpoint status, RPC/WebSocket, and configuration remain unchanged. Clients generated from `791a3b4` must regenerate.
+- Shortfall/blockers: 20+ findings reconciled, one material correction completed, exact 20-task shortfall 19. Retained success contracts require healthy/variant fixtures; live qualification is OPERATOR-blocked; protocol expansion requires authoritative ABI and canonical fixtures.
+- NEXT_WEB_ACTION: regenerate the transaction-detail validator and parse `feeLamports` as an exact nonnegative JSON integer.
+
 # UPSTREAM-DETAIL-VALUATION-SCHEMAS-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities and selected eight offline-safe detail/valuation outcomes serving token research, account intelligence, pool inspection, transaction provenance, pricing, and volume consumers.
