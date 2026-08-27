@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-BACKUP-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across backup integrity, recovery, persistence, contract parity, downstream safety, operability, observability, performance, and commercial readiness. `/api/v1/backup` ranked highest because operators could not machine-validate its bounded RPO failure family.
+- Selected ID: `UPSTREAM-BACKUP-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: the route's 503 outcome now references closed `backup_unavailable_v1`, requiring availability, `healthy:false`, a bounded reason enum, age, and configured maximum age; only canonical backup identity and completion time may be added for stale or future evidence.
+- Acceptance evidence: real missing, invalid, and content-bound stale status documents validate against one required/allowed field contract and retain their distinct failure reasons.
+- Compatibility/migration/configuration: additive discovery only; runtime bodies, backup evidence, persistence, status, RPC, WebSocket, and configuration remain unchanged.
+- Blockers/owners: live backup and recovery qualification remains blocked by absent fresh evidence—OPERATOR. The implementation shortfall is 19 because one material contract outcome was dependency-ready; splitting reasons or fields would be padding.
+- NEXT_WEB_ACTION: generate a validator for `backup_unavailable_v1` and keep recovery promotion disabled for every matching response.
+
 ## UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001
 
 - BA/PO decision: proportional full validation reproduced Windows `EPERM` twice while atomically replacing an existing durable file under same-process contention. This is a material persistence/recovery risk and was compatible with the active operational-readiness batch.
