@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-AUTOMATION-BOUNDARY-SCHEMAS-001
+
+- BA/PO decision: fresh 20+ reconciliation selected quote and bot-readiness success discovery because AI trading consumers must distinguish analysis availability from complete operational readiness.
+- Selected IDs: `UPSTREAM-POOL-QUOTE-SUCCESS-SCHEMA-001`, `UPSTREAM-BOT-READINESS-SUCCESS-SCHEMA-001`.
+- Implemented contracts: successful pool quotes remain explicitly analysis-only (`automationSafe:false`, simulation required, no submission); successful bot readiness requires schema v2, `ready:true`, null reason, empty missing list, target pool, market evidence, and healthy dependency projections.
+- Acceptance evidence: focused discovery binds both routes and verifies the safety/readiness constants and empty-missing constraint.
+- Compatibility/migration/configuration: additive discovery only; no quote, readiness, execution, persistence, RPC/WebSocket, or configuration change.
+- Shortfall/blockers: 20+ findings reconciled, two material outcomes completed, exact shortfall 18. Remaining operational successes need healthy fixtures; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: generate both validators and never treat an available quote as authorization to simulate, sign, submit, or trade.
+
 # UPSTREAM-POOL-RISK-TYPES-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the independent QC failure because the published pool-risk validator rejected its canonical success response.
