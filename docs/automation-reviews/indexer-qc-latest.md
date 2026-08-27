@@ -1,37 +1,43 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T14:36:05+07:00`
+- Run: `2026-08-27T15:36:37+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `289efcf3ede5009dc99e6636ae44556e9edcd289`
-- Compared with QA baseline: `a0441e3b4bad66fc64b500cada141f6debf79683` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 8 ahead, 0 behind before this evidence report
-- Latest DEV commits: `0d352ca` (`UPSTREAM-BACKUP-UNAVAILABLE-UNION-001`, `UPSTREAM-RECOVERY-UNAVAILABLE-UNION-001`) and `289efcf` (`UPSTREAM-STATS-UNAVAILABLE-SCHEMA-001`)
-- Overall result: 1 PASS and 2 FAIL across the complete DEV delta. Stats discovery matches the exact 24-field quarantined projection. Backup and recovery unions reject the prior eight cross-form bodies, but both still accept `stale` when `ageMs <= maximumAgeMs`, so generated validators cannot enforce the advertised freshness classification. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `80b96f1a22032972f1638faf3ab2e44369c3de82`
+- Compared with QA baseline: `707e331ec83a27579dad6ed30b30cc98e36d530e` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 11 ahead, 0 behind before this evidence report
+- Latest DEV commits: `b86569d` (`UPSTREAM-BACKUP-STALE-THRESHOLD-001`, `UPSTREAM-RECOVERY-STALE-THRESHOLD-001`) and `80b96f1` (`UPSTREAM-ROOT-ASSET-UNAVAILABLE-SCHEMA-001`, `UPSTREAM-INDEX-ASSET-UNAVAILABLE-SCHEMA-001`)
+- Overall result: 4 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Both stale unions now enforce the runtime's strict relative-age boundary, and both static document routes publish the exact closed JSON 503 schema. Live qualification remains independently blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (4/20)
 
-### `UPSTREAM-BACKUP-UNAVAILABLE-UNION-001` (FAIL)
-
-| Item | Route | Status | Independent evidence |
-|---|---|---|---|
-| `UPSTREAM-BACKUP-UNAVAILABLE-UNION-001` | `/api/v1/backup` | `FAIL` | The three exclusive variants reject all four prior availability/identity/timestamp false positives and real missing/invalid/stale forms select exactly one branch. The stale branch nevertheless accepts `ageMs:0` with `maximumAgeMs:1000`, contradicting its own stale reason and runtime threshold. |
-
-### `UPSTREAM-RECOVERY-UNAVAILABLE-UNION-001` (FAIL)
+### `UPSTREAM-BACKUP-STALE-THRESHOLD-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-RECOVERY-UNAVAILABLE-UNION-001` | `/api/v1/recovery` | `FAIL` | The three exclusive variants reject all four prior availability/identity/timestamp false positives and real missing/invalid plus canonical stale forms select exactly one branch. The stale branch nevertheless accepts `ageMs === maximumAgeMs`, although runtime treats that boundary as healthy rather than stale. |
+| `UPSTREAM-BACKUP-STALE-THRESHOLD-001` | `/api/v1/backup` | `PASS` | The stale variant binds `ageMs` to `maximumAgeMs` with `exclusiveMinimumProperty`. Independent below/equal/above probes select 0/0/1 branches, while the prior four cross-form negatives and real missing/invalid/stale controls remain exclusive. |
 
-### `UPSTREAM-STATS-UNAVAILABLE-SCHEMA-001` (PASS)
+### `UPSTREAM-RECOVERY-STALE-THRESHOLD-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-STATS-UNAVAILABLE-SCHEMA-001` | `/api/stats` | `PASS` | A real malformed persisted collection returns 503 with exactly all 24 required stats fields, passes independent type/closed-key validation, exposes `structure.canonical:false` and `chain.invalidStateStructure:true`, and excludes health-only `status`/`healthy` fields. |
+| `UPSTREAM-RECOVERY-STALE-THRESHOLD-001` | `/api/v1/recovery` | `PASS` | The stale variant binds `ageMs` to `maximumAgeMs` with `exclusiveMinimumProperty`. Independent below/equal/above probes select 0/0/1 branches, and recovery duration, identity, timestamp, and prior cross-form controls remain closed. |
 
-- Available DEV delta: exactly 3 distinct fixes/enhancements after `a0441e3`; the complete delta was exhausted.
-- Verification result: 1 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 17; no additional distinct DEV outcome exists after the prior QA baseline, and splitting union branches, fields, invalid examples, counters, or test assertions would be padding.
-- Validation: prior backup/recovery impossible-body rejection 8/8 PASS, real union exclusivity controls PASS, residual stale-threshold matrix 0/2 because both fresh-age bodies are accepted, and independent stats 24-field/type/closed-key validation PASS; 119 outcome representations, 118 unique body-contract identities, and 16 response schemas remain structurally enumerated; digest independently recomputes to `f7822a9a698c131c6b42c2c72dedf92908ee0053549ef787352b05ce6655e7ed`; focused response/schema suite 5/5 PASS but lacks stale-relative-age negatives; full suite 385/385 PASS; syntax 86/86 PASS; replay invariants PASS at 5,660.45 blocks/s with 9,709,752-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+### `UPSTREAM-ROOT-ASSET-UNAVAILABLE-SCHEMA-001` (PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-ROOT-ASSET-UNAVAILABLE-SCHEMA-001` | `/` | `PASS` | Its retryable 503 references `static_asset_unavailable_v1`; replacing the configured asset with a directory returns exactly `{error:"static_asset_unavailable"}`. The closed schema accepts that body and rejects an extra field or alternate sentinel. |
+
+### `UPSTREAM-INDEX-ASSET-UNAVAILABLE-SCHEMA-001` (PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-INDEX-ASSET-UNAVAILABLE-SCHEMA-001` | `/index.html` | `PASS` | Its independent retryable 503 references the shared closed schema and a real missing-asset request returns the exact sole-field sentinel body. The route retains its distinct stable body-contract identity. |
+
+- Available DEV delta: exactly 4 distinct fixes/enhancements after `707e331`; the complete delta was exhausted.
+- Verification result: 4 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 16; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema fields, union branches, boundary values, shared schema internals, metrics, or assertions would be padding.
+- Validation: independent threshold/static matrix 11/11 PASS; focused real-route/schema suite 6/6 PASS; prior backup/recovery cross-form negatives retained; 119 outcome representations, 118 unique body-contract identities, and 17 response schemas are structurally enumerated; digest independently recomputes to `3bd6f6edb15b6c6c4928f07f463fc238621cd4dc98ecb3f421d1aa300215092a`; full suite 385/385 PASS; syntax 86/86 PASS; replay invariants PASS at 5,260.39 blocks/s with 9,779,080-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -470,7 +476,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 51-domain reconciliation
+## Independent 52-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -480,7 +486,8 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response body schemas | `PASS` | All 16 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
+| HTTP response body schemas | `PASS` | All 17 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
+| Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Executable-depth unavailable schema | `PASS` | `executable_depth_unavailable_v1` is referenced only by executable depth. Independent real sell and buy route refusals, injected structure refusal, and injected decision refusal all satisfy its required/allowed keys, preserve constant fail-closed flags, and redact internal field names. |
@@ -491,8 +498,8 @@
 | Public-health unavailable schema | `PASS` | Empty and structurally invalid retained indexes emit 503 bodies satisfying `index_health_unavailable_v1`: nonempty status/reason, constant `healthy:false`, and only explicitly typed public health projection fields. |
 | Ingestion unavailable schema | `PASS` | Absent exporter status and invalid provider identity emit distinct fail-closed 503 forms that pass independent required, optional, type, constant, minimum, array-item, and closed-key validation against `ingestion_unavailable_v1`. |
 | Warehouse unavailable schema | `PASS` | Absent and malformed checkpoints emit `checkpoint_unavailable` and `checkpoint_invalid` 503 forms that pass independent full-property validation against `warehouse_unavailable_v1` while retaining sequence, lag, age, and configured limits. |
-| Backup unavailable schema | `FAIL` | Exclusive variants close all four prior cross-form false positives, but the stale branch accepts `ageMs:0` with `maximumAgeMs:1000`; it cannot enforce that stale age exceeds the configured maximum. |
-| Recovery unavailable schema | `FAIL` | Exclusive variants close all four prior cross-form false positives, but the stale branch accepts `ageMs === maximumAgeMs`; it cannot enforce runtime's strict stale threshold. |
+| Backup unavailable schema | `PASS` | Exclusive variants retain all prior cross-form controls, and the stale branch now binds `ageMs` strictly above `maximumAgeMs`; independent below/equal/above probes select 0/0/1 branches. |
+| Recovery unavailable schema | `PASS` | Exclusive variants retain identity, timestamp, and duration controls, and the stale branch now binds `ageMs` strictly above `maximumAgeMs`; independent below/equal/above probes select 0/0/1 branches. |
 | Stats unavailable schema | `PASS` | A malformed persisted collection emits exactly the 24 required `stats_unavailable_v1` fields, passes independent type and closed-key validation, carries explicit invalid structure/chain evidence, and excludes health-only status fields. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
@@ -523,10 +530,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 385/385; syntax passes 86/86; replay completes at 5,660.45 blocks/s with 9,709,752-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 446,048,504 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 385/385; syntax passes 86/86; replay completes at 5,260.39 blocks/s with 9,779,080-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 449,679,748 ms old at the trigger time. |
 
-The contract minimum is satisfied with 51 distinct evidence domains: 48 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 52 distinct evidence domains: 51 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -1039,25 +1046,37 @@ The contract minimum is satisfied with 51 distinct evidence domains: 48 PASS, 2 
 
 ## UPSTREAM-QA-BACKUP-RECOVERY-UNAVAILABLE-DISCRIMINATOR-001
 
-- Severity: `FAIL` (`MEDIUM`)
+- Severity: `PASS` (resolved by `b86569d`)
 - Owner: `DEV`
-- Reproduction: load both exclusive unions, replay the prior eight missing/cross-form bodies, then validate canonical-identity stale bodies using backup `ageMs:0, maximumAgeMs:1000` and recovery `ageMs:1000, maximumAgeMs:1000`.
-- Evidence: commit `0d352ca` closes the prior availability, missing-identity, duration, and timestamp defects: all eight former false positives now select zero branches and real controls select exactly one. Both stale variants still declare only `ageMs.minimum:0`; the backup fresh-age and recovery equal-threshold bodies each select the stale branch even though runtime is healthy whenever `ageMs <= maximumAgeMs`. Committed negatives do not cover this relative threshold.
+- Reproduction: load both exclusive unions, replay the prior eight missing/cross-form bodies, then validate canonical-identity stale bodies below, equal to, and one millisecond above `maximumAgeMs`.
+- Evidence: both stale variants now declare `exclusiveMinimumProperty:"maximumAgeMs"`. Independent backup and recovery probes at 999/1000/1001 against maximum 1000 select 0/0/1 branches; all prior cross-form controls and real runtime forms remain exclusive.
 - Affected contracts: backup and recovery discovery, generated validators, RPO/RTO failure handling, isolated recovery promotion gates, backup identity, canonical timestamps, temporal freshness/future classification, operational health, schema digest/ETag, and downstream consumer disabling.
-- Expected behavior: the implemented union rules remain, and a stale branch additionally requires `ageMs > maximumAgeMs`, matching both assessors' strict runtime threshold.
-- Actual behavior: cross-form discrimination is fixed, but generated validators can still accept a stale classification at a fresh or exactly-on-limit age.
+- Expected versus actual behavior: a stale branch requires `ageMs > maximumAgeMs` while all cross-form union rules remain; source, generated-validator probes, and runtime threshold now match.
 - Acceptance criteria: add a machine-readable relative constraint binding stale `ageMs` strictly above `maximumAgeMs` in both unions; reject below/equal threshold controls; retain the prior 8/8 negatives and real exclusive-branch HTTP controls.
-- Validation results: prior impossible-body rejection 8/8 PASS; residual stale-threshold matrix 0/2; focused suite 5/5 and full suite 385/385 pass but do not cover the relative-age defect; syntax 86/86 and replay invariants PASS.
-- Compatibility impact: generated consumers can accept an internally inconsistent stale backup/recovery response. The correction is discovery-only and need not alter canonical runtime bodies.
-- Performance impact: one bounded integer comparison per stale validation; no ingestion, persistence, replay, RPC, or WebSocket performance impact expected.
-- Blockers: none; the defect is reproducible offline.
+- Validation results: independent below/equal/above threshold matrix 6/6 PASS; focused real-route/schema suite 6/6 PASS; full suite 385/385 PASS; syntax 86/86 PASS; replay invariants PASS at 5,260.39 blocks/s.
+- Compatibility impact: discovery is more precise and generated validators must support the declared sibling-property comparison; canonical runtime bodies, persistence, RPC, and WebSocket are unchanged.
+- Performance impact: one bounded integer comparison per stale validation; no replay, heap, or full-suite regression observed.
+- Blockers: none; the defect is closed.
+
+## UPSTREAM-QA-STATIC-ASSET-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS` (implemented by `80b96f1`)
+- Owner: `DEV`
+- Reproduction: inspect the retryable 503 outcomes for `/` and `/index.html`, replace the configured regular asset with a directory, request both routes, and validate the response against `static_asset_unavailable_v1`.
+- Evidence: both routes reference the shared closed schema but retain distinct stable body-contract identities. Each real route returns HTTP 503 with exactly `{error:"static_asset_unavailable"}`; independent validation accepts that body and rejects both an undeclared field and alternate error sentinel.
+- Affected contracts: static document availability, response discovery, generated validators, content type, retry classification, contract identity, schema digest/ETag, and bounded internal-failure telemetry.
+- Expected versus actual behavior: both static routes expose a machine-readable exact 503 body while successful HTML serving remains unchanged; discovery and runtime match.
+- Acceptance criteria: publish one exact closed schema; reference it from both routes; validate both real failure bodies; retain distinct route contract identities and successful HTML behavior. All criteria are met.
+- Validation results: independent static probes 5/5 PASS; focused real-route/schema suite 6/6 PASS; full suite 385/385 PASS; syntax 86/86 PASS; replay invariants PASS at 5,260.39 blocks/s.
+- Compatibility/performance impact: additive discovery only; successful static serving, runtime body, persistence, RPC, WebSocket, and configuration are unchanged. No bounded-performance regression observed.
+- Blockers: none.
 
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 446,048,504 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 449,679,748 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1066,4 +1085,4 @@ The contract minimum is satisfied with 51 distinct evidence domains: 48 PASS, 2 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: add a machine-readable strict `ageMs > maximumAgeMs` constraint to both stale union variants and negative generated-validator regressions for below-threshold and equal-threshold stale bodies while retaining all prior union controls.
+- NEXT_DEV_ACTION: perform a fresh BA/PO reconciliation across at least 20 indexer product and contract opportunities, then implement the highest-value dependency-ready offline-safe outcome without waiting solely on QC findings; keep live qualification owned by OPERATOR until fresh canonical evidence exists.
