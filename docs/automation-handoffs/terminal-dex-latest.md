@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-PAGINATED-SUCCESS-SCHEMAS-001
+
+- BA/PO decision: fresh inspection reconciled 51 untyped JSON success outcomes in addition to the retained recovery, correctness, performance, and operability queue. The five cursor-paginated event/catalog routes ranked highest as one dependency-ready batch because commercial clients already rely on their stable shared envelope.
+- Selected IDs: `UPSTREAM-BLOCKS-PAGE-SCHEMA-001`, `UPSTREAM-TRANSACTIONS-PAGE-SCHEMA-001`, `UPSTREAM-SWAPS-PAGE-SCHEMA-001`, `UPSTREAM-TOKENS-PAGE-SCHEMA-001`, `UPSTREAM-POOLS-PAGE-SCHEMA-001`.
+- Implemented contracts: all five 200 outcomes now reference closed `paginated_collection_v1`, requiring only an array `data` and canonical base64url-or-null `nextCursor` bounded to 1,024 characters.
+- Acceptance evidence: each real empty collection route returns 200 and exactly the two required fields with an array and null terminal cursor; discovery independently binds all five routes to the shared schema.
+- Compatibility/migration/configuration: additive discovery only; runtime bodies, cursor encoding/scope, filters, REST status, RPC/WebSocket, persistence, and configuration remain unchanged.
+- Blockers/owners: live operational qualification remains blocked by absent provider and canonical environment evidence—OPERATOR. Exact implementation shortfall is 15 because five independently consumable success contracts were compatible; splitting collection fields or cursor cases would be padding.
+- NEXT_WEB_ACTION: generate one `paginated_collection_v1` envelope validator and retain route-specific item validators for blocks, transactions, swaps, tokens, and pools.
+
 # UPSTREAM-FEED-HEALTH-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across ingestion, finality, recovery, observability, contract parity, downstream safety, performance, and commercial readiness. With independent QC green on the prior batch, `/internal/feed/health` ranked highest because it was the sole remaining retryable route without a published response schema.
