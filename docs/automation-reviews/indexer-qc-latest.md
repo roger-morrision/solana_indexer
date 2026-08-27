@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T04:36:51+07:00`
+- Run: `2026-08-28T05:35:53+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `325f8ced0773d1ee33544adb043d5007753160de`
-- Compared with QA baseline: `58da8e4b823cf0e1852221dc8fa877cba50e8c15` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 50 ahead, 0 behind before this evidence report
-- Latest DEV commits: `f10dc83` (feed-health success schema) and `325f8ce` (gap-feed success schema)
-- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Combined feed-health success matches its real body and rejects nested/top-level unsafe evidence. Gap-feed success matches its real body but admits five unsafe or contradictory ingestion/cache projections. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `c859ac6133f7e7261e1037ecad0726bd562daa7c`
+- Compared with QA baseline: `a4e10cbd32722bb50eb350ff25fd491ea95d77ca` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 53 ahead, 0 behind before this evidence report
+- Latest DEV commits: `92eb8cd` (gap-feed semantic hardening) and `c859ac6` (public holder success-schema parity)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The prior HIGH gap-feed projection defect is closed: the valid boundary remains accepted and all five unsafe variants reject. Public holder REST discovery now references the same closed 19-field holder schema as the identical internal projection. Live qualification remains independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-FEED-SUCCESS-DISCOVERY-001` (1/2 PASS)
+### `UPSTREAM-GAP-HOLDER-SUCCESS-DISCOVERY-001` (2/2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QA-FEED-HEALTH-SUCCESS-PROJECTION-001` | `/internal/feed/health` | `PASS` | The real combined healthy response validates exactly; top-level stale evidence plus nested ingestion stale, excessive-lag, and cursor-inconsistent mutations all reject. |
-| `UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001` | `/internal/feed/gaps` | `FAIL` | The real response validates, but all 5/5 independent unsafe variants also validate: stale ingestion, excessive lag, inconsistent cursor/tip/lag, descending skipped slots, and divergent top-level versus nested skipped evidence. |
+| `UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001` | `/internal/feed/gaps` | `PASS` | The valid control remains accepted; independent generated-style validation rejects stale age, excessive lag, inconsistent cursor/tip/lag, descending skipped slots, and divergent top-level versus nested skipped evidence (5/5). |
+| `UPSTREAM-HOLDERS-SUCCESS-PARITY-001` | `/api/v1/holders/{mint}` | `PASS` | The public route and identical internal projection both reference closed `token_holders_success_v1`; a finalized snapshot returns the exact 19 required fields, bounded holder rows, `safeForAutomation:false`, and no injected credentials. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `58da8e4`; the complete delta was exhausted.
-- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `a4e10cb`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting fields, relationships, assertions, or fixture variants would be padding.
-- Validation: feed-health real positive 1/1 PASS and semantic negatives 4/4 PASS; gap-feed real positive 1/1 PASS but unsafe semantic negatives 0/5; focused committed suite 6/6 PASS; 119 outcome representations, 118 unique body-contract identities, and 54 response schemas are structurally enumerated; digest independently recomputes to `98a603c773a0e4d10c591f9aae7e43923fb1423bce78efce3f47c4ccbdc848fd`; full suite 401/401 PASS; syntax 86/86 PASS; replay invariants PASS at 6,446.32 blocks/s with 9,493,552-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: gap-feed valid control 1/1 PASS and unsafe semantic negatives 5/5 PASS; public holder schema mapping 2/2 PASS and real exact-key/redaction control PASS; focused committed suite 5/5 PASS; 119 outcome representations, 118 unique body-contract identities, and 54 response schemas are structurally enumerated; digest independently recomputes to `df9b373f6a692a3092cc85f681e4a17899fcfe3029b96f611cd30914f0cdd874`; full suite 402/402 PASS; syntax 86/86 PASS; replay invariants PASS at 6,550.52 blocks/s with 9,525,440-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-QA-FEED-HEALTH-SUCCESS-PROJECTION-001`: `PASS`.
+- `UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001`: `FAIL` at the time; resolved by current `92eb8cd`.
+- Prior exact shortfall: 18; prior validation was 401/401 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -506,7 +512,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 67-domain reconciliation
+## Independent 69-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -516,14 +522,14 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 54 schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest `98a603c773a0e4d10c591f9aae7e43923fb1423bce78efce3f47c4ccbdc848fd` independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 54 schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest `df9b373f6a692a3092cc85f681e4a17899fcfe3029b96f611cd30914f0cdd874` independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
-| Gap-feed success projection | `FAIL` | The real HTTP 200 body satisfies the advertised top-level shape, bounded checkpoint, and correction items, but generated-style validation accepts all five unsafe nested/cache variants because exporter success semantics and skipped-slot mirroring are not published. |
+| Gap-feed success projection | `PASS` | The real HTTP 200 body satisfies the bounded schema; independent generated-style validation keeps the valid boundary and rejects all 5/5 stale, excessive-lag, inconsistent-progress, descending-slot, and divergent-cache variants. |
 | Paginated success schema | `PASS` | All five page envelopes declare the shared `canonical_cursor_v1` semantic; independent null, valid, short, padded, and wrong-JSON probes match runtime decode/re-encode/version/key/scope admission. |
 | Discovery/trending success schemas | `PASS` | Four distinct schemas match their real top-level envelopes, stable versions/constants, window vocabulary, ISO timestamp, methodology, and array fields; 16 positive/missing/extra/invalid-constant probes pass. |
-| Token intelligence success schemas | `PASS` | Real token market, security, holders, trades, OHLCV, and liquidity 200 responses satisfy their six newly advertised schemas; all six reject a missing required field and an unknown top-level field. |
+| Token intelligence success schemas | `PASS` | Seven internal/public token intelligence routes publish closed schemas. Public and internal holder routes share `token_holders_success_v1`; the real public response contains exactly its 19 required fields, preserves `safeForAutomation:false`, and excludes injected credentials. |
 | Wallet intelligence success schemas | `PASS` | Real wallet detail, performance, profile, funding, and funding-cluster responses satisfy their five schemas. The corrected funding-cluster union accepts canonical `classification:null` without weakening top-level closure or `safeForAutomation:false`; all five reject missing required and unknown top-level fields. |
 | Detail and valuation success schemas | `PASS` | All eight real 200 responses satisfy their advertised schemas plus missing/unknown-field negatives. Transaction detail now advertises the canonical nonnegative integer `feeLamports` representation and accepts `5000` without a runtime change. |
 | Decision-support success schemas | `PASS` | Registry and candle real 200 responses retain compatibility, and the corrected pool-risk schema now accepts the canonical nonnegative direction count and ISO-or-null latest activity time while rejecting the former incompatible array/integer forms. |
@@ -577,10 +583,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 401/401; syntax passes 86/86; replay completes at 6,446.32 blocks/s with 9,493,552-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 496,494,142 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 402/402; syntax passes 86/86; replay completes at 6,550.52 blocks/s with 9,525,440-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 500,035,931 ms old at the trigger time. |
 
-The contract minimum is satisfied with 69 distinct evidence domains: 67 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 69 distinct evidence domains: 68 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -1328,24 +1334,37 @@ The contract minimum is satisfied with 69 distinct evidence domains: 67 PASS, 1 
 
 ## UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (implemented by `92eb8cd`; previously `HIGH`)
 - Owner: `DEV`
 - Reproduction: request `/internal/feed/gaps` from canonical replacement state with healthy exporter status and validate the real HTTP 200 body against `gap_feed_success_v1`; then independently inject stale age, excessive lag, inconsistent cursor/tip/lag, descending skipped slots, or top-level/nested skipped-slot divergence while retaining success sentinels.
-- Evidence: the real body, bounded public checkpoint, and reorg-correction projection validate and remain credential-redacted. However, the nested ingestion schema copies field types without the hardened `maximumProperty`, `uniqueItems`, `strictlyIncreasing`, or exact-difference rules, and no relationship mirrors top-level `durableSkippedSlots` to ingestion evidence. Independent generated-style validation accepts all 5/5 unsafe variants.
+- Evidence: the real body, bounded public checkpoint, and reorg-correction projection validate and remain credential-redacted. The nested ingestion schema now publishes freshness/lag/tip property bounds, exact lag arithmetic, unique strictly increasing skipped slots, and an exact top-level/nested skipped-slot mirror. Independent generated-style validation rejects all 5/5 unsafe variants.
 - Affected contracts: gap-feed HTTP 200 discovery, generated replay/reorg clients, exporter freshness/finality/progress, durable skipped-slot identity, replay-cache invalidation, schema digest/ETag, and downstream commercial monitoring safety.
 - Expected behavior: gap-feed success must reuse the complete healthy ingestion semantics and prove that its top-level skipped-slot list exactly mirrors the exporter projection before clients use checkpoint or correction evidence.
-- Actual behavior: the canonical body is compatible and runtime remains fail-closed, but schema-derived consumers can accept evidence runtime classifies unhealthy or internally contradictory.
+- Actual behavior: expected and actual now match; unsafe or contradictory success projections fail validation.
 - Acceptance criteria: reuse or reference every hardened ingestion success property/relationship except route-only exporter/index wrappers; bind top-level `durableSkippedSlots` exactly to `ingestion.durableSkippedSlots`; preserve the real body and bounded correction/checkpoint schemas; add one positive plus all five generated-validator negatives.
-- Validation results: real HTTP/schema positive 1/1 PASS; credential-redaction control PASS; stale, lag, progress, ordering, and mirror negatives 0/5; focused committed suite 6/6 PASS but checks real key parity rather than unsafe generated-validator variants; full suite 401/401 PASS; syntax 86/86 PASS; replay invariants PASS at 6,446.32 blocks/s.
-- Compatibility/performance impact: discovery hardening will make generated clients reject states runtime already refuses and prevent cache invalidation from contradictory gap evidence; runtime bytes, persistence, provider, RPC, WebSocket, database, and configuration need no migration. Validation remains bounded by existing 10,000-slot and 100-correction limits.
-- Blockers: none; deterministic offline fixtures reproduce the defect.
+- Validation results: real HTTP/schema positive 1/1 PASS; credential-redaction control PASS; stale, lag, progress, ordering, and mirror negatives 5/5 PASS; focused committed suite 5/5 PASS; full suite 402/402 PASS; syntax 86/86 PASS; replay invariants PASS at 6,550.52 blocks/s.
+- Compatibility/performance impact: discovery hardening makes generated clients reject states runtime already refuses and prevents cache invalidation from contradictory gap evidence; runtime bytes, persistence, provider, RPC, WebSocket, database, and configuration are unchanged. Validation remains bounded by existing 10,000-slot and 100-correction limits.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-HOLDERS-SUCCESS-PARITY-001
+
+- Severity: `PASS` (implemented by `c859ac6`)
+- Owner: `DEV`
+- Reproduction: inspect the HTTP 200 outcomes for `/api/v1/holders/{mint}` and `/internal/tokens/{mint}/holders`, then request the public route from a finalized account snapshot with an injected unknown credential-bearing store field.
+- Evidence: both routes reference the shared closed `token_holders_success_v1` schema. The public response contains exactly all 19 required keys, one bounded holder row for the selected page, explicit coverage/exclusion/withheld/freshness/concentration evidence, `safeForAutomation:false`, and no injected credential fields.
+- Affected contracts: public holder/whale REST discovery, generated validators, pagination, concentration safety, exclusion and withheld evidence, freshness, schema digest/ETag, and downstream Terminal DEX consumers.
+- Expected versus actual behavior: the byte-identical public and internal holder projections should share one closed schema without weakening automation gates. Expected and actual match.
+- Acceptance criteria: reference `token_holders_success_v1` from the public 200 outcome; retain internal parity, exact required keys, bounded holder rows, `safeForAutomation:false`, and credential redaction; add route and real-response regressions. All criteria are met.
+- Validation results: route-to-schema mappings 2/2 PASS; 19-field schema boundary PASS; finalized public response exact-key, bounded-row, safety, and redaction controls PASS; focused committed suite 5/5 PASS; full suite 402/402 PASS; syntax 86/86 PASS; replay invariants PASS at 6,550.52 blocks/s.
+- Compatibility/performance impact: additive discovery only; runtime response bytes, holder aggregation, persistence, RPC, WebSocket, provider, database, and configuration are unchanged. Shared fixed-schema validation is bounded.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 496,494,142 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 500,035,931 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1354,4 +1373,4 @@ The contract minimum is satisfied with 69 distinct evidence domains: 67 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: harden gap-feed success with complete ingestion semantics and exact skipped-slot mirroring plus the five independent negative regressions, then continue the BA/PO-ranked offline-safe roadmap.
+- NEXT_DEV_ACTION: continue the BA/PO-ranked offline-safe roadmap by selecting the next highest-value uncovered public success-schema parity gap and add exact real-response plus fail-closed negative regressions.
