@@ -1,5 +1,16 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-DISCOVERY-SUCCESS-SCHEMAS-001
+
+- BA/PO decision: fresh inspection of the 46 untyped JSON success outcomes and retained recovery/performance queue selected the four discovery/trending envelopes. They directly serve discovery, pool launch, evidence ranking, and public-commercial consumers; all are offline-verifiable and share a compatibility-only query-contract release boundary.
+- Selected IDs: `UPSTREAM-INTERNAL-TRENDING-SCHEMA-001`, `UPSTREAM-NEW-PAIRS-SCHEMA-001`, `UPSTREAM-CANDIDATES-SCHEMA-001`, `UPSTREAM-PUBLIC-TRENDING-SCHEMA-001`.
+- Implemented contracts: the four 200 outcomes now reference distinct closed schemas preserving their real envelopes. Internal trending fixes schema version, window vocabulary, `activity-v1`, and token array; new pairs fixes schema version and data array; candidates fixes schema version, `activity-v1`, and evidence array; public trending fixes ISO timestamp, window vocabulary, honest methodology, and token array.
+- Acceptance evidence: each real route returns HTTP 200, contains every required field and no undeclared top-level field, and satisfies every advertised constant enum. Discovery binds each route to its distinct schema.
+- Compatibility/migration/configuration: additive discovery precision only. Runtime payloads, ranking, evidence, persistence, REST status, RPC/WebSocket, and configuration remain unchanged; generated clients should add the four validators.
+- BA/PO opportunity matrix (20 reconciled): `UPSTREAM-INTERNAL-TRENDING-SCHEMA-001` delivered/P0; `UPSTREAM-NEW-PAIRS-SCHEMA-001` delivered/P0; `UPSTREAM-CANDIDATES-SCHEMA-001` delivered/P0; `UPSTREAM-PUBLIC-TRENDING-SCHEMA-001` delivered/P0; `UPSTREAM-TOKEN-DETAIL-SCHEMA-001` retained/P1; `UPSTREAM-TOKEN-MARKET-SCHEMA-001` retained/P1; `UPSTREAM-TOKEN-SECURITY-SCHEMA-001` retained/P1; `UPSTREAM-HOLDER-SCHEMA-001` retained/P1; `UPSTREAM-TRADE-SCHEMA-001` retained/P1; `UPSTREAM-OHLCV-SCHEMA-001` retained/P1; `UPSTREAM-LIQUIDITY-SCHEMA-001` retained/P1; `UPSTREAM-DEPTH-SCHEMA-001` retained/P1; `UPSTREAM-WALLET-DETAIL-SCHEMA-001` retained/P1; `UPSTREAM-WALLET-PERFORMANCE-SCHEMA-001` retained/P1; `UPSTREAM-WALLET-PROFILE-SCHEMA-001` retained/P1; `UPSTREAM-WALLET-FUNDING-SCHEMA-001` retained/P1; `UPSTREAM-WALLET-CLUSTER-SCHEMA-001` retained/P1; `UPSTREAM-POOL-QUOTE-SCHEMA-001` retained/P1; `UPSTREAM-LIVE-QUALIFICATION-001` blocked/P0; `UPSTREAM-PROTOCOL-COVERAGE-001` blocked/P2.
+- Shortfall/blockers: four material outcomes completed; exact 20-task shortfall is 16. Items 5-18 require separate nested item-schema design and fixture acceptance and were not split into this top-level-envelope batch; item 19 requires fresh operator-owned provider/warehouse/backup/recovery evidence; item 20 requires an authoritative selected protocol ABI and canonical fixtures. Green tests and elapsed time are not claimed as blockers.
+- NEXT_WEB_ACTION: generate and enforce the four discovery/trending success validators while preserving each route's distinct envelope.
+
 # UPSTREAM-FEED-PAGE-SCHEMA-CLOSURE-001
 
 - BA/PO decision: fresh inspection reconciled 46 remaining untyped success outcomes plus the broader correctness/recovery queue. Independent QC elevated six active schema defects: one nested feed-health redaction gap and five page-cursor semantic gaps.
