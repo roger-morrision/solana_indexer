@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-INGESTION-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected healthy ingestion evidence because discovery, replay/reorg, AI safety, and commercial monitoring clients could validate only exporter failures.
+- Selected ID: `UPSTREAM-INGESTION-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/api/v1/ingestion` success now binds a closed schema for finalized mainnet exporter identity, canonical source, progress, freshness, failure-free state, durable skipped slots, exporter evidence, and index projection.
+- Acceptance evidence: focused discovery verifies healthy/version/finality/failure constants and bounded source values; the live durable exporter fixture proves exact top-level response parity.
+- Compatibility/migration/configuration: additive discovery only; exporter assessment, response body, source eligibility, persistence, RPC/WebSocket, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Other healthy operational schemas remain; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: generate the ingestion success validator and preserve `automationEligible:false` for healthy public-RPC evidence.
+
 # UPSTREAM-RECOVERY-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected healthy recovery qualification because replay/reorg consumers and operators could validate only unavailable, future, and stale outcomes.
