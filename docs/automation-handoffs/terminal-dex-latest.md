@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-RECOVERY-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across recovery qualification, backup integrity, exact convergence, finality, contract parity, trading safety, operability, observability, performance, and commercial readiness. `/api/v1/recovery` ranked highest because promotion consumers could not machine-validate its bounded fail-closed 503 family.
+- Selected ID: `UPSTREAM-RECOVERY-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: the route's 503 outcome now references closed `recovery_unavailable_v1`, requiring availability, `healthy:false`, bounded qualification reason, age, and configured maximum age; canonical stale/future reports may additionally expose only backup ID, completion time, and duration.
+- Acceptance evidence: real missing and invalid report responses validate the required/allowed field contract; the schema explicitly enumerates the two canonical temporal failures and their three identity fields.
+- Compatibility/migration/configuration: additive discovery only; runtime bodies, isolated recovery reports, persistence, REST status, RPC, WebSocket, and configuration remain unchanged.
+- Blockers/owners: live isolated recovery qualification remains blocked by absent fresh evidence—OPERATOR. The implementation shortfall is 19 because one material outcome was dependency-ready; splitting reasons or identity fields would be padding.
+- NEXT_WEB_ACTION: generate a validator for `recovery_unavailable_v1` and keep consumer promotion disabled for every matching response.
+
 ## UPSTREAM-BACKUP-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across backup integrity, recovery, persistence, contract parity, downstream safety, operability, observability, performance, and commercial readiness. `/api/v1/backup` ranked highest because operators could not machine-validate its bounded RPO failure family.
