@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-TOKEN-ACCOUNT-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected public token-account success discovery because wallet intelligence and safety consumers received exact balances and Token-2022 withheld evidence without a machine-readable healthy schema.
+- Selected ID: `UPSTREAM-TOKEN-ACCOUNT-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/api/v1/token-account/{account}` HTTP 200 now references a closed schema for account/mint/owner/program identity, decimals, raw and withheld balances, canonical slot, closed state, and snapshot completeness.
+- Acceptance evidence: discovery identifies the new schema and a canonical indexed account returns HTTP 200 with the exact ten required keys while injected internal provenance remains redacted.
+- Compatibility/migration/configuration: additive REST discovery only; runtime response bytes, account indexing, persistence, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: generate the token-account validator and keep raw balance, withheld balance, and snapshot-completeness semantics separate in wallet UI and safety logic.
+
 # UPSTREAM-HOLDERS-SUCCESS-PARITY-001
 
 - BA/PO decision: fresh 20+ reconciliation selected public holder success discovery because Terminal DEX holder/whale consumers received the allowlisted concentration envelope without a schema, while the equivalent internal view already exposed one.
