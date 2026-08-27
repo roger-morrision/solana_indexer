@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-STATS-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across data completeness, contract parity, finality/reorg, provider resilience, recovery, observability, performance, developer experience, and commercial readiness. `/api/stats` ranked highest among dependency-ready offline-safe items because commercial monitoring clients could discover its retryable 503 but not validate the quarantined-state body.
+- Selected ID: `UPSTREAM-STATS-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: the `/api/stats` 503 outcome now references closed `stats_unavailable_v1`, requiring the complete redacted stats projection plus structure and chain evidence while rejecting health-only and unknown top-level fields.
+- Acceptance evidence: a real malformed persisted collection shape returns 503, exposes `structure.canonical:false` and `chain.invalidStateStructure:true`, contains every required field, no undeclared field, and no misleading health status fields.
+- Compatibility/migration/configuration: additive query-contract discovery only; runtime body, endpoint, REST status, RPC result, WebSocket, persistence, and configuration remain unchanged.
+- Blockers/owners: live operational qualification remains blocked by absent provider and canonical environment evidence—OPERATOR. Exact implementation shortfall is 19 because one material contract outcome was dependency-ready; splitting counters or nested fields would be padding.
+- NEXT_WEB_ACTION: generate a validator for `stats_unavailable_v1` and treat every matching response as quarantined monitoring data rather than canonical index health.
+
 # UPSTREAM-BACKUP-RECOVERY-FAILURE-UNIONS-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across discovery, token/pool intelligence, holders/whales, trading safety, finality/reorg, provider resilience, recovery, observability, performance, and commercial contracts. Independent QC elevated `UPSTREAM-BACKUP-UNAVAILABLE-UNION-001` and `UPSTREAM-RECOVERY-UNAVAILABLE-UNION-001` above the retained stats-schema gap because both published flat schemas accepted impossible fail-open availability/reason/identity combinations.
