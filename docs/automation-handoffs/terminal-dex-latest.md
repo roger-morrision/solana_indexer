@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-WAREHOUSE-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected healthy warehouse convergence because AI safety, replay/reorg, recovery, and commercial monitoring clients could validate only warehouse failures.
+- Selected ID: `UPSTREAM-WAREHOUSE-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/api/v1/warehouse` success now binds a closed schema for mainnet identity, sequence convergence, replay retention, freshness, sink checkpoints, and content reconciliation.
+- Acceptance evidence: focused discovery verifies healthy/mainnet/replay constants; the existing exact-convergence HTTP fixture proves exact response-key parity while retaining credential redaction.
+- Compatibility/migration/configuration: additive discovery only; warehouse calculation, sink writes, reconciliation, response body, persistence, RPC/WebSocket, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Healthy health/feed schemas remain; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: generate the warehouse success validator and require exact sink/reconciliation convergence before enabling decision consumers.
+
 # UPSTREAM-INGESTION-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected healthy ingestion evidence because discovery, replay/reorg, AI safety, and commercial monitoring clients could validate only exporter failures.
