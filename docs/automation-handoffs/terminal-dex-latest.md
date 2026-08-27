@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-FEED-HEALTH-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across ingestion, finality, recovery, observability, contract parity, downstream safety, performance, and commercial readiness. With independent QC green on the prior batch, `/internal/feed/health` ranked highest because it was the sole remaining retryable route without a published response schema.
+- Selected ID: `UPSTREAM-FEED-HEALTH-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: the combined index/exporter 503 now references closed `feed_health_unavailable_v1`, requiring the redacted index health/stats projection and nested ingestion status while admitting only the bounded optional quality evidence emitted for richer index failures.
+- Acceptance evidence: real empty-index/absent-exporter and malformed-index/absent-exporter responses both contain every required field, no undeclared top-level field, and remain explicitly unhealthy.
+- Compatibility/migration/configuration: additive discovery only; runtime bodies, ingestion evidence, endpoint status, REST/RPC/WebSocket behavior, persistence, and configuration remain unchanged.
+- Blockers/owners: live operational qualification remains blocked by absent provider and canonical environment evidence—OPERATOR. Exact implementation shortfall is 19 because one material response contract was dependency-ready; splitting nested fields or failure causes would be padding.
+- NEXT_WEB_ACTION: generate `feed_health_unavailable_v1` and block live-feed consumers whenever a matching response is received.
+
 # UPSTREAM-STATIC-ASSET-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across contract parity, recovery, observability, provider resilience, performance, commercial readiness, and downstream journeys. The `/` and `/index.html` failure contracts ranked highest among dependency-ready offline-safe items because both return a bounded JSON 503 while discovery exposed no schema.
