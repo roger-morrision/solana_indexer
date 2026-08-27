@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-GAP-FEED-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across indexing correctness, recovery, replay, provider resilience, downstream discovery, price/volume, holder and wallet intelligence, trading safety, observability, performance, contract parity, and protocol coverage. Gap-feed failure discovery was the highest-value dependency-ready offline-safe diagnostic gap because recovery clients could not validate its bounded 503 family.
+- Selected ID: `UPSTREAM-GAP-FEED-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/internal/feed/gaps` now references closed `gap_feed_unavailable_v1`, requiring the version-1 unavailable envelope and permitting only bounded structural fields or exporter/reorg/checkpoint evidence.
+- Acceptance evidence: discovery references the schema; a real unavailable feed validates the admitted top-level fields; an injected recovery refusal validates the minimal exact envelope.
+- Compatibility/migration/configuration: additive discovery only; runtime payloads, status, ingestion, persistence, RPC, WebSocket, and configuration remain unchanged. Consumers must not infer gap completeness from absent optional diagnostic evidence.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. Health, stats, ingestion, warehouse, backup, and recovery response schemas remain BA/PO candidates.
+- NEXT_WEB_ACTION: generate a closed validator for `gap_feed_unavailable_v1` and require a successful feed before advancing recovery cursors.
+
 ## UPSTREAM-BOT-READINESS-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across discovery, price/volume, holder and wallet intelligence, trading safety, contract parity, recovery, replay, provider resilience, observability, performance, and protocol coverage. Bot-readiness was the highest-value dependency-ready offline-safe gap because automated consumers could identify 503 but not validate its fail-closed evidence union.
