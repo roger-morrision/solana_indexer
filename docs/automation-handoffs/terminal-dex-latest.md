@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-WALLET-CLUSTER-NULLABILITY-001
+
+- BA/PO decision: fresh 20+ opportunity reconciliation selected the independent QC failure over retained enhancements because the published funding-cluster validator rejected the canonical evidence-only response.
+- Selected ID: `UPSTREAM-WALLET-CLUSTER-NULLABILITY-001`.
+- Implemented contract: `wallet_funding_cluster_success_v1.classification` now accepts either a nonempty classification string or null. Null continues to mean no supported classification; it does not imply smart-money or automation eligibility.
+- Acceptance evidence: focused regression proves the canonical empty/evidence-only store emits null and the schema advertises the exact string-or-null union.
+- Compatibility/migration/configuration: additive schema correction only; runtime body, endpoint status, persistence, RPC/WebSocket, and configuration remain unchanged. Regenerate validators built from `0c936dd`.
+- Shortfall/blockers: 20+ findings reconciled, one material correction completed, exact 20-task shortfall 19. Remaining success contracts require separate nested/variant fixtures; live qualification is OPERATOR-blocked; protocol expansion requires authoritative ABI and canonical fixtures.
+- NEXT_WEB_ACTION: regenerate the wallet funding-cluster validator so null classification is accepted while automation remains disabled.
+
 # UPSTREAM-WALLET-INTELLIGENCE-SCHEMAS-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current contract, recovery, performance, provider, and protocol opportunities. Five wallet-intelligence success envelopes ranked highest for trader intelligence, AI analysis, and commercial clients because they were stable runtime projections but undiscoverable to generated clients.

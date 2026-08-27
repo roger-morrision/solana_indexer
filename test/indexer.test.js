@@ -295,9 +295,11 @@ test("six token intelligence routes publish distinct closed success envelopes", 
   for (const [pathname, schemaName] of expected) { const outcome = contract.http.find(({ path }) => path === pathname).responseOutcomes.find(({ status }) => status === 200), schema = contract.responseBodySchemas[schemaName]; assert.equal(outcome.representation.bodySchema, schemaName, pathname); assert.equal(schema.additionalProperties, false, pathname); assert.ok(schema.required.length >= 2, pathname); assert.deepEqual(schema.optional.filter((key) => schema.required.includes(key)), [], pathname); assert.ok([...schema.required, ...schema.optional].every((key) => schema.properties[key]), pathname); }
 });
 
-test("five wallet intelligence routes publish distinct closed success envelopes", () => {
+test("five wallet intelligence routes publish distinct closed success envelopes", async () => {
   const expected = new Map([["/internal/wallets/{wallet}", "wallet_detail_success_v1"], ["/internal/wallets/{wallet}/performance", "wallet_performance_success_v1"], ["/internal/wallets/{wallet}/profile", "wallet_profile_success_v1"], ["/internal/wallets/{wallet}/funding", "wallet_funding_success_v1"], ["/internal/wallets/{wallet}/funding-cluster", "wallet_funding_cluster_success_v1"]]), contract = queryContractSnapshot();
   for (const [pathname, schemaName] of expected) { const outcome = contract.http.find(({ path }) => path === pathname).responseOutcomes.find(({ status }) => status === 200), schema = contract.responseBodySchemas[schemaName]; assert.equal(outcome.representation.bodySchema, schemaName, pathname); assert.equal(schema.additionalProperties, false, pathname); assert.ok(schema.required.length >= 4, pathname); assert.ok([...schema.required, ...schema.optional].every((key) => schema.properties[key]), pathname); if (schema.properties.safeForAutomation) assert.deepEqual(schema.properties.safeForAutomation.values, [false], pathname); }
+  assert.deepEqual(contract.responseBodySchemas.wallet_funding_cluster_success_v1.properties.classification.type, ["string", "null"]);
+  const store = new IndexStore("unused"); await store.load(); assert.equal(store.walletFundingCluster("evidence-only-wallet").classification, null);
 });
 
 test("every response body publishes a unique stable versioned contract identity", () => {
