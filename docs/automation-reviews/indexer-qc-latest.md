@@ -1,14 +1,85 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T06:36:14+07:00`
+- Run: `2026-08-27T07:36:44+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `de49e23e1f3881e870daf3833c88aee7224e765e`
-- Compared with QA baseline: `beffb9813805be692223cc2fe135c779cbfe0b46` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 40 ahead, 0 behind before this evidence report
-- Latest DEV commits: `bc1de1d` (`UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001`) and `de49e23` (`UPSTREAM-PREPARATION-UNAVAILABLE-SCHEMA-001`)
-- Overall result: both reviewed DEV outcomes pass. Returned query-contract snapshots are detached across nested schemas, constraints, route outcomes, digest, ETag, and published HTTP discovery. Both preparation routes publish and emit the closed preparation-specific 503 envelope without exposing structural field names. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `21eee0db5368a4a7e74b1bfcf720473a4d75ef2c`
+- Compared with QA baseline: `1c803b4a4b39a0f3f58fc2a5fb4065c62a884c7a` (3 DEV commits, 3 changed files)
+- Compared with `origin/main`: 44 ahead, 0 behind before this evidence report
+- Latest DEV commits: `eb34ead` (`UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-01..24`), `877b0d9` (`UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-01..24`), and `21eee0d` (`UPSTREAM-QUOTE-UNAVAILABLE-SCHEMA-001`)
+- Overall result: all 49 reviewed DEV outcomes pass. Every one of the 29 decision-quality consumers advertises one retryable JSON 503 outcome; 24 compatible routes reference and emit `basic_unavailable_v1`; pool quote independently fits `quote_unavailable_v1` across structure, decision, unsupported-protocol, and engine failures; four heterogeneous controls remain deliberately untyped. Live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (49/20)
+
+### `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001` (24/24 PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-01` | `/internal/trending` | `PASS` | Exactly one retryable JSON 503 is published; an injected decision failure returns the exact unavailable envelope. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-02` | `/internal/new-pairs` | `PASS` | Exactly one retryable JSON 503 is published; the independent real-route decision probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-03` | `/internal/candidates` | `PASS` | Exactly one retryable JSON 503 is published; the independent real-route decision probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-04` | `/api/trending` | `PASS` | Exactly one retryable JSON 503 is published; the independent real-route decision probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-05` | `/api/v1/tokens` | `PASS` | Exactly one retryable JSON 503 is published; an injected decision failure returns the exact unavailable envelope. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-06` | `/api/v1/pools` | `PASS` | Exactly one retryable JSON 503 is published; the independent real-route decision probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-07` | `/internal/evidence/{mint}` | `PASS` | Exactly one retryable JSON 503 is published; an injected decision failure on the materialized mint route returns the exact envelope. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-08` | `/internal/tokens/{mint}` | `PASS` | Exactly one retryable JSON 503 is published; the materialized token-detail probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-09` | `/internal/tokens/{mint}/market` | `PASS` | Exactly one retryable JSON 503 is published; the materialized market probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-10` | `/internal/tokens/{mint}/security` | `PASS` | Exactly one retryable JSON 503 is published; the materialized security probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-11` | `/internal/tokens/{mint}/holders` | `PASS` | Exactly one retryable JSON 503 is published; the materialized holders probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-12` | `/internal/tokens/{mint}/trades` | `PASS` | Exactly one retryable JSON 503 is published; the materialized trades probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-13` | `/internal/tokens/{mint}/ohlcv` | `PASS` | Exactly one retryable JSON 503 is published; the materialized OHLCV probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-14` | `/internal/tokens/{mint}/liquidity` | `PASS` | Exactly one retryable JSON 503 is published; the materialized liquidity probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-15` | `/internal/wallets/{wallet}` | `PASS` | Exactly one retryable JSON 503 is published; the materialized wallet-detail probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-16` | `/internal/wallets/{wallet}/performance` | `PASS` | Exactly one retryable JSON 503 is published; the materialized performance probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-17` | `/internal/wallets/{wallet}/profile` | `PASS` | Exactly one retryable JSON 503 is published; an injected decision failure returns the exact unavailable envelope. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-18` | `/internal/wallets/{wallet}/funding` | `PASS` | Exactly one retryable JSON 503 is published; the materialized funding probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-19` | `/internal/wallets/{wallet}/funding-cluster` | `PASS` | Exactly one retryable JSON 503 is published; the materialized cluster probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-20` | `/api/account/{address}` | `PASS` | Exactly one retryable JSON 503 is published; the materialized account probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-21` | `/api/mint/{mint}` | `PASS` | Exactly one retryable JSON 503 is published; the materialized mint probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-22` | `/api/v1/risk/{pool}` | `PASS` | Exactly one retryable JSON 503 is published; an injected decision failure returns the exact unavailable envelope. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-23` | `/api/v1/pool/{pool}` | `PASS` | Exactly one retryable JSON 503 is published; the materialized pool-detail probe returns 503. |
+| `UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001-24` | `/api/v1/candles/{pool}` | `PASS` | Exactly one retryable JSON 503 is published; the materialized candle probe returns 503. |
+
+### `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001` (24/24 PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-01` | `/internal/trending` | `PASS` | References `basic_unavailable_v1`; a structural failure returns exactly three fields and redacts injected structure names. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-02` | `/internal/new-pairs` | `PASS` | References the closed schema; the distinct structural HTTP probe matches it exactly. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-03` | `/internal/candidates` | `PASS` | References the closed schema; the distinct structural HTTP probe matches it exactly. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-04` | `/api/trending` | `PASS` | References the closed schema; the distinct structural HTTP probe matches it exactly. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-05` | `/api/v1/tokens` | `PASS` | References the closed schema; the distinct structural HTTP probe matches it exactly. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-06` | `/api/v1/pools` | `PASS` | References the closed schema; the distinct structural HTTP probe matches it exactly. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-07` | `/internal/evidence/{mint}` | `PASS` | References the closed schema; the materialized structural probe matches it without internal fields. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-08` | `/internal/tokens/{mint}` | `PASS` | References the closed schema; the materialized token-detail structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-09` | `/internal/tokens/{mint}/market` | `PASS` | References the closed schema; the materialized market structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-10` | `/internal/tokens/{mint}/security` | `PASS` | References the closed schema; the materialized security structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-11` | `/internal/tokens/{mint}/holders` | `PASS` | References the closed schema; the materialized holders structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-12` | `/internal/tokens/{mint}/trades` | `PASS` | References the closed schema; the materialized trades structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-13` | `/internal/tokens/{mint}/ohlcv` | `PASS` | References the closed schema; the materialized OHLCV structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-14` | `/internal/tokens/{mint}/liquidity` | `PASS` | References the closed schema; the materialized liquidity structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-15` | `/internal/wallets/{wallet}` | `PASS` | References the closed schema; the materialized wallet-detail structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-16` | `/internal/wallets/{wallet}/performance` | `PASS` | References the closed schema; the materialized performance structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-17` | `/internal/wallets/{wallet}/profile` | `PASS` | References the closed schema; the materialized profile structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-18` | `/internal/wallets/{wallet}/funding` | `PASS` | References the closed schema; the materialized funding structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-19` | `/internal/wallets/{wallet}/funding-cluster` | `PASS` | References the closed schema; the materialized cluster structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-20` | `/api/account/{address}` | `PASS` | References the closed schema; the materialized account structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-21` | `/api/mint/{mint}` | `PASS` | References the closed schema; the materialized mint structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-22` | `/api/v1/risk/{pool}` | `PASS` | References the closed schema; the materialized risk structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-23` | `/api/v1/pool/{pool}` | `PASS` | References the closed schema; the materialized pool-detail structural probe matches it. |
+| `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-24` | `/api/v1/candles/{pool}` | `PASS` | References the closed schema; the materialized candle structural probe matches it. |
+
+### `UPSTREAM-QUOTE-UNAVAILABLE-SCHEMA-001` (PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-QUOTE-UNAVAILABLE-SCHEMA-001` | `/internal/pools/{pool}/quote` | `PASS` | The sole 503 outcome references `quote_unavailable_v1`. Independent structure and decision failures match the required three-field form; unsupported protocol and forced engine failure add only constant `automationSafe:false`. All four bodies satisfy the closed union and nested snapshot mutation remains isolated. |
+
+- Available DEV delta: exactly 49 distinct fixes/enhancements after `1c803b4`; the complete delta was exhausted.
+- Verification result: 49 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 0; the reviewed delta exceeds the 20-item contract by 29 without duplicate evidence or cosmetic splitting.
+- Validation: independent discovery cardinality 29/29 PASS, including 24 new outcomes and five retained controls; independent decision-failure HTTP matrix 29/29 PASS; decision schema references 24/24 PASS with 32 total `basic_unavailable_v1` references; structural-envelope HTTP matrix 24/24 PASS; pool-quote schema reference and all four distinct 503 forms PASS; four remaining heterogeneous schema-null controls PASS; 119 outcome representations and 118 body-contract identities are complete and unique; digest recomputation and nested isolation PASS. Focused response/schema suite 15/15 PASS; full suite 374/374 PASS; syntax 83/83 PASS; replay invariants PASS at 5,660.99 blocks/s with 11,394,848-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
 
 ### `UPSTREAM-CONTRACT-SNAPSHOT-ISOLATION-001` (PASS)
 
@@ -361,16 +432,19 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 36-domain reconciliation
+## Independent 39-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
 | Path-parameter boundary | `PASS` | All 27 published template routes expose exact placeholder maps; 54 combined encoded-slash/noncanonical-unreserved probes and the prior `%ZZ` plus invalid-amount reproduction now return the canonical path error before query-value admission. |
 | HTTP admission discovery | `PASS` | The published 14-stage order and status/retry/header outcomes match source and independent HTTP precedence probes across authentication, base quota, canonical path, query, and method boundaries. |
 | HTTP route response discovery | `PASS` | All five cursor-paginated routes now publish non-retryable JSON 400 outcomes matching independent real `invalid_cursor` responses against canonical indexed state. |
-| HTTP response representation discovery | `PASS` | All 95 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
-| HTTP body-contract identity | `PASS` | All 94 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
+| Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
+| HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
+| HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
 | HTTP response body schemas | `PASS` | The closed error, unavailable, and preparation schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery. |
+| Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
+| Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -399,10 +473,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 371/371; syntax passes 83/83; replay completes at 5,583.68 blocks/s with 7,436,584-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 417,256,797 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 374/374; syntax passes 83/83; replay completes at 5,660.99 blocks/s with 11,394,848-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | Provider variables and active exporter/warehouse/backup/recovery status files are absent; both retained indexes report `wrong_network`; retained finalized exporter evidence is 406,432 slots behind and 420,887,513 ms old at the trigger time. |
 
-The contract minimum is satisfied with 36 distinct evidence domains: 35 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 39 distinct evidence domains: 38 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -467,12 +541,54 @@ The contract minimum is satisfied with 36 distinct evidence domains: 35 PASS, 0 
 - Severity: `PASS`
 - Owner: `DEV`
 - Reproduction: enumerate all response outcomes from two independently generated query-contract snapshots; derive the expected route/outcome/version identity for every body-bearing entry, check uniqueness and length bounds, and inspect the bodyless 304 identity.
-- Evidence: all 94 body-bearing entries match their deterministic `solana-indexer.http.&lt;route&gt;.&lt;outcome&gt;.v1` identity, all 94 identities are unique, maximum length is 79 characters, repeated unmodified snapshots have the same digest, and `/api/v1/query-contracts` status 304 alone has `bodyContract: null`.
+- Evidence: all 118 body-bearing entries match their deterministic `solana-indexer.http.&lt;route&gt;.&lt;outcome&gt;.v1` identity, all 118 identities are unique, maximum length is 79 characters, repeated unmodified snapshots have the same digest, and `/api/v1/query-contracts` status 304 alone has `bodyContract: null`.
 - Affected contracts: generated response validators, compatibility caches, route/outcome schema identity, discovery digest/ETag, JSON/Prometheus/HTML parser selection, and bodyless completion handling.
 - Expected versus actual: every body-bearing outcome must carry one stable versioned identity and every bodyless outcome must explicitly carry no identity; actual discovery matches.
 - Acceptance criteria: publish unique bounded route/outcome/version identities for all body-bearing outcomes; publish null only for bodyless outcomes; preserve representation/status parity and deterministic digest coverage. All criteria are met.
-- Validation results: derived identity matrix 94/94 PASS; uniqueness 94/94 PASS; one bodyless 304 PASS; focused response/cursor suite 13/13 PASS; full suite 367/367 PASS; syntax and replay PASS.
+- Validation results: derived identity matrix 118/118 PASS; uniqueness 118/118 PASS; one bodyless 304 PASS; focused response/schema suite 15/15 PASS; full suite 374/374 PASS; syntax and replay PASS.
 - Compatibility/performance impact: additive discovery metadata changes the digest/ETag without changing runtime bytes; bounded string generation adds no observed replay or API regression.
+- Blockers: none.
+
+## UPSTREAM-QA-DECISION-UNAVAILABLE-DISCOVERY-001
+
+- Severity: `PASS`
+- Owner: `DEV`
+- Reproduction: enumerate the 29 runtime paths gated by `decisionStateQuality`, materialize every template with canonical path and required query values, inject noncanonical derived-ledger evidence, and compare each real response with its published post-admission outcomes.
+- Evidence: all 29 routes publish exactly one retryable JSON `unavailable` status 503. Each distinct real HTTP probe returns 503 with `{schemaVersion:1, available:false, reason:"indexed_decision_evidence_invalid"}`; the 24 new entries are `UPSTREAM-QA-DECISION-UNAVAILABLE-DISCOVERY-001-01..24`, and the five pre-existing quote, depth, price, volume, and readiness controls remain unique.
+- Affected contracts: generated HTTP response classifiers, decision-evidence retry policy, discovery digest/ETag, token/pool catalogs, holder/trader/wallet intelligence, evidence, risk, price/volume, quote/depth, candles, and bot-readiness clients.
+- Expected versus actual: every recognized decision consumer advertises its shared fail-closed decision-quality response once, with retryable status 503; published and observed results match for all 29 routes.
+- Acceptance criteria: add the omitted 24 outcomes without duplicating the five existing outcomes; retain one ordered status entry per route; bind additions into snapshot digest and body identity; verify all consumers through real injected decision failure. All criteria are met.
+- Validation results: 24/24 new discovery items PASS; complete decision set 29/29 and real HTTP matrix 29/29 PASS; focused suite 15/15 and full suite 374/374 PASS; syntax, digest recomputation, identity uniqueness, and replay PASS.
+- Compatibility impact: additive discovery changes the query-contract digest/ETag; runtime failure bytes are unchanged by this discovery batch, and generated clients can now classify these 503s as retryable.
+- Performance impact: 24 bounded static outcome entries; no request, replay, heap, or suite regression observed.
+- Blockers: none.
+
+## UPSTREAM-QA-DECISION-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS`
+- Owner: `DEV`
+- Reproduction: enumerate the 24 decision routes claimed compatible with `basic_unavailable_v1`, inject noncanonical structure evidence containing a private field name, issue one canonical real request per route, and check the heterogeneous decision consumers against their deliberately separate schema handling.
+- Evidence: all 24 outcomes reference the closed three-field schema and all 24 distinct structural HTTP responses match it exactly without the injected internal field name. Depth, price, volume, and readiness remain null because later 503 bodies are heterogeneous; pool quote is now independently covered by `quote_unavailable_v1`. Total basic-schema coverage is 32 unique routes after retaining the earlier eight exact envelopes.
+- Affected contracts: response-schema discovery, generated validators, structure and decision fail-closed parity, secret/diagnostic redaction, retry handling, and the 24 discovery, catalog, evidence, token, wallet, account, mint, risk, pool, and candle consumers.
+- Expected versus actual: only structurally identical decision-quality bodies reference `basic_unavailable_v1`; both structure and decision gates emit the exact closed envelope for those routes, while heterogeneous routes remain untyped. Actual behavior matches.
+- Acceptance criteria: assign exactly 24 new basic-schema references; keep incompatible consumers outside that schema; emit no undocumented `fields`; preserve success, 4xx, RPC, WebSocket, persistence, and configuration contracts; keep snapshot isolation and identity uniqueness. All criteria are met.
+- Validation results: schema assignments 24/24 PASS; structural HTTP matrix 24/24 PASS; four remaining null controls and the separately typed quote control PASS; total schema-reference distribution is 32 basic, 9 client-error, 6 not-found, 2 preparation, 1 quote, and 69 null across 119 outcomes; nested isolation and digest recomputation PASS; focused 15/15 and full 374/374 PASS; syntax and replay PASS.
+- Compatibility impact: the undocumented `fields` member is removed from structural 503 bodies on these 24 routes; consumers can migrate to the closed schema. Other response bodies and non-HTTP contracts are unchanged.
+- Performance impact: one bounded route classifier plus static schema references; replay remains 5,660.99 blocks/s with 11,394,848-byte heap growth below the 536,870,912-byte ceiling.
+- Blockers: none.
+
+## UPSTREAM-QA-QUOTE-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS`
+- Owner: `DEV`
+- Reproduction: inspect the pool-quote 503 schema reference, then independently force structural-quality refusal, decision-quality refusal, an unsupported pool program, and a recognized CPMM program with incomplete engine evidence.
+- Evidence: the sole pool-quote 503 outcome references `quote_unavailable_v1`. Structure and decision failures return exactly `{schemaVersion:1, available:false, reason}`; unsupported protocol and quote-engine failure add only `automationSafe:false`. All four bodies satisfy the required/optional/closed-field rules, and mutation of the returned quote schema cannot alter a fresh snapshot.
+- Affected contracts: authenticated pool quote, generated unavailable validators, analysis-only automation safety, retry classification, contract digest/ETag, structure/decision gates, and quote-engine failure handling.
+- Expected versus actual: one closed schema must cover every pool-quote 503 without making `automationSafe` optionality unsafe; the observed four failure families fit exactly and any present automation flag is fixed false.
+- Acceptance criteria: reference the schema only from pool quote; require version/available/reason; allow only optional constant-false automation safety; cover structure, decision, unsupported protocol, and engine failure; preserve runtime bytes and non-quote contracts. All criteria are met.
+- Validation results: reference cardinality 1/1 PASS; four independent runtime families 4/4 PASS; closed-field and nested-isolation checks PASS; focused 15/15 and full 374/374 PASS; syntax and replay PASS.
+- Compatibility impact: additive discovery only; existing clients and runtime response bodies are unchanged, while generated clients can validate both quote failure forms.
+- Performance impact: one bounded static schema and route membership check; no regression observed.
 - Blockers: none.
 
 ## UPSTREAM-QA-HTTP-SCHEMA-SNAPSHOT-001
@@ -509,11 +625,11 @@ The contract minimum is satisfied with 36 distinct evidence domains: 35 PASS, 0 
 - Severity: `PASS`
 - Owner: `DEV`
 - Reproduction: inspect all published outcome entries, then compare declared body kind, exact content type, and body-required flag with real query-contract JSON, Prometheus metrics, static HTML, and cached 304 responses.
-- Evidence: all 95 current published outcome entries carry complete representation objects. Real JSON, Prometheus, and HTML responses use the exact declared content types with nonempty bodies; query-contract 304 has no content type and an empty body as declared.
+- Evidence: all 119 current published outcome entries carry complete representation objects. Real JSON, Prometheus, and HTML responses use the exact declared content types with nonempty bodies; query-contract 304 has no content type and an empty body as declared.
 - Affected contracts: generated response parser selection, content negotiation assumptions, cached discovery handling, artifact digest, and ETag identity.
 - Expected versus actual: every published outcome must select a deterministic parser or explicitly declare an empty body; actual published entries and representative runtime responses agree.
 - Acceptance criteria: attach representation metadata to every published outcome; distinguish JSON, Prometheus text, HTML, and empty bodies; bind it into the digest; verify real response headers and body presence. All criteria are met.
-- Validation results: 95/95 published entries structurally complete; four representation families match real HTTP; focused response/cursor suite 13/13 PASS; full suite 367/367 PASS; syntax and replay PASS.
+- Validation results: 119/119 published entries structurally complete; four representation families match real HTTP; focused response/schema suite 15/15 PASS; full suite 374/374 PASS; syntax and replay PASS.
 - Compatibility/performance impact: additive metadata changes the discovery digest/ETag only; runtime representations are unchanged and no bounded-performance regression was observed.
 - Blockers: none.
 
@@ -750,4 +866,4 @@ The contract minimum is satisfied with 36 distinct evidence domains: 35 PASS, 0 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: perform a fresh BA/PO-ranked reconciliation of the remaining heterogeneous HTTP success/unavailable bodies, select one dependency-ready closed schema family, and implement its discovery/runtime parity with generated-validator regressions.
+- NEXT_DEV_ACTION: conduct a fresh BA/PO-ranked audit of executable-depth, price, volume, bot-readiness, health, and diagnostic 503 bodies, select one structurally compatible dependency-ready family, and add closed discovery/runtime schema parity without merging incompatible envelopes.
