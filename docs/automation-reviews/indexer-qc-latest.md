@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T02:35:19+07:00`
+- Run: `2026-08-28T03:36:20+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `5cdd2ed985512524936833b9b1886df8849c0ef6`
-- Compared with QA baseline: `523e48ea5cf3aab1dde181a06317aebe44597cf2` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 44 ahead, 0 behind before this evidence report
-- Latest DEV commits: `d19fc42` (index-health projection alignment) and `5cdd2ed` (ingestion success semantics)
-- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Index health now accepts real nonzero counts and resolved dead-letter history while rejecting stale healthy evidence. Ingestion rejects all five previously reported contradictions, but a real healthy response with its runtime-supported nullable validator tip still fails the advertised arithmetic schema. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `1109a8ac6debbf9bb18a842ffafc4fcf5e67dd3a`
+- Compared with QA baseline: `a8f71dcaf62c80917a54f9ed895bae9724350329` (2 DEV commits, 4 changed files)
+- Compared with `origin/main`: 47 ahead, 0 behind before this evidence report
+- Latest DEV commits: `48626f2` (require concrete ingestion validator tip) and `1109a8a` (warehouse success semantics)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Ingestion now fails closed when validator-tip evidence is absent and preserves schema-valid concrete-tip success. Warehouse success now binds freshness, configured lag, and retained replay-history boundaries. Live qualification remains independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-INDEX-HEALTH-AND-INGESTION-SEMANTICS-001` (1/2 PASS)
+### `UPSTREAM-INGESTION-TIP-AND-WAREHOUSE-SEMANTICS-001` (2/2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QA-INDEX-HEALTH-SUCCESS-PROJECTION-001` | `/api/health` | `PASS` | The real resolved-history HTTP 200 preserves numeric instruction/program-event counts, permits `deadLetters:1` with zero unresolved entries, satisfies the closed schema, and the property-relative freshness rule rejects stale healthy evidence. |
-| `UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001` | `/api/v1/ingestion` | `FAIL` | All 5/5 prior semantic negatives now reject. However, runtime intentionally permits a healthy status without `localValidatorTip`, returns HTTP 200 with `localValidatorTip:null`, and the advertised unconditional maximum/difference relations cannot validate that real body. |
+| `UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001` | `/api/v1/ingestion` | `PASS` | A concrete-tip real response returns HTTP 200 and validates; the former nullable-tip HTTP 200 now returns bounded HTTP 503 with `invalid_validator_tip`, aligning runtime with the exact cursor/lag schema. |
+| `UPSTREAM-QA-WAREHOUSE-SUCCESS-PROJECTION-001` | `/api/v1/warehouse` | `PASS` | The real zero-sequence replay boundary returns HTTP 200 and validates; independent stale, excessive-lag, and below-retained-history success mutations are all rejected. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `523e48e`; the complete delta was exhausted.
-- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `a8f71dc`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting fields, relationships, assertions, or fixture variants would be padding.
-- Validation: all 5/5 prior ingestion semantic negatives reject; nullable-tip real ingestion HTTP 200 compatibility 0/1; real resolved-history index-health HTTP 200 compatibility 1/1; stale healthy index-health rejection 1/1; focused committed suite 3/3 PASS; 119 outcome representations, 118 unique body-contract identities, and 52 response schemas remain structurally enumerated; digest independently recomputes to `9444f76189ecaa9b48b8facd523ca52a12cb0767ffc33588e28e96ad00eac0c4`; full suite 400/400 PASS; syntax 86/86 PASS; replay invariants PASS at 6,573.39 blocks/s with 9,395,032-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: concrete-tip ingestion HTTP/schema positive 1/1 PASS; missing-tip fail-closed response 1/1 PASS; real warehouse replay-boundary HTTP/schema positive 1/1 PASS; warehouse semantic negatives 3/3 PASS; focused committed suite 5/5 PASS; 119 outcome representations, 118 unique body-contract identities, and 52 response schemas remain structurally enumerated; digest independently recomputes to `c72d48b0c8164f97f5dddda7f9a20a4703b609d255cafa353acafeb03cfad27b`; full suite 400/400 PASS; syntax 86/86 PASS; replay invariants PASS at 6,884.29 blocks/s with 9,117,280-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-QA-INDEX-HEALTH-SUCCESS-PROJECTION-001`: `PASS`.
+- `UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001`: `FAIL` at the time; resolved by current `48626f2`.
+- Prior exact shortfall: 18; prior validation was 400/400 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (3/20; retained)
 
@@ -504,7 +510,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 52 schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest `9444f76189ecaa9b48b8facd523ca52a12cb0767ffc33588e28e96ad00eac0c4` independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 52 schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest `c72d48b0c8164f97f5dddda7f9a20a4703b609d255cafa353acafeb03cfad27b` independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Paginated success schema | `PASS` | All five page envelopes declare the shared `canonical_cursor_v1` semantic; independent null, valid, short, padded, and wrong-JSON probes match runtime decode/re-encode/version/key/scope admission. |
@@ -518,8 +524,8 @@
 | Stats success schema | `PASS` | Independent healthy `/api/stats` HTTP 200 emits exactly the 24 advertised aggregate and evidence fields with canonical structure/chain projections; missing, unknown credential-bearing, and wrong count-type variants are rejected. |
 | Backup success schema | `PASS` | The real healthy backup projection satisfies the closed `backup_success_v1` contract. Independent canonical, missing-required, unknown credential-bearing, unhealthy, and malformed-identity probes confirm exact availability, freshness, identity, and completion-time constraints. |
 | Recovery success schema | `PASS` | The real healthy recovery projection satisfies the closed `recovery_success_v1` contract. Independent canonical, missing-required, unknown credential-bearing, unhealthy, and malformed-identity probes confirm exact availability, freshness, identity, completion-time, and duration constraints. |
-| Ingestion success projection | `FAIL` | Strict ordering/uniqueness, freshness, lag, cursor ceiling, and exact-difference rules reject all 5/5 prior semantic negatives. Runtime still returns a healthy HTTP 200 when `localValidatorTip` is absent/null, but the schema's unconditional cursor maximum and lag difference cannot validate that advertised nullable form. |
-| Warehouse success projection | `FAIL` | Nested closure and sequence/difference relationships now reject the prior 3/3 negatives. Residual generated-style validation still accepts stale age, lag beyond its maximum, and checkpoint state behind retained replay history in all 3/3 probes. |
+| Ingestion success projection | `PASS` | Strict ordering/uniqueness, freshness, lag, cursor ceiling, and exact-difference rules retain all prior negatives. A concrete-tip real HTTP 200 validates, while absent tip evidence now returns bounded HTTP 503 `invalid_validator_tip` and the success schema requires an integer tip. |
+| Warehouse success projection | `PASS` | Nested closure and sequence/difference relationships remain intact. Property-relative freshness, lag, and oldest-retained-sequence bounds accept the real zero-sequence replay boundary and reject all 3/3 independent unsafe success mutations. |
 | Index-health success projection | `PASS` | Independent real HTTP validation confirms nonzero instruction/program-event counts remain numeric, resolved dead-letter history is admitted when unresolved entries are zero, and the closed schema accepts the response. A stale healthy mutation is rejected by the property-relative freshness bound. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
@@ -563,10 +569,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 400/400; syntax passes 86/86; replay completes at 6,573.39 blocks/s with 9,395,032-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 489,202,396 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 400/400; syntax passes 86/86; replay completes at 6,884.29 blocks/s with 9,117,280-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 492,863,195 ms old at the trigger time. |
 
-The contract minimum is satisfied with 67 distinct evidence domains: 64 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 67 distinct evidence domains: 66 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -1262,31 +1268,29 @@ The contract minimum is satisfied with 67 distinct evidence domains: 64 PASS, 2 
 
 ## UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `48626f2`)
 - Owner: `DEV`
 - Reproduction: write otherwise canonical healthy exporter status without `localValidatorTip`, request `/api/v1/ingestion`, and validate the HTTP 200 body against `ingestion_success_v1` while enforcing every published property-relative and difference rule.
-- Evidence: `5cdd2ed` correctly adds unique/strictly-increasing skipped slots, property-relative age/lag/cursor maxima, and exact lag arithmetic, so all 5/5 previously reported semantic negatives reject. `assessExporterStatus` intentionally treats an absent validator tip as `null` without making the status unhealthy; the route returns HTTP 200 with `cursor:42`, `localValidatorTip:null`, and `lagSlots:0`. The schema still advertises nullable `localValidatorTip` but unconditionally requires `cursor <= localValidatorTip` and `lagSlots = localValidatorTip - cursor`, so independent generated-style validation rejects this real healthy body.
+- Evidence: `48626f2` requires a concrete nonnegative validator tip before exporter health can succeed and changes the success schema tip type to integer. Independent real-route validation accepts the concrete-tip HTTP 200 body and rejects absent tip evidence with bounded HTTP 503 `invalid_validator_tip`; the exact cursor/lag relationships remain satisfiable.
 - Affected contracts: `/api/v1/ingestion` HTTP 200 discovery, generated client validators, exporter provenance/finality/freshness, durable gap evidence, public-RPC automation safety, body-contract digest/ETag, and secret redaction guarantees.
-- Expected behavior: every healthy runtime form must validate, including the declared nullable-tip variant, while concrete tips retain exact cursor/lag arithmetic and all prior semantic negatives remain rejected.
-- Actual behavior: the five unsafe states are closed, but schema-derived consumers reject a legitimate healthy nullable-tip response.
-- Acceptance criteria: either require a concrete `localValidatorTip` before runtime can return healthy, or make cursor/difference relations conditional on a non-null tip; retain the five negative regressions and add real HTTP positives for both supported tip forms.
-- Validation results: prior semantic negatives 5/5 PASS; concrete-tip generated-validator positive 1/1 PASS; nullable-tip real HTTP status/health 1/1 PASS; nullable-tip body/schema compatibility 0/1; focused committed suite 3/3 PASS; full suite 400/400 PASS; syntax 86/86 PASS; replay invariants PASS at 6,573.39 blocks/s.
-- Compatibility/performance impact: correction must align discovery and runtime nullable-tip policy; no persistence, provider, RPC, WebSocket, or database migration is required. Validation remains bounded by existing exporter and skipped-slot limits.
-- Blockers: none; canonical offline fixtures already reproduce the defect.
+- Expected versus actual behavior: every healthy response carries a concrete tip and validates exact cursor/lag arithmetic; missing tip evidence fails closed as retryable unavailable evidence. Expected and actual now match.
+- Acceptance criteria: require a concrete tip or conditionalize arithmetic; retain all prior semantic negatives; cover concrete-tip success and missing-tip failure. The concrete-tip policy satisfies all criteria.
+- Validation results: prior semantic negatives retained; concrete-tip real HTTP/schema positive 1/1 PASS; missing-tip HTTP 503/reason 1/1 PASS; focused committed suite 5/5 PASS; full suite 400/400 PASS; syntax 86/86 PASS; replay invariants PASS at 6,884.29 blocks/s.
+- Compatibility/performance impact: intentional fail-closed tightening converts an under-specified former success to retryable unavailable evidence; no persistence, provider, RPC, WebSocket, database, or configuration migration is required.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-QA-WAREHOUSE-SUCCESS-PROJECTION-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `1109a8a`)
 - Owner: `DEV`
 - Reproduction: obtain a real healthy `/api/v1/warehouse` HTTP 200 body and validate it against `warehouse_success_v1`; then advertise stale age, lag beyond `maxLagEvents`, or a checkpoint behind retained replay history while retaining `healthy:true` and `replayHistoryLost:false`.
-- Evidence: `654b4b8` closes sinks/reconciliation, types digest/count projections, and binds sink/reconciliation equality plus lag arithmetic, so the prior 3/3 exact negatives now reject. The schema still lacks freshness-limit, lag-limit, and oldest-retained-sequence relationships; independent generated-style validation incorrectly accepts all 3/3 residual unsafe variants.
+- Evidence: `1109a8a` adds property-relative age and lag maxima plus `sequence >= oldestSequence - 1`. The real empty-event replay boundary returns HTTP 200 with sequence zero and oldest sequence one and validates. Independent stale, excessive-lag, and below-retained-history mutations each fail generated-style validation, including a replay-loss mutation that keeps the success sentinel false to isolate the relative bound.
 - Affected contracts: `/api/v1/warehouse` HTTP 200 discovery, generated client validators, replay/reorg retention, ClickHouse/PostgreSQL/Redis convergence, reconciliation identities/content digests, body-contract digest/ETag, and secret redaction guarantees.
-- Expected behavior: the advertised success schema must accept only the exact public sink/reconciliation projection and prove fresh, within-limit, replay-retained, sequence-consistent convergence.
-- Actual behavior: runtime projection and redaction remain safe and the original nested/sequence gaps are closed, but schema-derived consumers can still accept three states the runtime classifies unhealthy.
-- Acceptance criteria: bind `ageMs <= staleAfterMs`, `lagEvents <= maxLagEvents`, and `sequence >= oldestSequence - 1`; preserve existing equality/difference rules and the real response; add generated-validator positive and all three residual negative regressions.
-- Validation results: prior negatives 3/3 PASS; real HTTP positive 1/1 PASS; residual unsafe semantic negatives 0/3; focused committed suite 7/7 PASS but lacks these residual negatives; full suite 400/400 PASS; syntax 86/86 PASS; replay invariants PASS at 3,728.42 blocks/s.
-- Compatibility/performance impact: relationship-only completion will make generated consumers reject evidence runtime already classifies unhealthy; no response-byte, persistence, sink, RPC, WebSocket, configuration, or database migration is required. Validation remains bounded by the fixed public projection.
-- Blockers: none; canonical offline fixtures already reproduce the defect.
+- Expected versus actual behavior: the advertised success schema accepts only fresh, within-limit, replay-retained, sequence-consistent sink convergence. Expected and actual now match.
+- Acceptance criteria: bind all three relative limits; preserve equality/difference rules and the real response; add positive and all three negative regressions. All criteria are met.
+- Validation results: real replay-boundary HTTP/schema positive 1/1 PASS; stale negative 1/1 PASS; excessive-lag negative 1/1 PASS; replay-history negative 1/1 PASS; focused committed suite 5/5 PASS; full suite 400/400 PASS; syntax 86/86 PASS; replay invariants PASS at 6,884.29 blocks/s.
+- Compatibility/performance impact: relationship-only hardening makes generated consumers reject evidence runtime already classifies unhealthy; no response-byte, persistence, sink, RPC, WebSocket, configuration, or database migration is required.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-QA-INDEX-HEALTH-SUCCESS-PROJECTION-001
 
@@ -1306,7 +1310,7 @@ The contract minimum is satisfied with 67 distinct evidence domains: 64 PASS, 2 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 489,202,396 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 492,863,195 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1315,4 +1319,4 @@ The contract minimum is satisfied with 67 distinct evidence domains: 64 PASS, 2 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: align healthy ingestion nullable-tip runtime and schema semantics, then finish warehouse freshness, lag, and replay-retention relationships with independent generated-validator regressions.
+- NEXT_DEV_ACTION: perform a fresh BA/PO reconciliation of at least 20 upstream indexer opportunities and implement the highest-value dependency-ready offline-safe outcome without waiting solely on QC.
