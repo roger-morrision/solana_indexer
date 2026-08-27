@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across authoritative data, finality, recovery, replay, provider resilience, downstream discovery and intelligence, trading safety, observability, performance, contract parity, and protocol coverage. Public index-health failure discovery ranked highest because operators and commercial clients could not validate its stable redacted 503 projection.
+- Selected ID: `UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/api/health` now references closed `index_health_unavailable_v1`, requiring non-empty status/reason plus `healthy:false`, and permitting only the stable network, aggregate, ingestion, structure, chain, and quality sections projected by the public handler.
+- Acceptance evidence: discovery references the schema; a real empty-index response validates the base failure; a malformed persisted collection validates the structural-evidence form and remains confined to declared fields.
+- Compatibility/migration/configuration: additive discovery only; runtime payloads, endpoint, status, persistence, RPC, WebSocket, and configuration remain unchanged. The internal feed health route remains separately untyped because it adds exporter evidence.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. Internal feed health, stats, ingestion, warehouse, backup, and recovery schemas remain BA/PO candidates.
+- NEXT_WEB_ACTION: generate a closed validator for `index_health_unavailable_v1` and reject undeclared diagnostic fields before surfacing health state.
+
 ## UPSTREAM-GAP-FEED-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across indexing correctness, recovery, replay, provider resilience, downstream discovery, price/volume, holder and wallet intelligence, trading safety, observability, performance, contract parity, and protocol coverage. Gap-feed failure discovery was the highest-value dependency-ready offline-safe diagnostic gap because recovery clients could not validate its bounded 503 family.
