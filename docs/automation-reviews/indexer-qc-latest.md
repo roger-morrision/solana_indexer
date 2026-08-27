@@ -1,37 +1,31 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T12:37:03+07:00`
+- Run: `2026-08-27T13:36:34+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `77b74383085b2c1fe2163a256a409fa25c556422`
-- Compared with QA baseline: `844ea8e5d827eed37af9540a7d3b258363cfe10f` (2 DEV commits, 4 changed files)
-- Compared with `origin/main`: 2 ahead, 0 behind before this evidence report
-- Latest DEV commits: `f5b68d7` (`UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001`) and `77b7438` (`UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001`, `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001`)
-- Overall result: 3 PASS across the complete DEV delta. Ingestion and warehouse now publish closed failure schemas matching independent absent/invalid runtime responses. Windows durable replacement retries only three transient rename failures through eight bounded attempts; 20 repeated 32-write stress runs preserved final submission order without temporary residue. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `34637940ed8ccb454f5aab5f5f7777b3cbcd71f6`
+- Compared with QA baseline: `b2f0c2a22bf3925c906fb70c3cf03d499e998f75` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 5 ahead, 0 behind before this evidence report
+- Latest DEV commits: `0d82451` (`UPSTREAM-BACKUP-UNAVAILABLE-SCHEMA-001`) and `3463794` (`UPSTREAM-RECOVERY-UNAVAILABLE-SCHEMA-001`)
+- Overall result: 0 PASS and 2 FAIL across the complete DEV delta. Real backup and recovery failures fit the advertised top-level keys, but both flat schemas accept impossible reason/availability/identity combinations and noncanonical completion timestamps. Generated validators therefore cannot enforce the runtime's fail-closed temporal union. Live qualification remains independently blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001` (PASS)
-
-| Item | Route | Status | Independent evidence |
-|---|---|---|---|
-| `UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001` | `/api/v1/ingestion` | `PASS` | The 503 outcome references only `ingestion_unavailable_v1`. Independent full-property validation accepts the real absent-status and invalid-provider bodies, preserves `healthy:false`, distinguishes `available:false` from available-but-unsafe evidence, constrains progress/limit types, and rejects undeclared top-level provider diagnostics. |
-
-### `UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001` (PASS)
+### `UPSTREAM-BACKUP-UNAVAILABLE-SCHEMA-001` (FAIL)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001` | `/api/v1/warehouse` | `PASS` | The 503 outcome references only `warehouse_unavailable_v1`. Independent full-property validation accepts real absent and malformed checkpoints, requires fail-closed health/reason plus sequence, lag, age, and configured limits, and admits only the declared top-level convergence/failure families. |
+| `UPSTREAM-BACKUP-UNAVAILABLE-SCHEMA-001` | `/api/v1/backup` | `FAIL` | Real missing, invalid, and stale responses fit `backup_unavailable_v1`, but independent generated validation accepts unavailable evidence with `available:true`, stale evidence with `available:false` and no identity, future evidence without identity, and stale evidence with `completedAt:"x"`. The flat enum does not discriminate temporal failure forms. |
 
-### `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001` (PASS)
+### `UPSTREAM-RECOVERY-UNAVAILABLE-SCHEMA-001` (FAIL)
 
-| Item | Boundary | Status | Independent evidence |
+| Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001` | Durable atomic replacement | `PASS` | Source inspection confines retry to Windows `EACCES`, `EBUSY`, and `EPERM`, eight attempts, and 355 ms maximum cumulative delay; other failures remain immediate. Twenty repeated 32-write concurrency stress runs pass with the final submitted value and no temporary-file residue. |
+| `UPSTREAM-RECOVERY-UNAVAILABLE-SCHEMA-001` | `/api/v1/recovery` | `FAIL` | Real missing and invalid responses fit `recovery_unavailable_v1`, but independent generated validation accepts unavailable evidence with `available:true`, stale evidence with `available:false` and no identity, future evidence without identity, and stale evidence with `completedAt:"x"`. The flat enum cannot bind backup identity/duration to temporal failures. |
 
-- Available DEV delta: exactly 3 distinct fixes/enhancements after `844ea8e`; the complete delta was exhausted.
-- Verification result: 3 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 17; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema fields, response reasons, retry attempts, or stress iterations would be padding.
-- Validation: independent ingestion absent/invalid matrix 2/2 PASS and warehouse absent/invalid matrix 2/2 PASS under full required/optional/type/value validation; Windows 32-write durable stress 20/20 PASS; 119 outcome representations, 118 unique body-contract identities, and 13 response schemas remain structurally enumerated; digest independently recomputes to `da9c74924eab884d6dd7f9b982d9fba7ddabdd62e4b8b9efa2d1812f2020b816`; focused response/schema/durability suite 5/5 PASS; full suite 382/382 PASS; syntax 86/86 PASS; replay invariants PASS at 5,176.27 blocks/s with 9,495,504-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `b2f0c2a`; the complete delta was exhausted.
+- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting reasons, identity fields, invalid examples, or test assertions would be padding.
+- Validation: positive backup missing/invalid/stale and recovery missing/invalid runtime forms pass their advertised top-level keys, but the independent impossible-body matrix is 0/8 because every invalid reason/availability/identity/timestamp form is accepted; 119 outcome representations, 118 unique body-contract identities, and 15 response schemas remain structurally enumerated; digest independently recomputes to `3166f83655c54869765a77aa93df084531e7be201b470d38e161eb20933eb606`; focused response/schema/assessment suite 6/6 PASS but lacks negative union coverage; full suite 384/384 PASS; syntax 86/86 PASS; replay invariants PASS at 3,817.65 blocks/s with 9,879,488-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -470,7 +464,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 48-domain reconciliation
+## Independent 50-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -480,7 +474,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response body schemas | `PASS` | All 13 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
+| HTTP response body schemas | `PASS` | All 15 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Executable-depth unavailable schema | `PASS` | `executable_depth_unavailable_v1` is referenced only by executable depth. Independent real sell and buy route refusals, injected structure refusal, and injected decision refusal all satisfy its required/allowed keys, preserve constant fail-closed flags, and redact internal field names. |
@@ -491,6 +485,8 @@
 | Public-health unavailable schema | `PASS` | Empty and structurally invalid retained indexes emit 503 bodies satisfying `index_health_unavailable_v1`: nonempty status/reason, constant `healthy:false`, and only explicitly typed public health projection fields. |
 | Ingestion unavailable schema | `PASS` | Absent exporter status and invalid provider identity emit distinct fail-closed 503 forms that pass independent required, optional, type, constant, minimum, array-item, and closed-key validation against `ingestion_unavailable_v1`. |
 | Warehouse unavailable schema | `PASS` | Absent and malformed checkpoints emit `checkpoint_unavailable` and `checkpoint_invalid` 503 forms that pass independent full-property validation against `warehouse_unavailable_v1` while retaining sequence, lag, age, and configured limits. |
+| Backup unavailable schema | `FAIL` | Positive missing/invalid/stale runtime forms fit `backup_unavailable_v1`, but its flat enum accepts unavailable evidence marked available, stale evidence marked unavailable without identity, future evidence without identity, and noncanonical completion timestamps. |
+| Recovery unavailable schema | `FAIL` | Positive missing/invalid runtime forms fit `recovery_unavailable_v1`, but its flat enum accepts unavailable evidence marked available, stale evidence marked unavailable without identity, future evidence without identity, and noncanonical completion timestamps. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -520,10 +516,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 382/382; syntax passes 86/86; replay completes at 5,176.27 blocks/s with 9,495,504-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 438,906,676 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 384/384; syntax passes 86/86; replay completes at 3,817.65 blocks/s with 9,879,488-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 442,477,542 ms old at the trigger time. |
 
-The contract minimum is satisfied with 48 distinct evidence domains: 47 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 50 distinct evidence domains: 47 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -1021,12 +1017,27 @@ The contract minimum is satisfied with 48 distinct evidence domains: 47 PASS, 0 
 - Compatibility/performance impact: no format, API, persistence-layout, or configuration change. Worst-case qualifying rename delay is bounded to 355 ms; normal writes add no delay, and replay/full-suite results remain bounded.
 - Blockers: none; the finding is closed.
 
+## UPSTREAM-QA-BACKUP-RECOVERY-UNAVAILABLE-DISCRIMINATOR-001
+
+- Severity: `FAIL` (`MEDIUM`)
+- Owner: `DEV`
+- Reproduction: load `backup_unavailable_v1` and `recovery_unavailable_v1` from query discovery, then validate for each schema: an unavailable reason with `available:true`; a stale reason with `available:false` and no identity; a future reason with no identity; and a stale reason with a valid backup ID but `completedAt:"x"`.
+- Evidence: all eight impossible bodies pass the published schemas. Both schemas use one flat required set and reason enum: `available` is unconstrained, `ageMs` is nullable without reason binding, identity fields remain optional for future/stale forms, and `completedAt` requires only a nonempty string. Positive runtime controls remain fail closed: backup missing/invalid/stale and recovery missing/invalid responses use the expected fields. The committed positive-only tests do not exercise false-positive availability, identity, or timestamp combinations.
+- Affected contracts: backup and recovery discovery, generated validators, RPO/RTO failure handling, isolated recovery promotion gates, backup identity, canonical timestamps, temporal freshness/future classification, operational health, schema digest/ETag, and downstream consumer disabling.
+- Expected behavior: unavailable/invalid forms require `available:false`, `ageMs:null`, and no identity; future/stale forms require `available:true`, a signed integer age, canonical backup ID/completion timestamp, and recovery duration where applicable; cross-form bodies and noncanonical timestamps are rejected.
+- Actual behavior: the two flat schemas accept every tested cross-form body, so they cannot machine-enforce the runtime's reason-discriminated temporal unions.
+- Acceptance criteria: publish exclusive `oneOf` branches or equivalent conditional rules for absent/invalid versus future/stale forms; bind constant availability and null/non-null age to each branch; require and pattern-check canonical identity/timestamp fields for temporal forms; require nonnegative recovery duration; reject cross-form combinations; add negative generated-validator regressions while retaining real HTTP controls.
+- Validation results: positive focused suite 6/6 PASS; independent false-positive matrix 0/8; full suite 384/384 PASS but does not cover the defect; syntax 86/86 PASS; replay invariants PASS at 3,817.65 blocks/s with 9,879,488-byte heap growth.
+- Compatibility impact: generated consumers can accept impossible or misclassified backup/recovery 503 bodies as recognized operational failures. Correcting discovery requires exclusive-union support but does not require changing canonical runtime bodies.
+- Performance impact: a bounded four-branch validation check per response; no ingestion, persistence, replay, RPC, or WebSocket performance impact expected.
+- Blockers: none; the defect is reproducible offline.
+
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 438,906,676 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 442,477,542 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1035,4 +1046,4 @@ The contract minimum is satisfied with 48 distinct evidence domains: 47 PASS, 0 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: perform a fresh BA/PO compatibility audit of the remaining internal feed-health, statistics, backup, and recovery failure families, then select the single highest-value route family whose unavailable outcome still lacks an explicit closed response schema for the next DEV increment.
+- NEXT_DEV_ACTION: replace `backup_unavailable_v1` and `recovery_unavailable_v1` with reason-discriminated exclusive unions that bind availability, null/non-null age, required canonical identity/timestamp fields, and recovery duration, then add negative generated-validator regressions for every missing and cross-form combination.
