@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the remaining HIGH ingestion QC failure because generated clients could accept stale, lagged, contradictory, or noncanonical healthy exporter progress.
+- Selected ID: `UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001`.
+- Implemented contract: healthy ingestion now requires strictly increasing unique skipped slots, `ageMs <= staleAfterMs`, `lagSlots <= maxLagSlots`, `cursor <= localValidatorTip`, and exact lag arithmetic.
+- Acceptance evidence: focused discovery checks every published keyword/relationship and rejects duplicate, out-of-order, stale, excessive-lag, and cursor/tip contradictions while retaining the valid control.
+- Compatibility/migration/configuration: discovery-only semantic hardening; runtime responses, exporter behavior, persistence, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Warehouse semantic hardening remains DEV-ready; live qualification remains OPERATOR-blocked.
+- NEXT_WEB_ACTION: regenerate the ingestion validator with property-relative bounds, strict skipped-slot ordering, and exact cursor-to-tip lag arithmetic.
+
 # UPSTREAM-QA-INDEX-HEALTH-SUCCESS-PROJECTION-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the new independent HIGH QC failure because a real healthy response did not satisfy its advertised schema and generated clients could accept stale healthy evidence.
