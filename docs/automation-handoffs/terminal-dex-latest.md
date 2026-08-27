@@ -1,5 +1,16 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-DETAIL-VALUATION-SCHEMAS-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities and selected eight offline-safe detail/valuation outcomes serving token research, account intelligence, pool inspection, transaction provenance, pricing, and volume consumers.
+- Selected IDs: `UPSTREAM-EVIDENCE-SCHEMA-001`, `UPSTREAM-INTERNAL-TOKEN-DETAIL-SCHEMA-001`, `UPSTREAM-PUBLIC-MINT-DETAIL-SCHEMA-001`, `UPSTREAM-ACCOUNT-SCHEMA-001`, `UPSTREAM-POOL-DETAIL-SCHEMA-001`, `UPSTREAM-TRANSACTION-SCHEMA-001`, `UPSTREAM-PRICE-SUCCESS-SCHEMA-001`, `UPSTREAM-VOLUME-SUCCESS-SCHEMA-001`.
+- Implemented contracts: eight 200 outcomes now bind closed success schemas. Internal/public token detail share one projection schema; public account reuses the wallet-detail schema; evidence fixes schema v2 and advisory safety; price and volume require `available:true` while preserving bounded optional valuation evidence.
+- Acceptance evidence: focused discovery binds every route, verifies closed top-level fields, and checks evidence version plus price/volume success constants.
+- Compatibility/migration/configuration: additive discovery only; runtime bodies, calculations, persistence, endpoint status, RPC/WebSocket, and configuration remain unchanged.
+- BA/PO matrix: eight selected IDs delivered; retained `UPSTREAM-BOT-READINESS-SUCCESS-SCHEMA-001`, `UPSTREAM-POOL-QUOTE-SUCCESS-SCHEMA-001`, `UPSTREAM-REGISTRY-SCHEMA-001`, `UPSTREAM-FEED-SUCCESS-SCHEMA-001`, `UPSTREAM-HEALTH-SUCCESS-SCHEMA-001`, `UPSTREAM-STATS-SUCCESS-SCHEMA-001`, `UPSTREAM-INGESTION-SUCCESS-SCHEMA-001`, `UPSTREAM-WAREHOUSE-SUCCESS-SCHEMA-001`, `UPSTREAM-BACKUP-SUCCESS-SCHEMA-001`, `UPSTREAM-RECOVERY-SUCCESS-SCHEMA-001`; blocked `UPSTREAM-LIVE-QUALIFICATION-001` and `UPSTREAM-PROTOCOL-COVERAGE-001`.
+- Shortfall/blockers: eight material outcomes completed; exact 20-task shortfall is 12. Ten retained status/union contracts require separate healthy-evidence fixtures; live qualification is OPERATOR-blocked; protocol expansion requires authoritative ABI and canonical fixtures.
+- NEXT_WEB_ACTION: generate the detail, evidence, account, pool, transaction, price, and volume validators and accept only the advertised success variants.
+
 # UPSTREAM-WALLET-CLUSTER-NULLABILITY-001
 
 - BA/PO decision: fresh 20+ opportunity reconciliation selected the independent QC failure over retained enhancements because the published funding-cluster validator rejected the canonical evidence-only response.
