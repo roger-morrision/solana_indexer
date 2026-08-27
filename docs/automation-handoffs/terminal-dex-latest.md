@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-GAP-FEED-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected gap-feed success discovery parity because replay/reorg and commercial consumers could discover only the unavailable body despite the healthy route carrying bounded checkpoint, skipped-slot, and correction evidence.
+- Selected ID: `UPSTREAM-GAP-FEED-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/internal/feed/gaps` HTTP 200 now references a closed schema for the exact healthy envelope, healthy exporter projection, durable skipped slots, at most 100 public reorg corrections, and nullable public inbox checkpoint.
+- Acceptance evidence: a deterministic canonical replacement fixture returns HTTP 200 whose top-level and nested keys exactly match the published schema, mirrors skipped-slot evidence, and excludes unknown persisted recovery fields.
+- Compatibility/migration/configuration: additive discovery only; runtime response bytes, ingestion/reorg behavior, persistence, REST/RPC/WebSocket versions, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: generate the gap-feed validator and use checkpoint plus reorg-correction evidence to invalidate replay caches without treating the feed as complete chain history.
+
 # UPSTREAM-FEED-HEALTH-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected combined feed-health success parity because replay/reorg, AI safety, and commercial monitoring consumers could discover only its unavailable body.
