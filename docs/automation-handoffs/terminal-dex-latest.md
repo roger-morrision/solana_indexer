@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh review of the 24 newly advertised decision-quality outcomes proved each route has exactly one runtime 503 family after excluding five heterogeneous quote/pricing/readiness routes. Their earlier structural-quality refusal was the only shape mismatch and unnecessarily exposed internal invalid-field names.
+- Selected compatible batch: `UPSTREAM-DECISION-UNAVAILABLE-SCHEMA-001-01` through `-24`, matching the 24 discovery, catalog, evidence, token, wallet, account, mint, risk, pool, and candle routes delivered in the preceding discovery batch.
+- Implemented contract: all 24 outcomes now reference closed `basic_unavailable_v1`. Structural and decision-quality gates both emit exactly `{schemaVersion:1, available:false, reason:string}` for these consumers. A shared path classifier prevents discovery/runtime drift, and internal structural field names are no longer returned on these routes. Pool quote, executable depth, price, volume, and bot readiness remain explicitly untyped because their later 503 payloads are heterogeneous.
+- Acceptance evidence: discovery verifies 24 schema references and five deliberate null controls; real structurally invalid requests across discovery, token security, wallet funding, and pool detail return the exact three-field envelope without injected internal evidence.
+- Compatibility/migration/configuration: additive schema discovery plus removal of the undocumented `fields` property from structural 503 bodies on these 24 routes. Consumers can replace ad hoc validation with `basic_unavailable_v1`; no endpoint, status, success body, persistence, RPC, WebSocket, or configuration migration is required.
+- Blockers/owners: live canonical-mainnet qualification remains blocked by absent fresh provider and durable operational evidence—OPERATOR. Heterogeneous quote, price, volume, readiness, health, and diagnostic schemas—BA/PO.
+- NEXT_WEB_ACTION: validate the 24 decision-quality unavailable outcomes through `basic_unavailable_v1` and stop reading the removed undocumented `fields` member.
+
 ## UPSTREAM-DECISION-UNAVAILABLE-DISCOVERY-001
 
 - BA/PO decision: a fresh 24-outcome route audit found that the shared decision-quality gate can return fail-closed 503 responses before 24 consumer handlers, yet discovery advertised success only. This was the highest-value dependency-ready gap because generated clients could incorrectly treat data-quality refusal as an undocumented transport failure across discovery, intelligence, and catalog journeys.
