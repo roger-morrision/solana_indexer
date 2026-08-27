@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-POOL-RISK-TYPES-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the independent QC failure because the published pool-risk validator rejected its canonical success response.
+- Selected ID: `UPSTREAM-POOL-RISK-TYPES-001`.
+- Implemented contract: `directions` now advertises a nonnegative integer count and `latestBlockTime` an ISO date-time string or null, matching runtime evidence.
+- Compatibility: schema-only correction; no runtime, persistence, configuration, RPC, or WebSocket change.
+- Validation: focused schema regression plus full/replay/operational gates; automation remains explicitly unsafe.
+- Shortfall/blockers: one material outcome completed; exact shortfall 19. Healthy operational fixtures remain separate; live evidence is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: regenerate the pool-risk validator for integer directions and ISO-or-null latest block time.
+
 # UPSTREAM-DECISION-SUPPORT-SCHEMAS-001
 
 - BA/PO decision: fresh 20+ opportunity reconciliation selected registry, pool-risk, and candle success contracts for decoder compatibility, AI trading safety, and chart consumers. All three are stable, offline-verifiable projections.

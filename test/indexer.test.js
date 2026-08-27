@@ -313,6 +313,7 @@ test("registry risk and candle routes publish closed decision-support schemas", 
   const expected = new Map([["/internal/registry", "registry_success_v1"], ["/api/v1/risk/{pool}", "pool_risk_success_v1"], ["/api/v1/candles/{pool}", "candles_success_v1"]]), contract = queryContractSnapshot();
   for (const [pathname, schemaName] of expected) { const outcome = contract.http.find(({ path }) => path === pathname).responseOutcomes.find(({ status }) => status === 200), schema = contract.responseBodySchemas[schemaName]; assert.equal(outcome.representation.bodySchema, schemaName, pathname); assert.equal(schema.additionalProperties, false, pathname); assert.ok(schema.required.every((key) => schema.properties[key]), pathname); }
   assert.deepEqual(contract.responseBodySchemas.pool_risk_success_v1.properties.safeForAutomation.values, [false]); assert.equal(contract.responseBodySchemas.registry_success_v1.properties.programs.type, "array");
+  assert.deepEqual(contract.responseBodySchemas.pool_risk_success_v1.properties.directions, { type: "integer", minimum: 0 }); assert.deepEqual(contract.responseBodySchemas.pool_risk_success_v1.properties.latestBlockTime, { type: ["string", "null"], format: "date-time" });
 });
 
 test("every response body publishes a unique stable versioned contract identity", () => {
