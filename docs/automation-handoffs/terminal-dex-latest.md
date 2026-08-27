@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-DECISION-SUPPORT-SCHEMAS-001
+
+- BA/PO decision: fresh 20+ opportunity reconciliation selected registry, pool-risk, and candle success contracts for decoder compatibility, AI trading safety, and chart consumers. All three are stable, offline-verifiable projections.
+- Selected IDs: `UPSTREAM-REGISTRY-SCHEMA-001`, `UPSTREAM-POOL-RISK-SCHEMA-001`, `UPSTREAM-CANDLES-SCHEMA-001`.
+- Implemented contracts: the three 200 outcomes now bind distinct closed schemas. Registry requires a versioned program catalog; pool risk requires every top-level quality, liquidity, execution, security, holder, and manipulation family while preserving `safeForAutomation:false`; candles require exact interval, rejection, price-unit, and data fields.
+- Acceptance evidence: focused discovery binds all three routes, closes unknown fields, declares every required key, and verifies the registry collection plus risk automation constant.
+- Compatibility/migration/configuration: additive discovery only; runtime responses, risk/candle calculations, registry contents, persistence, RPC/WebSocket, and configuration remain unchanged.
+- Shortfall/blockers: 20+ findings reconciled, three material outcomes completed, exact 20-task shortfall 17. Retained quote/readiness/operational success variants require healthy fixtures; live qualification is OPERATOR-blocked; protocol expansion requires authoritative ABI and canonical fixtures.
+- NEXT_WEB_ACTION: generate the registry, pool-risk, and candle validators and never infer automation safety from an assessable risk payload.
+
 # UPSTREAM-TRANSACTION-FEE-TYPE-001
 
 - BA/PO decision: fresh 20+ opportunity reconciliation selected the independent QC failure because generated transaction clients would reject every canonical success body before retained enhancements could add value.
