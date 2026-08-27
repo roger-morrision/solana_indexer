@@ -1,5 +1,16 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-WALLET-INTELLIGENCE-SCHEMAS-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current contract, recovery, performance, provider, and protocol opportunities. Five wallet-intelligence success envelopes ranked highest for trader intelligence, AI analysis, and commercial clients because they were stable runtime projections but undiscoverable to generated clients.
+- Selected IDs: `UPSTREAM-WALLET-DETAIL-SCHEMA-001`, `UPSTREAM-WALLET-PERFORMANCE-SCHEMA-001`, `UPSTREAM-WALLET-PROFILE-SCHEMA-001`, `UPSTREAM-WALLET-FUNDING-SCHEMA-001`, `UPSTREAM-WALLET-CLUSTER-SCHEMA-001`.
+- Implemented contracts: distinct closed schemas now cover wallet activity detail, PnL/performance, profile classification, native/token funding, and shared-funder clusters. Every analytical envelope explicitly preserves `safeForAutomation:false`; profiles additionally preserve `smartMoney:false` rather than asserting unsupported classification.
+- Acceptance evidence: focused discovery binds all five routes to distinct schemas, verifies every admitted key is declared, closes additional properties, and checks fail-closed automation constants.
+- Compatibility/migration/configuration: additive discovery only; runtime payloads, classification, persistence, endpoint status, RPC/WebSocket, and configuration remain unchanged.
+- BA/PO matrix: five selected IDs delivered; retained `UPSTREAM-TOKEN-DETAIL-SCHEMA-001`, `UPSTREAM-EVIDENCE-SCHEMA-001`, `UPSTREAM-POOL-QUOTE-SCHEMA-001`, `UPSTREAM-PRICE-SUCCESS-SCHEMA-001`, `UPSTREAM-VOLUME-SUCCESS-SCHEMA-001`, `UPSTREAM-BOT-READINESS-SUCCESS-SCHEMA-001`, `UPSTREAM-POOL-DETAIL-SCHEMA-001`, `UPSTREAM-ACCOUNT-SCHEMA-001`, `UPSTREAM-MINT-SCHEMA-001`, `UPSTREAM-TRANSACTION-SCHEMA-001`, `UPSTREAM-REGISTRY-SCHEMA-001`, `UPSTREAM-FEED-SUCCESS-SCHEMA-001`, `UPSTREAM-WS-SNAPSHOT-SCHEMA-001`; blocked `UPSTREAM-LIVE-QUALIFICATION-001` and `UPSTREAM-PROTOCOL-COVERAGE-001`.
+- Shortfall/blockers: five material outcomes completed; exact 20-task shortfall is 15. Thirteen retained outcomes require separate nested/variant fixture design; live qualification is blocked on OPERATOR evidence; protocol expansion is blocked on authoritative ABI and canonical fixtures. No schema field or assertion is counted separately.
+- NEXT_WEB_ACTION: generate the five wallet-intelligence validators and keep all analytics advisory-only while `safeForAutomation` is false.
+
 # UPSTREAM-TOKEN-INTELLIGENCE-SCHEMAS-001
 
 - BA/PO decision: fresh inspection reconciled 20+ gaps across the remaining 42 untyped successes, recovery, performance, protocol coverage, and live qualification. Six token-intelligence envelopes ranked highest because token detail consumers need stable market, security, holder, trade, candle, and liquidity boundaries and all six are offline-safe and compatibility-only.
