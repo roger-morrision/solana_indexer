@@ -1,39 +1,40 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T17:35:52+07:00`
+- Run: `2026-08-27T18:36:12+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `8183a14f6ae0aeebcf35509a792674e234a93823`
-- Compared with QA baseline: `3840a5c0ffa333965d34485c30badfd8a385aae3` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 17 ahead, 0 behind before this evidence report
-- Latest DEV commits: `2241f55` (feed-health nested projection plus five page-cursor corrections) and `8183a14` (four discovery/trending success schemas)
-- Overall result: 10 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The six prior schema defects are closed, and all four new discovery/trending envelopes match positive and negative independent validation. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `0c936dd7a151bf3e4eba40515e32a938949d4c35`
+- Compared with QA baseline: `580920d1c530f65f70739481595b3c93ef784b05` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 20 ahead, 0 behind before this evidence report
+- Latest DEV commits: `3c7ea14` (six token-intelligence success schemas) and `0c936dd` (five wallet-intelligence success schemas)
+- Overall result: 10 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. All token routes and four wallet routes match their real closed envelopes, but wallet funding cluster advertises string-only classification while the canonical evidence-only response is null. Live qualification remains independently blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (10/20)
+## Reviewed DEV delta (11/20)
 
-### `UPSTREAM-FEED-PAGE-SCHEMA-CLOSURE-001` (6/6 PASS)
-
-| Item | Route | Status | Independent evidence |
-|---|---|---|---|
-| `UPSTREAM-FEED-HEALTH-NESTED-SCHEMA-001` | `/internal/feed/health` | `PASS` | The nested ingestion projection now requires its ten stable fields, bounds optional evidence, rejects unknown fields, and independently rejects a credential-bearing body while accepting the real absent-exporter response. |
-| `UPSTREAM-BLOCKS-PAGE-CURSOR-SCHEMA-001` | `/api/v1/blocks` | `PASS` | `nextCursor` now declares `canonical_cursor_v1`; independent null/valid/noncanonical/padded/wrong-JSON semantic probes match runtime admission. |
-| `UPSTREAM-TRANSACTIONS-PAGE-CURSOR-SCHEMA-001` | `/api/v1/transactions` | `PASS` | The shared cursor semantic closes the previously admitted noncanonical continuation while retaining this route's runtime controls. |
-| `UPSTREAM-SWAPS-PAGE-CURSOR-SCHEMA-001` | `/api/v1/swaps` | `PASS` | The shared semantic retains collection/filter scope and rejects noncanonical cursor forms consistently with runtime. |
-| `UPSTREAM-TOKENS-PAGE-CURSOR-SCHEMA-001` | `/api/v1/tokens` | `PASS` | Canonical cursor metadata and runtime admission now agree for the token catalog. |
-| `UPSTREAM-POOLS-PAGE-CURSOR-SCHEMA-001` | `/api/v1/pools` | `PASS` | Canonical cursor metadata and filtered catalog runtime admission now agree. |
-
-### `UPSTREAM-DISCOVERY-SUCCESS-SCHEMAS-001` (4/4 PASS)
+### `UPSTREAM-TOKEN-INTELLIGENCE-SCHEMAS-001` (6/6 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-INTERNAL-TRENDING-SCHEMA-001` | `/internal/trending` | `PASS` | Real HTTP 200 matches the exact four-field envelope; missing, extra, and wrong-constant bodies are rejected. |
-| `UPSTREAM-NEW-PAIRS-SCHEMA-001` | `/internal/new-pairs` | `PASS` | Real HTTP 200 matches the exact schema-version/data envelope; missing, extra, and wrong-version bodies are rejected. |
-| `UPSTREAM-CANDIDATES-SCHEMA-001` | `/internal/candidates` | `PASS` | Real HTTP 200 matches the exact version/activity-v1/evidence envelope; missing, extra, and wrong-constant bodies are rejected. |
-| `UPSTREAM-PUBLIC-TRENDING-SCHEMA-001` | `/api/trending` | `PASS` | Real HTTP 200 matches the timestamp/window/methodology/token envelope; missing, extra, and invalid-date bodies are rejected. |
+| `UPSTREAM-TOKEN-MARKET-SCHEMA-001` | `/internal/tokens/{mint}/market` | `PASS` | Real HTTP 200 matches the exact latest-swap/pools/USD/risk top-level envelope; missing and unknown fields are rejected. |
+| `UPSTREAM-TOKEN-SECURITY-SCHEMA-001` | `/internal/tokens/{mint}/security` | `PASS` | Real HTTP 200 matches required assessment/evidence fields and constant `safeForAutomation:false`; missing and unknown fields are rejected. |
+| `UPSTREAM-HOLDER-SCHEMA-001` | `/internal/tokens/{mint}/holders` | `PASS` | Real HTTP 200 matches all holder completeness, exclusion, freshness, exact-raw, concentration, and unsafe fields; top-level closure passes. |
+| `UPSTREAM-TRADE-SCHEMA-001` | `/internal/tokens/{mint}/trades` | `PASS` | Real schema-v1 trade collection matches the closed version/data envelope. |
+| `UPSTREAM-OHLCV-SCHEMA-001` | `/internal/tokens/{mint}/ohlcv` | `PASS` | Real schema-v1 candle collection matches the closed version/pools envelope. |
+| `UPSTREAM-LIQUIDITY-SCHEMA-001` | `/internal/tokens/{mint}/liquidity` | `PASS` | Real schema-v1 liquidity collection matches the closed version/pools envelope. |
 
-- Available DEV delta: exactly 10 distinct route outcomes after `3840a5c`; the complete delta was exhausted.
-- Verification result: 10 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 10; no additional distinct DEV outcome exists after the prior QA baseline, and splitting nested fields, cursor characters, schema properties, array items, route constants, or assertions would be padding.
-- Validation: independent feed closure 2/2 PASS; canonical cursor null/valid/short/padded/wrong-JSON matrix 5/5 PASS; discovery positive/missing/extra/constant matrix 16/16 PASS; focused response/schema suite 5/5 PASS; 119 outcome representations, 118 unique body-contract identities, and 23 response schemas are structurally enumerated; digest independently recomputes to `fdcef7d6eb148cffb15a5717227dfea14993b2e5199208c57ac8b0ca4320b44c`; full suite 388/388 PASS; syntax 86/86 PASS; replay invariants PASS at 1,465.47 blocks/s with 9,121,808-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+### `UPSTREAM-WALLET-INTELLIGENCE-SCHEMAS-001` (4/5 PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-WALLET-DETAIL-SCHEMA-001` | `/internal/wallets/{wallet}` | `PASS` | Real HTTP 200 matches the closed address/summary/transaction/native-transfer envelope. |
+| `UPSTREAM-WALLET-PERFORMANCE-SCHEMA-001` | `/internal/wallets/{wallet}/performance` | `PASS` | Real HTTP 200 matches exact coverage/count/position fields and constant `safeForAutomation:false`. |
+| `UPSTREAM-WALLET-PROFILE-SCHEMA-001` | `/internal/wallets/{wallet}/profile` | `PASS` | Real HTTP 200 matches evidence-only profile fields with constant `smartMoney:false` and `safeForAutomation:false`. |
+| `UPSTREAM-WALLET-FUNDING-SCHEMA-001` | `/internal/wallets/{wallet}/funding` | `PASS` | Real HTTP 200 matches exact native/token funding envelope and constant `safeForAutomation:false`. |
+| `UPSTREAM-WALLET-CLUSTER-SCHEMA-001` | `/internal/wallets/{wallet}/funding-cluster` | `FAIL` | Canonical HTTP 200 emits `classification:null`, but the schema requires a nonempty string, so the real body fails its advertised validator. |
+
+- Available DEV delta: exactly 11 distinct route outcomes after `580920d`; the complete delta was exhausted.
+- Verification result: 10 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 9; no additional distinct DEV outcome exists after the prior QA baseline, and splitting fields, nested items, constants, route variants, or assertions would be padding.
+- Validation: real positive bodies 10/11 PASS; missing-required rejection 11/11 PASS; unknown top-level rejection 11/11 PASS; wallet-cluster type mismatch reproduced 1/1; focused schema suite 5/5 PASS but does not execute the eleven real routes; 119 outcome representations, 118 unique body-contract identities, and 34 response schemas are structurally enumerated; digest independently recomputes to `bc37ffbac4fe67a964b5c1eff717fd51409477a7dc5f946ea76965c4fba43df8`; full suite 390/390 PASS; syntax 86/86 PASS; replay invariants PASS at 2,522.79 blocks/s with 9,767,352-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -472,7 +473,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 55-domain reconciliation
+## Independent 57-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -482,11 +483,13 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response body schemas | `PASS` | All 23 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 34 closed schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. Runtime compatibility of the newly typed wallet batch is evaluated separately below. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Paginated success schema | `PASS` | All five page envelopes declare the shared `canonical_cursor_v1` semantic; independent null, valid, short, padded, and wrong-JSON probes match runtime decode/re-encode/version/key/scope admission. |
 | Discovery/trending success schemas | `PASS` | Four distinct schemas match their real top-level envelopes, stable versions/constants, window vocabulary, ISO timestamp, methodology, and array fields; 16 positive/missing/extra/invalid-constant probes pass. |
+| Token intelligence success schemas | `PASS` | Real token market, security, holders, trades, OHLCV, and liquidity 200 responses satisfy their six newly advertised schemas; all six reject a missing required field and an unknown top-level field. |
+| Wallet intelligence success schemas | `FAIL` | Real wallet detail, performance, profile, and funding responses satisfy their four schemas, but the real funding-cluster response fails its advertised schema because canonical evidence-only state emits `classification:null` while the schema requires a non-empty string. All five schemas still reject missing required and unknown top-level fields. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Executable-depth unavailable schema | `PASS` | `executable_depth_unavailable_v1` is referenced only by executable depth. Independent real sell and buy route refusals, injected structure refusal, and injected decision refusal all satisfy its required/allowed keys, preserve constant fail-closed flags, and redact internal field names. |
@@ -529,10 +532,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 388/388; syntax passes 86/86; replay completes at 1,465.47 blocks/s with 9,121,808-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 456,834,896 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 390/390; syntax passes 86/86; replay completes at 2,522.79 blocks/s with 9,767,352-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 460,454,885 ms old at the trigger time. |
 
-The contract minimum is satisfied with 55 distinct evidence domains: 54 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 57 distinct evidence domains: 55 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -1109,12 +1112,38 @@ The contract minimum is satisfied with 55 distinct evidence domains: 54 PASS, 0 
 - Compatibility/performance impact: additive discovery precision only; ranking, runtime payloads, persistence, RPC, WebSocket, and configuration are unchanged. No bounded heap/full-suite regression observed.
 - Blockers: none.
 
+## UPSTREAM-QA-TOKEN-INTELLIGENCE-SUCCESS-SCHEMAS-001
+
+- Severity: `PASS` (implemented by `3c7ea14`)
+- Owner: `DEV`
+- Reproduction: request the canonical fixture's token market, security, holders, trades, OHLCV, and liquidity routes; validate each 200 body against the referenced discovery schema, then remove one required field and add one unknown top-level field.
+- Evidence: all six real responses return HTTP 200 and satisfy their distinct closed schemas. All six missing-required variants and all six unknown-field variants are rejected. The routes retain explicit provenance, freshness, completeness, finality, and integer/string precision fields where advertised.
+- Affected contracts: token market, security, holder, trade, candle, and liquidity REST responses; generated clients; response-schema registry; snapshot digest/ETag; downstream evidence admission.
+- Expected versus actual behavior: all six advertised schemas describe the canonical runtime responses without broadening fail-closed evidence or inventing nested completeness; expected and actual behavior match.
+- Acceptance criteria: distinct route references, real-response acceptance, required-field rejection, unknown-field rejection, stable constants/types, and no runtime payload mutation. All criteria are met.
+- Validation results: independent route positives 6/6 PASS; missing-required negatives 6/6 PASS; unknown-field negatives 6/6 PASS; focused suite 5/5 PASS; full suite 390/390 PASS; syntax 86/86 PASS; replay invariants PASS at 2,522.79 blocks/s.
+- Compatibility/performance impact: additive discovery precision only; canonical response bodies, persistence, RPC, WebSocket, and configuration are unchanged. No bounded performance regression was observed.
+- Blockers: none.
+
+## UPSTREAM-QA-WALLET-FUNDING-CLUSTER-CLASSIFICATION-SCHEMA-001
+
+- Severity: `MEDIUM` (`FAIL`)
+- Owner: `DEV`
+- Reproduction: request `/internal/wallets/wallet-address/funding-cluster` from the canonical fixture and validate its HTTP 200 body against `wallet_funding_cluster_success_v1` from `/internal/contracts/http-responses`.
+- Evidence: the real route returns HTTP 200 with `classification:null`, reflecting unavailable classification evidence, but the advertised property requires `type:"string"` with `minimumLength:1`; the generated schema validator rejects the canonical body. Wallet detail, performance, profile, and funding real responses pass their schemas, and all five wallet schemas reject missing required and unknown top-level fields. The committed metadata-focused schema tests pass and therefore do not exercise this runtime/schema mismatch.
+- Affected contracts: wallet funding-cluster REST success response, generated validators and clients, response-schema registry, snapshot digest/ETag, commercial consumers, and fail-closed classification evidence.
+- Expected versus actual behavior: the schema must admit the canonical evidence-only null classification while continuing to reject unsupported classification claims; actual discovery instead promises a non-empty string that the canonical route does not return.
+- Acceptance criteria: permit the canonical null classification in `wallet_funding_cluster_success_v1` without weakening top-level closure; retain `smartMoney:null`, `safeForAutomation:false`, provenance/freshness/finality, and all missing-evidence semantics; add a regression that validates the real route body with the generated schema validator; retain missing-required and unknown-field rejection.
+- Validation results: real wallet schema positives 4/5 PASS and 1/5 FAIL; missing-required negatives 5/5 PASS; unknown-field negatives 5/5 PASS; focused metadata suite 5/5 PASS; full suite 390/390 PASS; syntax 86/86 PASS; replay invariants PASS.
+- Compatibility/performance impact: the compatible metadata correction would make generated clients accept the already-canonical HTTP 200 body and requires no runtime, persistence, RPC, WebSocket, provider, or database change. Validation remains bounded.
+- Blockers: none; owner DEV can correct schema nullability and add real-route regression coverage.
+
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 456,834,896 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 460,454,885 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1123,4 +1152,4 @@ The contract minimum is satisfied with 55 distinct evidence domains: 54 PASS, 0 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: continue the BA/PO-ranked P1 success-contract roadmap with one compatible nested item-schema batch for token detail, market, security, and holder consumers, preserving explicit provenance/freshness and fail-closed missing-evidence fields rather than waiting solely on QC findings.
+- NEXT_DEV_ACTION: correct `wallet_funding_cluster_success_v1` classification nullability to match the canonical evidence-only response and add a real-route generated-validator regression while retaining non-claims and `safeForAutomation:false`.
