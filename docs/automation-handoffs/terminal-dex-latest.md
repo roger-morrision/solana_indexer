@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-WAREHOUSE-SUCCESS-PROJECTION-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the remaining HIGH warehouse QC failure because generated clients could accept healthy evidence that runtime classifies stale, excessively lagged, or behind retained replay history.
+- Selected ID: `UPSTREAM-QA-WAREHOUSE-SUCCESS-PROJECTION-001`.
+- Implemented contract: healthy warehouse discovery now requires `ageMs <= staleAfterMs`, `lagEvents <= maxLagEvents`, and `sequence >= oldestSequence - 1` in addition to exact sink/reconciliation convergence.
+- Acceptance evidence: focused generated-style checks retain the valid boundary and reject stale, excessive-lag, and replay-history-lost variants.
+- Compatibility/migration/configuration: discovery-only semantic hardening; runtime responses, warehouse sinks, persistence, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: regenerate the warehouse validator with property-relative freshness, lag, and oldest-retained-sequence bounds.
+
 # UPSTREAM-QA-INGESTION-VALIDATOR-TIP-001
 
 - BA/PO decision: fresh 20+ reconciliation selected refreshed HIGH QC evidence because a runtime-healthy nullable tip could not satisfy the newly published exact progress relationships.
