@@ -1,31 +1,37 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-27T11:35:32+07:00`
+- Run: `2026-08-27T12:37:03+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `8eea5116b5c6f87bbc14e9e785d919c7eabe906f`
-- Compared with QA baseline: `3fb75cf85c3c83895a83f049010b8eec5d1cdca2` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 8 ahead, 0 behind before this evidence report
-- Latest DEV commits: `3f2858f` (`UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001`) and `8eea511` (`UPSTREAM-BOT-READINESS-DISCRIMINATOR-001`)
-- Overall result: 2 PASS across the complete DEV delta. Public health now publishes one closed failure schema for both empty and invalid retained index states. Bot readiness now uses an exclusive version-discriminated union: real version-1 and version-2 failures select exactly one branch, while missing, cross-version, and contradictory sentinels fail validation. Live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `77b74383085b2c1fe2163a256a409fa25c556422`
+- Compared with QA baseline: `844ea8e5d827eed37af9540a7d3b258363cfe10f` (2 DEV commits, 4 changed files)
+- Compared with `origin/main`: 2 ahead, 0 behind before this evidence report
+- Latest DEV commits: `f5b68d7` (`UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001`) and `77b7438` (`UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001`, `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001`)
+- Overall result: 3 PASS across the complete DEV delta. Ingestion and warehouse now publish closed failure schemas matching independent absent/invalid runtime responses. Windows durable replacement retries only three transient rename failures through eight bounded attempts; 20 repeated 32-write stress runs preserved final submission order without temporary residue. Live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (3/20)
 
-### `UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001` (PASS)
-
-| Item | Route | Status | Independent evidence |
-|---|---|---|---|
-| `UPSTREAM-INDEX-HEALTH-UNAVAILABLE-SCHEMA-001` | `/api/health` | `PASS` | The 503 outcome references only `index_health_unavailable_v1`. Independently exercised empty and structurally invalid index stores both require nonempty `status`/`reason`, constant `healthy:false`, and only the explicit public health projection fields; both validate and retain fail-closed wrong/absent-state semantics. |
-
-### `UPSTREAM-BOT-READINESS-DISCRIMINATOR-001` (PASS)
+### `UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-BOT-READINESS-DISCRIMINATOR-001` | `/api/v1/bot/readiness` | `PASS` | The schema is now an exclusive two-branch `oneOf`: real version-1 and version-2 refusals each validate against exactly one applicable branch. Five independent invalid bodies covering missing, cross-version, and contradictory sentinels validate against zero branches. |
+| `UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001` | `/api/v1/ingestion` | `PASS` | The 503 outcome references only `ingestion_unavailable_v1`. Independent full-property validation accepts the real absent-status and invalid-provider bodies, preserves `healthy:false`, distinguishes `available:false` from available-but-unsafe evidence, constrains progress/limit types, and rejects undeclared top-level provider diagnostics. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `3fb75cf`; the complete delta was exhausted.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema fields, runtime forms, or test assertions would be padding.
-- Validation: independent public-health empty/invalid-state matrix PASS; real bot v1/v2 branch exclusivity 2/2 PASS and invalid missing/cross-version/contradictory sentinel matrix 5/5 rejected; 119 outcome representations, 118 unique body-contract identities, and 11 response schemas remain structurally enumerated; digest independently recomputes to `7c0cd90e989eb51022eb8849eaa27e668d91e38e8de814e7314943743be84288`; focused response/schema suite 21/21 PASS; full suite 380/380 PASS; syntax 86/86 PASS; replay invariants PASS at 7,229.18 blocks/s with 9,650,936-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+### `UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001` (PASS)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001` | `/api/v1/warehouse` | `PASS` | The 503 outcome references only `warehouse_unavailable_v1`. Independent full-property validation accepts real absent and malformed checkpoints, requires fail-closed health/reason plus sequence, lag, age, and configured limits, and admits only the declared top-level convergence/failure families. |
+
+### `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001` (PASS)
+
+| Item | Boundary | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001` | Durable atomic replacement | `PASS` | Source inspection confines retry to Windows `EACCES`, `EBUSY`, and `EPERM`, eight attempts, and 355 ms maximum cumulative delay; other failures remain immediate. Twenty repeated 32-write concurrency stress runs pass with the final submitted value and no temporary-file residue. |
+
+- Available DEV delta: exactly 3 distinct fixes/enhancements after `844ea8e`; the complete delta was exhausted.
+- Verification result: 3 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 17; no additional distinct DEV outcome exists after the prior QA baseline, and splitting schema fields, response reasons, retry attempts, or stress iterations would be padding.
+- Validation: independent ingestion absent/invalid matrix 2/2 PASS and warehouse absent/invalid matrix 2/2 PASS under full required/optional/type/value validation; Windows 32-write durable stress 20/20 PASS; 119 outcome representations, 118 unique body-contract identities, and 13 response schemas remain structurally enumerated; digest independently recomputes to `da9c74924eab884d6dd7f9b982d9fba7ddabdd62e4b8b9efa2d1812f2020b816`; focused response/schema/durability suite 5/5 PASS; full suite 382/382 PASS; syntax 86/86 PASS; replay invariants PASS at 5,176.27 blocks/s with 9,495,504-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -464,7 +470,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 45-domain reconciliation
+## Independent 48-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -474,7 +480,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response body schemas | `PASS` | All 11 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
+| HTTP response body schemas | `PASS` | All 13 registry response schemas match their exact route references and representative runtime bodies. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest independently recomputes exactly. |
 | Decision-quality unavailable schemas | `PASS` | The 24 compatible decision consumers reference `basic_unavailable_v1`; 24 distinct structural-failure requests emit its exact three-field body without internal field names. Four heterogeneous controls retain null schemas after pool quote was typed separately. |
 | Pool-quote unavailable schema | `PASS` | `quote_unavailable_v1` is referenced only by pool quote and accepts exactly its two fail-closed forms: structure/decision failures use three required fields, while unsupported-protocol/engine failures add only constant `automationSafe:false`. |
 | Executable-depth unavailable schema | `PASS` | `executable_depth_unavailable_v1` is referenced only by executable depth. Independent real sell and buy route refusals, injected structure refusal, and injected decision refusal all satisfy its required/allowed keys, preserve constant fail-closed flags, and redact internal field names. |
@@ -483,6 +489,8 @@
 | Bot-readiness unavailable schema | `PASS` | The two-branch `oneOf` binds version 1 to required `available:false` and version 2 to required `ready:false`. Real version-1/version-2 bodies select exactly one branch; five missing, cross-version, or contradictory sentinel bodies select none. |
 | Gap-feed unavailable schema | `PASS` | Real ingestion refusal plus injected structure and recovery refusals satisfy `gap_feed_unavailable_v1`, retain mandatory `available:false`, use only advertised top-level fields, and exclude unknown recovery state. |
 | Public-health unavailable schema | `PASS` | Empty and structurally invalid retained indexes emit 503 bodies satisfying `index_health_unavailable_v1`: nonempty status/reason, constant `healthy:false`, and only explicitly typed public health projection fields. |
+| Ingestion unavailable schema | `PASS` | Absent exporter status and invalid provider identity emit distinct fail-closed 503 forms that pass independent required, optional, type, constant, minimum, array-item, and closed-key validation against `ingestion_unavailable_v1`. |
+| Warehouse unavailable schema | `PASS` | Absent and malformed checkpoints emit `checkpoint_unavailable` and `checkpoint_invalid` 503 forms that pass independent full-property validation against `warehouse_unavailable_v1` while retaining sequence, lag, age, and configured limits. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -499,6 +507,7 @@
 | Retry, failover, and `Retry-After` | `PASS` | Local/external provider rotation, half-open probes, wrong-network rejection, bounded 1,000-3,600,000 ms retry hints, and credential-safe failover tests pass. |
 | Gap, backfill, and recovery logic | `PASS` | Atomic bounded gap repair, produced-slot refusal, immutable non-promoting backfill, and detached recovery-evidence rejection tests pass. |
 | Persistence and atomic recovery | `PASS` | Durable concurrent writes/appends, snapshot batch validation-before-mutation, fingerprint replacement, quarantine, and exact checkpoint tests pass. |
+| Windows durable replacement retry | `PASS` | Atomic rename retry is limited to Windows transient `EACCES`/`EBUSY`/`EPERM`, eight attempts, and 355 ms cumulative delay; 20 repeated 32-write stress runs preserve the final value and leave no temporary residue. |
 | Warehouse and schema compatibility | `PASS` | Ordered retry-safe dual-sink checkpointing, canonical event/content hashes, PostgreSQL projection preimages, Redis hot-state bounds, and ClickHouse UInt256 raw amounts pass repository tests. |
 | Fail-closed redaction | `PASS` | Explicit public projection allowlists, dead-letter/diagnostic credential redaction, bounded operational JSON, malformed evidence, and secret-file tests pass. |
 | Operational readiness diagnostics | `PASS` | The schema-v2 report contains all twenty ordered redacted dimensions; local provider validation rejects missing, public, cardinality-mismatched, canonically duplicate, credential-bearing, path-bearing, query-bearing, and fragment-bearing topologies while accepting a distinct loopback pair set. Canonical real-path entrypoint comparison preserves CLI execution through workspace aliases. |
@@ -511,10 +520,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 380/380; syntax passes 86/86; replay completes at 7,229.18 blocks/s with 9,650,936-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active warehouse checkpoint/status, backup, and recovery files are absent; the active exporter-status file is also absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 435,215,694 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 382/382; syntax passes 86/86; replay completes at 5,176.27 blocks/s with 9,495,504-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 438,906,676 ms old at the trigger time. |
 
-The contract minimum is satisfied with 45 distinct evidence domains: 44 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 48 distinct evidence domains: 47 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -973,12 +982,51 @@ The contract minimum is satisfied with 45 distinct evidence domains: 44 PASS, 0 
 - Compatibility/performance impact: additive discovery only with a small static schema/reference check; runtime and non-HTTP contracts are unchanged, and no regression was observed.
 - Blockers: none; the finding is closed.
 
+## UPSTREAM-QA-INGESTION-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS` (implemented by `f5b68d7`)
+- Owner: `DEV`
+- Reproduction: inspect the 503 outcome for `/api/v1/ingestion`, request it with no exporter status, then supply a structurally complete status with an invalid provider identity. Validate every returned property against `ingestion_unavailable_v1`, including required/optional keys, types, constant values, minima, array items, and closed top-level projection.
+- Evidence: discovery references only `ingestion_unavailable_v1`. The absent form validates with `available:false`, `healthy:false`, and `status_unavailable`; the invalid-provider form validates with `available:true`, `healthy:false`, `automationEligible:false`, and `invalid_source`. Both retain exact progress/limit types, explicit exporter/index projections, and no undeclared top-level provider diagnostics. The 13-schema digest independently recomputes to `da9c74924eab884d6dd7f9b982d9fba7ddabdd62e4b8b9efa2d1812f2020b816`.
+- Affected contracts: ingestion discovery, generated validators, exporter availability and automation eligibility, provider identity, progress/freshness/finality limits, public index projection, bot-readiness dependency gating, schema digest/ETag, and diagnostic redaction.
+- Expected versus actual behavior: every ingestion 503 body is unhealthy, preserves the distinction between absent and present-but-unsafe exporter evidence, and fits the declared closed top-level schema; runtime and discovery match.
+- Acceptance criteria: publish one route-scoped schema; require health/reason/progress limits and exporter/index projections; bound optional identity/finality/progress evidence; cover absent and invalid-provider responses; reject undeclared top-level diagnostics. All criteria are met.
+- Validation results: independent full-property absent/invalid matrix 2/2 PASS; focused response/schema/durability suite 5/5 PASS; full suite 382/382 PASS; syntax 86/86 PASS; replay invariants PASS at 5,176.27 blocks/s with 9,495,504-byte heap growth.
+- Compatibility/performance impact: additive discovery only; runtime bodies and storage/RPC/WebSocket contracts are unchanged. One small static schema/reference check introduced no observed regression.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-WAREHOUSE-UNAVAILABLE-SCHEMA-001
+
+- Severity: `PASS` (implemented by `77b7438`)
+- Owner: `DEV`
+- Reproduction: inspect the 503 outcome for `/api/v1/warehouse`, request it with no checkpoint, then with a malformed empty checkpoint. Validate every returned property against `warehouse_unavailable_v1`, including required/optional keys, types, constant values, minima, and closed top-level projection.
+- Evidence: discovery references only `warehouse_unavailable_v1`. The absent and malformed forms validate as `checkpoint_unavailable` and `checkpoint_invalid`; both require `healthy:false`, availability, sequence/event-sequence, lag, age, staleness, and configured lag limits. Optional network, sink, reconciliation, replay-history, and aggregate failure families are explicitly admitted at the top level and undeclared fields are rejected.
+- Affected contracts: warehouse discovery, generated validators, exact-convergence and replay-history gating, sink/reconciliation diagnostics, bot-readiness dependency gating, schema digest/ETag, and operational redaction.
+- Expected versus actual behavior: every warehouse 503 body remains fail-closed and fits one declared top-level contract containing exact convergence limits; runtime and discovery match for both independent failure modes.
+- Acceptance criteria: publish one route-scoped closed top-level schema; require health/reason and sequence/lag/age limits; admit only bounded operational families; cover absent and malformed checkpoints without changing runtime or persistence. All criteria are met.
+- Validation results: independent full-property absent/malformed matrix 2/2 PASS; focused response/schema/durability suite 5/5 PASS; full suite 382/382 PASS; syntax 86/86 PASS; replay invariants PASS at 5,176.27 blocks/s with 9,495,504-byte heap growth.
+- Compatibility/performance impact: additive discovery only; runtime bodies, checkpoint/status persistence, REST status, RPC, WebSocket, and configuration are unchanged. No regression was observed.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-DURABLE-WINDOWS-RENAME-RETRY-001
+
+- Severity: `PASS` (implemented by `77b7438`)
+- Owner: `DEV`
+- Reproduction: inspect `writeDurably` replacement policy on Windows, then repeat the 32-write same-process concurrency stress test twenty times and verify the final submitted value and absence of `*.tmp` residue after every run.
+- Evidence: retry is reachable only on Windows and only for `EACCES`, `EBUSY`, or `EPERM`. Eight attempts use bounded exponential delays of 5, 10, 20, 40, 80, 100, and 100 ms before the last attempt, totaling at most 355 ms. Non-Windows, non-transient, and exhausted failures rethrow; the existing `finally` path removes the temporary file. All 20 independent stress repetitions pass, covering 640 submitted replacements without residue.
+- Affected contracts: durable atomic replacement, checkpoint/status persistence, same-process serialization, crash recovery, Windows antivirus/indexer contention, temporary-file cleanup, and bounded shutdown/operational readiness.
+- Expected versus actual behavior: transient Windows rename interference receives a short bounded retry opportunity while all other failures remain immediate and fail closed; source and stress evidence match.
+- Acceptance criteria: retry only documented transient Windows errors; keep attempt/time bounds finite; retain flush/close/rename/parent-sync order and cleanup; preserve final submission order under repeated concurrency stress. All criteria are met.
+- Validation results: repeated 32-write durability stress 20/20 PASS; focused response/schema/durability suite 5/5 PASS; full suite 382/382 PASS; syntax 86/86 PASS; replay invariants PASS at 5,176.27 blocks/s with 9,495,504-byte heap growth.
+- Compatibility/performance impact: no format, API, persistence-layout, or configuration change. Worst-case qualifying rename delay is bounded to 355 ms; normal writes add no delay, and replay/full-suite results remain bounded.
+- Blockers: none; the finding is closed.
+
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 435,215,694 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 438,906,676 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -987,4 +1035,4 @@ The contract minimum is satisfied with 45 distinct evidence domains: 44 PASS, 0 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: perform a fresh BA/PO compatibility audit of the remaining internal feed-health, statistics, ingestion, warehouse, backup, and recovery failure families, then select the single highest-value route family whose unavailable outcome still lacks an explicit closed response schema for the next DEV increment.
+- NEXT_DEV_ACTION: perform a fresh BA/PO compatibility audit of the remaining internal feed-health, statistics, backup, and recovery failure families, then select the single highest-value route family whose unavailable outcome still lacks an explicit closed response schema for the next DEV increment.
