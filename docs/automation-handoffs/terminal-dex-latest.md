@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-STATS-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ product opportunities and selected the healthy stats response because operational dashboards and commercial RPC clients could discover only its quarantined variant.
+- Selected ID: `UPSTREAM-STATS-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/api/stats` success now binds a closed `stats_success_v1` schema covering all canonical counts, retry/exclusion telemetry, ingestion provenance, structure, and chain evidence.
+- Acceptance evidence: focused HTTP regression compares the live healthy response keys to the schema and verifies canonical structure and chain evidence.
+- Compatibility/migration/configuration: additive discovery only; stats calculation, response body, persistence, authentication, RPC/WebSocket, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Remaining healthy operational schemas need independent fixtures; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: generate the stats success validator and treat noncanonical structure or chain evidence as unavailable rather than usable telemetry.
+
 # UPSTREAM-LEGACY-COLLECTION-SCHEMAS-001
 
 - BA/PO decision: a fresh 20+ opportunity reconciliation selected the two legacy collection contracts because compatibility clients could discover that JSON was returned but not that the successful body remains a bare array rather than the cursor-v1 envelope.
