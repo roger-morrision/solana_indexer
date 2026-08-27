@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-EXECUTABLE-DEPTH-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current product areas across contract parity, index integrity, recovery, provider resilience, replay, observability, performance, protocol coverage, and downstream journeys. Executable-depth was the highest-value dependency-ready offline-safe gap: its 503 discovery outcome remained untyped even though structural, decision-quality, buy, and sell failures form one bounded closed union.
+- Selected ID: `UPSTREAM-EXECUTABLE-DEPTH-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: `/internal/tokens/{mint}/executable-depth` now references `executable_depth_unavailable_v1`. The schema requires `schemaVersion:1`, `available:false`, and a non-empty `reason`; it closes the union over fail-closed route fields including constant execution/safety flags, side-specific exact raw amount, mint, missing evidence names, and nullable evidence details.
+- Acceptance evidence: discovery references the schema; a real unsupported/unobserved sell route validates the detailed form; an injected structural failure validates the minimal form and excludes internal field names.
+- Compatibility/migration/configuration: additive discovery only; no runtime body, endpoint, status, storage, RPC, WebSocket, or configuration change. Consumers may validate both buy and sell failures without treating omitted side-specific fields as positive evidence.
+- Blockers/owners: fresh live provider, exporter, warehouse, backup, and recovery qualification remains blocked by absent operator evidence—OPERATOR. Price, volume, and bot-readiness unavailable schemas remain BA/PO candidates.
+- NEXT_WEB_ACTION: generate a closed validator for `executable_depth_unavailable_v1` and continue treating every matching response as non-executable.
+
 ## UPSTREAM-QUOTE-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh reconciliation of 24+ product areas and all pool-quote 503 branches found one exact closed union: quality failures require the three-field availability envelope, while unsupported protocols and quote-engine failures add only `automationSafe:false`.
