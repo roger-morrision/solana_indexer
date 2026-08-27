@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-RECOVERY-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected healthy recovery qualification because replay/reorg consumers and operators could validate only unavailable, future, and stale outcomes.
+- Selected ID: `UPSTREAM-RECOVERY-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/api/v1/recovery` success now binds a closed schema requiring healthy availability, null reason, bounded age, canonical backup identity, millisecond UTC completion, and nonnegative recovery duration.
+- Acceptance evidence: focused discovery verifies constants, duration, identity, and time rules; the quarterly content-bound qualification fixture proves the live healthy response has exactly the advertised keys.
+- Compatibility/migration/configuration: additive discovery only; qualification calculation, response body, recovery authority, persistence, RPC/WebSocket, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Other healthy operational schemas remain; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: generate the recovery success validator and enable consumers only when every advertised healthy qualification field validates.
+
 # UPSTREAM-BACKUP-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected healthy backup evidence because recovery operators and commercial monitoring clients could validate only unavailable, future, and stale variants.
