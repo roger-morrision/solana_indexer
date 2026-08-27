@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-EXECUTION-POLICY-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected execution-policy success discovery because AI/trading-safety and commercial clients could fetch the external handoff boundary but could not generate a validator for it.
+- Selected ID: `UPSTREAM-EXECUTION-POLICY-SUCCESS-SCHEMA-001`.
+- Implemented contract: `/internal/execution-policy` HTTP 200 now references a closed schema fixing external-only signing/submission authority, four required handoff stages, finalized simulation/confirmation, explicit approval, and bounded identity/amount/slippage/expiry requirements.
+- Acceptance evidence: the real endpoint returns the exact top-level and nested required keys, preserves `indexerSigns:false` and `indexerSubmits:false`, and matches the canonical required-step sequence.
+- Compatibility/migration/configuration: additive discovery only; runtime policy bytes, preparation, simulation, signing/submission boundaries, persistence, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: generate the execution-policy validator and refuse any flow that omits simulation, explicit external approval, external submission, or finalized landed-message verification.
+
 # UPSTREAM-TOKEN-ACCOUNT-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected public token-account success discovery because wallet intelligence and safety consumers received exact balances and Token-2022 withheld evidence without a machine-readable healthy schema.
