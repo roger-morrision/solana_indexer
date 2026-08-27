@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-INGESTION-VALIDATOR-TIP-001
+
+- BA/PO decision: fresh 20+ reconciliation selected refreshed HIGH QC evidence because a runtime-healthy nullable tip could not satisfy the newly published exact progress relationships.
+- Selected ID: `UPSTREAM-QA-INGESTION-VALIDATOR-TIP-001` (completion dependency for `UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001`).
+- Implemented contract: healthy ingestion now requires a concrete nonnegative `localValidatorTip`; missing tip evidence fails closed as `invalid_validator_tip`, preserving exact cursor/lag arithmetic.
+- Acceptance evidence: focused discovery requires integer tip evidence, the canonical concrete-tip HTTP form remains 200, and the formerly healthy nullable-tip form now returns bounded 503 evidence.
+- Compatibility/migration/configuration: intentional fail-closed runtime tightening plus discovery alignment; no persistence, provider, RPC, WebSocket, database, or configuration migration.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Warehouse semantic hardening remains DEV-ready; live qualification remains OPERATOR-blocked.
+- NEXT_WEB_ACTION: treat `invalid_validator_tip` as retryable unavailable evidence and regenerate the ingestion validator with a required integer validator tip.
+
 # UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the remaining HIGH ingestion QC failure because generated clients could accept stale, lagged, contradictory, or noncanonical healthy exporter progress.

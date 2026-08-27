@@ -168,6 +168,7 @@ RESPONSE_BODY_SCHEMAS.index_health_success_v1.properties.deadLetters = { type: "
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.ageMs.maximumProperty = "staleAfterMs";
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.lagSlots.maximumProperty = "maxLagSlots";
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.cursor.maximumProperty = "localValidatorTip";
+RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.localValidatorTip.type = "integer";
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.durableSkippedSlots.uniqueItems = true;
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.properties.durableSkippedSlots.strictlyIncreasing = true;
 RESPONSE_BODY_SCHEMAS.ingestion_success_v1.relationships.push({ kind: "difference", result: "lagSlots", minuend: "localValidatorTip", subtrahend: "cursor" });
