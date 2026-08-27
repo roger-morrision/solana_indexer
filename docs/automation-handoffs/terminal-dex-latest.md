@@ -1,5 +1,16 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-TOKEN-INTELLIGENCE-SCHEMAS-001
+
+- BA/PO decision: fresh inspection reconciled 20+ gaps across the remaining 42 untyped successes, recovery, performance, protocol coverage, and live qualification. Six token-intelligence envelopes ranked highest because token detail consumers need stable market, security, holder, trade, candle, and liquidity boundaries and all six are offline-safe and compatibility-only.
+- Selected IDs: `UPSTREAM-TOKEN-MARKET-SCHEMA-001`, `UPSTREAM-TOKEN-SECURITY-SCHEMA-001`, `UPSTREAM-HOLDER-SCHEMA-001`, `UPSTREAM-TRADE-SCHEMA-001`, `UPSTREAM-OHLCV-SCHEMA-001`, `UPSTREAM-LIQUIDITY-SCHEMA-001`.
+- Implemented contracts: six distinct closed 200 schemas now cover the exact top-level projections. Security and holders explicitly advertise `safeForAutomation:false`; trades, OHLCV, and liquidity retain schema-v1 collection envelopes; market requires its price, volume, pool, risk, and latest-swap evidence families.
+- Acceptance evidence: focused discovery verifies each route binds its own schema, closes additional properties, has disjoint required/optional fields, and defines every admitted field.
+- Compatibility/migration/configuration: additive query-contract metadata only; runtime bodies, evidence, ranking, persistence, REST status, RPC/WebSocket, and configuration are unchanged.
+- BA/PO matrix: six selected IDs delivered; retained `UPSTREAM-TOKEN-DETAIL-SCHEMA-001`, `UPSTREAM-EVIDENCE-SCHEMA-001`, `UPSTREAM-WALLET-DETAIL-SCHEMA-001`, `UPSTREAM-WALLET-PERFORMANCE-SCHEMA-001`, `UPSTREAM-WALLET-PROFILE-SCHEMA-001`, `UPSTREAM-WALLET-FUNDING-SCHEMA-001`, `UPSTREAM-WALLET-CLUSTER-SCHEMA-001`, `UPSTREAM-POOL-QUOTE-SCHEMA-001`, `UPSTREAM-PRICE-SUCCESS-SCHEMA-001`, `UPSTREAM-VOLUME-SUCCESS-SCHEMA-001`, `UPSTREAM-BOT-READINESS-SUCCESS-SCHEMA-001`, `UPSTREAM-WS-SNAPSHOT-SCHEMA-001`; blocked `UPSTREAM-LIVE-QUALIFICATION-001` (OPERATOR evidence) and `UPSTREAM-PROTOCOL-COVERAGE-001` (authoritative ABI/fixtures).
+- Shortfall/blockers: six material outcomes completed; exact 20-task shortfall is 14. Twelve retained contracts require separate variant/item-schema fixture design; live qualification and protocol expansion have the explicit external blockers above. No fields, assertions, or documentation were counted separately.
+- NEXT_WEB_ACTION: generate the six token-intelligence validators and continue treating security and holder payloads as non-automation-safe.
+
 # UPSTREAM-DISCOVERY-SUCCESS-SCHEMAS-001
 
 - BA/PO decision: fresh inspection of the 46 untyped JSON success outcomes and retained recovery/performance queue selected the four discovery/trending envelopes. They directly serve discovery, pool launch, evidence ranking, and public-commercial consumers; all are offline-verifiable and share a compatibility-only query-contract release boundary.
