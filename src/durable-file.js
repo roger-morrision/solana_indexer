@@ -4,6 +4,8 @@ import path from "node:path";
 import { readBoundedFile } from "./bounded-json-file.js";
 
 const WINDOWS_DIRECTORY_SYNC_ERRORS = new Set(["EBADF", "EINVAL", "EISDIR", "EPERM"]);
+const WINDOWS_RENAME_RETRY_ERRORS = new Set(["EACCES", "EBUSY", "EPERM"]);
+const WINDOWS_RENAME_ATTEMPTS = 8;
 const MAX_DURABLE_REWRITE_BYTES = 64 * 1_024 * 1_024;
 const pendingWrites = new Map();
 
@@ -25,6 +27,16 @@ async function syncParentDirectory(directory) {
   }
 }
 
+async function replaceFile(temporary, filename) {
+  for (let attempt = 0; ; attempt++) {
+    try { await fs.rename(temporary, filename); return; }
+    catch (error) {
+      if (process.platform !== "win32" || !WINDOWS_RENAME_RETRY_ERRORS.has(error.code) || attempt + 1 >= WINDOWS_RENAME_ATTEMPTS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(5 * 2 ** attempt, 100)));
+    }
+  }
+}
+
 async function writeDurably(filename, data, mode) {
   const directory = path.dirname(filename), temporary = `${filename}.${process.pid}.${crypto.randomUUID()}.tmp`;
   await fs.mkdir(directory, { recursive: true });
@@ -35,7 +47,7 @@ async function writeDurably(filename, data, mode) {
     await handle.sync();
     await handle.close();
     handle = null;
-    await fs.rename(temporary, filename);
+    await replaceFile(temporary, filename);
     await syncParentDirectory(directory);
   } catch (error) {
     await handle?.close().catch(() => {});

@@ -1,5 +1,25 @@
 # Terminal DEX upstream handoff
 
+## UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001
+
+- BA/PO decision: proportional full validation reproduced Windows `EPERM` twice while atomically replacing an existing durable file under same-process contention. This is a material persistence/recovery risk and was compatible with the active operational-readiness batch.
+- Selected ID: `UPSTREAM-DURABLE-WINDOWS-RENAME-RETRY-001`.
+- Implemented behavior: Windows atomic replacement now retries only transient `EACCES`, `EBUSY`, and `EPERM` failures with eight bounded exponential-delay attempts. Non-Windows and non-transient failures remain immediate and fail closed; temporary-file cleanup remains in the existing finally path.
+- Acceptance evidence: the 32-write concurrent durable replacement stress test must finish with the final submitted value and no temporary-file residue, and the complete suite must pass after the previously repeated failure.
+- Compatibility/migration/configuration: no file format, API, persistence layout, or configuration change. Successful writes retain the same flush, close, atomic rename, and parent-directory synchronization sequence.
+- Blockers/owners: none for the offline correction. Broader live storage qualification remains OPERATOR-owned.
+- Downstream impact: none; this durability correction changes no downstream contract.
+
+## UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001
+
+- BA/PO decision: fresh inspection reconciled 20+ current opportunities across persistence, exact convergence, recovery, contract parity, downstream intelligence, trading safety, observability, performance, and commercial readiness. `/api/v1/warehouse` ranked highest because bot readiness requires exact warehouse convergence while its retryable 503 body remained untyped.
+- Selected ID: `UPSTREAM-WAREHOUSE-UNAVAILABLE-SCHEMA-001`.
+- Implemented contract: the 503 outcome now references closed `warehouse_unavailable_v1`, requiring fail-closed availability, health, reason, sequence/lag, age, and configured limits while admitting only bounded network, sink, reconciliation, replay-history, and aggregate failure evidence.
+- Acceptance evidence: real absent and malformed checkpoints produce `checkpoint_unavailable` and `checkpoint_invalid`; both contain every required field and no undeclared top-level field.
+- Compatibility/migration/configuration: additive discovery only; runtime bodies, checkpoint/status files, persistence, REST status, RPC, WebSocket, and configuration remain unchanged.
+- Blockers/owners: live provider and durable operational qualification remains blocked by absent fresh evidence—OPERATOR. The implementation shortfall is 18 because two material outcomes were dependency-ready; splitting failure reasons, retry attempts, or schema fields would be padding.
+- NEXT_WEB_ACTION: generate a validator for `warehouse_unavailable_v1` and keep exact-convergence consumers disabled for every matching response.
+
 ## UPSTREAM-INGESTION-UNAVAILABLE-SCHEMA-001
 
 - BA/PO decision: fresh inspection reconciled 20+ current opportunities across ingestion, finality, recovery, contract parity, data completeness, downstream intelligence, trading safety, observability, performance, and commercial readiness. `/api/v1/ingestion` ranked highest because operators and bot-readiness consumers depend on its bounded redacted exporter evidence, while discovery left the retryable 503 body untyped.
