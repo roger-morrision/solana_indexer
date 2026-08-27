@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-OPERATIONAL-SCHEMA-HARDENING-001
+
+- BA/PO decision: fresh 20+ reconciliation prioritized two independent QC failures because permissive nested operational schemas could let generated clients accept credential-bearing, safety-contradictory, or nonconverged evidence.
+- Selected IDs: `UPSTREAM-QA-INGESTION-SUCCESS-PROJECTION-001`, `UPSTREAM-QA-WAREHOUSE-SUCCESS-PROJECTION-001`.
+- Implemented contracts: ingestion now closes exporter/index projections, types skipped slots, mirrors exporter fields, and binds automation eligibility to source; warehouse now closes sinks/reconciliation, fixes zero invalid-preimage counts, and publishes sequence/lag convergence relationships.
+- Acceptance evidence: focused regressions assert nested closure, item typing, fixed values, mirror/conditional rules, sink equality, and lag arithmetic; existing healthy HTTP fixtures retain exact parity.
+- Compatibility/migration/configuration: discovery hardening only; runtime responses, source policy, warehouse writes, persistence, RPC/WebSocket, and configuration are unchanged. Generated validators must implement the published relationship rules.
+- Shortfall/blockers: 20+ findings reconciled, two material corrections completed, exact shortfall 18. Public health/feed success discovery remains; live qualification is OPERATOR-blocked; protocol expansion needs authoritative ABI/fixtures.
+- NEXT_WEB_ACTION: regenerate ingestion and warehouse validators with nested closure plus mirror, conditional-value, equality, and difference relationship enforcement.
+
 # UPSTREAM-WAREHOUSE-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected healthy warehouse convergence because AI safety, replay/reorg, recovery, and commercial monitoring clients could validate only warehouse failures.
