@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-HOLDERS-SUCCESS-PARITY-001
+
+- BA/PO decision: fresh 20+ reconciliation selected public holder success discovery because Terminal DEX holder/whale consumers received the allowlisted concentration envelope without a schema, while the equivalent internal view already exposed one.
+- Selected ID: `UPSTREAM-HOLDERS-SUCCESS-PARITY-001`.
+- Implemented contract: `/api/v1/holders/{mint}` HTTP 200 now references the shared closed `token_holders_success_v1` schema used by the identical internal holder projection.
+- Acceptance evidence: route discovery identifies the shared schema and a finalized account-snapshot fixture returns an exact required-key match with bounded holder rows and credential redaction.
+- Compatibility/migration/configuration: additive discovery parity only; runtime response bytes, holder aggregation, persistence, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked; refreshed independent verification remains QC-owned.
+- NEXT_WEB_ACTION: regenerate the public holder validator and preserve `safeForAutomation: false` plus disclosed coverage, exclusion, withheld, freshness, and concentration evidence.
+
 # UPSTREAM-QA-GAP-FEED-SUCCESS-PROJECTION-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the new HIGH QC failure because generated replay/reorg consumers could accept five unsafe or contradictory gap-feed success projections.
