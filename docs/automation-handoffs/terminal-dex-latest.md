@@ -932,3 +932,12 @@
 - Validation: source syntax and focused v2 order/redaction passed; full regression passed 348/348; current-evidence smoke returned schema v2 with twenty checks and failed closed; canonical 1,000-block replay/load completed successfully.
 - Blockers: provider configuration and fresh canonical operational evidence remain unavailable; the tool diagnoses but cannot manufacture them.
 - NEXT_WEB_ACTION: no WEB code change; treat schema v2 as operator/QC evidence and enable consumers only when `ready` is true.
+# UPSTREAM-PREPARATION-TRANSACTION-BOUNDARY-SCHEMA-001
+
+- BA/PO decision: close the dependency-ready unsigned preparation and transaction authorization boundary before attempting venue-specific quote and instruction-evidence unions. This directly prevents published validators from accepting injected top-level credentials or contradictory nested signed/submitted state while preserving every current preparation route.
+- Selected ID: `UPSTREAM-PREPARATION-TRANSACTION-BOUNDARY-SCHEMA-001`.
+- Contract: `preparation_success_v1.preparation` now has an exact nine-field envelope; its unsigned legacy transaction has an exact nine-field envelope, fixed schema/message versions, hash shapes, nonempty instruction policy evidence, and constant `signed: false` / `submitted: false`.
+- Compatibility/migration/configuration: additive schema precision only; successful response bodies and configuration are unchanged. Consumers that generated permissive validators should regenerate them from `/api/v1/query-contracts`.
+- Validation: focused response-contract regression, full suite, syntax, replay, and fail-closed health checks.
+- Remaining boundary: protocol-specific `quote`, `instructionEvidence`, and `simulationPolicy` projections require explicit venue unions and remain non-automation-safe.
+- NEXT_WEB_ACTION: reject preparation responses whose preparation or transaction contains undeclared fields, authorizing state, a non-legacy message version, or a non-finalized commitment.
