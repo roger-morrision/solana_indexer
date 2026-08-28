@@ -986,3 +986,12 @@
 - Validation: focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: each catalog identity still needs exact quote and instructionEvidence schemas before the shared success schema can use a closed union.
 - NEXT_WEB_ACTION: dispatch preparation validation by the published type/protocol/route-family tuple and reject identities absent from the catalog.
+# UPSTREAM-PREPARATION-IDENTITY-BINDING-001
+
+- BA/PO decision: fresh 20+ reconciliation selected preparation identity binding because the published catalog was additive but the shared success schema still admitted unknown types and mismatched type/protocol pairs, weakening generated trading-safety validation.
+- Selected ID: `UPSTREAM-PREPARATION-IDENTITY-BINDING-001`.
+- Contract: `preparation_success_v1` now declares a fail-closed `catalog_membership` relationship binding `preparation.type` and `preparation.protocol` to one exact tuple in `preparationVariants`; the response-schema dialect explicitly publishes the new relationship kind.
+- Compatibility/migration/configuration: all eleven current constructors already emit cataloged tuples, so runtime bodies, persistence, and configuration are unchanged. Generated validators must implement `catalog_membership` before accepting the refreshed contract.
+- Validation: focused identity/dialect regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: exact quote and venue-specific instructionEvidence shapes still require closed per-variant schemas.
+- NEXT_WEB_ACTION: enforce catalog_membership by resolving the declared catalog and rejecting unknown or mismatched preparation type/protocol tuples.

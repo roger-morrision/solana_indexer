@@ -247,7 +247,7 @@ test("query contracts identify the fail-closed response schema dialect", () => {
   const contract = queryContractSnapshot(), dialect = contract.bodySchemaDialect;
   assert.deepEqual({ name: dialect.name, version: dialect.version, unknownKeywordPolicy: dialect.unknownKeywordPolicy }, { name: "solana-indexer-response-schema", version: 1, unknownKeywordPolicy: "fail_closed" });
   for (const keyword of ["exactItems", "uniqueItems", "maximumProperty", "minimumProperty", "strictlyIncreasing", "relationships"]) assert.ok(dialect.keywords.includes(keyword), keyword);
-  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "decimal_negation", "difference", "equal", "mirror"]);
+  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "catalog_membership", "decimal_negation", "difference", "equal", "mirror"]);
   const sequenceRule = contract.responseBodySchemas.execution_policy_success_v1.properties.requiredSteps;
   assert.ok(Object.keys(sequenceRule).every((keyword) => dialect.keywords.includes(keyword)), "execution policy uses only declared dialect keywords");
 });
@@ -683,11 +683,12 @@ test("preparation success schema requires universal instruction amount evidence"
 
 test("preparation success schema binds output evidence to simulation effects", () => {
   const relationships = queryContractSnapshot().responseBodySchemas.preparation_success_v1.relationships;
-  assert.deepEqual(relationships.slice(-3, -1), [{ kind: "equal", properties: ["preparation.instructionEvidence.minimumOutputRaw", "preparation.simulationPolicy.accountExpectations.1.minDeltaRaw"] }, { kind: "equal", properties: ["preparation.instructionEvidence.quotedOutputRaw", "preparation.simulationPolicy.accountExpectations.1.maxDeltaRaw"] }]);
+  const amountRelationships = relationships.filter(({ properties }) => properties?.[0]?.startsWith("preparation.instructionEvidence."));
+  assert.deepEqual(amountRelationships, [{ kind: "equal", properties: ["preparation.instructionEvidence.minimumOutputRaw", "preparation.simulationPolicy.accountExpectations.1.minDeltaRaw"] }, { kind: "equal", properties: ["preparation.instructionEvidence.quotedOutputRaw", "preparation.simulationPolicy.accountExpectations.1.maxDeltaRaw"] }]);
 });
 
 test("preparation success schema binds input evidence by canonical decimal negation", () => {
-  const contract = queryContractSnapshot(), relationship = contract.responseBodySchemas.preparation_success_v1.relationships.at(-1);
+  const contract = queryContractSnapshot(), relationship = contract.responseBodySchemas.preparation_success_v1.relationships.find(({ kind }) => kind === "decimal_negation");
   assert.ok(contract.bodySchemaDialect.relationshipKinds.includes("decimal_negation"));
   assert.deepEqual(relationship, { kind: "decimal_negation", positive: "preparation.instructionEvidence.amountInRaw", negative: "preparation.simulationPolicy.accountExpectations.0.minDeltaRaw" });
 });
@@ -700,6 +701,17 @@ test("query contracts enumerate every live preparation identity", () => {
   assert.deepEqual([...new Set(variants.map(({ routeFamily }) => routeFamily))].sort(), ["pool", "token"]);
   assert.deepEqual(variants.filter(({ routeFamily }) => routeFamily === "token").map(({ protocol }) => protocol), ["pump-bonding-curve", "pump-bonding-curve"]);
   assert.ok(variants.every(({ type, protocol }) => type.endsWith("_simulation") && protocol.length > 0));
+});
+
+test("preparation success schema requires catalog-bound type and protocol identity", () => {
+  const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.preparation_success_v1;
+  const relationship = schema.relationships.find(({ kind }) => kind === "catalog_membership");
+  assert.ok(contract.bodySchemaDialect.relationshipKinds.includes("catalog_membership"));
+  assert.deepEqual(relationship, { kind: "catalog_membership", catalog: "preparationVariants", properties: { type: "preparation.type", protocol: "preparation.protocol" } });
+  const matches = (type, protocol) => contract[relationship.catalog].some((variant) => variant.type === type && variant.protocol === protocol);
+  assert.equal(matches("raydium_cpmm_swap_base_input_simulation", "raydium-cpmm"), true);
+  assert.equal(matches("raydium_cpmm_swap_base_input_simulation", "orca-whirlpool"), false);
+  assert.equal(matches("unknown_simulation", "raydium-cpmm"), false);
 });
 
 test("simulation receipts verify exact mint-bound token effects", async () => {
