@@ -1,26 +1,34 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T16:36:43+07:00`
+- Run: `2026-08-28T17:37:14+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `57ca09fcd01ce7f52f77fa6e4c56b219e7a02af8`
-- Compared with QA baseline: `3ea0d61e3576c5ec8e7a0df1a7952738b2684f83` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 1 ahead, 0 behind before this evidence report
-- Latest DEV commit: `57ca09f` (published Orca Whirlpool instruction-evidence schema)
-- Overall result: 0 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The AMM v4 and Orca catalog rows publish exact closed scalar/array shapes and pass real-constructor positives, missing-field, credential, raw-value, reserve-mode, and tick-array controls, but both schemas admit impossible slot ordering that their real constructors reject. The two defects remain deduplicated under the existing HIGH preparation-boundary finding. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `fde5d69c46311b6e3ef931614e1d93954449b60e`
+- Compared with QA baseline: `b95cdaffdd0e315674d92c40e703faafc42bb7d5` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 4 ahead, 0 behind before this evidence report
+- Latest DEV commit: `fde5d69` (bound CPMM and CLMM evidence slot order)
+- Overall result: 4 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. `7c22aac` closes both reported AMM v4 and Orca ordering failures; `fde5d69` independently closes the same constructor-parity gap for CPMM and CLMM. All four published instruction-evidence schemas now reject impossible component-slot provenance while preserving equality boundaries. The deduplicated parent HIGH finding is narrowed to all eleven quote variants and seven schema-null instruction-evidence variants. Live qualification remains independently blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (4/20)
 
-### AMM v4 and Orca preparation instruction-evidence closure (2 FAIL)
+### Preparation instruction-evidence slot-order parity (4 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QA-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / AMM v4 catalog row | `FAIL` | DEV selected `UPSTREAM-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001`. The ten-field closed shape accepts real constructor evidence and rejects all scoped field/value negatives, but accepts `stateSlot=502, openOrdersSlot=501, marketSlot=500, balanceSlot=499`; the real constructor rejects that same ordering as invalid evidence. |
-| `UPSTREAM-QA-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / Orca catalog row | `FAIL` | DEV selected `UPSTREAM-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001`. The fourteen-field closed shape accepts real constructor evidence and rejects missing/credential/tick-array negatives, but accepts `stateSlot=102, tickArraySlot=100, balanceSlot=101, mintEvidenceSlot=99`; the real constructor rejects the same ordering. |
+| `UPSTREAM-QA-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / AMM v4 catalog row | `PASS` | `7c22aac` publishes `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot`. Independent ordered and all-equal controls pass; each of the three direct inversions rejects. |
+| `UPSTREAM-QA-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / Orca catalog row | `PASS` | `7c22aac` publishes `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot`. Independent ordered and all-equal controls pass; each of the three direct inversions rejects. |
+| `UPSTREAM-QA-RAYDIUM-CPMM-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / CPMM catalog row | `PASS` | `fde5d69` publishes `stateSlot <= configSlot <= balanceSlot <= mintEvidenceSlot`. Independent ordered and all-equal controls pass; each of the three direct inversions rejects. |
+| `UPSTREAM-QA-RAYDIUM-CLMM-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / CLMM catalog row | `PASS` | `fde5d69` binds balance, tick-array, and AMM-config slots at or after state plus mint evidence at or after balance. Independent ordered and all-equal controls pass; all four direct inversions reject. |
 
-- Available DEV delta: exactly 2 distinct enhancements after `3ea0d61`; the complete delta was exhausted after detecting the intervening Orca DEV commit during initial AMM validation, discarding that stale mixed-state attempt, refreshing from `2b69f59` to stable `57ca09f`, and rerunning all tiers.
-- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting fields, mutation cases, or constructor assertions would be padding.
-- Validation: exact catalog references 2/2 and real constructor positives 2/2 PASS; missing-required negatives 24/24, credential fields 2/2, reserve mode 1/1, raw forms 7/7, wrong types 2/2, and Orca tick-array negatives 2/2 reject; slot-order mutations 2/2 are incorrectly admitted by schemas and rejected by constructors; snapshot isolation PASS. Four of eleven instruction schemas are published, but only the prior CPMM and CLMM schemas are verified complete; strict protocol-specific closure remains 2/22 with 20/22 under the parent finding. Focused committed suite 3/3 PASS; 61 response schemas and digest `c7b6fce25fb3cd2469a54afb3bf35e19b470717cb822dbf0f7ceb959c0617a40` are structurally coherent; full suite 419/419 PASS; syntax 86/86 PASS; replay invariants PASS at 8,292.18 blocks/s with 9,136,552-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: two selected BA/PO outcomes after `b95cdaf` produce four distinct schema-contract fixes across AMM v4, Orca, CPMM, and CLMM. The complete delta was exhausted after detecting the second DEV writer turn during validation, discarding mixed-state results, refreshing from `7c22aac` to stable `fde5d69`, and rerunning every tier.
+- Verification result: 4 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 16; no additional distinct DEV outcome exists after the QA baseline, and splitting individual relationship descriptors, equality controls, or inversion assertions would be padding.
+- Validation: published `minimumProperty` bindings 13/13, ordered positives 4/4, equality-boundary positives 4/4, and direct inversion negatives 13/13 PASS; dialect declaration, snapshot isolation, and digest recomputation PASS. Strict protocol-specific closure advances to 4/22 PASS and 18/22 FAIL (0/11 quote and seven instruction variants still null). Focused committed suite 6/6 PASS; 61 response schemas and digest `6302fd57634f5c04d8dac63c014ee3e823316ddcbb98e23c21df4cc21f491140` are structurally coherent; full suite 421/421 PASS; syntax 86/86 PASS; replay invariants PASS at 5,542.14 blocks/s with 9,284,872-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-QA-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001`: `FAIL` at the time; resolved by current `7c22aac`.
+- `UPSTREAM-QA-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001`: `FAIL` at the time; resolved by current `7c22aac`.
+- Prior exact shortfall: 18; prior validation was 419/419 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -1560,67 +1568,67 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 
 ## UPSTREAM-QA-RAYDIUM-CPMM-INSTRUCTION-EVIDENCE-SCHEMA-001
 
-- Severity: `PASS` (implemented by `c01e2ca`)
+- Severity: `PASS` (implemented by `c01e2ca`, ordering completed by `fde5d69`)
 - Owner: `DEV`
 - Reproduction: resolve the CPMM catalog row's `instructionEvidenceSchema`; construct one legacy-SPL and one finalized Token-2022 fee-aware CPMM instruction through the real builder; validate exact keys and types, then remove every required field and inject credential, fee-mode, raw-number, and wrong-type variants.
-- Evidence: `raydium_cpmm_instruction_evidence_v1` is closed and requires exactly thirteen fields. Both real constructor forms validate. All 13/13 missing fields, one unknown credential field, one unsupported fee mode, thirteen empty/signed/noncanonical/fractional/exponent raw-number variants, and two wrong-type variants reject; other catalog rows do not alias this schema.
+- Evidence: `raydium_cpmm_instruction_evidence_v1` is closed and requires exactly thirteen fields. Both real constructor forms validate. All field/value negatives reject, and `fde5d69` now matches constructor provenance with `stateSlot <= configSlot <= balanceSlot <= mintEvidenceSlot`; ordered and equality controls pass while all three direct inversions reject.
 - Affected contracts: Raydium CPMM pool preparation discovery, catalog dispatch, finalized component slots and epoch, Token-2022 fee evidence, signer-critical amounts, direction, redaction, schema digest/ETag, and downstream generated validators.
 - Expected versus actual behavior: the CPMM catalog identity must dispatch to its complete emitted instruction-evidence shape and reject missing, unknown, credential-bearing, unsupported-fee, noncanonical-raw, or wrong-type content. Expected and actual match.
-- Acceptance criteria: exact closed schema; real legacy and Token-2022 positives; canonical nonnegative fees and positive amounts; bounded known fee mode; required finalized evidence coordinates and direction; missing/unknown/type negatives; detached snapshots. All scoped criteria are met.
-- Validation results: real positives 2/2 PASS; required keys 13/13; missing negatives 13/13 reject; credential 1/1, fee mode 1/1, raw forms 13/13, and wrong types 2/2 reject; snapshot isolation PASS; focused suite 7/7 PASS; full suite 417/417 PASS; syntax 86/86 PASS; replay PASS at 7,701.98 blocks/s with 9,649,424-byte heap growth; digest `c3331dc4fe3d1d8ac10774ca1f4d4dd57648bc79a0d714c0845af30df8f012c6` independently recomputes.
+- Acceptance criteria: exact closed schema; real legacy and Token-2022 positives; canonical nonnegative fees and positive amounts; bounded known fee mode; exact finalized slot order with equality boundaries; missing/unknown/type and each direct inversion negative; detached snapshots. All scoped criteria are met.
+- Validation results: prior field/value matrix remains PASS; ordering descriptors 3/3, ordered/equality positives 2/2, and direct inversions 3/3 PASS; snapshot isolation PASS; focused suite 6/6 PASS; full suite 421/421 PASS; syntax 86/86 PASS; replay PASS at 5,542.14 blocks/s with 9,284,872-byte heap growth; digest `6302fd57634f5c04d8dac63c014ee3e823316ddcbb98e23c21df4cc21f491140` independently recomputes.
 - Compatibility/performance impact: additive catalog/schema discovery changes digest/ETag but preserves current CPMM bodies, signing/submission behavior, persistence, providers, RPC, WebSocket, database, and configuration. Thirteen closed scalar checks are constant-bounded.
 - Blockers: none for CPMM instruction evidence; its quote and the other catalog variants remain in the parent finding.
 
 ## UPSTREAM-QA-RAYDIUM-CLMM-INSTRUCTION-EVIDENCE-SCHEMA-001
 
-- Severity: `PASS` (implemented by `fee14ca`)
+- Severity: `PASS` (implemented by `fee14ca`, ordering completed by `fde5d69`)
 - Owner: `DEV`
 - Reproduction: resolve the CLMM catalog row's `instructionEvidenceSchema`; construct real finalized CLMM swap-v2 evidence with two tick arrays; validate exact keys and recursive array rules, then remove each field and inject credential, empty/duplicate/empty-address tick paths, zero price limit, and fractional tick variants.
-- Evidence: `raydium_clmm_instruction_evidence_v1` is closed and requires exactly seventeen fields. Real constructor evidence validates with the exact pool, slots, epoch, fee/amount evidence, signed limit tick, positive Q64 price, direction, and selected tick arrays. All 17/17 missing fields plus the credential, three tick-path, price-limit, and wrong-type variants reject.
+- Evidence: `raydium_clmm_instruction_evidence_v1` is closed and requires exactly seventeen fields. Real constructor and prior field/path negatives pass. `fde5d69` now requires balance, tick-array, and AMM-config evidence at or after state and mint evidence at or after balance, matching the real constructor; ordered and all-equal controls pass and all four direct inversions reject.
 - Affected contracts: Raydium CLMM pool preparation discovery, catalog dispatch, finalized state/balance/tick/config/mint evidence, Token-2022 fees, signer-critical amounts, tick/price limits, traversal identity, redaction, schema digest/ETag, and downstream generated validators.
 - Expected versus actual behavior: the CLMM catalog identity must dispatch to the complete emitted instruction evidence, including a bounded unique nonempty tick path, and reject missing, unknown, credential-bearing, empty/duplicate, invalid-price, or wrong-type content. Expected and actual match.
-- Acceptance criteria: exact closed schema; real constructor positive; one-to-64 unique nonempty tick-array addresses; positive Q64 price limit; signed integer tick; canonical amounts and fee modes; exhaustive missing and focused unsafe negatives; detached snapshots. All scoped criteria are met.
-- Validation results: real positive 1/1 PASS; required keys 17/17; missing negatives 17/17 reject; credential 1/1, tick-path negatives 3/3, zero price 1/1, and fractional tick 1/1 reject; snapshot isolation PASS; focused suite 7/7 PASS; full suite 417/417 PASS; syntax 86/86 PASS; replay PASS at 7,701.98 blocks/s with 9,649,424-byte heap growth.
+- Acceptance criteria: exact closed schema; real constructor positive; one-to-64 unique nonempty tick arrays; positive Q64 price limit; signed tick; canonical amounts and fee modes; exact constructor slot relationships with equality boundaries; exhaustive missing, unsafe, and direct-inversion negatives; detached snapshots. All criteria are met.
+- Validation results: prior field/path matrix remains PASS; ordering descriptors 4/4, ordered/equality positives 2/2, and direct inversions 4/4 PASS; snapshot isolation PASS; focused suite 6/6 PASS; full suite 421/421 PASS; syntax 86/86 PASS; replay PASS at 5,542.14 blocks/s with 9,284,872-byte heap growth.
 - Compatibility/performance impact: additive catalog/schema discovery changes digest/ETag but preserves current CLMM bodies and all runtime/persistence/provider interfaces. Recursive validation is bounded to 64 short catalog-address entries and the existing preparation envelope limit.
 - Blockers: none for CLMM instruction evidence; its quote and the other catalog variants remain in the parent finding.
 
 ## UPSTREAM-QA-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (implemented by `7c22aac`)
 - Owner: `DEV`
 - Reproduction: resolve the AMM v4 catalog row and `raydium_amm_v4_instruction_evidence_v1`; validate real constructor evidence, then submit the schema-valid mutation `stateSlot=502`, `openOrdersSlot=501`, `marketSlot=500`, `balanceSlot=499` through both the schema and `buildRaydiumAmmV4SwapBaseInputInstruction`.
-- Evidence: the ten-field schema is closed, admits the real constructor shape, and rejects 10/10 missing fields, a credential, unsupported reserve mode, seven invalid positive-raw forms, and two wrong types. It declares four independent nonnegative slot integers without their runtime ordering. The mutation validates against discovery but the constructor rejects it as `Raydium AMM v4 quote evidence is invalid` because runtime requires `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot`.
+- Evidence: the prior field/value controls remain closed. `7c22aac` publishes `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot` with three `minimumProperty` bindings. Independent ordered and all-equal controls pass; every direct inversion rejects.
 - Affected contracts: AMM v4 pool preparation discovery, finalized state/OpenBook market/balance provenance, reserve reconstruction, signer-critical amounts, generated fail-closed validators, schema digest/ETag, and downstream signing admission.
-- Expected versus actual behavior: discovery must reject component snapshots that are temporally impossible for the real constructor; actual discovery accepts them while execution rejects them.
-- Acceptance criteria: publish exact cross-property constraints for `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot`; preserve equality boundaries; add a positive ordered/equal control and one negative for each inversion; retain all existing closure, reserve-mode, raw-value, credential, and constructor tests.
-- Validation results: exact reference, real positive, required keys 10/10, missing negatives 10/10, credential/reserve/raw/type negatives, and isolation PASS; one four-slot inversion FAILS closed-schema parity. Focused committed suite 3/3, full 419/419, syntax 86/86, and replay invariants PASS.
+- Expected versus actual behavior: discovery must reject component snapshots that are temporally impossible for the real constructor; expected and actual now match.
+- Acceptance criteria: publish exact cross-property constraints for `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot`; preserve equality boundaries; add a positive ordered/equal control and one negative for each inversion; retain all existing closure, reserve-mode, raw-value, credential, and constructor tests. All criteria are met.
+- Validation results: prior exact-shape matrix remains PASS; ordering descriptors 3/3, ordered/equality positives 2/2, and direct inversions 3/3 PASS; focused suite 6/6, full 421/421, syntax 86/86, and replay invariants PASS.
 - Compatibility/performance impact: discovery-only hardening changes digest/ETag and causes clients to reject evidence already rejected at runtime. Four bounded integer comparisons are negligible; runtime bytes, persistence, providers, RPC, WebSocket, database, and configuration remain unchanged.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; this scoped defect is closed.
 
 ## UPSTREAM-QA-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (implemented by `7c22aac`)
 - Owner: `DEV`
 - Reproduction: resolve the Orca catalog row and `orca_whirlpool_instruction_evidence_v1`; validate real constructor evidence, then submit the schema-valid mutation `stateSlot=102`, `tickArraySlot=100`, `balanceSlot=101`, `mintEvidenceSlot=99` through both the schema and `buildOrcaWhirlpoolSwapInstruction`.
-- Evidence: the fourteen-field schema is closed, admits the real constructor shape, and rejects 14/14 missing fields, a credential, a two-array path, and a duplicate three-array path. It declares the four evidence slots independently and omits their runtime order. The mutation validates against discovery but the constructor rejects it as `Orca execution quote evidence is invalid` because runtime requires `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot`.
+- Evidence: the prior exact shape and three-array controls remain closed. `7c22aac` publishes `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot` with three `minimumProperty` bindings. Independent ordered and all-equal controls pass; every direct inversion rejects.
 - Affected contracts: Orca Whirlpool pool preparation discovery, finalized state/tick-array/balance/mint provenance, three-array traversal, oracle identity, signer-critical price and amount limits, generated fail-closed validators, schema digest/ETag, and signing admission.
-- Expected versus actual behavior: discovery must reject impossible temporal ordering that real Orca construction refuses; actual discovery accepts that evidence.
-- Acceptance criteria: publish exact cross-property constraints for `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot`; preserve equality boundaries; add a positive ordered/equal control and one negative for each inversion; retain exact three-unique-array, oracle, closure, credential, and real-constructor tests.
-- Validation results: exact reference, real positive, required keys 14/14, missing negatives 14/14, credential and two tick-array negatives, and isolation PASS; one four-slot inversion FAILS closed-schema parity. Focused committed suite 3/3, full 419/419, syntax 86/86, and replay invariants PASS.
+- Expected versus actual behavior: discovery must reject impossible temporal ordering that real Orca construction refuses; expected and actual now match.
+- Acceptance criteria: publish exact cross-property constraints for `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot`; preserve equality boundaries; add a positive ordered/equal control and one negative for each inversion; retain exact three-unique-array, oracle, closure, credential, and real-constructor tests. All criteria are met.
+- Validation results: prior exact-shape matrix remains PASS; ordering descriptors 3/3, ordered/equality positives 2/2, and direct inversions 3/3 PASS; focused suite 6/6, full 421/421, syntax 86/86, and replay invariants PASS.
 - Compatibility/performance impact: discovery-only hardening changes digest/ETag and aligns clients with existing runtime rejection. Four bounded integer comparisons are negligible; runtime, storage, provider, RPC, WebSocket, database, and configuration behavior remain unchanged.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; this scoped defect is closed.
 
 ## UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
 - Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, transaction, simulation-policy, universal instruction-amount, and input/output effect relationships, then apply the published rules to protocol-specific `quote` or `preparation.instructionEvidence` objects containing unknown credentials, unsafe quote state, or wrong program evidence.
-- Evidence: prior increments close handoff, transaction, policy, universal amounts, all three input/output effect bindings, catalog discovery, and type/protocol membership. CPMM and CLMM retain exact real-constructor parity. `2b69f59` and `57ca09f` publish closed AMM v4 and Orca scalar/array shapes, but both omit the temporal slot relationships required by their constructors and therefore admit impossible finalized provenance. All eleven quotes and seven additional instruction-evidence variants still have no closed schema reference.
+- Evidence: prior increments close handoff, transaction, policy, universal amounts, all three input/output effect bindings, catalog discovery, and type/protocol membership. The CPMM, CLMM, AMM v4, and Orca instruction-evidence schemas now all match their real constructor slot relationships after `7c22aac` and `fde5d69`; 13/13 bindings and 13/13 direct inversion negatives pass. All eleven quotes and seven additional instruction-evidence variants still have no closed schema reference.
 - Affected contracts: pool and token preparation success discovery, generated trading-safety validators, execution-handoff binding and preparation hash, quote identity/provenance, unsigned transaction evidence, signer/submission boundaries, secret redaction, schema digest/ETag, and downstream AI/commercial admission.
 - Expected behavior: preparation success discovery must explicitly project and close venue-specific quote and instruction-evidence variants so empty, unknown, credential-bearing, wrong-program, or unsafe content fails closed.
-- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, and the CPMM/CLMM instruction-evidence variants are verifiable. AMM v4 and Orca are closed only at field/type level and fail runtime-equivalent slot ordering; the eleven quotes and seven remaining instruction-evidence variants remain schema-null. A generated validator still cannot establish complete venue provenance, quote safety, redaction, or protocol shape.
+- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, and four instruction-evidence variants are verifiable. The eleven quotes and seven remaining instruction-evidence variants remain schema-null, so generated validators still cannot establish complete venue provenance, quote safety, redaction, or protocol shape for those eighteen variants.
 - Acceptance criteria: define closed bounded discriminated variants for `quote` and `instructionEvidence`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction/simulation-policy boundary.
-- Validation results: prior closed boundaries remain PASS; strict protocol-specific schema coverage remains 2/22 PASS and 20/22 FAIL (0/11 quote; CPMM/CLMM instruction evidence PASS; AMM v4/Orca incomplete; seven instruction variants null). Current real positives 2/2 and field/value negatives 38/38 pass/reject, while slot-order mutations 2/2 are wrongly admitted. Focused suite 3/3 PASS; full suite 419/419 PASS; syntax 86/86 PASS; replay PASS at 8,292.18 blocks/s with 9,136,552-byte heap growth.
+- Validation results: prior closed boundaries remain PASS; strict protocol-specific schema coverage advances to 4/22 PASS and 18/22 FAIL (0/11 quote; four instruction-evidence variants PASS; seven instruction variants null). Ordering bindings 13/13, ordered positives 4/4, equality positives 4/4, and direct inversion negatives 13/13 PASS. Focused suite 6/6 PASS; full suite 421/421 PASS; syntax 86/86 PASS; replay PASS at 5,542.14 blocks/s with 9,284,872-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -1630,7 +1638,7 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 540,030,882 ms old during this run, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 543,605,651 ms old during this run, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1639,4 +1647,4 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: add AMM v4 `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot` and Orca `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot` schema constraints with equality-boundary positives and each inversion negative, then continue exact quote schemas and the remaining seven instruction-evidence variants while preserving CPMM/CLMM parity.
+- NEXT_DEV_ACTION: add the next BA/PO-ranked exact closed quote schema with real-constructor parity and fail-closed empty, credential-bearing, wrong-program, unsafe-state, and cross-object mismatch regressions while preserving all four completed instruction-evidence slot bindings.
