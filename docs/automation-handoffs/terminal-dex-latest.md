@@ -1156,6 +1156,14 @@
 - Contracts: Phoenix now publishes its 150-slot expiry ceiling and u64 field bounds. OpenBook now includes the real `minimumOutputRaw`, binds minimum output to quoted output, orders current slot after balance evidence, caps amount fields at u64, and caps encoded lot fields at signed i64.
 - Compatibility/migration/configuration: discovery-only correction; runtime bodies, persistence, provider/RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated clients must refresh for the schema digest.
 - NEXT_WEB_ACTION: regenerate Phoenix and OpenBook preparation validators with maximumOffset and maximumRaw support, then reject evidence outside the published constructor bounds before signing.
+
+## UPSTREAM PumpSwap instruction-evidence contract closure
+
+- Selected IDs: `UPSTREAM-PUMP-SWAP-SELL-INSTRUCTION-EVIDENCE-SCHEMA-001`, `UPSTREAM-PUMP-SWAP-BUY-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected the two dependency-ready PumpSwap variants because their null catalog schemas prevented generated trading-safety and commercial clients from validating finalized state/config/mint provenance, u64 execution bounds, fee-recipient identity, and buy-only volume tracking.
+- Contracts: sell and buy-exact-quote-in now dispatch separate closed schemas; both bind four-stage slot ordering, positive u64 amounts, minimum output ordering, and fee-recipient fields, while buy additionally requires `trackVolume:true`.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime bodies, persistence, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
+- NEXT_WEB_ACTION: regenerate PumpSwap preparation validators and require the exact direction-specific instructionEvidence schema before simulation or signing.
 # UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
 
 - BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.
