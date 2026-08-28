@@ -252,6 +252,21 @@ test("query contracts identify the fail-closed response schema dialect", () => {
   assert.ok(Object.keys(sequenceRule).every((keyword) => dialect.keywords.includes(keyword)), "execution policy uses only declared dialect keywords");
 });
 
+test("response schema dialect covers every live schema-node keyword", () => {
+  const contract = queryContractSnapshot(), used = new Set();
+  const visit = (rule) => {
+    for (const [keyword, value] of Object.entries(rule)) {
+      used.add(keyword);
+      if (keyword === "properties") for (const child of Object.values(value)) visit(child);
+      else if (keyword === "items" && value && typeof value === "object" && !Array.isArray(value)) visit(value);
+      else if (keyword === "oneOf") for (const child of value) visit(child);
+    }
+  };
+  for (const schema of Object.values(contract.responseBodySchemas)) visit(schema);
+  assert.deepEqual([...used].filter((keyword) => !contract.bodySchemaDialect.keywords.includes(keyword)).sort(), []);
+  assert.ok(contract.bodySchemaDialect.keywords.includes("kind"));
+});
+
 test("every decision-quality consumer advertises its fail-closed unavailable outcome", async (t) => {
   const paths = ["/internal/trending", "/internal/new-pairs", "/internal/candidates", "/api/trending", "/api/v1/tokens", "/api/v1/pools", "/internal/evidence/{mint}", "/internal/tokens/{mint}", "/internal/tokens/{mint}/market", "/internal/tokens/{mint}/security", "/internal/tokens/{mint}/holders", "/internal/tokens/{mint}/trades", "/internal/tokens/{mint}/ohlcv", "/internal/tokens/{mint}/liquidity", "/internal/tokens/{mint}/executable-depth", "/internal/wallets/{wallet}", "/internal/wallets/{wallet}/performance", "/internal/wallets/{wallet}/profile", "/internal/wallets/{wallet}/funding", "/internal/wallets/{wallet}/funding-cluster", "/internal/pools/{pool}/quote", "/api/account/{address}", "/api/mint/{mint}", "/api/v1/price/{mint}", "/api/v1/volume/{mint}", "/api/v1/risk/{pool}", "/api/v1/pool/{pool}", "/api/v1/candles/{pool}", "/api/v1/bot/readiness"], routes = new Map(queryContractSnapshot().http.map((route) => [route.path, route.responseOutcomes]));
   assert.equal(paths.length, 29); for (const path of paths) { const outcome = routes.get(path).find(({ status }) => status === 503); assert.deepEqual({ outcome: outcome?.outcome, retryable: outcome?.retryable }, { outcome: "unavailable", retryable: true }, path); }

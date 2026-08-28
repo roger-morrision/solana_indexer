@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the HIGH dialect completeness defect because fail-closed generated clients could not accept the shared cursor schema used by all five paginated REST success routes.
+- Selected ID: `UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001`.
+- Implemented contract: response-schema dialect version 1 now declares the live `kind` keyword while preserving fail-closed unknown-keyword handling and canonical cursor semantics.
+- Acceptance evidence: a recursive full-registry regression enumerates schema-node keywords, deliberately excludes relationship descriptor fields, and proves that no live keyword is undeclared.
+- Compatibility/migration/configuration: discovery-only correction changes the contract digest/ETag; runtime pagination bytes, cursor encoding/scope/digest, persistence, ingestion, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked by absent fresh canonical-mainnet evidence; refreshed verification remains QC-owned.
+- NEXT_WEB_ACTION: regenerate paginated response validators against dialect version 1 and continue rejecting unknown schema keywords fail closed.
+
 # UPSTREAM-CONTRACT-SCHEMA-DIALECT-001
 
 - BA/PO decision: fresh 20+ reconciliation selected response-schema dialect discovery because generated commercial, replay/reorg, and AI/trading-safety clients must interpret every custom fail-closed keyword consistently, including the newly required exact execution-stage order.
