@@ -1180,6 +1180,14 @@
 - Contracts: sell and buy catalog rows now dispatch separate closed schemas requiring exact direction and safety identity, positive bounded amounts/reserves, bounded fee components, four-stage finalized slot ordering, mint epoch, observation time, and exact missing execution gates.
 - Compatibility/migration/configuration: additive discovery metadata only; runtime quote bodies, persistence, RPC/WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: regenerate PumpSwap quote validators and require the direction-specific closed schema before displaying prices or preparing swaps.
+
+## UPSTREAM Pump bonding-curve instruction-evidence closure
+
+- Selected IDs: `UPSTREAM-PUMP-BONDING-SELL-INSTRUCTION-EVIDENCE-SCHEMA-001`, `UPSTREAM-PUMP-BONDING-BUY-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected the two remaining token-route instruction variants because launch-token safety consumers lacked closed finalized curve, mint, config, token-program, amount, and fee-recipient evidence.
+- Contracts: both sell-v2 and buy-exact-quote-in-v2 catalog rows now reference one exact closed constructor schema with ordered finalized slots, supported token-program modes, positive u64 bounds, minimum-output ordering, and non-system Solana fee recipients.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime bodies, persistence, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
+- NEXT_WEB_ACTION: regenerate Pump bonding-curve preparation validators and require the closed instructionEvidence schema before simulation or signing.
 # UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
 
 - BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.
