@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T12:35:40+07:00`
+- Run: `2026-08-28T13:36:11+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `60739b0e753f3d538a6fd6ef17b59563dee87601`
-- Compared with QA baseline: `cf547bd6d94e1a401824ed8f3f130295a38efec8` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 68 ahead, 0 behind before this evidence report
-- Latest DEV commit: `60739b0` (required universal positive raw instruction amounts)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The shared simulation-policy increment closes program allow/require identity, instruction/account-meta projections, exactly two mint-bound token-effect expectations, and transaction-policy equality. The instruction-evidence increment requires three positive canonical raw amounts. The deduplicated parent HIGH finding remains open because protocol-specific `quote` is opaque and `instructionEvidence` still admits unknown venue and credential fields. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `b4e5c48cb521df3b64414dbc67f26af926df69f5`
+- Compared with QA baseline: `7a4f969ea659d6f7c6d1be6c3d9020096a4a4e1a` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 1 ahead, 0 behind before this evidence report
+- Latest DEV commit: `b4e5c48` (bound positive instruction input to the first exact minimum debit)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Output minimum/quote amounts are equality-bound to the second account expectation, and the positive input amount is canonical-decimal-negation-bound to the first account expectation's minimum debit. The deduplicated parent HIGH finding remains open only because protocol-specific `quote` is opaque and `instructionEvidence` still admits unknown venue and credential fields. Live qualification remains independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-QA-PREPARATION-SIMULATION-POLICY-SCHEMA-001` (PASS)
+### `UPSTREAM-QA-PREPARATION-OUTPUT-EFFECT-BINDING-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QA-PREPARATION-SIMULATION-POLICY-SCHEMA-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-SIMULATION-POLICY-SCHEMA-001`. The shared policy and all nested instruction/account/effect rules are closed; program sets and transaction policy are equality-bound; effect expectations are exactly two; independent equality controls pass and mismatch variants reject. |
-| `UPSTREAM-QA-PREPARATION-INSTRUCTION-AMOUNTS-SCHEMA-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-INSTRUCTION-AMOUNTS-SCHEMA-001`. Instruction evidence requires `amountInRaw`, `quotedOutputRaw`, and `minimumOutputRaw` as positive canonical decimal strings; two positive controls pass and eight empty/zero/leading-zero/signed/fractional/exponent/non-numeric variants reject. Venue closure remains separately open. |
+| `UPSTREAM-QA-PREPARATION-OUTPUT-EFFECT-BINDING-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-OUTPUT-EFFECT-BINDING-001`. Two equality relationships bind `minimumOutputRaw`/`quotedOutputRaw` to the second account expectation's minimum/maximum deltas; the independent canonical control passes and both isolated mismatches reject. |
+| `UPSTREAM-QA-PREPARATION-INPUT-DEBIT-BINDING-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-INPUT-DEBIT-BINDING-001`. Declared fail-closed dialect kind `decimal_negation` binds positive `amountInRaw` to the first expectation's canonical negative minimum debit; the canonical control passes and one value mismatch plus five wrong/noncanonical debit variants reject. |
 
-- Available DEV delta: exactly 2 distinct enhancements after `cf547bd`; the complete delta was exhausted.
+- Available DEV delta: exactly 2 distinct enhancements after `7a4f969`; the complete delta was exhausted after waiting for the active DEV writer lock to clear and refreshing from interim `8f1e533` to stable `b4e5c48`.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting program lists, nested fields, amount fields, relationships, assertions, or venue fixtures would be padding.
-- Validation: simulation policy closure 4/4; nonempty unique bounded program sets; closed instruction policy/account metas; exact two closed account expectations; allowed/required equality control 1/1 and mismatch rejection 1/1; transaction/simulation instruction-policy equality control 1/1 and mismatch rejection 1/1 PASS; universal instruction amounts 3/3 required with positive controls 2/2 and invalid rejections 8/8 PASS; quote/instructionEvidence venue closure remains 0/2 under the retained parent finding; focused committed suite 5/5 PASS; 119 outcome representations, 118 unique body-contract identities, 57 response schemas, and 25/25 dialect keywords are structurally coherent; digest independently recomputes to `46c0f8294e0688b762fe08e5f6f37fea279f37063a8cfb926ef9a934c8f03a3e`; full suite 411/411 PASS; syntax 86/86 PASS; replay invariants PASS at 5,765.79 blocks/s with 9,538,080-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting the two output identities, path segments, decimal syntax cases, relationship assertions, or venue fixtures would be padding.
+- Validation: output relationship descriptors 2/2; output equality control 1/1; minimum mismatch rejection 1/1; quoted mismatch rejection 1/1; `decimal_negation` dialect declaration and descriptor PASS; input equality control 1/1; input mismatch rejection 1/1; wrong/noncanonical debit rejection 5/5 PASS; quote/instructionEvidence venue closure remains 0/2 under the retained parent finding; focused committed suite 8/8 PASS; 119 outcome representations, 118 unique body-contract identities, 57 response schemas, 25/25 dialect keywords, and 5/5 declared relationship kinds are structurally coherent; digest independently recomputes to `170ff0441f74fa0118d0cceaa789f1191b891b5a969de93bf5e2327e0badcd14`; full suite 413/413 PASS; syntax 86/86 PASS; replay invariants PASS at 6,165.76 blocks/s with 9,941,792-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-QA-PREPARATION-SIMULATION-POLICY-SCHEMA-001`: `PASS`.
+- `UPSTREAM-QA-PREPARATION-INSTRUCTION-AMOUNTS-SCHEMA-001`: `PASS`.
+- Prior exact shortfall: 18; prior validation was 411/411 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -614,8 +620,8 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 411/411; syntax passes 86/86; replay completes at 5,765.79 blocks/s with 9,538,080-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 550,805,584 ms old during this run. |
+| Bounded performance | `PASS` | Full suite passes 413/413; syntax passes 86/86; replay completes at 6,165.76 blocks/s with 9,941,792-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 554,414,686 ms old during this run. |
 
 The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -1482,17 +1488,43 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: additive discovery tightening changes digest/ETag and makes generated consumers reject invalid amount syntax while preserving runtime bytes, signing/submission behavior, persistence, provider, RPC, WebSocket, database, and configuration. Three fixed regex checks are bounded by existing response-size limits.
 - Blockers: none for the amount increment; protocol-specific closure remains the parent finding.
 
+## UPSTREAM-QA-PREPARATION-OUTPUT-EFFECT-BINDING-001
+
+- Severity: `PASS` (implemented by `8f1e533`)
+- Owner: `DEV`
+- Reproduction: inspect the final two equality relationships before the input-debit relationship in `preparation_success_v1`; resolve their dotted paths through a canonical two-expectation preparation, then independently alter only signer-facing `minimumOutputRaw` or `quotedOutputRaw`.
+- Evidence: the published relationships bind `instructionEvidence.minimumOutputRaw` to `accountExpectations[1].minDeltaRaw` and `instructionEvidence.quotedOutputRaw` to `accountExpectations[1].maxDeltaRaw`. A canonical 850..900 output range satisfies both. Independent 851-minimum and 901-quoted mutations each violate exactly one binding. All committed venue preparations remain compatible.
+- Affected contracts: both preparation success routes, signer-facing minimum/quoted output, exact local-simulation output effects, generated validator relationship resolution including numeric array segments, schema digest/ETag, and downstream signing-limit display.
+- Expected versus actual behavior: the unsigned instruction's minimum and quoted output values must equal the second token account expectation's approved delta range. Expected and actual match.
+- Acceptance criteria: publish both equality relationships; resolve the fixed second expectation unambiguously; preserve canonical bodies; reject isolated minimum and quoted-output contradictions. All criteria are met.
+- Validation results: relationship descriptors 2/2 PASS; dotted array-index resolution PASS; equality control 1/1 PASS; minimum mismatch 1/1 reject; quoted mismatch 1/1 reject; focused committed suite 8/8 PASS; full suite 413/413 PASS; syntax 86/86 PASS; replay invariants PASS at 6,165.76 blocks/s with 9,941,792-byte heap growth; registry digest independently recomputes to `170ff0441f74fa0118d0cceaa789f1191b891b5a969de93bf5e2327e0badcd14`.
+- Compatibility/performance impact: discovery-only relationships change digest/ETag and intentionally reject contradictory generated-client evidence. Runtime bytes, signing/submission behavior, persistence, provider, RPC, WebSocket, database, and configuration are unchanged. Two fixed dotted-path comparisons are constant-bounded.
+- Blockers: none; output-effect binding is closed.
+
+## UPSTREAM-QA-PREPARATION-INPUT-DEBIT-BINDING-001
+
+- Severity: `PASS` (implemented by `b4e5c48`)
+- Owner: `DEV`
+- Reproduction: inspect `bodySchemaDialect.relationshipKinds` and the final `preparation_success_v1` relationship; validate canonical positive input `1000` against first expectation minimum debit `-1000`, then mutate either value and test positive, negative-zero, leading-zero, off-by-one-low, and off-by-one-high debit forms.
+- Evidence: the fail-closed dialect declares `decimal_negation`; the final relationship binds `instructionEvidence.amountInRaw` to `accountExpectations[0].minDeltaRaw`. The canonical additive inverses pass. One positive-side mismatch and all five wrong/noncanonical debit forms reject under independent canonical-decimal negation evaluation. The deliberately looser first `maxDeltaRaw` used by partial-fill venues is not falsely equality-bound.
+- Affected contracts: both preparation success routes, signer-facing input amount, first token-account minimum debit, partial-fill maximum debit semantics, generated relationship validators, schema digest/ETag, and downstream signer-limit admission.
+- Expected versus actual behavior: the positive instruction input and first minimum account delta must be canonical decimal additive inverses without constraining the independently defined maximum debit. Expected and actual match.
+- Acceptance criteria: declare fail-closed `decimal_negation`; publish exact positive/negative paths; accept canonical inverses; reject mismatched, unsigned-negative, negative-zero, leading-zero, and off-by-one forms; preserve partial-fill maximum semantics and all current venues. All criteria are met.
+- Validation results: dialect relationship kind 1/1 PASS; descriptor 1/1 PASS; canonical control 1/1 PASS; positive-side mismatch 1/1 reject; wrong/noncanonical debit forms 5/5 reject; focused committed suite 8/8 PASS; full suite 413/413 PASS; syntax 86/86 PASS; replay invariants PASS at 6,165.76 blocks/s with 9,941,792-byte heap growth; 25/25 schema keywords and 5/5 relationship kinds remain declared.
+- Compatibility/performance impact: generated validators must refresh and fail closed until `decimal_negation` is supported; response bytes and runtime execution are unchanged. One canonical decimal comparison is bounded by existing response-size limits; no persistence, provider, RPC, WebSocket, database, or configuration migration is required.
+- Blockers: none; input-debit binding is closed.
+
 ## UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
-- Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, transaction, simulation-policy, and universal instruction-amount rules, then apply the published rules to protocol-specific `quote` or `preparation.instructionEvidence` objects containing unknown credentials, unsafe quote state, or wrong program evidence.
-- Evidence: `5aefae5` closes handoff/binding and six cross-object identities; `8dde519` closes the nine-field preparation and nine-field unsigned transaction; `9acccf5` closes the shared simulation policy, all nested instruction/account/effect rules, and its program/transaction equality relationships; `60739b0` requires three positive raw instruction amounts. All scoped controls pass. However, `quote` remains opaque and `instructionEvidence` has no `additionalProperties:false` or venue discriminator, so otherwise valid unsafe, credential-bearing, and wrong-program probes remain admissible.
+- Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, transaction, simulation-policy, universal instruction-amount, and input/output effect relationships, then apply the published rules to protocol-specific `quote` or `preparation.instructionEvidence` objects containing unknown credentials, unsafe quote state, or wrong program evidence.
+- Evidence: `5aefae5`, `8dde519`, `9acccf5`, and `60739b0` close the prior handoff, transaction, policy, and universal amount increments. `8f1e533` now equality-binds both signer-facing outputs; `b4e5c48` declares `decimal_negation` and binds positive input to first minimum debit. All universal controls pass. However, `quote` remains opaque and `instructionEvidence` has no `additionalProperties:false` or venue discriminator, so otherwise valid unsafe, credential-bearing, and wrong-program probes remain admissible.
 - Affected contracts: pool and token preparation success discovery, generated trading-safety validators, execution-handoff binding and preparation hash, quote identity/provenance, unsigned transaction evidence, signer/submission boundaries, secret redaction, schema digest/ETag, and downstream AI/commercial admission.
 - Expected behavior: preparation success discovery must explicitly project and close venue-specific quote and instruction-evidence variants so empty, unknown, credential-bearing, wrong-program, or unsafe content fails closed.
-- Actual behavior: external authority, identity, preparation, transaction, shared simulation-policy, and universal raw-amount boundaries are verifiable, but the two protocol-specific evidence objects remain open; a conforming generated validator still cannot establish their venue provenance, quote safety, redaction, or complete protocol shape.
+- Actual behavior: external authority, identity, preparation, transaction, shared simulation-policy, universal raw amounts, and all three signer-to-effect amount relationships are verifiable, but the two protocol-specific evidence objects remain open; a conforming generated validator still cannot establish their venue provenance, quote safety, redaction, or complete protocol shape.
 - Acceptance criteria: define closed bounded discriminated variants for `quote` and `instructionEvidence`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction/simulation-policy boundary.
-- Validation results: handoff 11/11, binding 6/6, relationship negatives 6/6, preparation 9/9, transaction 9/9, simulation policy 4/4, instruction amount fields 3/3, amount invalid rejection 8/8, program/transaction policy equality controls and mismatch negatives, finalized/legacy/signed/submitted constants, and closed-boundary credential exclusion PASS; remaining protocol-specific closure 0/2 and unsafe/credential/wrong-program probe rejection 0/2 FAIL; focused committed suite 5/5 PASS; full suite 411/411 PASS; syntax 86/86 PASS; replay invariants PASS at 5,765.79 blocks/s with 9,538,080-byte heap growth.
+- Validation results: prior closed boundaries remain PASS; output equality descriptors 2/2, canonical control 1/1, output mismatches 2/2 reject, decimal-negation descriptor/control 1/1, input mismatch 1/1 reject, and wrong/noncanonical debits 5/5 reject; remaining protocol-specific closure 0/2 and unsafe/credential/wrong-program probe rejection 0/2 FAIL; focused committed suite 8/8 PASS; full suite 413/413 PASS; syntax 86/86 PASS; replay invariants PASS at 6,165.76 blocks/s with 9,941,792-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -1502,7 +1534,7 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 550,805,584 ms age during this run.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 554,414,686 ms age during this run.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1511,4 +1543,4 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: close and explicitly project protocol-specific `quote` and `instructionEvidence` variants, preserving completed handoff/preparation/transaction/simulation-policy boundaries while adding all real-venue positives plus empty, credential-bearing, wrong-program, unsafe-quote, and cross-object mismatch regressions.
+- NEXT_DEV_ACTION: close and explicitly project protocol-specific `quote` and `instructionEvidence` variants, preserving completed handoff/preparation/transaction/simulation-policy and all three amount-effect bindings while adding all real-venue positives plus empty, credential-bearing, wrong-program, unsafe-quote, and cross-object mismatch regressions.
