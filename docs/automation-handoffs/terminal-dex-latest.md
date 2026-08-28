@@ -1221,3 +1221,11 @@
 - Contract: `phoenix_immediate_or_cancel_simulation` now references a closed quote schema with exact safety identity, u64 amounts, ordered finalized/current slots, bounded closed levels, input conservation, and level-to-aggregate input/output/fee sums.
 - Compatibility/migration/configuration: additive discovery metadata only; runtime quote bodies, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated validators must implement `array_decimal_sum` and refresh the schema digest.
 - NEXT_WEB_ACTION: validate Phoenix quotes against the catalog schema and reject unknown levels or any aggregate that differs from its finalized depth rows.
+
+## UPSTREAM Pump fee and Phoenix status semantic parity
+
+- Selected IDs: `UPSTREAM-PUMP-BONDING-FEE-PARITY-003`, `UPSTREAM-PHOENIX-STATUS-PARITY-002`.
+- BA/PO decision: fresh QC reproduced three HIGH constructor-impossible bodies in already referenced schemas, so semantic repair outranked OpenBook expansion.
+- Contracts: every Pump fee component is now bound to its exact ceiling-rounded basis-point calculation; Phoenix now binds `quoted` to zero remaining input and `partial` to positive remaining input.
+- Compatibility/migration/configuration: valid runtime bodies and configuration are unchanged. Generated validators must implement `decimal_ceiling_fee`, retain `conditional_pattern`, and refresh the schema digest.
+- NEXT_WEB_ACTION: reject Pump fee-component/BPS contradictions and Phoenix status/remaining-input contradictions before displaying or preparing a route.
