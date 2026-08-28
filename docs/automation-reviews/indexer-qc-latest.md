@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T08:36:26+07:00`
+- Run: `2026-08-28T11:35:39+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `e9a7fac62e772da3d52c6afe032cdd440ed2d4a4`
-- Compared with QA baseline: `4bfe663e42699f27d0eeab1499714eec9456960a` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 62 ahead, 0 behind before this evidence report
-- Latest DEV commits: `68852bb` (complete response-schema dialect) and `e9a7fac` (swap-preparation success schema)
-- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The prior HIGH dialect defect is closed with 25/25 live keywords declared. The new preparation success schema fixes top-level non-authorizing constants but leaves all three nested evidence objects open, so generated validators admit credential-bearing handoff data and contradictory nested signed/submitted state. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `8dde5197510659e891605665f95863956f74bd4f`
+- Compared with QA baseline: `a957eeeca277cfc4b7f2138728ae042f1297fd37` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 65 ahead, 0 behind before this evidence report
+- Latest DEV commits: `5aefae5` (closed preparation handoff binding) and `8dde519` (closed preparation/unsigned-transaction envelope)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The scoped handoff and transaction increments close external authority, six cross-object identities, the nine-field preparation envelope, and the nine-field unsigned transaction. The deduplicated parent HIGH finding remains open because `quote`, `instructionEvidence`, and `simulationPolicy` are still unrestricted and admit unsafe or credential-bearing content. Live qualification remains independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-DIALECT-PREPARATION-DISCOVERY-001` (1/2 PASS)
+### `UPSTREAM-QA-PREPARATION-HANDOFF-BINDING-SCHEMA-001` (PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001` | `/api/v1/query-contracts` | `PASS` | Recursive full-registry enumeration finds 25 used and 25 declared schema-node keywords; `kind` is declared, relationship descriptors remain excluded, and the fail-closed policy is preserved. |
-| `UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001` | two `prepare-swap` routes | `FAIL` | Both 200 outcomes bind `preparation_success_v1`, whose top-level safety constants and exact steps are correct. However, `executionHandoff`, `quote`, and `preparation` are only `{type:"object"}`; empty, credential-bearing, authorizing, and nested `signed:true`/`submitted:true` evidence satisfies the published rules. |
+| `UPSTREAM-QA-PREPARATION-HANDOFF-BINDING-SCHEMA-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-HANDOFF-BINDING-SCHEMA-001`. The handoff now reuses the closed 11-field external-only execution policy, adds a closed six-field binding, excludes credential fields, preserves real venue bodies, and rejects all six independent cross-object protocol/type/hash/slot mismatch variants. |
+| `UPSTREAM-QA-PREPARATION-TRANSACTION-BOUNDARY-SCHEMA-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-TRANSACTION-BOUNDARY-SCHEMA-001`. Preparation and transaction are closed nine-field envelopes with exact version/finality/message-version/hash rules, nonempty instruction policies, and constant `signed:false` / `submitted:false`; credential and authorization fields are excluded. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `4bfe663`; the complete delta was exhausted.
-- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting fields, relationships, assertions, or fixture variants would be padding.
-- Validation: dialect coverage 25/25 PASS; preparation route bindings 2/2, top-level closure, four fixed safety constants, and exact step order PASS, but nested closure/projection 0/3 and poisoned nested-state rejection 0/3 FAIL; focused committed suite 3/3 PASS; 119 outcome representations, 118 unique body-contract identities, and 57 response schemas are structurally enumerated; digest independently recomputes to `bebd61b2005e19f54d1ceb058dc06609699cb76c8171214d27dbe7dded848bc9`; full suite 407/407 PASS; syntax 86/86 PASS; replay invariants PASS at 3,774.32 blocks/s with 9,632,552-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly 2 distinct enhancements after `a957eee`; the complete delta was exhausted.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting binding/transaction fields, relationships, assertions, or venue fixtures would be padding.
+- Validation: handoff closure 11/11, binding closure 6/6, credential exclusion, relationship control 1/1, and cross-object mismatch negatives 6/6 PASS; preparation closure 9/9, transaction closure 9/9, finalized/legacy constants, nonempty instruction policies, signed/submitted false, and credential exclusion PASS; quote/instructionEvidence/simulationPolicy closure remains 0/3 under the retained parent finding; focused committed suite 4/4 PASS; 119 outcome representations, 118 unique body-contract identities, 57 response schemas, and 25/25 dialect keywords are structurally coherent; digest independently recomputes to `a586716a5d685dcb6bfc9a017fa85caf89313f07a92ede96a0bf0fd3d21cd307`; full suite 409/409 PASS; syntax 86/86 PASS; replay invariants PASS at 5,541.58 blocks/s with 10,029,800-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001`: `PASS`.
+- `UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001`: `FAIL` and partially remediated by current `5aefae5`; quote and protocol-specific preparation remain open.
+- Prior exact shortfall: 18; prior validation was 407/407 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -552,7 +558,7 @@
 | Detail and valuation success schemas | `PASS` | Nine routes now publish closed success schemas. The real token-account response contains exactly its ten required identity/balance/slot/state fields, excludes injected provenance/credentials, and rejects all 5/5 independent malformed or open-projection variants. |
 | Decision-support success schemas | `PASS` | Registry, risk, and candles retain compatibility. Execution policy now publishes exact ordered and unique steps; independent validation preserves the real policy and rejects reordered, reversed, duplicate, and omitted-stage variants (4/4). |
 | Automation-boundary success schemas | `PASS` | Pool quote and bot readiness now publish distinct closed schemas. Independent generated-style validation accepts the exact quote success projection and the actual healthy readiness-gate projection, rejects missing and unknown fields, and rejects unsafe quote or nonempty-ready-missing variants. |
-| Swap-preparation success schema | `FAIL` | Both success routes bind one top-level closed schema with exact non-authorizing constants and four ordered external stages. Its `executionHandoff`, `quote`, and `preparation` properties are unprojected open objects, so the schema accepts empty evidence, injected credential/authorization fields, and nested transaction `signed:true`/`submitted:true`, contradicting fail-closed trading-safety discovery. |
+| Swap-preparation success schema | `FAIL` | Both routes retain exact top-level non-authorizing constants. `5aefae5` closes handoff/binding with six identity relationships, and `8dde519` closes the nine-field preparation plus nine-field unsigned transaction with fixed finalized/legacy/signed/submitted rules. However, `quote`, `instructionEvidence`, and `simulationPolicy` remain open objects, so unsafe quote, credential-bearing instruction evidence, and authorizing simulation policy still satisfy discovery. |
 | Legacy collection success schema | `PASS` | Independent HTTP 200 requests confirm `/api/blocks` and `/api/transactions` remain bare arrays and both reference `legacy_collection_success_v1`; versioned cursor envelopes remain separate. |
 | Stats success schema | `PASS` | Independent healthy `/api/stats` HTTP 200 emits exactly the 24 advertised aggregate and evidence fields with canonical structure/chain projections; missing, unknown credential-bearing, and wrong count-type variants are rejected. |
 | Backup success schema | `PASS` | The real healthy backup projection satisfies the closed `backup_success_v1` contract. Independent canonical, missing-required, unknown credential-bearing, unhealthy, and malformed-identity probes confirm exact availability, freshness, identity, and completion-time constraints. |
@@ -602,8 +608,8 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 407/407; syntax passes 86/86; replay completes at 3,774.32 blocks/s with 9,632,552-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 536,309,334 ms old during this run. |
+| Bounded performance | `PASS` | Full suite passes 409/409; syntax passes 86/86; replay completes at 5,541.58 blocks/s with 10,029,800-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 547,170,483 ms old during this run. |
 
 The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -1418,17 +1424,43 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: discovery-only correction changes digest/ETag and lets generators safely accept the existing paginated schema. Runtime pagination bytes, persistence, provider, RPC, WebSocket, database, and configuration need no migration; registry enumeration is bounded.
 - Blockers: none; the finding is closed.
 
+## UPSTREAM-QA-PREPARATION-HANDOFF-BINDING-SCHEMA-001
+
+- Severity: `PASS` (implemented by `5aefae5`)
+- Owner: `DEV`
+- Reproduction: inspect `preparation_success_v1.properties.executionHandoff`, validate its complete policy and binding projections, then independently mutate each related preparation protocol, type, hash, transaction hash, or minimum context slot.
+- Evidence: the handoff is a detached closed clone of `execution_policy_success_v1` with all ten policy fields plus required `binding`. Binding is closed and requires protocol, preparation type, preparation hash, message hash, unsigned transaction hash, and minimum context slot. Credential injection is excluded, one canonical relationship control passes, and all 6/6 isolated mismatches fail.
+- Affected contracts: both preparation success routes, external-only authority policy, protocol/type identity, content-addressed preparation and unsigned-message evidence, context-slot binding, generated trading-safety validators, and schema digest/ETag.
+- Expected versus actual behavior: successful preparation discovery must prove that its external-only handoff names the same preparation and unsigned transaction without admitting unknown authority or credential fields; expected and actual now match for this scoped dependency.
+- Acceptance criteria: reuse the complete closed execution policy; close binding; require bounded protocol/type/hash/slot fields; bind all six identities exactly; reject credential and mismatch mutations; preserve all real venue responses. All criteria are met.
+- Validation results: handoff required fields 11/11 PASS; binding required fields 6/6 PASS; closure and credential exclusion PASS; relationship control 1/1 PASS; cross-object mismatch negatives 6/6 PASS; focused committed suite 3/3 PASS; full suite 408/408 PASS; syntax 86/86 PASS; replay invariants PASS at 4,789.77 blocks/s.
+- Compatibility/performance impact: discovery-only hardening changes digest/ETag while runtime response bytes, signing/submission behavior, persistence, provider, RPC, WebSocket, database, and configuration remain unchanged. Six bounded equality checks add negligible consumer cost.
+- Blockers: none; this scoped dependency is closed. The parent quote/preparation projection finding remains open and deduplicated separately.
+
+## UPSTREAM-QA-PREPARATION-TRANSACTION-BOUNDARY-SCHEMA-001
+
+- Severity: `PASS` (implemented by `8dde519`)
+- Owner: `DEV`
+- Reproduction: inspect `preparation_success_v1.properties.preparation` and its nested `transaction`; validate their exact field sets and constants, then attempt unknown credential fields and authorizing signed/submitted state.
+- Evidence: preparation is closed with nine required fields and requires schema version 1, a simulation type, nonempty protocol, finalized commitment, nonnegative context slot, transaction, instruction evidence, simulation policy, and a 64-character lowercase hash. Transaction is closed with nine required fields, legacy message version, nonempty serialized bytes and instruction policies, three bounded identity/count fields, and constant `signed:false` / `submitted:false`. Credential fields are not admitted.
+- Affected contracts: both preparation success routes, protocol/type/finality identity, unsigned legacy transaction bytes and hashes, instruction-policy presence, generated safety validators, signing/submission boundary, and schema digest/ETag.
+- Expected versus actual behavior: generated clients must reject undeclared preparation/transaction fields and any signed, submitted, non-finalized, or non-legacy success artifact; expected and actual now match for this scoped boundary.
+- Acceptance criteria: close both envelopes; require exact stable fields; bind versions, finality, hashes, positive signature count, legacy message form, nonempty instruction policies, and unsigned/unsubmitted constants; reject credentials and authorization state; preserve real venue responses. All criteria are met.
+- Validation results: preparation required fields 9/9 PASS; transaction required fields 9/9 PASS; closure, credential exclusion, finalized/legacy constants, and signed/submitted false PASS; focused committed suite 4/4 PASS; full suite 409/409 PASS; syntax 86/86 PASS; replay invariants PASS at 5,541.58 blocks/s.
+- Compatibility/performance impact: discovery-only precision changes digest/ETag; runtime bytes, signing/submission behavior, persistence, provider, RPC, WebSocket, database, and configuration are unchanged. Fixed-field validation is bounded.
+- Blockers: none; this scoped dependency is closed. Venue-specific quote, instruction-evidence, and simulation-policy unions remain in the parent finding.
+
 ## UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
-- Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate the two 200 route references, then apply the published rules to empty nested objects and to objects containing `executionHandoff.providerCredential`, `executionHandoff.authorizesSubmission:true`, `quote.automationSafe:true`, or `preparation.transaction.signed:true` and `submitted:true`.
-- Evidence: both `prepare-swap` 200 outcomes reference the schema; top-level closure, `prepared:true`, `automationSafe:false`, `signed:false`, `submitted:false`, and the exact unique four-stage sequence are correct. However, each nested evidence rule is exactly `{type:"object"}` with no required properties, explicit projection, closure, union, or safety relationship. All three poisoned nested forms therefore satisfy discovery despite contradicting redaction and non-authorizing claims.
+- Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, and transaction envelopes, then apply the published rules to `quote`, `preparation.instructionEvidence`, or `preparation.simulationPolicy` objects containing unknown credentials, unsafe quote state, wrong program evidence, or submission authorization.
+- Evidence: `5aefae5` closes handoff/binding and six cross-object identities; `8dde519` closes the nine-field preparation and nine-field unsigned transaction and fixes finalized, legacy, signed, and submitted state. All scoped controls pass. However, `quote`, `instructionEvidence`, and `simulationPolicy` remain exactly `{type:"object"}` and accept every retained unsafe, credential-bearing, wrong-program, or authorizing probe.
 - Affected contracts: pool and token preparation success discovery, generated trading-safety validators, execution-handoff binding and preparation hash, quote identity/provenance, unsigned transaction evidence, signer/submission boundaries, secret redaction, schema digest/ETag, and downstream AI/commercial admission.
-- Expected behavior: preparation success discovery must explicitly project and close stable nested safety evidence, or publish bounded discriminated protocol variants, so empty/unknown/credential-bearing objects and any nested authorization, signed, or submitted contradiction fail closed.
-- Actual behavior: only top-level sentinels are constrained; all nested content is opaque and open, so a conforming generated validator cannot establish the claimed handoff, quote, preparation, unsigned, or redaction invariants.
-- Acceptance criteria: define closed bounded nested schemas for `executionHandoff`, `quote`, and `preparation` (using explicit protocol variants where needed); require stable binding/hash, protocol, transaction unsigned/unsubmitted, and provenance fields; reject empty, unknown credential-bearing, authorizing, nested signed, nested submitted, and cross-object identity/hash mismatches; retain both real route bodies and exact external step order.
-- Validation results: route bindings 2/2 PASS; top-level closure/constants/order PASS; nested closure/projection 0/3 FAIL; injected credential/authorization, unsafe quote, and nested signed/submitted rejection 0/3 FAIL; focused committed suite 3/3 PASS because it checks only top-level metadata; full suite 407/407 PASS; syntax 86/86 PASS; replay invariants PASS at 3,774.32 blocks/s with 9,632,552-byte heap growth.
+- Expected behavior: preparation success discovery must explicitly project and close venue-specific quote, instruction-evidence, and simulation-policy variants so empty, unknown, credential-bearing, wrong-program, unsafe, or authorizing content fails closed.
+- Actual behavior: external authority, identity, preparation, and transaction boundaries are verifiable, but the three venue-specific evidence objects remain opaque; a conforming generated validator still cannot establish their provenance, program/account policy, simulation bounds, redaction, or protocol shape.
+- Acceptance criteria: define closed bounded discriminated variants for `quote`, `instructionEvidence`, and `simulationPolicy`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, authorizing-policy, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction boundary.
+- Validation results: handoff 11/11, binding 6/6, relationship negatives 6/6, preparation 9/9, transaction 9/9, finalized/legacy/signed/submitted constants, and credential exclusion PASS; remaining nested closure 0/3 and unsafe/credential/wrong-program/authorization probe rejection 0/3 FAIL; focused committed suite 4/4 PASS; full suite 409/409 PASS; syntax 86/86 PASS; replay invariants PASS at 5,541.58 blocks/s with 10,029,800-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -1438,7 +1470,7 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 507,237,772 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 547,170,483 ms age during this run.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1447,4 +1479,4 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: close and explicitly project the `preparation_success_v1` nested `executionHandoff`, `quote`, and protocol-specific `preparation` evidence, then add real-route positives plus empty, credential-bearing, authorizing, nested signed/submitted, and cross-object binding mismatch regressions.
+- NEXT_DEV_ACTION: close and explicitly project protocol-specific `quote`, `instructionEvidence`, and `simulationPolicy` variants, preserving completed handoff/preparation/transaction boundaries while adding all real-venue positives plus empty, credential-bearing, wrong-program, unsafe-quote, authorizing-policy, and cross-object mismatch regressions.
