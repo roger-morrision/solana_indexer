@@ -1213,3 +1213,11 @@
 - Contracts: sell now binds fee sum, net/gross conservation, aggregate basis-point ceiling, real-quote reserve ceiling, and its exact constant-product output. Buy binds fee sum, input-budget ceiling, aggregate basis-point ceiling, real-token reserve ceiling, and its offset-aware exact constant-product output.
 - Compatibility/migration/configuration: valid runtime bodies, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated validators must implement the three added bounded relationship kinds and refresh the schema digest.
 - NEXT_WEB_ACTION: enforce Pump bonding fee, conservation, reserve, and exact constant-product relationships before displaying a quote or admitting preparation.
+
+## UPSTREAM Phoenix quote contract closure
+
+- Selected ID: `UPSTREAM-PHOENIX-QUOTE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected Phoenix because its finalized full-depth quote and bounded level evidence are dependency-ready, while a null catalog schema prevented discovery, AI-safety, and commercial clients from validating them.
+- Contract: `phoenix_immediate_or_cancel_simulation` now references a closed quote schema with exact safety identity, u64 amounts, ordered finalized/current slots, bounded closed levels, input conservation, and level-to-aggregate input/output/fee sums.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime quote bodies, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated validators must implement `array_decimal_sum` and refresh the schema digest.
+- NEXT_WEB_ACTION: validate Phoenix quotes against the catalog schema and reject unknown levels or any aggregate that differs from its finalized depth rows.
