@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-PREPARATION-HANDOFF-BINDING-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the protocol-invariant portion of the HIGH preparation nesting defect because handoff authority and content-addressed identity can be closed safely across every supported venue before protocol-specific quote/preparation unions are modeled.
+- Selected ID: `UPSTREAM-PREPARATION-HANDOFF-BINDING-SCHEMA-001` (dependency increment for `UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001`).
+- Implemented contract: successful preparation discovery now reuses the complete closed external-only execution policy, closes its binding object, validates all hashes and context, and requires exact protocol/type/hash/slot equality with the nested preparation.
+- Acceptance evidence: focused discovery proves nested closure, complete policy/binding requirements, credential exclusion, and six cross-object identity relationships while existing successful venue fixtures remain valid.
+- Compatibility/migration/configuration: discovery hardening changes the contract digest/ETag only; runtime responses, signing/submission boundaries, persistence, ingestion, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material dependency completed, exact shortfall 19. Quote and protocol-specific preparation objects still require bounded discriminated schemas; live qualification remains OPERATOR-blocked.
+- NEXT_WEB_ACTION: enforce the closed handoff policy and all six identity relationships when consuming either preparation route, while continuing to treat quote and protocol-specific preparation payloads as unverified.
+
 # UPSTREAM-PREPARATION-SUCCESS-SCHEMA-001
 
 - BA/PO decision: fresh 20+ reconciliation selected swap-preparation success discovery because AI/trading-safety and commercial clients could validate preparation failures but not the successful unsigned handoff envelope.

@@ -638,6 +638,17 @@ test("swap preparation routes publish a closed non-authorizing success schema", 
   assert.equal(schema.properties.requiredNextSteps.uniqueItems, true);
 });
 
+test("preparation success schema closes and binds execution handoff evidence", () => {
+  const schema = queryContractSnapshot().responseBodySchemas.preparation_success_v1, handoff = schema.properties.executionHandoff, binding = handoff.properties.binding;
+  assert.equal(handoff.additionalProperties, false);
+  assert.deepEqual(handoff.required, [...queryContractSnapshot().responseBodySchemas.execution_policy_success_v1.required, "binding"]);
+  assert.equal(binding.additionalProperties, false);
+  assert.deepEqual(binding.required, ["protocol", "preparationType", "preparationHash", "messageHash", "unsignedTransactionHash", "minimumContextSlot"]);
+  assert.deepEqual(schema.relationships, [{ kind: "equal", properties: ["executionHandoff.binding.protocol", "preparation.protocol"] }, { kind: "equal", properties: ["executionHandoff.binding.preparationType", "preparation.type"] }, { kind: "equal", properties: ["executionHandoff.binding.preparationHash", "preparation.preparationHash"] }, { kind: "equal", properties: ["executionHandoff.binding.messageHash", "preparation.transaction.messageHash"] }, { kind: "equal", properties: ["executionHandoff.binding.unsignedTransactionHash", "preparation.transaction.transactionHash"] }, { kind: "equal", properties: ["executionHandoff.binding.minimumContextSlot", "preparation.minContextSlot"] }]);
+  assert.equal(Object.keys({ ...EXECUTION_HANDOFF_POLICY, binding: {} }).every((key) => handoff.required.includes(key)), true);
+  assert.equal(handoff.required.includes("providerCredential"), false);
+});
+
 test("simulation receipts verify exact mint-bound token effects", async () => {
   const transactionBase64 = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1])]).toString("base64"), mint = "11111111111111111111111111111111", tokenBytes = Buffer.alloc(165); tokenBytes.writeBigUInt64LE(900n, 64); const account = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: [tokenBytes.toString("base64"), "base64"] }; assert.equal(decodeSimulatedTokenAccount(account, mint).amountRaw, "900"); let options;
   const expectation = { address: "token-account", mint, preAmountRaw: "1000", minDeltaRaw: "-101", maxDeltaRaw: "-99" }, receipt = await simulateUnsignedTransaction({ endpoint: "http://localhost:8899", call: async (_method, params) => { options = params[1]; return { context: { slot: 600 }, value: { err: null, logs: [], unitsConsumed: 100, accounts: [account] } }; } }, { transactionBase64, minContextSlot: 600, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, accountExpectations: [expectation] }); assert.deepEqual(receipt.tokenEffects[0], { ...expectation, programId: account.owner, postAmountRaw: "900", deltaRaw: "-100" }); assert.deepEqual(options.accounts, { encoding: "base64", addresses: ["token-account"] });
