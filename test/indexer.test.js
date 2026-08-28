@@ -644,7 +644,7 @@ test("preparation success schema closes and binds execution handoff evidence", (
   assert.deepEqual(handoff.required, [...queryContractSnapshot().responseBodySchemas.execution_policy_success_v1.required, "binding"]);
   assert.equal(binding.additionalProperties, false);
   assert.deepEqual(binding.required, ["protocol", "preparationType", "preparationHash", "messageHash", "unsignedTransactionHash", "minimumContextSlot"]);
-  assert.deepEqual(schema.relationships, [{ kind: "equal", properties: ["executionHandoff.binding.protocol", "preparation.protocol"] }, { kind: "equal", properties: ["executionHandoff.binding.preparationType", "preparation.type"] }, { kind: "equal", properties: ["executionHandoff.binding.preparationHash", "preparation.preparationHash"] }, { kind: "equal", properties: ["executionHandoff.binding.messageHash", "preparation.transaction.messageHash"] }, { kind: "equal", properties: ["executionHandoff.binding.unsignedTransactionHash", "preparation.transaction.transactionHash"] }, { kind: "equal", properties: ["executionHandoff.binding.minimumContextSlot", "preparation.minContextSlot"] }]);
+  assert.deepEqual(schema.relationships.slice(0, 6), [{ kind: "equal", properties: ["executionHandoff.binding.protocol", "preparation.protocol"] }, { kind: "equal", properties: ["executionHandoff.binding.preparationType", "preparation.type"] }, { kind: "equal", properties: ["executionHandoff.binding.preparationHash", "preparation.preparationHash"] }, { kind: "equal", properties: ["executionHandoff.binding.messageHash", "preparation.transaction.messageHash"] }, { kind: "equal", properties: ["executionHandoff.binding.unsignedTransactionHash", "preparation.transaction.transactionHash"] }, { kind: "equal", properties: ["executionHandoff.binding.minimumContextSlot", "preparation.minContextSlot"] }]);
   assert.equal(Object.keys({ ...EXECUTION_HANDOFF_POLICY, binding: {} }).every((key) => handoff.required.includes(key)), true);
   assert.equal(handoff.required.includes("providerCredential"), false);
 });
@@ -658,6 +658,19 @@ test("preparation success schema rejects authorizing transaction state", () => {
   assert.deepEqual(transaction.properties.submitted.values, [false]);
   assert.deepEqual(transaction.properties.signed.values, [false]);
   assert.equal(transaction.required.includes("providerCredential"), false);
+});
+
+test("preparation success schema closes and binds simulation policy", () => {
+  const schema = queryContractSnapshot().responseBodySchemas.preparation_success_v1, policy = schema.properties.preparation.properties.simulationPolicy, instruction = policy.properties.instructionPolicies.items, expectation = policy.properties.accountExpectations.items;
+  assert.equal(policy.additionalProperties, false);
+  assert.deepEqual(policy.required, ["allowedProgramIds", "requiredProgramIds", "instructionPolicies", "accountExpectations"]);
+  assert.deepEqual(policy.relationships, [{ kind: "equal", properties: ["allowedProgramIds", "requiredProgramIds"] }]);
+  assert.equal(instruction.additionalProperties, false);
+  assert.deepEqual(instruction.required, ["programId", "accounts", "dataHex"]);
+  assert.equal(instruction.properties.accounts.items.additionalProperties, false);
+  assert.equal(expectation.additionalProperties, false);
+  assert.deepEqual(expectation.required, ["address", "mint", "preAmountRaw", "minDeltaRaw", "maxDeltaRaw"]);
+  assert.deepEqual(schema.relationships.at(-1), { kind: "equal", properties: ["preparation.transaction.instructionPolicies", "preparation.simulationPolicy.instructionPolicies"] });
 });
 
 test("simulation receipts verify exact mint-bound token effects", async () => {

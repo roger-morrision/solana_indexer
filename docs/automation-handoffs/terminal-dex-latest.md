@@ -941,3 +941,12 @@
 - Validation: focused response-contract regression, full suite, syntax, replay, and fail-closed health checks.
 - Remaining boundary: protocol-specific `quote`, `instructionEvidence`, and `simulationPolicy` projections require explicit venue unions and remain non-automation-safe.
 - NEXT_WEB_ACTION: reject preparation responses whose preparation or transaction contains undeclared fields, authorizing state, a non-legacy message version, or a non-finalized commitment.
+# UPSTREAM-PREPARATION-SIMULATION-POLICY-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the shared simulation-policy boundary because all supported preparation venues emit the same four safety fields and two exact token-effect expectations, while venue-specific instruction evidence and quotes require separate unions.
+- Selected ID: `UPSTREAM-PREPARATION-SIMULATION-POLICY-SCHEMA-001`.
+- Contract: `preparation_success_v1.preparation.simulationPolicy` is closed; program allow/require lists are nonempty, unique, and equal; instruction policies, account metas, and exactly two mint-bound raw-balance expectations are closed; transaction and simulation instruction policies must be identical.
+- Compatibility/migration/configuration: response bodies and configuration are unchanged; generated contract validators should be refreshed. The change only rejects undeclared or contradictory safety evidence.
+- Validation: focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: protocol-specific quote and instructionEvidence objects remain open and non-automation-safe pending explicit venue unions.
+- NEXT_WEB_ACTION: enforce the closed simulation policy, equality rules, and exact two-account effect bounds before showing a prepared swap as locally simulatable.
