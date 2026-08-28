@@ -995,3 +995,12 @@
 - Validation: focused identity/dialect regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: exact quote and venue-specific instructionEvidence shapes still require closed per-variant schemas.
 - NEXT_WEB_ACTION: enforce catalog_membership by resolving the declared catalog and rejecting unknown or mismatched preparation type/protocol tuples.
+# UPSTREAM-RAYDIUM-CPMM-INSTRUCTION-EVIDENCE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation and current HIGH QC evidence selected the first protocol-specific closure slice: Raydium CPMM has a compact, deterministic instruction-evidence object and supports Token-2022 transfer-fee evidence needed by trading-safety consumers.
+- Selected ID: `UPSTREAM-RAYDIUM-CPMM-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- Contract: the CPMM catalog row references closed `raydium_cpmm_instruction_evidence_v1`, requiring its exact pool, ordered evidence slots, epoch, bounded fee mode, canonical fee/amount strings, and direction. The other ten catalog rows explicitly publish `null` until closed schemas exist.
+- Compatibility/migration/configuration: the live CPMM constructor already emits the exact shape; response bodies, persistence, and configuration are unchanged. Discovery clients may enforce this schema immediately and must retain fail-closed handling for null-schema variants.
+- Validation: real-shape positive, credential-field rejection, invalid fee-mode rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: CPMM quote closure and the other ten instruction-evidence variants remain open.
+- NEXT_WEB_ACTION: validate Raydium CPMM instructionEvidence against its catalog-referenced closed schema and reject every unknown field or unsupported transfer-fee mode.
