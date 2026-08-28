@@ -1112,3 +1112,12 @@
 - Validation: real-constructor positives, three isolated Orca contradictions, two isolated AMM output contradictions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and seven instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
 - NEXT_WEB_ACTION: implement both new fail-closed relationship kinds and reject any Orca or AMM v4 quote that violates the published constructor equations.
+# UPSTREAM-METEORA-DLMM-INSTRUCTION-EVIDENCE-SCHEMA-001
+
+- BA/PO decision: fresh 22-opportunity reconciliation selected Meteora DLMM instruction evidence because finalized bin-array/bitmap provenance, Token-2022 transfer-hook account summaries, and swap/swap2 remaining-account slices are signer-critical and fully available from deterministic offline constructors.
+- Selected ID: `UPSTREAM-METEORA-DLMM-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- Contract: the Meteora catalog row references closed `meteora_dlmm_instruction_evidence_v1`, covering exact swap version, ordered component and optional bitmap/hook slots, raw fee/amount bounds, bounded unique bin arrays, closed finalized hook summaries, bounded transfer-hook slices, optional bitmap/host accounts, and event authority.
+- Compatibility/migration/configuration: additive discovery metadata only; current runtime bodies, persistence, providers, RPC/WebSocket, database, and configuration are unchanged. Instruction-evidence coverage increases from four to five of eleven variants; generated clients must refresh the digest.
+- Validation: exact keys, nested closure, credential/wrong-version rejection, slot inversions, slice vocabulary, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: seven quote schemas and six instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
+- NEXT_WEB_ACTION: validate Meteora instructionEvidence against its catalog schema and reject unknown nested fields, unsupported versions or slices, and any finalized slot inversion.
