@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-CONTRACT-SCHEMA-DIALECT-001
+
+- BA/PO decision: fresh 20+ reconciliation selected response-schema dialect discovery because generated commercial, replay/reorg, and AI/trading-safety clients must interpret every custom fail-closed keyword consistently, including the newly required exact execution-stage order.
+- Selected ID: `UPSTREAM-CONTRACT-SCHEMA-DIALECT-001`.
+- Implemented contract: `/api/v1/query-contracts` now identifies the custom response-schema dialect, version, supported keywords and relationship kinds, and requires generators to fail closed on unknown keywords.
+- Acceptance evidence: focused discovery verifies the dialect identity, fail-closed policy, semantic keyword set, relationship vocabulary, and complete coverage of the execution-policy sequence rule.
+- Compatibility/migration/configuration: additive discovery metadata changes the contract digest/ETag; runtime route bodies, persistence, ingestion, RPC/WebSocket behavior, database, and configuration are unchanged. Generated clients should reject unsupported dialect versions or keywords.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. QC inbox remains based on the parent revision; live qualification remains OPERATOR-blocked by absent fresh canonical-mainnet evidence.
+- NEXT_WEB_ACTION: require the declared response-schema dialect and fail-closed unknown-keyword policy before regenerating or accepting any discovered response validator.
+
 # UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the HIGH execution-policy sequence defect because generated AI/trading-safety and commercial clients could accept approval, submission, and finalized verification out of order or duplicated.

@@ -243,6 +243,15 @@ test("query contracts publish route-specific post-admission response outcomes", 
   assert.deepEqual(routes.get("/api/health").map(({ outcome, status, retryable }) => ({ outcome, status, retryable })), [{ outcome: "success", status: 200, retryable: false }, { outcome: "unavailable", status: 503, retryable: true }]);
 });
 
+test("query contracts identify the fail-closed response schema dialect", () => {
+  const contract = queryContractSnapshot(), dialect = contract.bodySchemaDialect;
+  assert.deepEqual({ name: dialect.name, version: dialect.version, unknownKeywordPolicy: dialect.unknownKeywordPolicy }, { name: "solana-indexer-response-schema", version: 1, unknownKeywordPolicy: "fail_closed" });
+  for (const keyword of ["exactItems", "uniqueItems", "maximumProperty", "minimumProperty", "strictlyIncreasing", "relationships"]) assert.ok(dialect.keywords.includes(keyword), keyword);
+  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "difference", "equal", "mirror"]);
+  const sequenceRule = contract.responseBodySchemas.execution_policy_success_v1.properties.requiredSteps;
+  assert.ok(Object.keys(sequenceRule).every((keyword) => dialect.keywords.includes(keyword)), "execution policy uses only declared dialect keywords");
+});
+
 test("every decision-quality consumer advertises its fail-closed unavailable outcome", async (t) => {
   const paths = ["/internal/trending", "/internal/new-pairs", "/internal/candidates", "/api/trending", "/api/v1/tokens", "/api/v1/pools", "/internal/evidence/{mint}", "/internal/tokens/{mint}", "/internal/tokens/{mint}/market", "/internal/tokens/{mint}/security", "/internal/tokens/{mint}/holders", "/internal/tokens/{mint}/trades", "/internal/tokens/{mint}/ohlcv", "/internal/tokens/{mint}/liquidity", "/internal/tokens/{mint}/executable-depth", "/internal/wallets/{wallet}", "/internal/wallets/{wallet}/performance", "/internal/wallets/{wallet}/profile", "/internal/wallets/{wallet}/funding", "/internal/wallets/{wallet}/funding-cluster", "/internal/pools/{pool}/quote", "/api/account/{address}", "/api/mint/{mint}", "/api/v1/price/{mint}", "/api/v1/volume/{mint}", "/api/v1/risk/{pool}", "/api/v1/pool/{pool}", "/api/v1/candles/{pool}", "/api/v1/bot/readiness"], routes = new Map(queryContractSnapshot().http.map((route) => [route.path, route.responseOutcomes]));
   assert.equal(paths.length, 29); for (const path of paths) { const outcome = routes.get(path).find(({ status }) => status === 503); assert.deepEqual({ outcome: outcome?.outcome, retryable: outcome?.retryable }, { outcome: "unavailable", retryable: true }, path); }
