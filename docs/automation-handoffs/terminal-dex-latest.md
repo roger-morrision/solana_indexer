@@ -1049,3 +1049,12 @@
 - Validation: equality-boundary positives, every direct inversion negative, focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: all quote schemas and seven instruction-evidence variants remain open.
 - NEXT_WEB_ACTION: enforce the published CPMM and CLMM minimumProperty slot constraints before accepting preparation evidence.
+# UPSTREAM-RAYDIUM-CPMM-QUOTE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the first exact quote schema because Raydium CPMM quote provenance and signer-critical bounds are compact, already emitted deterministically, and directly consumed by pool preparation.
+- Selected ID: `UPSTREAM-RAYDIUM-CPMM-QUOTE-SCHEMA-001`.
+- Contract: the CPMM preparation catalog now references closed `raydium_cpmm_quote_v1`, covering exact identity/status/safety flags, mints, raw amounts and fees, nullable legacy mint evidence, finalized slot ordering, observation time, and the exact three missing execution gates.
+- Compatibility/migration/configuration: additive discovery metadata only; current quote bodies, persistence, and configuration are unchanged. Generated validators should refresh and keep null-schema variants fail closed.
+- Validation: exact keys, credential and wrong-protocol rejection, both slot inversions, exact missing gates, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: ten quote schemas and seven instruction-evidence schemas remain open.
+- NEXT_WEB_ACTION: validate Raydium CPMM quotes against the catalog-referenced closed schema before presenting amounts or preparing a swap.
