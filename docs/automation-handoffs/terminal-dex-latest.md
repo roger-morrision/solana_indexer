@@ -1139,3 +1139,12 @@
 - Validation: exact keys, credential/wrong-side rejection, slot/expiry inversions, bid and ask conditional-zero contradictions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and five instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
 - NEXT_WEB_ACTION: validate Phoenix instructionEvidence against its catalog schema and reject unknown fields, invalid slot/expiry ordering, or side-inconsistent IOC lot values.
+# UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
+
+- BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.
+- Selected IDs: `UPSTREAM-METEORA-DLMM-INSTRUCTION-EVIDENCE-SCHEMA-001`, `UPSTREAM-PHOENIX-IOC-INSTRUCTION-EVIDENCE-SCHEMA-001`, and delivery increment `UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003`.
+- Contract: legacy Meteora now admits optional finalized route summaries while requiring empty slices and zero SPL fees. Phoenix adds conditional positive bid/ask lot requirements and `minimumOutputRaw <= quotedOutputRaw` while retaining constructor-required opposite-side zeros.
+- Compatibility/migration/configuration: both constructors already emit these states; runtime bytes, persistence, providers, RPC/WebSocket, database, and configuration are unchanged. Generated validators must refresh and implement conditional-pattern plus decimal-less-than-or-equal relationships.
+- Validation: real legacy-route, Token-2022, Phoenix bid/ask controls; two Meteora and three Phoenix isolated contradictions; focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: seven quote schemas and five instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
+- NEXT_WEB_ACTION: enforce the repaired Meteora legacy-route/fee rules and Phoenix side-positive/output-bound rules before accepting preparation evidence.
