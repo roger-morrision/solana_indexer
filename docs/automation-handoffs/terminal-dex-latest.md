@@ -968,3 +968,12 @@
 - Validation: focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: input debit requires a signed transform rather than equality, and exact quote/instructionEvidence closure still requires protocol unions.
 - NEXT_WEB_ACTION: reject prepared swaps when signer-facing minimum or quoted output differs from the bound output-account simulation delta range.
+# UPSTREAM-PREPARATION-INPUT-DEBIT-BINDING-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the remaining universal amount invariant: every current venue binds the positive input amount to the first account expectation's exact minimum debit, while partial-fill venues intentionally use a looser maximum debit.
+- Selected ID: `UPSTREAM-PREPARATION-INPUT-DEBIT-BINDING-001`.
+- Contract: the response-schema dialect now declares `decimal_negation`; `preparation_success_v1` uses it to require `instructionEvidence.amountInRaw` and `simulationPolicy.accountExpectations.0.minDeltaRaw` to be canonical decimal additive inverses.
+- Compatibility/migration/configuration: response bodies and configuration are unchanged. Contract validators must add fail-closed support for `decimal_negation` before accepting the refreshed snapshot.
+- Validation: focused dialect/schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: exact quote and venue-specific instructionEvidence closure still require explicit protocol unions.
+- NEXT_WEB_ACTION: implement canonical-decimal negation validation and reject a preparation when its signer-facing input amount does not match the bound minimum debit.

@@ -247,7 +247,7 @@ test("query contracts identify the fail-closed response schema dialect", () => {
   const contract = queryContractSnapshot(), dialect = contract.bodySchemaDialect;
   assert.deepEqual({ name: dialect.name, version: dialect.version, unknownKeywordPolicy: dialect.unknownKeywordPolicy }, { name: "solana-indexer-response-schema", version: 1, unknownKeywordPolicy: "fail_closed" });
   for (const keyword of ["exactItems", "uniqueItems", "maximumProperty", "minimumProperty", "strictlyIncreasing", "relationships"]) assert.ok(dialect.keywords.includes(keyword), keyword);
-  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "difference", "equal", "mirror"]);
+  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "decimal_negation", "difference", "equal", "mirror"]);
   const sequenceRule = contract.responseBodySchemas.execution_policy_success_v1.properties.requiredSteps;
   assert.ok(Object.keys(sequenceRule).every((keyword) => dialect.keywords.includes(keyword)), "execution policy uses only declared dialect keywords");
 });
@@ -683,7 +683,13 @@ test("preparation success schema requires universal instruction amount evidence"
 
 test("preparation success schema binds output evidence to simulation effects", () => {
   const relationships = queryContractSnapshot().responseBodySchemas.preparation_success_v1.relationships;
-  assert.deepEqual(relationships.slice(-2), [{ kind: "equal", properties: ["preparation.instructionEvidence.minimumOutputRaw", "preparation.simulationPolicy.accountExpectations.1.minDeltaRaw"] }, { kind: "equal", properties: ["preparation.instructionEvidence.quotedOutputRaw", "preparation.simulationPolicy.accountExpectations.1.maxDeltaRaw"] }]);
+  assert.deepEqual(relationships.slice(-3, -1), [{ kind: "equal", properties: ["preparation.instructionEvidence.minimumOutputRaw", "preparation.simulationPolicy.accountExpectations.1.minDeltaRaw"] }, { kind: "equal", properties: ["preparation.instructionEvidence.quotedOutputRaw", "preparation.simulationPolicy.accountExpectations.1.maxDeltaRaw"] }]);
+});
+
+test("preparation success schema binds input evidence by canonical decimal negation", () => {
+  const contract = queryContractSnapshot(), relationship = contract.responseBodySchemas.preparation_success_v1.relationships.at(-1);
+  assert.ok(contract.bodySchemaDialect.relationshipKinds.includes("decimal_negation"));
+  assert.deepEqual(relationship, { kind: "decimal_negation", positive: "preparation.instructionEvidence.amountInRaw", negative: "preparation.simulationPolicy.accountExpectations.0.minDeltaRaw" });
 });
 
 test("simulation receipts verify exact mint-bound token effects", async () => {
