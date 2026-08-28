@@ -1148,6 +1148,14 @@
 - Compatibility: additive catalog metadata only; REST payloads, RPC/WebSocket behavior, persistence, configuration, migrations, and execution fail-closed behavior are unchanged.
 - Validation: focused catalog regression, full offline suite, syntax, replay/load, and operational readiness are recorded in the heartbeat report.
 - NEXT_WEB_ACTION: validate OpenBook V2 instructionEvidence against its catalog schema and reject unknown fields, unsupported side/order type/match limit, or consumed input above requested input.
+
+## UPSTREAM Phoenix and OpenBook constructor-bound parity
+
+- Selected IDs: `UPSTREAM-PHOENIX-IOC-INSTRUCTION-EVIDENCE-SCHEMA-001`, `UPSTREAM-OPENBOOK-V2-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected the two dependency-ready HIGH QC failures because generated signing clients could admit constructor-impossible expiry, slot, and integer evidence, while OpenBook rejected its real preparation body.
+- Contracts: Phoenix now publishes its 150-slot expiry ceiling and u64 field bounds. OpenBook now includes the real `minimumOutputRaw`, binds minimum output to quoted output, orders current slot after balance evidence, caps amount fields at u64, and caps encoded lot fields at signed i64.
+- Compatibility/migration/configuration: discovery-only correction; runtime bodies, persistence, provider/RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated clients must refresh for the schema digest.
+- NEXT_WEB_ACTION: regenerate Phoenix and OpenBook preparation validators with maximumOffset and maximumRaw support, then reject evidence outside the published constructor bounds before signing.
 # UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
 
 - BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.
