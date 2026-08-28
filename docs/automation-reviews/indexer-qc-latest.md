@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T13:36:11+07:00`
+- Run: `2026-08-28T14:37:12+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `b4e5c48cb521df3b64414dbc67f26af926df69f5`
-- Compared with QA baseline: `7a4f969ea659d6f7c6d1be6c3d9020096a4a4e1a` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 1 ahead, 0 behind before this evidence report
-- Latest DEV commit: `b4e5c48` (bound positive instruction input to the first exact minimum debit)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Output minimum/quote amounts are equality-bound to the second account expectation, and the positive input amount is canonical-decimal-negation-bound to the first account expectation's minimum debit. The deduplicated parent HIGH finding remains open only because protocol-specific `quote` is opaque and `instructionEvidence` still admits unknown venue and credential fields. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `3ede5d133262720aa81e7af4957bfcf71363a25a`
+- Compared with QA baseline: `5328d85669c3113b0ce798df4ff51a60c58629c1` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 4 ahead, 0 behind before this evidence report
+- Latest DEV commit: `3ede5d1` (bound preparation type/protocol identity to the published variant catalog)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Discovery now enumerates all eleven live preparation identities and the success schema fail-closes unknown or mismatched type/protocol tuples through declared catalog membership. The deduplicated parent HIGH finding is narrowed but remains open because protocol-specific `quote` is opaque and `instructionEvidence` still admits unknown venue and credential fields. Live qualification remains independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-QA-PREPARATION-OUTPUT-EFFECT-BINDING-001` (PASS)
+### Preparation identity discovery and membership (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QA-PREPARATION-OUTPUT-EFFECT-BINDING-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-OUTPUT-EFFECT-BINDING-001`. Two equality relationships bind `minimumOutputRaw`/`quotedOutputRaw` to the second account expectation's minimum/maximum deltas; the independent canonical control passes and both isolated mismatches reject. |
-| `UPSTREAM-QA-PREPARATION-INPUT-DEBIT-BINDING-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-INPUT-DEBIT-BINDING-001`. Declared fail-closed dialect kind `decimal_negation` binds positive `amountInRaw` to the first expectation's canonical negative minimum debit; the canonical control passes and one value mismatch plus five wrong/noncanonical debit variants reject. |
+| `UPSTREAM-QA-PREPARATION-VARIANT-DISCOVERY-001` | `/api/v1/query-contracts` | `PASS` | DEV selected `UPSTREAM-PREPARATION-VARIANT-DISCOVERY-001`. Independent source enumeration finds exactly eleven constructor type/protocol tuples; the published sorted catalog matches all eleven, assigns nine pool and two token routes, has no duplicate types, and remains detached across snapshots. |
+| `UPSTREAM-QA-PREPARATION-IDENTITY-BINDING-001` | two `prepare-swap` routes | `PASS` | DEV selected `UPSTREAM-PREPARATION-IDENTITY-BINDING-001`. The declared fail-closed `catalog_membership` relationship accepts all eleven live type/protocol tuples and rejects an unknown identity, an empty identity, and a mismatched known type/protocol pair. |
 
-- Available DEV delta: exactly 2 distinct enhancements after `7a4f969`; the complete delta was exhausted after waiting for the active DEV writer lock to clear and refreshing from interim `8f1e533` to stable `b4e5c48`.
+- Available DEV delta: exactly 2 distinct enhancements after `5328d85`; the complete delta was exhausted after detecting the active DEV writer turn, waiting for its lock and mixed worktree to clear, and refreshing from interim `4bf1c46` to stable `3ede5d1`.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting the two output identities, path segments, decimal syntax cases, relationship assertions, or venue fixtures would be padding.
-- Validation: output relationship descriptors 2/2; output equality control 1/1; minimum mismatch rejection 1/1; quoted mismatch rejection 1/1; `decimal_negation` dialect declaration and descriptor PASS; input equality control 1/1; input mismatch rejection 1/1; wrong/noncanonical debit rejection 5/5 PASS; quote/instructionEvidence venue closure remains 0/2 under the retained parent finding; focused committed suite 8/8 PASS; 119 outcome representations, 118 unique body-contract identities, 57 response schemas, 25/25 dialect keywords, and 5/5 declared relationship kinds are structurally coherent; digest independently recomputes to `170ff0441f74fa0118d0cceaa789f1191b891b5a969de93bf5e2327e0badcd14`; full suite 413/413 PASS; syntax 86/86 PASS; replay invariants PASS at 6,165.76 blocks/s with 9,941,792-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting eleven catalog rows, route families, membership negatives, or constructor fixtures would be padding.
+- Validation: constructor/catalog parity 11/11; unique sorted identities 11/11; route-family assignment 9 pool and 2 token; snapshot isolation PASS; catalog-membership positives 11/11 and independent negatives 3/3 reject; quote/instructionEvidence venue closure remains 0/2 under the retained parent finding; focused committed suite 9/9 PASS; 119 outcome representations, 118 unique body-contract identities, 57 response schemas, 25/25 dialect keywords, and 6/6 declared relationship kinds are structurally coherent; digest independently recomputes to `e01971cd8e584488476038c426ee3a20e64a9d05f574b6a18ec62e07007ecfb3`; full suite 415/415 PASS; syntax 86/86 PASS; replay invariants PASS at 6,190.30 blocks/s with 9,758,288-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-QA-PREPARATION-OUTPUT-EFFECT-BINDING-001`: `PASS`.
+- `UPSTREAM-QA-PREPARATION-INPUT-DEBIT-BINDING-001`: `PASS`.
+- Prior exact shortfall: 18; prior validation was 413/413 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -558,7 +564,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 57 schemas across 118 body-bearing outcomes with stable identities and digest `bebd61b2005e19f54d1ceb058dc06609699cb76c8171214d27dbe7dded848bc9`. Recursive enumeration confirms every one of the 25 live schema-node keywords is declared, including canonical-cursor `kind`, while unknown future keywords remain fail closed. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 57 schemas across 118 body-bearing outcomes with stable identities and digest `e01971cd8e584488476038c426ee3a20e64a9d05f574b6a18ec62e07007ecfb3`. Recursive enumeration confirms every one of the 25 live schema-node keywords and all six relationship kinds are declared, including fail-closed preparation catalog membership, while unknown future keywords remain fail closed. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -570,7 +576,7 @@
 | Detail and valuation success schemas | `PASS` | Nine routes now publish closed success schemas. The real token-account response contains exactly its ten required identity/balance/slot/state fields, excludes injected provenance/credentials, and rejects all 5/5 independent malformed or open-projection variants. |
 | Decision-support success schemas | `PASS` | Registry, risk, and candles retain compatibility. Execution policy now publishes exact ordered and unique steps; independent validation preserves the real policy and rejects reordered, reversed, duplicate, and omitted-stage variants (4/4). |
 | Automation-boundary success schemas | `PASS` | Pool quote and bot readiness now publish distinct closed schemas. Independent generated-style validation accepts the exact quote success projection and the actual healthy readiness-gate projection, rejects missing and unknown fields, and rejects unsafe quote or nonempty-ready-missing variants. |
-| Swap-preparation success schema | `FAIL` | Top-level, handoff/binding, preparation/transaction, and simulation-policy boundaries are closed. `9acccf5` adds equal program sets, closed instruction/account/effect projections, exactly two effect expectations, and transaction-policy equality. However, protocol-specific `quote` and `instructionEvidence` remain open objects, so unsafe quote and credential-bearing/wrong-program instruction evidence still satisfy discovery. |
+| Swap-preparation success schema | `FAIL` | Top-level, handoff/binding, preparation/transaction, simulation-policy, and universal amount-effect boundaries are closed. The exact eleven constructor identities are now discoverable and type/protocol membership fails closed. However, protocol-specific `quote` and `instructionEvidence` remain open objects, so unsafe quote and credential-bearing/wrong-program instruction evidence still satisfy discovery. |
 | Legacy collection success schema | `PASS` | Independent HTTP 200 requests confirm `/api/blocks` and `/api/transactions` remain bare arrays and both reference `legacy_collection_success_v1`; versioned cursor envelopes remain separate. |
 | Stats success schema | `PASS` | Independent healthy `/api/stats` HTTP 200 emits exactly the 24 advertised aggregate and evidence fields with canonical structure/chain projections; missing, unknown credential-bearing, and wrong count-type variants are rejected. |
 | Backup success schema | `PASS` | The real healthy backup projection satisfies the closed `backup_success_v1` contract. Independent canonical, missing-required, unknown credential-bearing, unhealthy, and malformed-identity probes confirm exact availability, freshness, identity, and completion-time constraints. |
@@ -620,8 +626,8 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 413/413; syntax passes 86/86; replay completes at 6,165.76 blocks/s with 9,941,792-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 554,414,686 ms old during this run. |
+| Bounded performance | `PASS` | Full suite passes 415/415; syntax passes 86/86; replay completes at 6,190.30 blocks/s with 9,758,288-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 532,765,074 ms old during this run. |
 
 The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -1514,17 +1520,43 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: generated validators must refresh and fail closed until `decimal_negation` is supported; response bytes and runtime execution are unchanged. One canonical decimal comparison is bounded by existing response-size limits; no persistence, provider, RPC, WebSocket, database, or configuration migration is required.
 - Blockers: none; input-debit binding is closed.
 
+## UPSTREAM-QA-PREPARATION-VARIANT-DISCOVERY-001
+
+- Severity: `PASS` (implemented by `4bf1c46`)
+- Owner: `DEV`
+- Reproduction: enumerate every `const prepared` type/protocol tuple in the nine venue execution modules; compare the sorted result with `/api/v1/query-contracts.preparationVariants`; verify type uniqueness, route-family assignment, and detached snapshot behavior.
+- Evidence: independent source enumeration finds eleven constructors and the published catalog matches all 11/11 exact type/protocol tuples. Types are unique and sorted; nine variants are `pool`, the two Pump bonding-curve variants are `token`, and mutating one returned catalog does not affect a fresh snapshot.
+- Affected contracts: query-contract discovery, both preparation route families, generated validator dispatch, venue/protocol identity, schema digest/ETag, and downstream AI/commercial preparation routing.
+- Expected versus actual behavior: consumers need a deterministic bounded catalog covering every live preparation constructor without inventing venue schemas. Expected and actual match for exact identity and route-family discovery.
+- Acceptance criteria: enumerate every constructor exactly once; publish nonempty type/protocol identities; sort deterministically; distinguish pool from token routes; preserve snapshot isolation and runtime response compatibility. All scoped criteria are met.
+- Validation results: constructor/catalog parity 11/11 PASS; unique identities 11/11 PASS; sorted order PASS; route families 9 pool and 2 token PASS; detached mutation control PASS; focused committed suite 9/9 PASS; full suite 415/415 PASS; syntax 86/86 PASS; replay PASS at 6,190.30 blocks/s with 9,758,288-byte heap growth; digest independently recomputes to `e01971cd8e584488476038c426ee3a20e64a9d05f574b6a18ec62e07007ecfb3`.
+- Compatibility/performance impact: additive discovery metadata changes digest/ETag but not preparation bodies, signing/submission behavior, persistence, provider, RPC, WebSocket, database, or configuration. Eleven constant-size rows are bounded.
+- Blockers: none for catalog discovery; protocol-specific schema closure remains deduplicated under the parent finding.
+
+## UPSTREAM-QA-PREPARATION-IDENTITY-BINDING-001
+
+- Severity: `PASS` (implemented by `3ede5d1`)
+- Owner: `DEV`
+- Reproduction: resolve the published `catalog_membership` relationship from `preparation_success_v1` to `preparationVariants`; test every constructor tuple, then test an unknown tuple, an empty tuple, and a known type paired with the wrong protocol.
+- Evidence: the fail-closed dialect declares `catalog_membership` and the relationship binds `preparation.type` plus `preparation.protocol` to one catalog row. All 11/11 live tuples match; unknown, empty, and cross-protocol identities reject 3/3. Route family remains discovery metadata and is not falsely claimed as a response field.
+- Affected contracts: both preparation success routes, generated relationship validators, venue/protocol identity, execution-handoff compatibility, schema digest/ETag, and downstream signer admission.
+- Expected versus actual behavior: a success body must use one exact known type/protocol tuple; unknown or mismatched identities must fail closed. Expected and actual match.
+- Acceptance criteria: declare the relationship kind; reference a bounded published catalog; bind both identity properties; admit every current constructor; reject unknown, empty, and mismatched tuples; preserve current runtime bodies. All criteria are met.
+- Validation results: dialect kind PASS; descriptor PASS; catalog resolution PASS; positives 11/11 PASS; independent negatives 3/3 reject; focused committed suite 9/9 PASS; full suite 415/415 PASS; syntax 86/86 PASS; replay PASS at 6,190.30 blocks/s with 9,758,288-byte heap growth; 25/25 keywords and 6/6 relationship kinds remain declared.
+- Compatibility/performance impact: generated validators must refresh and implement `catalog_membership` fail closed before accepting the new digest. Current constructor bodies are compatible; one lookup over eleven constant catalog rows is bounded, with no persistence, provider, RPC, WebSocket, database, or configuration migration.
+- Blockers: none for identity membership; exact quote and instruction-evidence variants remain the parent finding.
+
 ## UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
 - Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, transaction, simulation-policy, universal instruction-amount, and input/output effect relationships, then apply the published rules to protocol-specific `quote` or `preparation.instructionEvidence` objects containing unknown credentials, unsafe quote state, or wrong program evidence.
-- Evidence: `5aefae5`, `8dde519`, `9acccf5`, and `60739b0` close the prior handoff, transaction, policy, and universal amount increments. `8f1e533` now equality-binds both signer-facing outputs; `b4e5c48` declares `decimal_negation` and binds positive input to first minimum debit. All universal controls pass. However, `quote` remains opaque and `instructionEvidence` has no `additionalProperties:false` or venue discriminator, so otherwise valid unsafe, credential-bearing, and wrong-program probes remain admissible.
+- Evidence: prior increments close handoff, transaction, policy, universal amounts, and all three input/output effect bindings. `4bf1c46` enumerates all eleven live type/protocol/route-family identities, and `3ede5d1` fail-closes unknown or mismatched type/protocol tuples through catalog membership. All shared controls pass. However, `quote` remains opaque and `instructionEvidence` has no `additionalProperties:false` or venue-specific closed union, so otherwise valid unsafe, credential-bearing, and wrong-program probes remain admissible.
 - Affected contracts: pool and token preparation success discovery, generated trading-safety validators, execution-handoff binding and preparation hash, quote identity/provenance, unsigned transaction evidence, signer/submission boundaries, secret redaction, schema digest/ETag, and downstream AI/commercial admission.
 - Expected behavior: preparation success discovery must explicitly project and close venue-specific quote and instruction-evidence variants so empty, unknown, credential-bearing, wrong-program, or unsafe content fails closed.
-- Actual behavior: external authority, identity, preparation, transaction, shared simulation-policy, universal raw amounts, and all three signer-to-effect amount relationships are verifiable, but the two protocol-specific evidence objects remain open; a conforming generated validator still cannot establish their venue provenance, quote safety, redaction, or complete protocol shape.
+- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation-policy, universal raw amounts, and all three signer-to-effect amount relationships are verifiable, but the two protocol-specific evidence objects remain open; a conforming generated validator still cannot establish their venue provenance, quote safety, redaction, or complete protocol shape.
 - Acceptance criteria: define closed bounded discriminated variants for `quote` and `instructionEvidence`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction/simulation-policy boundary.
-- Validation results: prior closed boundaries remain PASS; output equality descriptors 2/2, canonical control 1/1, output mismatches 2/2 reject, decimal-negation descriptor/control 1/1, input mismatch 1/1 reject, and wrong/noncanonical debits 5/5 reject; remaining protocol-specific closure 0/2 and unsafe/credential/wrong-program probe rejection 0/2 FAIL; focused committed suite 8/8 PASS; full suite 413/413 PASS; syntax 86/86 PASS; replay invariants PASS at 6,165.76 blocks/s with 9,941,792-byte heap growth.
+- Validation results: prior closed boundaries remain PASS; catalog parity 11/11, identity positives 11/11, and identity negatives 3/3 reject; remaining protocol-specific closure 0/2 and unsafe/credential/wrong-program probe rejection 0/2 FAIL; focused committed suite 9/9 PASS; full suite 415/415 PASS; syntax 86/86 PASS; replay invariants PASS at 6,190.30 blocks/s with 9,758,288-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -1534,7 +1566,7 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 554,414,686 ms age during this run.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but is 406,432 slots behind and 532,765,074 ms old during this run.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1543,4 +1575,4 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: close and explicitly project protocol-specific `quote` and `instructionEvidence` variants, preserving completed handoff/preparation/transaction/simulation-policy and all three amount-effect bindings while adding all real-venue positives plus empty, credential-bearing, wrong-program, unsafe-quote, and cross-object mismatch regressions.
+- NEXT_DEV_ACTION: define closed `quote` and `instructionEvidence` schemas for each of the 11 published preparation variants, bind every catalog tuple to its exact schemas, preserve all completed boundaries and amount-effect bindings, and add real-venue positives plus unknown-type/protocol/route-family, empty, credential-bearing, wrong-program, unsafe-quote, and cross-object mismatch regressions.
