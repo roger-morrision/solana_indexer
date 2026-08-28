@@ -1139,6 +1139,15 @@
 - Validation: exact keys, credential/wrong-side rejection, slot/expiry inversions, bid and ask conditional-zero contradictions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and five instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
 - NEXT_WEB_ACTION: validate Phoenix instructionEvidence against its catalog schema and reject unknown fields, invalid slot/expiry ordering, or side-inconsistent IOC lot values.
+
+## UPSTREAM OpenBook V2 instruction-evidence contract parity
+
+- Selected ID: `UPSTREAM-OPENBOOK-V2-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- BA/PO decision: OpenBook preparation already emits deterministic IOC constructor evidence, while its catalog advertised a null instruction-evidence schema. Publishing the exact closed shape is the highest-value dependency-ready increment because commercial and safety consumers can now reject unknown fields and inconsistent consumed-input evidence before signing.
+- Contract: `openbook_place_take_order_simulation.instructionEvidenceSchema` is now `openbook_v2_instruction_evidence_v1`; the schema closes all 15 constructor fields, bounds side/order type/match limit, and requires consumed input not to exceed requested input.
+- Compatibility: additive catalog metadata only; REST payloads, RPC/WebSocket behavior, persistence, configuration, migrations, and execution fail-closed behavior are unchanged.
+- Validation: focused catalog regression, full offline suite, syntax, replay/load, and operational readiness are recorded in the heartbeat report.
+- NEXT_WEB_ACTION: validate OpenBook V2 instructionEvidence against its catalog schema and reject unknown fields, unsupported side/order type/match limit, or consumed input above requested input.
 # UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
 
 - BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.
