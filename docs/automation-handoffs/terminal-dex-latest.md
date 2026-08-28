@@ -1245,3 +1245,11 @@
 - Contract: Pump buy now recomputes protocol and creator fees after correcting net quote input, so returned components remain exact ceiling-rounded functions of the published final net basis.
 - Compatibility/migration/configuration: rare rounding-boundary fee atoms can decrease after correction; ordinary quotes, persistence, RPC/WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: require Pump buy component fees to validate against the published final net quote input before displaying or preparing the route.
+
+## UPSTREAM OpenBook lot-economics parity
+
+- Selected ID: `UPSTREAM-OPENBOOK-V2-QUOTE-PARITY-002`.
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; the deterministic OpenBook output/fee acceptance gap was the highest-value dependency-ready trading-safety increment after Pump buy parity closed.
+- Contract: OpenBook quotes now publish the finalized base/quote lot sizes and taker-fee millionths used by the constructor, with one fail-closed relationship binding bid/ask consumed input, output, and ceiling-rounded fee to aggregate lots.
+- Compatibility/migration/configuration: additive quote fields and schema-dialect relationship change the contract digest/ETag; generated validators must refresh. Persistence, RPC/WebSocket, migrations, providers, and configuration are unchanged.
+- NEXT_WEB_ACTION: validate OpenBook lot economics through `openbook_lot_economics` and reject output, consumed-input, fee, lot-size, or taker-rate contradictions before displaying or preparing the quote.
