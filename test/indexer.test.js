@@ -777,6 +777,17 @@ test("AMM v4 and Orca evidence schemas preserve constructor slot ordering", () =
   assert.equal(ordered({ stateSlot: 1, tickArraySlot: 2, balanceSlot: 3, mintEvidenceSlot: 2 }, orca), false);
 });
 
+test("Raydium CPMM and CLMM evidence schemas preserve constructor slot ordering", () => {
+  const schemas = queryContractSnapshot().responseBodySchemas, cpmm = schemas.raydium_cpmm_instruction_evidence_v1, clmm = schemas.raydium_clmm_instruction_evidence_v1;
+  assert.deepEqual([cpmm.properties.configSlot.minimumProperty, cpmm.properties.balanceSlot.minimumProperty, cpmm.properties.mintEvidenceSlot.minimumProperty], ["stateSlot", "configSlot", "balanceSlot"]);
+  assert.deepEqual([clmm.properties.balanceSlot.minimumProperty, clmm.properties.tickArraySlot.minimumProperty, clmm.properties.ammConfigSlot.minimumProperty, clmm.properties.mintEvidenceSlot.minimumProperty], ["stateSlot", "stateSlot", "stateSlot", "balanceSlot"]);
+  const ordered = (value, schema) => Object.entries(schema.properties).every(([key, rule]) => rule.minimumProperty == null || value[key] >= value[rule.minimumProperty]);
+  assert.equal(ordered({ stateSlot: 1, configSlot: 1, balanceSlot: 2, mintEvidenceSlot: 2 }, cpmm), true);
+  for (const value of [{ stateSlot: 2, configSlot: 1, balanceSlot: 2, mintEvidenceSlot: 3 }, { stateSlot: 1, configSlot: 3, balanceSlot: 2, mintEvidenceSlot: 3 }, { stateSlot: 1, configSlot: 2, balanceSlot: 3, mintEvidenceSlot: 2 }]) assert.equal(ordered(value, cpmm), false);
+  assert.equal(ordered({ stateSlot: 1, balanceSlot: 1, tickArraySlot: 1, ammConfigSlot: 1, mintEvidenceSlot: 1 }, clmm), true);
+  for (const value of [{ stateSlot: 2, balanceSlot: 1, tickArraySlot: 2, ammConfigSlot: 2, mintEvidenceSlot: 2 }, { stateSlot: 2, balanceSlot: 2, tickArraySlot: 1, ammConfigSlot: 2, mintEvidenceSlot: 2 }, { stateSlot: 2, balanceSlot: 2, tickArraySlot: 2, ammConfigSlot: 1, mintEvidenceSlot: 2 }, { stateSlot: 1, balanceSlot: 2, tickArraySlot: 1, ammConfigSlot: 1, mintEvidenceSlot: 1 }]) assert.equal(ordered(value, clmm), false);
+});
+
 test("simulation receipts verify exact mint-bound token effects", async () => {
   const transactionBase64 = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1])]).toString("base64"), mint = "11111111111111111111111111111111", tokenBytes = Buffer.alloc(165); tokenBytes.writeBigUInt64LE(900n, 64); const account = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: [tokenBytes.toString("base64"), "base64"] }; assert.equal(decodeSimulatedTokenAccount(account, mint).amountRaw, "900"); let options;
   const expectation = { address: "token-account", mint, preAmountRaw: "1000", minDeltaRaw: "-101", maxDeltaRaw: "-99" }, receipt = await simulateUnsignedTransaction({ endpoint: "http://localhost:8899", call: async (_method, params) => { options = params[1]; return { context: { slot: 600 }, value: { err: null, logs: [], unitsConsumed: 100, accounts: [account] } }; } }, { transactionBase64, minContextSlot: 600, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, accountExpectations: [expectation] }); assert.deepEqual(receipt.tokenEffects[0], { ...expectation, programId: account.owner, postAmountRaw: "900", deltaRaw: "-100" }); assert.deepEqual(options.accounts, { encoding: "base64", addresses: ["token-account"] });

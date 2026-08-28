@@ -1040,3 +1040,12 @@
 - Validation: equality-boundary positives, inversion negatives, focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: quote schemas and seven instruction-evidence variants remain open.
 - NEXT_WEB_ACTION: enforce the published slot-order minimumProperty constraints before accepting AMM v4 or Orca preparation evidence.
+# UPSTREAM-RAYDIUM-SLOT-ORDER-BINDING-002
+
+- BA/PO decision: fresh 20+ reconciliation selected the remaining dependency-ready Raydium provenance parity gap because CPMM and CLMM constructors reject stale component evidence that their published closed schemas could still admit.
+- Selected ID: `UPSTREAM-RAYDIUM-SLOT-ORDER-BINDING-002`.
+- Contract: CPMM now requires `stateSlot <= configSlot <= balanceSlot <= mintEvidenceSlot`; CLMM requires state no newer than balance, tick-array, or AMM-config evidence and `balanceSlot <= mintEvidenceSlot`.
+- Compatibility/migration/configuration: current constructors already enforce and emit these relations; response bodies, persistence, and configuration are unchanged. Generated validators must refresh the discovery digest.
+- Validation: equality-boundary positives, every direct inversion negative, focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: all quote schemas and seven instruction-evidence variants remain open.
+- NEXT_WEB_ACTION: enforce the published CPMM and CLMM minimumProperty slot constraints before accepting preparation evidence.
