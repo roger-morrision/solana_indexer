@@ -1076,3 +1076,12 @@
 - Validation: corrected real-constructor arithmetic positive, relationship descriptors, isolated contradiction negatives, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: nine quote schemas and seven instruction-evidence schemas remain open.
 - NEXT_WEB_ACTION: implement conditional_type, array_length, and canonical decimal_sum fail closed before trusting CPMM or CLMM quote evidence.
+# UPSTREAM-CPMM-OUTPUT-CONSERVATION-001
+
+- BA/PO decision: fresh 20+ reconciliation retained the HIGH quote-parity repair ahead of a new venue because refreshed acceptance evidence identified one remaining CPMM invariant: gross output must equal net output plus the output transfer fee.
+- Selected ID: `UPSTREAM-CPMM-OUTPUT-CONSERVATION-001`.
+- Contract: `raydium_cpmm_quote_v1` now applies canonical `decimal_sum` to bind `grossOutputRaw` to `amountOutRaw + outputTransferFeeRaw`, alongside its fee-mode and finalized-evidence relationships.
+- Compatibility/migration/configuration: current legacy and Token-2022 quote constructors already emit this identity; runtime bodies, persistence, and configuration are unchanged. Generated validators must refresh.
+- Validation: legacy and fee-bearing positives, isolated gross/net mismatch negative, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: nine quote schemas and seven instruction-evidence schemas remain open.
+- NEXT_WEB_ACTION: enforce CPMM gross-output conservation together with fee-mode provenance before displaying or preparing the quote.
