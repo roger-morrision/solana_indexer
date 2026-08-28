@@ -1058,3 +1058,12 @@
 - Validation: exact keys, credential and wrong-protocol rejection, both slot inversions, exact missing gates, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: ten quote schemas and seven instruction-evidence schemas remain open.
 - NEXT_WEB_ACTION: validate Raydium CPMM quotes against the catalog-referenced closed schema before presenting amounts or preparing a swap.
+# UPSTREAM-RAYDIUM-CLMM-QUOTE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected Raydium CLMM quote closure because its bounded tick traversal, price limit, static and transfer fees, and finalized component slots directly control preparation and signer safety.
+- Selected ID: `UPSTREAM-RAYDIUM-CLMM-QUOTE-SCHEMA-001`.
+- Contract: the CLMM catalog row references closed `raydium_clmm_quote_v1`, requiring exact quoted/fully-consumed/finalized identities, positive signer amounts and price/liquidity evidence, bounded unique crossed ticks, static fee mode, transfer-fee mode, and constructor-equivalent slot ordering.
+- Compatibility/migration/configuration: additive discovery metadata only; current quote bodies, persistence, and configuration are unchanged. Generated validators should refresh and keep null-schema variants fail closed.
+- Validation: exact keys, credential/wrong-protocol/unsafe-status rejection, all four slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: nine quote schemas and seven instruction-evidence schemas remain open.
+- NEXT_WEB_ACTION: validate Raydium CLMM quotes against the catalog schema before presenting tick traversal, price limits, or preparing a swap.
