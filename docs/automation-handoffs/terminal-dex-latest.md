@@ -1197,3 +1197,11 @@
 - Validation: real legacy-route, Token-2022, Phoenix bid/ask controls; two Meteora and three Phoenix isolated contradictions; focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and five instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
 - NEXT_WEB_ACTION: enforce the repaired Meteora legacy-route/fee rules and Phoenix side-positive/output-bound rules before accepting preparation evidence.
+
+## UPSTREAM Pump bonding-curve quote contract closure
+
+- Selected IDs: `UPSTREAM-PUMP-BONDING-SELL-QUOTE-SCHEMA-001`, `UPSTREAM-PUMP-BONDING-BUY-QUOTE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected both launch-token quote variants because their null catalog schemas prevented discovery, detail, AI-safety, and commercial clients from validating finalized curve, fee-tier, reserve, token-program, and execution-gate evidence.
+- Contracts: sell-v2 and buy-exact-quote-in-v2 now reference separate closed schemas matching their exact amount, fee, formula, reserve, finalized slot, mint epoch, token-program, hash, freshness, and missing-gate shapes.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime quote bodies, persistence, RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated validators must refresh the schema digest.
+- NEXT_WEB_ACTION: regenerate Pump bonding-curve quote validators and require the direction-specific closed schema before displaying launch-token prices or preparing a swap.
