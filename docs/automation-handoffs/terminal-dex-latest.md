@@ -1121,3 +1121,12 @@
 - Validation: exact keys, nested closure, credential/wrong-version rejection, slot inversions, slice vocabulary, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and six instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
 - NEXT_WEB_ACTION: validate Meteora instructionEvidence against its catalog schema and reject unknown nested fields, unsupported versions or slices, and any finalized slot inversion.
+# UPSTREAM-METEORA-DLMM-EVIDENCE-PARITY-002
+
+- BA/PO decision: fresh QC exposed four deterministic HIGH constructor contradictions in the newly referenced Meteora schema, so the 22-opportunity reconciliation selected semantic parity ahead of Phoenix expansion.
+- Selected IDs: `UPSTREAM-METEORA-DLMM-INSTRUCTION-EVIDENCE-SCHEMA-001` and delivery increment `UPSTREAM-METEORA-DLMM-EVIDENCE-PARITY-002`.
+- Contract: the fail-closed dialect adds nullable-pair, bounded array-slot aggregation, conditional array emptiness, and unique-by relationships. Meteora now pairs bitmap address/slot, binds every hook row to finalized mint evidence and its maximum slot, forces legacy swap hook evidence empty, and permits at most one X and one Y slice.
+- Compatibility/migration/configuration: current constructor evidence already satisfies these invariants; runtime bytes, persistence, providers, RPC/WebSocket, database, and configuration are unchanged. Generated validators must implement the four relationship kinds and refresh the digest.
+- Validation: real swap2 control, four isolated constructor contradictions, existing closure and slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: seven quote schemas and six instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
+- NEXT_WEB_ACTION: enforce Meteora bitmap pairing, hook-slot aggregation, legacy-swap emptiness, and slice-axis uniqueness before accepting preparation evidence.
