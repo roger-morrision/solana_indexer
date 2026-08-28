@@ -1253,3 +1253,11 @@
 - Contract: OpenBook quotes now publish the finalized base/quote lot sizes and taker-fee millionths used by the constructor, with one fail-closed relationship binding bid/ask consumed input, output, and ceiling-rounded fee to aggregate lots.
 - Compatibility/migration/configuration: additive quote fields and schema-dialect relationship change the contract digest/ETag; generated validators must refresh. Persistence, RPC/WebSocket, migrations, providers, and configuration are unchanged.
 - NEXT_WEB_ACTION: validate OpenBook lot economics through `openbook_lot_economics` and reject output, consumed-input, fee, lot-size, or taker-rate contradictions before displaying or preparing the quote.
+
+## UPSTREAM OpenBook zero-output boundary
+
+- Selected ID: `UPSTREAM-OPENBOOK-ZERO-OUTPUT-BOUNDARY-003`.
+- BA/PO decision: fresh QC reproduced a decoder-accepted maximum-fee ask that emitted zero output and violated the positive-output quote schema; closing this real producer/schema mismatch outranked the final null Meteora schema.
+- Contract: OpenBook exact-input quoting now fails closed when lot economics produce zero output, while the adjacent positive-output fee boundary remains available and schema-valid.
+- Compatibility/migration/configuration: maximum-fee zero-output asks now return quote-unavailable instead of an unusable analysis quote; schema, persistence, RPC/WebSocket, migrations, providers, and configuration are unchanged.
+- NEXT_WEB_ACTION: treat OpenBook quote-unavailable at zero output as a hard no-route state and never synthesize a zero-output quote for display or preparation.
