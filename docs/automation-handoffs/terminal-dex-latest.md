@@ -1085,3 +1085,12 @@
 - Validation: legacy and fee-bearing positives, isolated gross/net mismatch negative, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: nine quote schemas and seven instruction-evidence schemas remain open.
 - NEXT_WEB_ACTION: enforce CPMM gross-output conservation together with fee-mode provenance before displaying or preparing the quote.
+# UPSTREAM-ORCA-WHIRLPOOL-QUOTE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation and green CPMM/CLMM QC selected Orca Whirlpool as the next exact quote closure because finalized tick traversal, price limits, and amount conservation directly govern preparation and signer safety.
+- Selected ID: `UPSTREAM-ORCA-WHIRLPOOL-QUOTE-SCHEMA-001`.
+- Contract: the Orca catalog row references closed `orca_whirlpool_quote_v1`, requiring exact safe/finalized identity, positive raw amounts and price/liquidity evidence, bounded unique tick traversal, static fee mode, three-stage finalized slot ordering, tick cardinality, and exact-input conservation.
+- Compatibility/migration/configuration: additive discovery metadata only; current quote bodies, persistence, and configuration are unchanged. Generated validators should refresh and keep null-schema variants fail closed.
+- Validation: exact keys, credential/wrong-protocol/unsafe-status rejection, semantic mismatches, all slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: eight quote schemas and seven instruction-evidence schemas remain open.
+- NEXT_WEB_ACTION: validate Orca quotes against the catalog schema before presenting tick traversal, price limits, or preparing a swap.
