@@ -1013,3 +1013,12 @@
 - Validation: exact-key and tick-array rules, credential-field rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: CLMM quote closure and nine instruction-evidence variants remain open.
 - NEXT_WEB_ACTION: validate Raydium CLMM instructionEvidence against its catalog-referenced schema and reject unknown fields, missing or duplicate tick arrays, and invalid price-limit evidence.
+# UPSTREAM-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation and refreshed QC selected Raydium AMM v4 instruction evidence because its reserve provenance is safety-critical and the exact constructor shape is dependency-ready for offline closure.
+- Selected ID: `UPSTREAM-RAYDIUM-AMM-V4-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- Contract: the AMM v4 catalog row references closed `raydium_amm_v4_instruction_evidence_v1`, requiring exact pool/component slots, positive signer amounts, direction, and the sole authoritative `vault_plus_open_orders_total_minus_pending_pnl` reserve-evidence mode.
+- Compatibility/migration/configuration: the current AMM v4 constructor already emits this exact shape; runtime bodies, persistence, and configuration are unchanged. Catalog instruction-evidence coverage increases from two to three of eleven variants.
+- Validation: exact-key and reserve-mode assertions, credential-field rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: AMM v4 quote closure and eight instruction-evidence variants remain open.
+- NEXT_WEB_ACTION: validate Raydium AMM v4 instructionEvidence against its catalog schema and reject unknown fields or reserve provenance other than vault-plus-open-orders-minus-pending-PnL.
