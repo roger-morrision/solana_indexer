@@ -1261,3 +1261,11 @@
 - Contract: OpenBook exact-input quoting now fails closed when lot economics produce zero output, while the adjacent positive-output fee boundary remains available and schema-valid.
 - Compatibility/migration/configuration: maximum-fee zero-output asks now return quote-unavailable instead of an unusable analysis quote; schema, persistence, RPC/WebSocket, migrations, providers, and configuration are unchanged.
 - NEXT_WEB_ACTION: treat OpenBook quote-unavailable at zero output as a hard no-route state and never synthesize a zero-output quote for display or preparation.
+
+## UPSTREAM Meteora DLMM quote contract closure
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001`.
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the sole remaining null quote variant because it blocks complete preparation discovery for DLMM detail, AI safety, and commercial clients.
+- Contract: Meteora preparation discovery now references a closed quote schema covering exact legacy/Token-2022 amounts, fee mode, bin path, finalized slots, partial/full status, conservation, fee bounds, and immutable execution gates.
+- Compatibility/migration/configuration: additive discovery metadata changes the contract digest/ETag; generated validators must refresh. Runtime quote bytes, persistence, RPC/WebSocket, migrations, providers, and configuration are unchanged.
+- NEXT_WEB_ACTION: regenerate Meteora quote validators and reject unknown fields, amount/output conservation failures, fee inversions, invalid bin paths, slot inversions, or altered execution gates before display or preparation.
