@@ -1205,3 +1205,11 @@
 - Contracts: sell-v2 and buy-exact-quote-in-v2 now reference separate closed schemas matching their exact amount, fee, formula, reserve, finalized slot, mint epoch, token-program, hash, freshness, and missing-gate shapes.
 - Compatibility/migration/configuration: additive discovery metadata only; runtime quote bodies, persistence, RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated validators must refresh the schema digest.
 - NEXT_WEB_ACTION: regenerate Pump bonding-curve quote validators and require the direction-specific closed schema before displaying launch-token prices or preparing a swap.
+
+## UPSTREAM Pump bonding-curve quote semantic parity
+
+- Selected IDs: `UPSTREAM-PUMP-BONDING-SELL-QUOTE-SCHEMA-001`, `UPSTREAM-PUMP-BONDING-BUY-QUOTE-SCHEMA-001`, and delivery increment `UPSTREAM-PUMP-BONDING-QUOTE-PARITY-002`.
+- BA/PO decision: fresh QC reproduced ten HIGH constructor-impossible economic mutations against the newly published schemas, so semantic repair outranked expansion to another venue.
+- Contracts: sell now binds fee sum, net/gross conservation, aggregate basis-point ceiling, real-quote reserve ceiling, and its exact constant-product output. Buy binds fee sum, input-budget ceiling, aggregate basis-point ceiling, real-token reserve ceiling, and its offset-aware exact constant-product output.
+- Compatibility/migration/configuration: valid runtime bodies, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged. Generated validators must implement the three added bounded relationship kinds and refresh the schema digest.
+- NEXT_WEB_ACTION: enforce Pump bonding fee, conservation, reserve, and exact constant-product relationships before displaying a quote or admitting preparation.
