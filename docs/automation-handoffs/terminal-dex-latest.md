@@ -1172,6 +1172,14 @@
 - Contracts: both PumpSwap instruction-evidence schemas now require canonical Solana public-key formatting, canonical base58 alphabet/length, and explicitly exclude the system program for protocol and buyback fee recipients.
 - Compatibility/migration/configuration: discovery-only fail-closed hardening; valid runtime bodies, persistence, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
 - NEXT_WEB_ACTION: regenerate PumpSwap validators with solana-public-key and notValues support, rejecting malformed or system fee recipients before simulation or signing.
+
+## UPSTREAM PumpSwap quote contract closure
+
+- Selected IDs: `UPSTREAM-PUMP-SWAP-SELL-QUOTE-SCHEMA-001`, `UPSTREAM-PUMP-SWAP-BUY-QUOTE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected direction-specific PumpSwap quote closure because discovery, token/pool detail, AI safety, and commercial clients could not validate finalized reserve/fee provenance before preparation.
+- Contracts: sell and buy catalog rows now dispatch separate closed schemas requiring exact direction and safety identity, positive bounded amounts/reserves, bounded fee components, four-stage finalized slot ordering, mint epoch, observation time, and exact missing execution gates.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime quote bodies, persistence, RPC/WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: regenerate PumpSwap quote validators and require the direction-specific closed schema before displaying prices or preparing swaps.
 # UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
 
 - BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.
