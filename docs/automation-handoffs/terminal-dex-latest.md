@@ -1022,3 +1022,12 @@
 - Validation: exact-key and reserve-mode assertions, credential-field rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: AMM v4 quote closure and eight instruction-evidence variants remain open.
 - NEXT_WEB_ACTION: validate Raydium AMM v4 instructionEvidence against its catalog schema and reject unknown fields or reserve provenance other than vault-plus-open-orders-minus-pending-PnL.
+# UPSTREAM-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected Orca Whirlpool instruction evidence because signer safety depends on its exact three-array traversal window, derived oracle identity, and Q64 price limit, all available from deterministic offline constructor evidence.
+- Selected ID: `UPSTREAM-ORCA-WHIRLPOOL-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- Contract: the Orca catalog row references closed `orca_whirlpool_instruction_evidence_v1`, requiring exact pool/finalized slots, epoch, positive amounts, signed limit tick, positive Q64 price limit, direction, exactly three unique nonempty tick-array addresses, and a nonempty derived oracle address.
+- Compatibility/migration/configuration: the current Orca constructor already emits this exact shape; runtime bodies, persistence, and configuration are unchanged. Catalog instruction-evidence coverage increases from three to four of eleven variants.
+- Validation: exact keys, three-array constraints, credential-field rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: Orca quote closure and seven instruction-evidence variants remain open.
+- NEXT_WEB_ACTION: validate Orca Whirlpool instructionEvidence against its catalog schema and reject unknown fields, any tick path other than three unique arrays, or missing oracle evidence.
