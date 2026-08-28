@@ -1130,3 +1130,12 @@
 - Validation: real swap2 control, four isolated constructor contradictions, existing closure and slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and six instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
 - NEXT_WEB_ACTION: enforce Meteora bitmap pairing, hook-slot aggregation, legacy-swap emptiness, and slice-axis uniqueness before accepting preparation evidence.
+# UPSTREAM-PHOENIX-IOC-INSTRUCTION-EVIDENCE-SCHEMA-001
+
+- BA/PO decision: after the Meteora HIGH defect was repaired, the fresh 22-opportunity reconciliation selected Phoenix IOC instruction evidence because side-specific lot encoding, finalized market slots, and bounded expiry directly govern unsigned order safety and are deterministic offline.
+- Selected ID: `UPSTREAM-PHOENIX-IOC-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- Contract: the Phoenix catalog row references closed `phoenix_ioc_instruction_evidence_v1`, requiring exact market identity, `stateSlot <= balanceSlot <= quoteCurrentSlot < lastValidSlot`, bid/ask vocabulary, positive signer amounts and price/base lots, bounded decimal lot fields, and constructor-equivalent side-specific zero fields.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime bodies, persistence, providers, RPC/WebSocket, database, and configuration are unchanged. Instruction-evidence coverage increases from five to six of eleven variants; generated clients must refresh the digest.
+- Validation: exact keys, credential/wrong-side rejection, slot/expiry inversions, bid and ask conditional-zero contradictions, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: seven quote schemas and five instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
+- NEXT_WEB_ACTION: validate Phoenix instructionEvidence against its catalog schema and reject unknown fields, invalid slot/expiry ordering, or side-inconsistent IOC lot values.
