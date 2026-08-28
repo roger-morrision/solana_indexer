@@ -1,5 +1,15 @@
 # Terminal DEX upstream handoff
 
+# UPSTREAM-PREPARATION-SUCCESS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected swap-preparation success discovery because AI/trading-safety and commercial clients could validate preparation failures but not the successful unsigned handoff envelope.
+- Selected ID: `UPSTREAM-PREPARATION-SUCCESS-SCHEMA-001`.
+- Implemented contract: pool and token `prepare-swap` HTTP 200 outcomes now share a closed schema requiring successful preparation, non-automation, unsigned/unsubmitted state, the exact ordered handoff sequence, and explicit handoff, quote, and preparation evidence.
+- Acceptance evidence: focused discovery verifies both route bindings, exact top-level closure, fixed safety constants, and exact unique stage ordering; existing protocol HTTP regressions continue proving real successful preparations.
+- Compatibility/migration/configuration: additive discovery changes the contract digest/ETag only; runtime preparation bytes, signing/submission boundaries, persistence, ingestion, RPC/WebSocket, database, and configuration are unchanged.
+- Shortfall/blockers: 20+ findings reconciled, one material outcome completed, exact shortfall 19. Live qualification remains OPERATOR-blocked by absent fresh canonical-mainnet evidence; dialect verification remains QC-owned.
+- NEXT_WEB_ACTION: regenerate both swap-preparation validators and reject any success envelope that is automation-safe, signed, submitted, or missing the exact external handoff stages.
+
 # UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001
 
 - BA/PO decision: fresh 20+ reconciliation selected the HIGH dialect completeness defect because fail-closed generated clients could not accept the shared cursor schema used by all five paginated REST success routes.
