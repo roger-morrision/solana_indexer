@@ -1229,3 +1229,11 @@
 - Contracts: every Pump fee component is now bound to its exact ceiling-rounded basis-point calculation; Phoenix now binds `quoted` to zero remaining input and `partial` to positive remaining input.
 - Compatibility/migration/configuration: valid runtime bodies and configuration are unchanged. Generated validators must implement `decimal_ceiling_fee`, retain `conditional_pattern`, and refresh the schema digest.
 - NEXT_WEB_ACTION: reject Pump fee-component/BPS contradictions and Phoenix status/remaining-input contradictions before displaying or preparing a route.
+
+## UPSTREAM OpenBook V2 quote contract closure
+
+- Selected ID: `UPSTREAM-OPENBOOK-V2-QUOTE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected OpenBook because its fixed and validated oracle-pegged depth quote is dependency-ready and was the highest-value remaining null commercial/trading-safety schema.
+- Contract: the OpenBook preparation variant now references a closed quote schema with exact side/status/safety identity, u64 amounts and lot totals, ordered state/book/oracle/balance/current slots, bounded closed fixed/oracle-pegged levels, input conservation, lot aggregation, and status/remaining-input binding.
+- Compatibility/migration/configuration: additive discovery metadata only; runtime bodies, persistence, provider/RPC/WebSocket behavior, migrations, and configuration remain unchanged. Generated validators must refresh the schema digest.
+- NEXT_WEB_ACTION: validate OpenBook quotes against the catalog schema and reject unknown depth rows, slot inversions, lot-total mismatches, or inconsistent fill status before preparation.
