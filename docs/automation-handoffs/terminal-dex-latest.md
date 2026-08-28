@@ -1103,3 +1103,12 @@
 - Validation: exact keys, credential/wrong-protocol/reserve-mode rejection, fee-bound and slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: seven quote schemas and seven instruction-evidence schemas remain open.
 - NEXT_WEB_ACTION: validate AMM v4 quotes against the catalog schema before presenting reconstructed reserves or preparing a swap.
+# UPSTREAM-QUOTE-CONSTRUCTOR-PARITY-002
+
+- BA/PO decision: the fresh 22-opportunity reconciliation selected two deterministic HIGH quote defects ahead of another venue because generated clients could admit Orca price-limit/fee tuples and AMM v4 reserve outputs that their constructors reject.
+- Selected IDs: `UPSTREAM-QA-ORCA-WHIRLPOOL-QUOTE-SCHEMA-001`, `UPSTREAM-QA-RAYDIUM-AMM-V4-QUOTE-SCHEMA-001`, and delivery increment `UPSTREAM-QUOTE-CONSTRUCTOR-PARITY-002`.
+- Contract: the fail-closed dialect adds `orca_sqrt_price_at_tick` and `constant_product_exact_input`; Orca binds its bounded tick to the exact Q64.64 price and caps millionth fees below the denominator, while AMM v4 binds output below reserve and to its integer constant-product equation.
+- Compatibility/migration/configuration: runtime quote bytes, persistence, providers, RPC/WebSocket, database, and configuration are unchanged. Generated validators must implement both relationship kinds and refresh the discovery digest before accepting these quotes.
+- Validation: real-constructor positives, three isolated Orca contradictions, two isolated AMM output contradictions, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: seven quote schemas and seven instruction-evidence schemas remain null; operational qualification remains fail closed pending operator evidence.
+- NEXT_WEB_ACTION: implement both new fail-closed relationship kinds and reject any Orca or AMM v4 quote that violates the published constructor equations.
