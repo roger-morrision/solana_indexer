@@ -1164,6 +1164,14 @@
 - Contracts: sell and buy-exact-quote-in now dispatch separate closed schemas; both bind four-stage slot ordering, positive u64 amounts, minimum output ordering, and fee-recipient fields, while buy additionally requires `trackVolume:true`.
 - Compatibility/migration/configuration: additive discovery metadata only; runtime bodies, persistence, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
 - NEXT_WEB_ACTION: regenerate PumpSwap preparation validators and require the exact direction-specific instructionEvidence schema before simulation or signing.
+
+## UPSTREAM PumpSwap recipient-domain parity
+
+- Selected IDs: `UPSTREAM-PUMP-SWAP-SELL-INSTRUCTION-EVIDENCE-SCHEMA-001`, `UPSTREAM-PUMP-SWAP-BUY-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- BA/PO decision: fresh 22-opportunity reconciliation selected the deterministic HIGH recipient-domain failures because both generated schemas admitted system-program or malformed identities that the real PumpSwap constructors reject before account derivation.
+- Contracts: both PumpSwap instruction-evidence schemas now require canonical Solana public-key formatting, canonical base58 alphabet/length, and explicitly exclude the system program for protocol and buyback fee recipients.
+- Compatibility/migration/configuration: discovery-only fail-closed hardening; valid runtime bodies, persistence, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
+- NEXT_WEB_ACTION: regenerate PumpSwap validators with solana-public-key and notValues support, rejecting malformed or system fee recipients before simulation or signing.
 # UPSTREAM-INSTRUCTION-EVIDENCE-PARITY-003
 
 - BA/PO decision: fresh QC found two remaining HIGH constructor-parity defects in referenced Meteora and Phoenix schemas, so the 22-opportunity reconciliation selected their coherent semantic repair ahead of OpenBook expansion.

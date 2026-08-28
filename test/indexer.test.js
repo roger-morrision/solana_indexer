@@ -766,6 +766,11 @@ test("PumpSwap catalog dispatches exact closed sell and buy instruction evidence
   assert.equal(valid(common, sell), true); assert.equal(valid({ ...common, trackVolume: true }, sell), false); assert.equal(valid({ ...common, trackVolume: true }, buy), true); assert.deepEqual(buy.properties.trackVolume.values, [true]); assert.equal(valid({ ...common, trackVolume: false }, buy), false); assert.equal(valid({ ...common, trackVolume: true, rpcToken: "secret" }, buy), false); assert.equal(valid({ ...common, trackVolume: true, configSlot: 1 }, buy), false); assert.equal(valid({ ...common, trackVolume: true, minimumOutputRaw: "91" }, buy), false); assert.equal(valid({ ...common, trackVolume: true, amountInRaw: "18446744073709551616" }, buy), false);
 });
 
+test("PumpSwap catalog rejects malformed and system fee recipients", () => {
+  const schemas = queryContractSnapshot().responseBodySchemas, system = "11111111111111111111111111111111", canonical = "So11111111111111111111111111111111111111112", valid = (value, rule) => new RegExp(rule.pattern).test(value) && !rule.notValues.includes(value);
+  for (const schema of [schemas.pump_swap_sell_instruction_evidence_v1, schemas.pump_swap_buy_instruction_evidence_v1]) for (const field of ["protocolFeeRecipient", "buybackFeeRecipient"]) { const rule = schema.properties[field]; assert.equal(rule.format, "solana-public-key"); assert.equal(valid(canonical, rule), true); assert.equal(valid(system, rule), false); assert.equal(valid("x", rule), false); assert.equal(valid("0OIl1111111111111111111111111111", rule), false); }
+});
+
 test("Raydium CPMM catalog dispatches its exact closed quote schema", () => {
   const contract = queryContractSnapshot(), variant = contract.preparationVariants.find(({ type }) => type === "raydium_cpmm_swap_base_input_simulation"), schema = contract.responseBodySchemas[variant.quoteSchema];
   assert.equal(variant.quoteSchema, "raydium_cpmm_quote_v1"); assert.equal(contract.preparationVariants.filter(({ quoteSchema }) => quoteSchema !== null).length, 4); assert.equal(schema.additionalProperties, false); assert.deepEqual(Object.keys(schema.properties), schema.required);
