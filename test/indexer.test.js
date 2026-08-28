@@ -766,6 +766,17 @@ test("Orca Whirlpool catalog dispatches closed oracle and tick-path instruction 
   assert.equal(new Set(evidence.tickArrays).size, 3);
 });
 
+test("AMM v4 and Orca evidence schemas preserve constructor slot ordering", () => {
+  const schemas = queryContractSnapshot().responseBodySchemas, amm = schemas.raydium_amm_v4_instruction_evidence_v1, orca = schemas.orca_whirlpool_instruction_evidence_v1;
+  assert.deepEqual([amm.properties.openOrdersSlot.minimumProperty, amm.properties.marketSlot.minimumProperty, amm.properties.balanceSlot.minimumProperty], ["stateSlot", "openOrdersSlot", "marketSlot"]);
+  assert.deepEqual([orca.properties.tickArraySlot.minimumProperty, orca.properties.balanceSlot.minimumProperty, orca.properties.mintEvidenceSlot.minimumProperty], ["stateSlot", "tickArraySlot", "balanceSlot"]);
+  const ordered = (value, schema) => Object.entries(schema.properties).every(([key, rule]) => rule.minimumProperty == null || value[key] >= value[rule.minimumProperty]);
+  assert.equal(ordered({ stateSlot: 1, openOrdersSlot: 1, marketSlot: 2, balanceSlot: 3 }, amm), true);
+  assert.equal(ordered({ stateSlot: 2, openOrdersSlot: 1, marketSlot: 2, balanceSlot: 3 }, amm), false);
+  assert.equal(ordered({ stateSlot: 1, tickArraySlot: 1, balanceSlot: 2, mintEvidenceSlot: 3 }, orca), true);
+  assert.equal(ordered({ stateSlot: 1, tickArraySlot: 2, balanceSlot: 3, mintEvidenceSlot: 2 }, orca), false);
+});
+
 test("simulation receipts verify exact mint-bound token effects", async () => {
   const transactionBase64 = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1])]).toString("base64"), mint = "11111111111111111111111111111111", tokenBytes = Buffer.alloc(165); tokenBytes.writeBigUInt64LE(900n, 64); const account = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: [tokenBytes.toString("base64"), "base64"] }; assert.equal(decodeSimulatedTokenAccount(account, mint).amountRaw, "900"); let options;
   const expectation = { address: "token-account", mint, preAmountRaw: "1000", minDeltaRaw: "-101", maxDeltaRaw: "-99" }, receipt = await simulateUnsignedTransaction({ endpoint: "http://localhost:8899", call: async (_method, params) => { options = params[1]; return { context: { slot: 600 }, value: { err: null, logs: [], unitsConsumed: 100, accounts: [account] } }; } }, { transactionBase64, minContextSlot: 600, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, accountExpectations: [expectation] }); assert.deepEqual(receipt.tokenEffects[0], { ...expectation, programId: account.owner, postAmountRaw: "900", deltaRaw: "-100" }); assert.deepEqual(options.accounts, { encoding: "base64", addresses: ["token-account"] });

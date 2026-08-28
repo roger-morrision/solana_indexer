@@ -1031,3 +1031,12 @@
 - Validation: exact keys, three-array constraints, credential-field rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: Orca quote closure and seven instruction-evidence variants remain open.
 - NEXT_WEB_ACTION: validate Orca Whirlpool instructionEvidence against its catalog schema and reject unknown fields, any tick path other than three unique arrays, or missing oracle evidence.
+# UPSTREAM-PREPARATION-SLOT-ORDER-BINDING-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the new HIGH QC slot-order failures ahead of another protocol schema because generated validators could accept impossible AMM v4 or Orca finalized provenance that both runtime constructors reject.
+- Selected ID: `UPSTREAM-PREPARATION-SLOT-ORDER-BINDING-001`.
+- Contract: AMM v4 now requires `stateSlot <= openOrdersSlot <= marketSlot <= balanceSlot`; Orca requires `stateSlot <= tickArraySlot <= balanceSlot <= mintEvidenceSlot`, using the existing fail-closed `minimumProperty` dialect keyword.
+- Compatibility/migration/configuration: current constructors already enforce and emit these orders; runtime bodies, persistence, and configuration are unchanged. Generated validators must refresh the discovery digest.
+- Validation: equality-boundary positives, inversion negatives, focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: quote schemas and seven instruction-evidence variants remain open.
+- NEXT_WEB_ACTION: enforce the published slot-order minimumProperty constraints before accepting AMM v4 or Orca preparation evidence.
