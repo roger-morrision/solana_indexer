@@ -673,6 +673,14 @@ test("preparation success schema closes and binds simulation policy", () => {
   assert.deepEqual(schema.relationships.at(-1), { kind: "equal", properties: ["preparation.transaction.instructionPolicies", "preparation.simulationPolicy.instructionPolicies"] });
 });
 
+test("preparation success schema requires universal instruction amount evidence", () => {
+  const evidence = queryContractSnapshot().responseBodySchemas.preparation_success_v1.properties.preparation.properties.instructionEvidence;
+  assert.deepEqual(evidence.required, ["amountInRaw", "quotedOutputRaw", "minimumOutputRaw"]);
+  assert.deepEqual(Object.keys(evidence.properties), evidence.required);
+  for (const property of evidence.required) assert.deepEqual(evidence.properties[property], { type: "string", pattern: "^[1-9][0-9]*$" });
+  assert.equal(evidence.additionalProperties, undefined);
+});
+
 test("simulation receipts verify exact mint-bound token effects", async () => {
   const transactionBase64 = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1])]).toString("base64"), mint = "11111111111111111111111111111111", tokenBytes = Buffer.alloc(165); tokenBytes.writeBigUInt64LE(900n, 64); const account = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: [tokenBytes.toString("base64"), "base64"] }; assert.equal(decodeSimulatedTokenAccount(account, mint).amountRaw, "900"); let options;
   const expectation = { address: "token-account", mint, preAmountRaw: "1000", minDeltaRaw: "-101", maxDeltaRaw: "-99" }, receipt = await simulateUnsignedTransaction({ endpoint: "http://localhost:8899", call: async (_method, params) => { options = params[1]; return { context: { slot: 600 }, value: { err: null, logs: [], unitsConsumed: 100, accounts: [account] } }; } }, { transactionBase64, minContextSlot: 600, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, accountExpectations: [expectation] }); assert.deepEqual(receipt.tokenEffects[0], { ...expectation, programId: account.owner, postAmountRaw: "900", deltaRaw: "-100" }); assert.deepEqual(options.accounts, { encoding: "base64", addresses: ["token-account"] });

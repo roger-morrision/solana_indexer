@@ -950,3 +950,12 @@
 - Validation: focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: protocol-specific quote and instructionEvidence objects remain open and non-automation-safe pending explicit venue unions.
 - NEXT_WEB_ACTION: enforce the closed simulation policy, equality rules, and exact two-account effect bounds before showing a prepared swap as locally simulatable.
+# UPSTREAM-PREPARATION-INSTRUCTION-AMOUNTS-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation found that all supported instruction-evidence families share three signer-critical raw amounts, while their venue identity and nested reserve/hook evidence differ enough that a closed union requires a larger protocol-by-protocol increment.
+- Selected ID: `UPSTREAM-PREPARATION-INSTRUCTION-AMOUNTS-SCHEMA-001`.
+- Contract: preparation `instructionEvidence` must publish positive canonical decimal strings for `amountInRaw`, `quotedOutputRaw`, and `minimumOutputRaw`; venue-specific fields remain intentionally open until explicit unions are complete.
+- Compatibility/migration/configuration: all current constructors already emit these fields and require positive amounts; no response, configuration, or persistence migration is required. Generated validators should refresh.
+- Validation: focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: credential exclusion and exact venue evidence closure still require protocol-specific instructionEvidence and quote unions.
+- NEXT_WEB_ACTION: require all three positive raw instruction amounts before displaying signer limits, and continue treating venue-specific evidence as unverified until its protocol union is published.
