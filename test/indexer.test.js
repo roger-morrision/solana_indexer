@@ -670,7 +670,7 @@ test("preparation success schema closes and binds simulation policy", () => {
   assert.equal(instruction.properties.accounts.items.additionalProperties, false);
   assert.equal(expectation.additionalProperties, false);
   assert.deepEqual(expectation.required, ["address", "mint", "preAmountRaw", "minDeltaRaw", "maxDeltaRaw"]);
-  assert.deepEqual(schema.relationships.at(-1), { kind: "equal", properties: ["preparation.transaction.instructionPolicies", "preparation.simulationPolicy.instructionPolicies"] });
+  assert.deepEqual(schema.relationships.at(6), { kind: "equal", properties: ["preparation.transaction.instructionPolicies", "preparation.simulationPolicy.instructionPolicies"] });
 });
 
 test("preparation success schema requires universal instruction amount evidence", () => {
@@ -679,6 +679,11 @@ test("preparation success schema requires universal instruction amount evidence"
   assert.deepEqual(Object.keys(evidence.properties), evidence.required);
   for (const property of evidence.required) assert.deepEqual(evidence.properties[property], { type: "string", pattern: "^[1-9][0-9]*$" });
   assert.equal(evidence.additionalProperties, undefined);
+});
+
+test("preparation success schema binds output evidence to simulation effects", () => {
+  const relationships = queryContractSnapshot().responseBodySchemas.preparation_success_v1.relationships;
+  assert.deepEqual(relationships.slice(-2), [{ kind: "equal", properties: ["preparation.instructionEvidence.minimumOutputRaw", "preparation.simulationPolicy.accountExpectations.1.minDeltaRaw"] }, { kind: "equal", properties: ["preparation.instructionEvidence.quotedOutputRaw", "preparation.simulationPolicy.accountExpectations.1.maxDeltaRaw"] }]);
 });
 
 test("simulation receipts verify exact mint-bound token effects", async () => {

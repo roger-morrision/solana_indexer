@@ -959,3 +959,12 @@
 - Validation: focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: credential exclusion and exact venue evidence closure still require protocol-specific instructionEvidence and quote unions.
 - NEXT_WEB_ACTION: require all three positive raw instruction amounts before displaying signer limits, and continue treating venue-specific evidence as unverified until its protocol union is published.
+# UPSTREAM-PREPARATION-OUTPUT-EFFECT-BINDING-001
+
+- BA/PO decision: fresh 20+ reconciliation selected the universal output-effect invariant because every supported preparation constructs exactly two account expectations and the second expectation is the quoted output account; leaving signer-facing amounts detached from simulation bounds permits contradictory generated-client evidence.
+- Selected ID: `UPSTREAM-PREPARATION-OUTPUT-EFFECT-BINDING-001`.
+- Contract: `preparation_success_v1` now requires `instructionEvidence.minimumOutputRaw` to equal the output account expectation `minDeltaRaw`, and `quotedOutputRaw` to equal its `maxDeltaRaw`.
+- Compatibility/migration/configuration: current constructors already emit these identities; no response, persistence, or configuration migration is required. Generated validators should refresh.
+- Validation: focused schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: input debit requires a signed transform rather than equality, and exact quote/instructionEvidence closure still requires protocol unions.
+- NEXT_WEB_ACTION: reject prepared swaps when signer-facing minimum or quoted output differs from the bound output-account simulation delta range.
