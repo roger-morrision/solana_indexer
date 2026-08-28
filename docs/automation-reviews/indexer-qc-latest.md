@@ -1,28 +1,28 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-29T00:36:21+07:00`
+- Run: `2026-08-29T01:36:22+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `dcdc4e5865048d94fe284630c268b93f9ac21c56`
-- Compared with QA baseline: `845801210b7b3d14469c1f9748021941e9831769` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 25 ahead, 0 behind before this evidence report
-- Latest DEV commits: `fabc123` (Phoenix/OpenBook constructor bounds) and `dcdc4e5` (PumpSwap sell/buy instruction-evidence schemas)
-- Overall result: 2 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. Phoenix and OpenBook now match every reported constructor boundary. Both new PumpSwap schemas accept their real preparation evidence and close slots, amounts, keys, and direction-specific volume tracking, but each admits forbidden or malformed fee-recipient identities that the real constructor rejects. The parent HIGH finding remains open. Live qualification is independently blocked by absent fresh canonical evidence.
+- Revision: `6b8acb8501695d9fcbfd787ef1b1c60e3bde87e0`
+- Compared with QA baseline: `5b65978b0feb55219a3561bf64f682a64e0e568d` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 28 ahead, 0 behind before this evidence report
+- Latest DEV commits: `f2c8a2a` (PumpSwap recipient-domain parity) and `6b8acb8` (PumpSwap direction-specific quote schemas)
+- Overall result: 4 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. Both prior PumpSwap recipient-domain failures now reject malformed and system-program identities, and both new direction-specific PumpSwap quote schemas close finalized reserve, fee, slot, amount, safety, and execution-gate evidence. The parent HIGH finding remains open only for five null quote variants and two null instruction-evidence variants. Live qualification is independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (4/20)
 
-### Instruction-evidence schema constructor parity (2 PASS, 2 FAIL)
+### PumpSwap instruction and quote schema parity (4 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-PHOENIX-IOC-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / Phoenix catalog row | `PASS` | Real maximum-expiry evidence validates; `quoteCurrentSlot + 151` rejects in both the schema and constructor; u64 maximum validates and `2^64` rejects. All prior side/lot/output contradictions remain rejected. |
-| `UPSTREAM-OPENBOOK-V2-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / OpenBook V2 catalog row | `PASS` | The exact real preparation body, including `minimumOutputRaw`, validates. Slot inversion, output inversion, signed-i64 overflow, and u64 overflow reject, while exact signed-i64 maxima remain admitted. |
-| `UPSTREAM-PUMP-SWAP-SELL-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / PumpSwap sell catalog row | `FAIL` | Real sell evidence validates and structural/slot/amount bounds close, but the schema admits the system program or malformed one-character fee-recipient identities that `buildPumpSwapSellInstruction` cannot emit. |
-| `UPSTREAM-PUMP-SWAP-BUY-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / PumpSwap buy catalog row | `FAIL` | Real buy evidence and `trackVolume:true` validate, but the schema admits forbidden system or malformed fee-recipient identities rejected by `buildPumpSwapBuyExactQuoteInInstruction`. |
+| `UPSTREAM-PUMP-SWAP-SELL-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / PumpSwap sell catalog row | `PASS` | Canonical constructor addresses validate; system-program, one-character, invalid-alphabet, and pattern-only invalid 32/44-character identities reject for both recipient fields. |
+| `UPSTREAM-PUMP-SWAP-BUY-INSTRUCTION-EVIDENCE-SCHEMA-001` | pool `prepare-swap` / PumpSwap buy catalog row | `PASS` | The same canonical public-key and explicit system-program exclusions close both buy recipient fields while preserving `trackVolume:true` and every prior key/slot/amount/output bound. |
+| `UPSTREAM-PUMP-SWAP-SELL-QUOTE-SCHEMA-001` | pool `prepare-swap` / PumpSwap sell catalog row | `PASS` | The sell catalog dispatches a closed `base_to_quote` schema; the valid finalized quote passes while direction swap, unknown credential, slot inversion, zero/overflow amount, and reordered execution gates reject. |
+| `UPSTREAM-PUMP-SWAP-BUY-QUOTE-SCHEMA-001` | pool `prepare-swap` / PumpSwap buy catalog row | `PASS` | The buy catalog dispatches a distinct closed `quote_to_base` schema with the same positive-u64, reserve/fee, slot, timestamp, fail-closed safety, and exact execution-gate controls. |
 
-- Available DEV delta: `fabc123` repairs two distinct prior HIGH schema outcomes and `dcdc4e5` adds two distinct BA/PO-selected PumpSwap schema outcomes after `8458012`. The complete delta was exhausted. Source advanced during validation; QC withheld the stale `fabc123` tier results, refreshed to clean stable `dcdc4e5`, and reran every tier. No additional DEV commit or enhancement exists.
-- Verification result: 2 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: `f2c8a2a` repairs two distinct prior HIGH PumpSwap recipient outcomes and `6b8acb8` adds two distinct BA/PO-selected direction-specific quote outcomes after `5b65978`. The complete delta was exhausted. Source advanced under the DEV writer lock during validation; QC withheld the transient mixed-state 427/432 result, refreshed to clean stable `6b8acb8`, and reran every tier. No additional DEV commit or enhancement exists.
+- Verification result: 4 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 16; the stable delta contains exactly four distinct protocol-schema outcomes, and splitting directions, fields, contradiction probes, schema properties, or assertions would be padding.
-- Validation: a 22-probe independent constructor/schema harness accepts Phoenix maximum expiry/u64, the exact OpenBook preparation body and signed-i64 maxima, and real PumpSwap sell/buy evidence; rejects Phoenix/OpenBook overflow, expiry, slot, and output contradictions; then reproduces both PumpSwap recipient-domain gaps. Strict protocol-specific closure advances to 11/22 PASS and 11/22 FAIL (four quote and seven instruction-evidence variants PASS; PumpSwap sell/buy are referenced but incomplete; seven quote and two other instruction variants remain null). Focused committed protocol suite 29/29 PASS; 70 response schemas, 18 declared relationship kinds, 27 dialect keywords, and digest `f5d1531410ac10a30bb0f1c5903820908ef8e4a61a3d91201e50f4a0178c990f` are structurally coherent; full suite 430/430 PASS; syntax 86/86 PASS; replay invariants PASS at 8,890.62 blocks/s with 9,373,776-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: a 38-probe independent schema/constructor-boundary harness closes all four reviewed outcomes, including public-key decoding beyond regex-only controls and six quote negatives per direction. Strict protocol-specific closure advances to 15/22 PASS and 7/22 FAIL (six quote and nine instruction-evidence variants PASS; five quote and two instruction variants remain null). Focused committed PumpSwap suite 4/4 PASS; 72 response schemas, 18 declared relationship kinds, 28 dialect keywords, and digest `f7353e40e1ec53dbadee4ad0fce67e204a5dbd1252a1007a24ac33a7d71dc4bf` are structurally coherent; full suite 432/432 PASS; syntax 86/86 PASS; replay invariants PASS at 6,318.58 blocks/s with 9,869,480-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (3/20; retained)
 
@@ -644,7 +644,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 70 schemas with stable identities and digest `f5d1531410ac10a30bb0f1c5903820908ef8e4a61a3d91201e50f4a0178c990f`. Independent recomputation matches. Recursive enumeration confirms all 27 live schema-node keywords and all eighteen relationship kinds are declared, including `maximumOffset`, `maximumRaw`, conditional decimal patterns, and decimal less-than-or-equal, while unknown future keywords remain fail closed. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 72 schemas with stable identities and digest `f7353e40e1ec53dbadee4ad0fce67e204a5dbd1252a1007a24ac33a7d71dc4bf`. Independent recomputation matches. Recursive enumeration confirms all 28 live schema-node keywords and all eighteen relationship kinds are declared, including `notValues`, `maximumOffset`, `maximumRaw`, conditional decimal patterns, and decimal less-than-or-equal, while unknown future keywords remain fail closed. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -656,7 +656,7 @@
 | Detail and valuation success schemas | `PASS` | Nine routes now publish closed success schemas. The real token-account response contains exactly its ten required identity/balance/slot/state fields, excludes injected provenance/credentials, and rejects all 5/5 independent malformed or open-projection variants. |
 | Decision-support success schemas | `PASS` | Registry, risk, and candles retain compatibility. Execution policy now publishes exact ordered and unique steps; independent validation preserves the real policy and rejects reordered, reversed, duplicate, and omitted-stage variants (4/4). |
 | Automation-boundary success schemas | `PASS` | Pool quote and bot readiness now publish distinct closed schemas. Independent generated-style validation accepts the exact quote success projection and the actual healthy readiness-gate projection, rejects missing and unknown fields, and rejects unsafe quote or nonempty-ready-missing variants. |
-| Swap-preparation success schema | `FAIL` | Top-level, handoff/binding, preparation/transaction, simulation-policy, universal amount-effect, and catalog identity boundaries are closed. Seven instruction-evidence variants plus CPMM, CLMM, Orca, and AMM v4 quotes have constructor parity. PumpSwap sell/buy are referenced but remain recipient-domain incomplete; seven quote variants and two other instruction-evidence variants remain schema-null. |
+| Swap-preparation success schema | `FAIL` | Top-level, handoff/binding, preparation/transaction, simulation-policy, universal amount-effect, and catalog identity boundaries are closed. Nine instruction-evidence variants plus CPMM, CLMM, Orca, AMM v4, and both PumpSwap directions have constructor/quote parity. Five quote variants and two other instruction-evidence variants remain schema-null. |
 | Legacy collection success schema | `PASS` | Independent HTTP 200 requests confirm `/api/blocks` and `/api/transactions` remain bare arrays and both reference `legacy_collection_success_v1`; versioned cursor envelopes remain separate. |
 | Stats success schema | `PASS` | Independent healthy `/api/stats` HTTP 200 emits exactly the 24 advertised aggregate and evidence fields with canonical structure/chain projections; missing, unknown credential-bearing, and wrong count-type variants are rejected. |
 | Backup success schema | `PASS` | The real healthy backup projection satisfies the closed `backup_success_v1` contract. Independent canonical, missing-required, unknown credential-bearing, unhealthy, and malformed-identity probes confirm exact availability, freshness, identity, and completion-time constraints. |
@@ -706,8 +706,8 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 430/430; syntax passes 86/86; replay completes at 8,890.62 blocks/s with 9,373,776-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 568,464,176 ms old during this run. |
+| Bounded performance | `PASS` | Full suite passes 432/432; syntax passes 86/86; replay completes at 6,318.58 blocks/s with 9,869,480-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 572,065,152 ms old during this run. |
 
 The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -1771,41 +1771,67 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 
 ## UPSTREAM-PUMP-SWAP-SELL-INSTRUCTION-EVIDENCE-SCHEMA-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `f2c8a2a`)
 - Owner: `DEV`
 - Reproduction: construct real PumpSwap sell evidence and validate it against `pump_swap_sell_instruction_evidence_v1`. Retain every valid field but replace only `protocolFeeRecipient` with the system program, or `buybackFeeRecipient` with the malformed value `x`; compare schema admission with `buildPumpSwapSellInstruction`.
-- Evidence: `dcdc4e5` publishes exact key closure, four-stage slot ordering, positive u64 amounts, minimum-output ordering, and both recipient fields. The real control validates, but each recipient rule is only a nonempty string, so both isolated mutations validate. The constructor rejects the system program explicitly and malformed identities during associated-token-account derivation.
+- Evidence: `f2c8a2a` replaces both recipient rules with declared `solana-public-key` format, canonical base58 alphabet/length, and `notValues` exclusion for the system program. Canonical constructor identities validate; system, one-character, invalid-alphabet, and pattern-only invalid 32/44-character controls reject.
 - Affected contracts: PumpSwap sell preparation discovery, finalized GlobalConfig fee-recipient authority, instruction account derivation, generated trading-safety validators, schema digest/ETag, simulation, and signing admission.
-- Expected versus actual behavior: generated validation must reject fee-recipient identities that the real sell constructor cannot encode or authorize as non-system Solana public keys. Actual discovery admits both forbidden and malformed identities.
+- Expected versus actual behavior: generated validation rejects fee-recipient identities that the real sell constructor cannot encode or authorize as non-system Solana public keys. Expected and actual now match.
 - Acceptance criteria: require canonical Solana public-key encoding for both recipient fields and exclude the system program; retain exact sell keys without `trackVolume`, slot/amount/output bounds, real constructor controls, and isolated malformed/system-recipient negatives.
-- Validation results: real sell evidence PASS; unknown-field, slot, amount, and output controls PASS; system-program recipient admitted FAIL; malformed one-character recipient admitted FAIL; direct constructor rejects both classes; focused suite 29/29 PASS; full suite 430/430 PASS; syntax 86/86 PASS; replay PASS at 8,890.62 blocks/s with 9,373,776-byte heap growth.
+- Validation results: all recipient controls PASS within the independent 38-probe harness; real finalized PumpSwap snapshot/quote/constructor regression PASS; focused suite 4/4 PASS; full suite 432/432 PASS; syntax 86/86 PASS; replay PASS at 6,318.58 blocks/s with 9,869,480-byte heap growth.
 - Compatibility/performance impact: discovery-only recipient-domain hardening changes digest/ETag and generated validators while preserving runtime bodies, persistence, RPC/WebSocket, database, and configuration. Public-key syntax and one excluded identity are constant-time bounded checks.
-- Blockers: none; the defect is deterministic and offline reproducible.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-PUMP-SWAP-BUY-INSTRUCTION-EVIDENCE-SCHEMA-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (resolved by `f2c8a2a`)
 - Owner: `DEV`
 - Reproduction: construct real PumpSwap buy-exact-quote-in evidence and validate it against `pump_swap_buy_instruction_evidence_v1`. Retain every valid field including `trackVolume:true` but replace either fee recipient with the system program or malformed value `x`; compare schema admission with `buildPumpSwapBuyExactQuoteInInstruction`.
-- Evidence: `dcdc4e5` publishes the closed buy shape, `trackVolume:true`, four-stage slot ordering, positive u64 amounts, minimum-output ordering, and recipient fields. The real control validates, but the nonempty-string recipient rules admit identities that the constructor rejects explicitly or during associated-token-account derivation.
+- Evidence: `f2c8a2a` applies the same declared `solana-public-key`, canonical base58 alphabet/length, and explicit system-program exclusion to both buy recipient fields without weakening `trackVolume:true`, closure, slots, amounts, or output ordering.
 - Affected contracts: PumpSwap buy preparation discovery, finalized GlobalConfig fee-recipient authority, volume-accumulator instruction identity, generated trading-safety validators, schema digest/ETag, simulation, and signing admission.
-- Expected versus actual behavior: generated validation must reject fee-recipient identities the real buy constructor cannot encode or authorize as non-system Solana public keys. Actual discovery admits forbidden and malformed identities despite closing direction-specific volume tracking.
+- Expected versus actual behavior: generated validation rejects fee-recipient identities the real buy constructor cannot encode or authorize as non-system Solana public keys. Expected and actual now match while direction-specific volume tracking remains closed.
 - Acceptance criteria: require canonical Solana public-key encoding for both recipient fields and exclude the system program; retain exact buy keys, `trackVolume:true`, slot/amount/output bounds, real constructor controls, and isolated malformed/system-recipient negatives.
-- Validation results: real buy evidence PASS; exact volume, unknown-field, slot, amount, and output controls PASS; system-program and malformed recipients admitted FAIL; direct constructor rejects both classes; focused suite 29/29 PASS; full suite 430/430 PASS; syntax 86/86 PASS; replay PASS at 8,890.62 blocks/s with 9,373,776-byte heap growth.
+- Validation results: all recipient controls PASS within the independent 38-probe harness; direction-specific committed regressions and finalized PumpSwap snapshot/quote/constructor regression PASS; focused suite 4/4 PASS; full suite 432/432 PASS; syntax 86/86 PASS; replay PASS at 6,318.58 blocks/s with 9,869,480-byte heap growth.
 - Compatibility/performance impact: discovery-only recipient-domain hardening changes digest/ETag and generated validators while preserving runtime bodies, persistence, RPC/WebSocket, database, and configuration. Public-key syntax and one excluded identity are constant-time bounded checks.
-- Blockers: none; the defect is deterministic and offline reproducible.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-PUMP-SWAP-SELL-QUOTE-SCHEMA-001
+
+- Severity: `PASS` (delivered by `6b8acb8`)
+- Owner: `DEV`
+- Reproduction: obtain the sell catalog row and validate a finalized `base_to_quote` PumpSwap quote against its referenced schema; independently mutate direction, add a credential field, invert config/balance slots, set a positive amount to zero or above u64, and reorder the exact missing execution gates.
+- Evidence: `6b8acb8` publishes and references `pump_swap_sell_quote_v1`, closing all 28 real fields with constant protocol/status/safety/direction identity, positive bounded amounts and reserves, bounded fees, ordered evidence slots, timestamp, and exact execution gates. The valid control passes and all six isolated negative classes reject.
+- Affected contracts: PumpSwap sell quote discovery, finalized reserve/fee provenance, preparation admission, AI/commercial validation, secret redaction, schema digest/ETag, and non-authorizing execution boundaries.
+- Expected versus actual behavior: generated clients can validate the exact sell quote and reject cross-direction, open, stale-order, impossible amount, or unsafe execution-gate forms. Expected and actual match.
+- Acceptance criteria: closed direction-specific schema; positive u64 amount/reserve bounds; zero-admitting fee bounds; state/balance/config/mint ordering; exact safety constants and missing gates; real constructor-derived quote control plus isolated negatives. All criteria are met.
+- Validation results: independent sell quote matrix 7/7 PASS inside the 38-probe harness; committed direction-specific and finalized snapshot/quote regressions PASS; focused 4/4, full 432/432, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: additive discovery metadata changes digest/ETag and generated validators without changing runtime quote bytes, persistence, RPC/WebSocket, database, or configuration. Validation is bounded by a fixed 28-field envelope.
+- Blockers: none.
+
+## UPSTREAM-PUMP-SWAP-BUY-QUOTE-SCHEMA-001
+
+- Severity: `PASS` (delivered by `6b8acb8`)
+- Owner: `DEV`
+- Reproduction: obtain the buy-exact-quote-in catalog row and apply the same real-control and six isolated negatives to its referenced `quote_to_base` schema.
+- Evidence: `6b8acb8` publishes and references distinct `pump_swap_buy_quote_v1`; the exact direction differs while all provenance, amount, reserve, fee, slot, timestamp, safety, and missing-gate constraints remain closed. The valid control passes and every negative rejects.
+- Affected contracts: PumpSwap buy quote discovery, finalized reserve/fee provenance, preparation admission, AI/commercial validation, secret redaction, schema digest/ETag, and non-authorizing execution boundaries.
+- Expected versus actual behavior: generated clients can validate the exact buy quote without admitting a sell quote or an open, malformed, impossible, or execution-ready mutation. Expected and actual match.
+- Acceptance criteria: distinct exact direction plus the complete sell-equivalent bounded closure and real constructor-derived quote controls. All criteria are met.
+- Validation results: independent buy quote matrix 7/7 PASS inside the 38-probe harness; committed direction-specific and finalized snapshot/quote regressions PASS; focused 4/4, full 432/432, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: additive discovery metadata only; fixed-envelope validation is bounded and replay remains above 6,300 blocks/s with bounded heap growth.
+- Blockers: none.
 
 ## UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
 - Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, transaction, simulation-policy, universal instruction-amount, and input/output effect relationships, then apply the published rules to protocol-specific `quote` or `preparation.instructionEvidence` objects containing unknown credentials, unsafe quote state, or wrong program evidence.
-- Evidence: prior increments close handoff, transaction, policy, universal amounts, all three input/output effect bindings, catalog discovery, and type/protocol membership. Seven instruction-evidence schemas plus CPMM, CLMM, Orca, and AMM v4 quotes match their constructors. PumpSwap sell/buy are newly referenced but retain independently reproduced recipient-domain parity failures; seven quote and two other instruction-evidence variants remain schema-null.
+- Evidence: prior increments close handoff, transaction, policy, universal amounts, all three input/output effect bindings, catalog discovery, and type/protocol membership. Nine instruction-evidence schemas plus CPMM, CLMM, Orca, AMM v4, and both PumpSwap direction-specific quotes match their constructors. Five quote and two instruction-evidence variants remain schema-null.
 - Affected contracts: pool and token preparation success discovery, generated trading-safety validators, execution-handoff binding and preparation hash, quote identity/provenance, unsigned transaction evidence, signer/submission boundaries, secret redaction, schema digest/ETag, and downstream AI/commercial admission.
 - Expected behavior: preparation success discovery must explicitly project and close venue-specific quote and instruction-evidence variants so empty, unknown, credential-bearing, wrong-program, or unsafe content fails closed.
-- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, seven instruction-evidence variants, and four quote variants are verifiable. PumpSwap sell/buy are structurally referenced but recipient-domain incomplete; seven quotes and two other instruction-evidence variants remain schema-null. Generated validators still cannot establish complete protocol evidence for eleven variants.
+- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, nine instruction-evidence variants, and six quote variants are verifiable. Five quotes and two instruction-evidence variants remain schema-null, so generated validators still cannot establish complete protocol evidence for seven variant/dimension pairs.
 - Acceptance criteria: define closed bounded discriminated variants for `quote` and `instructionEvidence`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction/simulation-policy boundary.
-- Validation results: prior closed boundaries remain PASS; strict protocol-specific schema coverage advances to 11/22 PASS and 11/22 FAIL (four quote plus seven instruction variants PASS; PumpSwap sell/buy instruction evidence incomplete; seven quotes and two other instruction variants null). Independent constructor validation closes Phoenix/OpenBook and reproduces the two PumpSwap recipient-domain failures. Focused suite 29/29 PASS; full suite 430/430 PASS; syntax 86/86 PASS; replay PASS at 8,890.62 blocks/s with 9,373,776-byte heap growth.
+- Validation results: prior closed boundaries remain PASS; strict protocol-specific schema coverage advances to 15/22 PASS and 7/22 FAIL (six quote plus nine instruction variants PASS; five quotes and two instruction variants null). Independent 38-probe validation closes both PumpSwap recipient findings and both new quote outcomes. Focused suite 4/4 PASS; full suite 432/432 PASS; syntax 86/86 PASS; replay PASS at 6,318.58 blocks/s with 9,869,480-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -1815,7 +1841,7 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 568,464,176 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 572,065,152 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1824,4 +1850,4 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: constrain PumpSwap sell/buy fee-recipient identities to canonical non-system Solana public keys with real constructor controls and forbidden/malformed recipient negatives before selecting another schema.
+- NEXT_DEV_ACTION: perform a fresh BA/PO 22-opportunity reconciliation and implement the highest-value remaining null quote or instruction-evidence schema with closed constructor-parity controls and focused regressions.
