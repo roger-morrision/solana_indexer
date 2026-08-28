@@ -692,6 +692,16 @@ test("preparation success schema binds input evidence by canonical decimal negat
   assert.deepEqual(relationship, { kind: "decimal_negation", positive: "preparation.instructionEvidence.amountInRaw", negative: "preparation.simulationPolicy.accountExpectations.0.minDeltaRaw" });
 });
 
+test("query contracts enumerate every live preparation identity", () => {
+  const variants = queryContractSnapshot().preparationVariants;
+  assert.equal(variants.length, 11);
+  assert.equal(new Set(variants.map(({ type }) => type)).size, variants.length);
+  assert.deepEqual(variants.map(({ type }) => type), [...variants.map(({ type }) => type)].sort());
+  assert.deepEqual([...new Set(variants.map(({ routeFamily }) => routeFamily))].sort(), ["pool", "token"]);
+  assert.deepEqual(variants.filter(({ routeFamily }) => routeFamily === "token").map(({ protocol }) => protocol), ["pump-bonding-curve", "pump-bonding-curve"]);
+  assert.ok(variants.every(({ type, protocol }) => type.endsWith("_simulation") && protocol.length > 0));
+});
+
 test("simulation receipts verify exact mint-bound token effects", async () => {
   const transactionBase64 = Buffer.concat([Buffer.from([1]), Buffer.alloc(64), Buffer.from([1])]).toString("base64"), mint = "11111111111111111111111111111111", tokenBytes = Buffer.alloc(165); tokenBytes.writeBigUInt64LE(900n, 64); const account = { owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", data: [tokenBytes.toString("base64"), "base64"] }; assert.equal(decodeSimulatedTokenAccount(account, mint).amountRaw, "900"); let options;
   const expectation = { address: "token-account", mint, preAmountRaw: "1000", minDeltaRaw: "-101", maxDeltaRaw: "-99" }, receipt = await simulateUnsignedTransaction({ endpoint: "http://localhost:8899", call: async (_method, params) => { options = params[1]; return { context: { slot: 600 }, value: { err: null, logs: [], unitsConsumed: 100, accounts: [account] } }; } }, { transactionBase64, minContextSlot: 600, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH, accountExpectations: [expectation] }); assert.deepEqual(receipt.tokenEffects[0], { ...expectation, programId: account.owner, postAmountRaw: "900", deltaRaw: "-100" }); assert.deepEqual(options.accounts, { encoding: "base64", addresses: ["token-account"] });

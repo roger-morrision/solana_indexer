@@ -977,3 +977,12 @@
 - Validation: focused dialect/schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: exact quote and venue-specific instructionEvidence closure still require explicit protocol unions.
 - NEXT_WEB_ACTION: implement canonical-decimal negation validation and reject a preparation when its signer-facing input amount does not match the bound minimum debit.
+# UPSTREAM-PREPARATION-VARIANT-DISCOVERY-001
+
+- BA/PO decision: fresh 20+ reconciliation selected preparation-variant discovery because clients currently see one shared success schema but cannot enumerate the exact live type/protocol identities needed to route generated validators and venue-specific safety handling.
+- Selected ID: `UPSTREAM-PREPARATION-VARIANT-DISCOVERY-001`.
+- Contract: `/api/v1/query-contracts` now publishes eleven unique, sorted preparation variants with exact `type`, `protocol`, and `routeFamily` (`pool` or `token`) identities covering every current constructor.
+- Compatibility/migration/configuration: additive discovery metadata only; response bodies, persistence, and configuration are unchanged. Consumers may adopt the catalog before protocol-specific schemas are available.
+- Validation: focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: each catalog identity still needs exact quote and instructionEvidence schemas before the shared success schema can use a closed union.
+- NEXT_WEB_ACTION: dispatch preparation validation by the published type/protocol/route-family tuple and reject identities absent from the catalog.
