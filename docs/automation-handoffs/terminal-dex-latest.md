@@ -1067,3 +1067,12 @@
 - Validation: exact keys, credential/wrong-protocol/unsafe-status rejection, all four slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: nine quote schemas and seven instruction-evidence schemas remain open.
 - NEXT_WEB_ACTION: validate Raydium CLMM quotes against the catalog schema before presenting tick traversal, price limits, or preparing a swap.
+# UPSTREAM-QUOTE-SEMANTIC-PARITY-001
+
+- BA/PO decision: fresh 20+ reconciliation selected new HIGH QC evidence ahead of another venue: the referenced CPMM and CLMM quote schemas admitted provenance, fee, amount-conservation, output-netting, and tick-cardinality tuples their constructors cannot emit.
+- Selected ID: `UPSTREAM-QUOTE-SEMANTIC-PARITY-001`.
+- Contract: the fail-closed dialect adds `conditional_type`, `array_length`, and canonical `decimal_sum`; CPMM binds fee mode to fees and nullable/finalized mint evidence, while CLMM binds tick count, exact-input conservation, gross/net output, and no-fee mode.
+- Compatibility/migration/configuration: runtime quote bodies, persistence, and configuration are unchanged. Generated validators must implement the three new relationship kinds before accepting the refreshed digest.
+- Validation: corrected real-constructor arithmetic positive, relationship descriptors, isolated contradiction negatives, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: nine quote schemas and seven instruction-evidence schemas remain open.
+- NEXT_WEB_ACTION: implement conditional_type, array_length, and canonical decimal_sum fail closed before trusting CPMM or CLMM quote evidence.
