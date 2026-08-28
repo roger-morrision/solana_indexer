@@ -1237,3 +1237,11 @@
 - Contract: the OpenBook preparation variant now references a closed quote schema with exact side/status/safety identity, u64 amounts and lot totals, ordered state/book/oracle/balance/current slots, bounded closed fixed/oracle-pegged levels, input conservation, lot aggregation, and status/remaining-input binding.
 - Compatibility/migration/configuration: additive discovery metadata only; runtime bodies, persistence, provider/RPC/WebSocket behavior, migrations, and configuration remain unchanged. Generated validators must refresh the schema digest.
 - NEXT_WEB_ACTION: validate OpenBook quotes against the catalog schema and reject unknown depth rows, slot inversions, lot-total mismatches, or inconsistent fill status before preparation.
+
+## UPSTREAM Pump buy rounding parity
+
+- Selected ID: `UPSTREAM-PUMP-BUY-ROUNDING-PARITY-004`.
+- BA/PO decision: fresh QC reproduced a real HIGH schema rejection at the post-budget-correction boundary; repairing a valid producer/schema incompatibility outranked adding the final null schema.
+- Contract: Pump buy now recomputes protocol and creator fees after correcting net quote input, so returned components remain exact ceiling-rounded functions of the published final net basis.
+- Compatibility/migration/configuration: rare rounding-boundary fee atoms can decrease after correction; ordinary quotes, persistence, RPC/WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: require Pump buy component fees to validate against the published final net quote input before displaying or preparing the route.
