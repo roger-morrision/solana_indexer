@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-28T06:36:54+07:00`
+- Run: `2026-08-28T07:35:55+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `59e1f31caeb06f3a47466f48bcb807607f1b22a4`
-- Compared with QA baseline: `d467a1ef31a67eecedd66349597ca471ff3b2b5e` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 56 ahead, 0 behind before this evidence report
-- Latest DEV commits: `7ad97ab` (token-account success schema) and `59e1f31` (execution-policy success schema)
-- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. Token-account discovery matches the real ten-field response and rejects malformed or credential-bearing projections. Execution-policy discovery matches the real response but admits reordered, reversed, or duplicate handoff stages because it does not publish the exact required sequence. Live qualification remains independently blocked by absent fresh canonical evidence.
+- Revision: `82fbfafd8c1bc0faddce1dd72159860431e66b22`
+- Compared with QA baseline: `1d0a37c3dfd38516a0f239fcd6875270bbfccdd3` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 59 ahead, 0 behind before this evidence report
+- Latest DEV commits: `bacec1a` (exact execution-policy step sequence) and `82fbfaf` (response-schema dialect discovery)
+- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete DEV delta. The prior HIGH execution-policy defect is closed: the canonical sequence validates and four unsafe variants reject. The new fail-closed dialect omits the real `kind` schema keyword used by paginated cursors, so compliant generators must reject `paginated_collection_v1`. Live qualification remains independently blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### `UPSTREAM-ACCOUNT-EXECUTION-SUCCESS-DISCOVERY-001` (1/2 PASS)
+### `UPSTREAM-EXECUTION-DIALECT-DISCOVERY-001` (1/2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-TOKEN-ACCOUNT-SUCCESS-SCHEMA-001` | `/api/v1/token-account/{account}` | `PASS` | The real canonical account emits exactly ten required fields and excludes injected provenance/credentials; independent validation rejects invalid raw amount, decimals, slot, unknown field, and missing field variants (5/5). |
-| `UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001` | `/internal/execution-policy` | `FAIL` | The real policy body validates, but all 3/3 unsafe four-item lists also validate: reordered, reversed, and four duplicate `local_simulation` stages. Length plus item vocabulary does not encode the required sequence. |
+| `UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001` | `/internal/execution-policy` | `PASS` | `exactItems` plus `uniqueItems` retain the real policy and reject reordered, reversed, duplicate, and omitted-stage variants (4/4). |
+| `UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001` | `/api/v1/query-contracts` | `FAIL` | Dialect version 1 requires fail-closed unknown keywords but omits `kind`, while `paginated_collection_v1.properties.nextCursor.kind` requires `canonical_cursor_v1`; a compliant generator cannot accept that schema. |
 
-- Available DEV delta: exactly 2 distinct fixes/enhancements after `d467a1e`; the complete delta was exhausted.
+- Available DEV delta: exactly 2 distinct fixes/enhancements after `1d0a37c`; the complete delta was exhausted.
 - Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 18; no additional distinct DEV outcome exists after the QA baseline, and splitting fields, relationships, assertions, or fixture variants would be padding.
-- Validation: token-account valid control 1/1 PASS and malformed/redaction negatives 5/5 PASS; execution-policy real control 1/1 PASS but unsafe sequence negatives 0/3; focused committed suite 4/4 PASS; 119 outcome representations, 118 unique body-contract identities, and 56 response schemas are structurally enumerated; digest independently recomputes to `7ae6b8bdbbc8ec8cb8e5c643acaba5da8493582a934dab7deee8333144e59bb0`; full suite 403/403 PASS; syntax 86/86 PASS; replay invariants PASS at 7,002.57 blocks/s with 9,188,248-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: execution-policy real control 1/1 PASS and unsafe sequence negatives 4/4 PASS; dialect identity/policy control PASS but complete schema-keyword coverage FAIL because `kind` is undeclared; focused committed suite 3/3 PASS; 119 outcome representations, 118 unique body-contract identities, and 56 response schemas are structurally enumerated; digest independently recomputes to `3213bf7347704525e78d0e126a35981df05d717d1ab9d4242b5ecf36ab05aa15`; full suite 405/405 PASS; syntax 86/86 PASS; replay invariants PASS at 6,312.83 blocks/s with 9,396,608-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+- `UPSTREAM-TOKEN-ACCOUNT-SUCCESS-SCHEMA-001`: `PASS`.
+- `UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001`: `FAIL` at the time; resolved by current `bacec1a`.
+- Prior exact shortfall: 18; prior validation was 403/403 full, 86/86 syntax, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -528,7 +534,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 56 schemas across 118 body-bearing outcomes with exact stable references, unique body-contract identities, and deterministic snapshot isolation. Independent nested mutation cannot affect later snapshots, digest, ETag, or published discovery; the current digest `7ae6b8bdbbc8ec8cb8e5c643acaba5da8493582a934dab7deee8333144e59bb0` independently recomputes exactly. Runtime compatibility of newly typed batches is evaluated separately below. |
+| HTTP response schema registry structure | `FAIL` | The registry publishes 56 schemas across 118 body-bearing outcomes with stable identities and digest `3213bf7347704525e78d0e126a35981df05d717d1ab9d4242b5ecf36ab05aa15`. Dialect version 1 is fail-closed on unknown keywords but omits real schema keyword `kind`, which `paginated_collection_v1.nextCursor` uses for `canonical_cursor_v1`; generated pagination validators cannot accept the declared dialect/schema pair. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -538,7 +544,7 @@
 | Token intelligence success schemas | `PASS` | Seven internal/public token intelligence routes publish closed schemas. Public and internal holder routes share `token_holders_success_v1`; the real public response contains exactly its 19 required fields, preserves `safeForAutomation:false`, and excludes injected credentials. |
 | Wallet intelligence success schemas | `PASS` | Real wallet detail, performance, profile, funding, and funding-cluster responses satisfy their five schemas. The corrected funding-cluster union accepts canonical `classification:null` without weakening top-level closure or `safeForAutomation:false`; all five reject missing required and unknown top-level fields. |
 | Detail and valuation success schemas | `PASS` | Nine routes now publish closed success schemas. The real token-account response contains exactly its ten required identity/balance/slot/state fields, excludes injected provenance/credentials, and rejects all 5/5 independent malformed or open-projection variants. |
-| Decision-support success schemas | `FAIL` | Registry, risk, and candles retain compatibility. Execution policy matches the real body and fixes non-authorizing constants, but its four-item allowed-value array accepts 3/3 unsafe reordered, reversed, or duplicate handoff sequences. |
+| Decision-support success schemas | `PASS` | Registry, risk, and candles retain compatibility. Execution policy now publishes exact ordered and unique steps; independent validation preserves the real policy and rejects reordered, reversed, duplicate, and omitted-stage variants (4/4). |
 | Automation-boundary success schemas | `PASS` | Pool quote and bot readiness now publish distinct closed schemas. Independent generated-style validation accepts the exact quote success projection and the actual healthy readiness-gate projection, rejects missing and unknown fields, and rejects unsafe quote or nonempty-ready-missing variants. |
 | Legacy collection success schema | `PASS` | Independent HTTP 200 requests confirm `/api/blocks` and `/api/transactions` remain bare arrays and both reference `legacy_collection_success_v1`; versioned cursor envelopes remain separate. |
 | Stats success schema | `PASS` | Independent healthy `/api/stats` HTTP 200 emits exactly the 24 advertised aggregate and evidence fields with canonical structure/chain projections; missing, unknown credential-bearing, and wrong count-type variants are rejected. |
@@ -589,8 +595,8 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 403/403; syntax passes 86/86; replay completes at 7,002.57 blocks/s with 9,188,248-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 503,697,334 ms old at the trigger time. |
+| Bounded performance | `PASS` | Full suite passes 405/405; syntax passes 86/86; replay completes at 6,312.83 blocks/s with 9,396,608-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 507,237,772 ms old at the trigger time. |
 
 The contract minimum is satisfied with 69 distinct evidence domains: 67 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -1380,24 +1386,38 @@ The contract minimum is satisfied with 69 distinct evidence domains: 67 PASS, 1 
 
 ## UPSTREAM-QA-EXECUTION-POLICY-SEQUENCE-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (implemented by `bacec1a`; previously `HIGH`)
 - Owner: `DEV`
 - Reproduction: request `/internal/execution-policy`, validate the real body against `execution_policy_success_v1`, then replace `requiredSteps` with four allowed values in a reordered sequence, reverse order, or four duplicate `local_simulation` entries.
-- Evidence: the canonical endpoint body validates and its nested non-authorizing constants are exact. The array schema only fixes length at four and gives each item the four-value vocabulary; it publishes neither uniqueness nor positional/exact-sequence semantics. Independent generated-style validation accepts all 3/3 unsafe variants.
+- Evidence: the canonical endpoint body validates and its nested non-authorizing constants remain exact. `requiredSteps` now publishes `uniqueItems:true` plus the exact canonical sequence in `exactItems`. Independent generated-style validation rejects reordered, reversed, duplicate, and omitted-stage variants (4/4).
 - Affected contracts: external execution handoff discovery, generated trading-safety validators, local simulation ordering, external signer approval, externally operated submission, finalized landed-message verification, quote required-next-step consumers, schema digest/ETag, and automation authorization boundaries.
 - Expected behavior: success discovery must require the canonical four-stage sequence exactly once and in order: local simulation, external signer approval, externally operated submission, then finalized landed-message verification.
-- Actual behavior: runtime remains safe and canonical, but schema-derived consumers can accept missing stages, duplicated simulation, submission before approval, or confirmation before submission as long as four allowed strings are present.
+- Actual behavior: expected and actual now match; schema-derived consumers can admit only the runtime's canonical sequence.
 - Acceptance criteria: encode exact positional sequence semantics or an equivalent fixed tuple; require uniqueness; retain length four and current constants; preserve the real endpoint; add positive plus reordered, reversed, duplicate, and omitted-stage generated-validator regressions.
-- Validation results: real HTTP/schema positive 1/1 PASS; nested exact-key/non-authorizing controls PASS; reordered, reversed, and duplicate negatives 0/3; focused committed suite 4/4 PASS but checks only the canonical body; full suite 403/403 PASS; syntax 86/86 PASS; replay invariants PASS at 7,002.57 blocks/s.
-- Compatibility/performance impact: discovery hardening will reject policies runtime never emits and prevent unsafe client workflow admission. Runtime bytes, signing/submission behavior, persistence, provider, RPC, WebSocket, database, and configuration need no migration; four-position validation is constant-time.
-- Blockers: none; deterministic offline evidence reproduces the defect.
+- Validation results: real HTTP/schema positive 1/1 PASS; nested exact-key/non-authorizing controls PASS; reordered, reversed, duplicate, and omitted-stage negatives 4/4 PASS; focused committed suite 3/3 PASS; full suite 405/405 PASS; syntax 86/86 PASS; replay invariants PASS at 6,312.83 blocks/s.
+- Compatibility/performance impact: discovery hardening rejects policies runtime never emits and prevents unsafe client workflow admission. Runtime bytes, signing/submission behavior, persistence, provider, RPC, WebSocket, database, and configuration are unchanged; four-position validation is constant-time.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-QA-RESPONSE-SCHEMA-DIALECT-KIND-001
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: inspect `bodySchemaDialect.keywords` from `/api/v1/query-contracts`, recursively enumerate actual schema-node keywords, and compare the fail-closed dialect with `paginated_collection_v1.properties.nextCursor`.
+- Evidence: dialect identity/version and unknown-keyword policy are explicit, and all other current schema-node keywords are declared. However, `nextCursor` publishes `kind:"canonical_cursor_v1"` while `kind` is absent from the dialect keyword list. Under mandatory `unknownKeywordPolicy:"fail_closed"`, a compliant generated validator must reject the shared schema used by all five paginated success routes.
+- Affected contracts: query-contract discovery, all five cursor-paginated block/transaction/swap/token/pool success schemas, canonical cursor scope/digest semantics, generated commercial/replay/AI clients, schema digest/ETag, and fail-closed unknown-keyword behavior.
+- Expected behavior: the published dialect must enumerate every schema-node keyword currently used, including the cursor semantic `kind`, while keeping unknown future keywords fail closed.
+- Actual behavior: the dialect declares itself complete and fail closed but omits a live keyword, making its own paginated schema unusable by conforming generators.
+- Acceptance criteria: add `kind` to dialect version 1 or remove/replace the keyword in every schema; add a recursive full-registry keyword-coverage regression that distinguishes relationship descriptor fields from schema-node keywords; preserve fail-closed unknown-keyword policy and canonical cursor semantics.
+- Validation results: dialect identity/version/policy control PASS; execution `exactItems` coverage PASS; recursive schema keyword coverage FAIL on exactly `kind`; focused committed suite 3/3 PASS but checks only selected keywords; full suite 405/405 PASS; syntax 86/86 PASS; replay invariants PASS at 6,312.83 blocks/s.
+- Compatibility/performance impact: discovery-only correction changes digest/ETag and lets generators safely accept the existing paginated schema. Runtime pagination bytes, persistence, provider, RPC, WebSocket, database, and configuration need no migration; registry enumeration is bounded.
+- Blockers: none; deterministic offline discovery reproduces the defect.
 
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 503,697,334 ms age at the trigger time.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. Retained external evidence is finalized with zero recorded failures but fails `exporter_lagging` at 406,432 slots behind, a 512-slot maximum, and 507,237,772 ms age at the trigger time.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1406,4 +1426,4 @@ The contract minimum is satisfied with 69 distinct evidence domains: 67 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: harden `execution_policy_success_v1.requiredSteps` to the exact unique four-stage canonical sequence and add positive plus reordered, reversed, duplicate, and omitted-stage generated-validator regressions.
+- NEXT_DEV_ACTION: add the live `kind` keyword to response-schema dialect version 1 and add a recursive full-registry keyword-coverage regression while preserving fail-closed unknown-keyword policy and canonical cursor semantics.
