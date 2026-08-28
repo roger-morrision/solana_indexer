@@ -1004,3 +1004,12 @@
 - Validation: real-shape positive, credential-field rejection, invalid fee-mode rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: CPMM quote closure and the other ten instruction-evidence variants remain open.
 - NEXT_WEB_ACTION: validate Raydium CPMM instructionEvidence against its catalog-referenced closed schema and reject every unknown field or unsupported transfer-fee mode.
+# UPSTREAM-RAYDIUM-CLMM-INSTRUCTION-EVIDENCE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected Raydium CLMM as the next protocol-specific closure because signer safety depends on bounded unique tick-array traversal and an exact square-root price limit in addition to the CPMM-style amount and transfer-fee evidence.
+- Selected ID: `UPSTREAM-RAYDIUM-CLMM-INSTRUCTION-EVIDENCE-SCHEMA-001`.
+- Contract: the CLMM catalog row references closed `raydium_clmm_instruction_evidence_v1`, requiring the exact pool, finalized component slots, epoch, fee evidence, amounts, signed limit tick, positive Q64 price limit, direction, and one-to-64 unique nonempty tick-array addresses.
+- Compatibility/migration/configuration: the live CLMM constructor already emits this exact shape; runtime bodies, persistence, and configuration are unchanged. Catalog coverage increases from one to two of eleven variants.
+- Validation: exact-key and tick-array rules, credential-field rejection, focused discovery/schema regression, full suite, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: CLMM quote closure and nine instruction-evidence variants remain open.
+- NEXT_WEB_ACTION: validate Raydium CLMM instructionEvidence against its catalog-referenced schema and reject unknown fields, missing or duplicate tick arrays, and invalid price-limit evidence.
