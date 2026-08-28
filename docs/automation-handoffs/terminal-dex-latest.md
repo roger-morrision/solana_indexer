@@ -1094,3 +1094,12 @@
 - Validation: exact keys, credential/wrong-protocol/unsafe-status rejection, semantic mismatches, all slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
 - Remaining boundary: eight quote schemas and seven instruction-evidence schemas remain open.
 - NEXT_WEB_ACTION: validate Orca quotes against the catalog schema before presenting tick traversal, price limits, or preparing a swap.
+# UPSTREAM-RAYDIUM-AMM-V4-QUOTE-SCHEMA-001
+
+- BA/PO decision: fresh 20+ reconciliation selected AMM v4 quote closure because reserve reconstruction and OpenBook-backed finalized provenance directly control price presentation and preparation safety.
+- Selected ID: `UPSTREAM-RAYDIUM-AMM-V4-QUOTE-SCHEMA-001`.
+- Contract: the AMM v4 catalog row references closed `raydium_amm_v4_quote_v1`, requiring exact safe identity, positive amount/reserve evidence, authoritative vault-plus-open-orders-minus-pending-PnL provenance, ordered component slots, bounded swap fee below input, and exact missing gates.
+- Compatibility/migration/configuration: additive discovery metadata only; current quote bodies, persistence, and configuration are unchanged. Generated validators must add `decimal_less_than` and refresh.
+- Validation: exact keys, credential/wrong-protocol/reserve-mode rejection, fee-bound and slot inversions, focused/full regression, syntax, replay/load, operational health, and diff review.
+- Remaining boundary: seven quote schemas and seven instruction-evidence schemas remain open.
+- NEXT_WEB_ACTION: validate AMM v4 quotes against the catalog schema before presenting reconstructed reserves or preparing a swap.
