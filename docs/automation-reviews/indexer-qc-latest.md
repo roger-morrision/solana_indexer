@@ -1,14 +1,30 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-29T03:36:24+07:00`
+- Run: `2026-08-29T04:35:55+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `322aca3aae1edda2e2b1c201f45d1b973acdb3e6`
-- Compared with QA baseline: `eac71b8ae890cefbf102aeb39918d9777536cc57` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 34 ahead, 0 behind before this evidence report
-- Latest DEV commits: `e97ec6d` (Pump bonding-curve quote relationship repair) and `322aca3` (Phoenix quote schema)
-- Overall result: 0 PASS, 3 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. `e97ec6d` rejects all ten previously reported Pump quote contradictions, but both schemas still admit fee-component amounts inconsistent with their published basis points. `322aca3` closes Phoenix quote shape and aggregate sums but admits a constructor-impossible `partial` status with zero input left. The parent HIGH finding remains at 17/22 strict outcomes: eleven instruction and six quote variants PASS, two quote variants remain null, and the two Pump plus Phoenix quote schemas fail semantic parity. Independent reconciliation remains 68 PASS, 1 FAIL, and 1 BLOCKED across 70 domains; live qualification is blocked by absent fresh canonical evidence.
+- Revision: `29cb96954cf0d031f328b937a932f8e32d0a8416`
+- Compared with QA baseline: `79b2b95182be08e7307243afe4dbd6815a847b0d` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 37 ahead, 0 behind before this evidence report
+- Latest DEV commits: `496e33f` (Pump fee and Phoenix status relationships) and `29cb969` (OpenBook quote schema)
+- Overall result: 2 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. `496e33f` closes Pump sell fee-component parity and Phoenix status/remaining-input parity, but its Pump buy rule rejects a real constructor output at an input-budget rounding boundary. `29cb969` publishes the OpenBook quote shape and aggregate lot sums while leaving `amountOutRaw` and `takerFeeRaw` independent of the producer's lot-size and fee arithmetic. The parent HIGH finding advances to 19/22 strict outcomes: eleven instruction and eight quote variants PASS, one quote variant remains null, and Pump buy plus OpenBook fail semantic parity. Independent reconciliation remains 68 PASS, 1 FAIL, and 1 BLOCKED across 70 domains; live qualification is blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (4/20)
+
+### Pump/Phoenix relationship closure and OpenBook quote publication (2 PASS, 2 FAIL)
+
+| Item | Route | Status | Independent evidence |
+|---|---|---|---|
+| `UPSTREAM-PUMP-BONDING-SELL-QUOTE-SCHEMA-001` | token `prepare-swap` / Pump sell-v2 quote | `PASS` | The real sell quote validates; all five prior economic contradictions reject; and redistributing `protocolFeeRaw/creatorFeeRaw` from `10/3` to `0/13` while preserving the total rejects because `496e33f` binds each component to `ceil(grossQuoteAmountRaw * componentBps / 10000)`. |
+| `UPSTREAM-PUMP-BONDING-BUY-QUOTE-SCHEMA-001` | token `prepare-swap` / Pump buy-exact-quote-in-v2 quote | `FAIL` | For spendable input `10004` with protocol and creator rates both `1` bps, the real constructor first computes `2+2` fees, corrects the net budget from `10001` to `10000`, and returns those unchanged fees. The new schema recomputes both as `ceil(10000/10000)=1`, so it rejects the real producer body. |
+| `UPSTREAM-PHOENIX-QUOTE-SCHEMA-001` | pool `prepare-swap` / Phoenix IOC quote | `PASS` | The real `quoted/0` and `partial/1` controls validate, while isolated `partial/0` and `quoted/1` contradictions reject under the two conditional patterns added by `496e33f`. |
+| `UPSTREAM-OPENBOOK-V2-QUOTE-SCHEMA-001` | pool `prepare-swap` / OpenBook place-take-order quote | `FAIL` | A real buy quote (`7500` in, `7402` consumed, `98` left, `3000` out, fee `2`, base lots `3`, quote lots `74`) validates, but changing only output to `2999` or fee to `1` also validates. The published schema omits lot sizes and taker-fee rate and therefore cannot bind either constructor-derived atom. |
+
+- Available DEV delta: exactly four distinct outcomes exist after `79b2b95`: three remediation outcomes in `496e33f` and one OpenBook schema outcome in `29cb969`. QC detected source movement under the DEV writer lock, discarded mixed-state results, waited for lock release, refreshed the complete stable two-commit delta, and reran every tier. No additional DEV outcome exists.
+- Verification result: 2 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP.
+- Exact fix/enhancement shortfall: 16; the stable delta contains exactly four distinct outcomes, and splitting fields, relationship descriptors, mutation probes, or assertions would be padding.
+- Validation: Pump sell and Phoenix positives/isolated contradictions PASS; the real Pump buy boundary is rejected; and OpenBook output-only and fee-only contradictions are admitted. Strict protocol-specific closure is 19/22 PASS and 3/22 FAIL (ten quote schemas are referenced, one remains null, eleven instruction schemas PASS). Focused committed schema/Pump/Phoenix/OpenBook suite 7/7 PASS; 77 response schemas, ten quote references, eleven instruction references, 28 dialect keywords, 23 relationship kinds, and digest `86c4bc88fbb330b8023677fa88708788d7643208c4f59f79a6b6c0ad82ee35a7` are structurally coherent; full suite 434/434 PASS; syntax 86/86 PASS; replay invariants PASS at 6,755.34 blocks/s with 9,651,352-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (3/20; retained)
 
 ### Pump relationship repair and Phoenix quote closure (0 PASS, 3 FAIL)
 
@@ -659,7 +675,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes 76 schemas with stable identities and digest `aa56999b6cfe3d24c25c7af20d0ce05b8f01d74c71c4587909a70838cd2d2bce`. Independent recomputation matches. Recursive enumeration confirms all 28 live schema-node keywords and all 22 relationship kinds are declared, including the new bounded Pump constant-product and array-decimal-sum kinds, while unknown future keywords remain fail closed. |
+| HTTP response schema registry structure | `PASS` | The registry publishes 77 schemas with stable identities and digest `86c4bc88fbb330b8023677fa88708788d7643208c4f59f79a6b6c0ad82ee35a7`. Independent recomputation matches. Recursive enumeration confirms all 28 live schema-node keywords and all 23 relationship kinds are declared, including bounded Pump constant-product, ceiling-fee, conditional-pattern, and array-decimal-sum kinds, while unknown future keywords remain fail closed. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -671,7 +687,7 @@
 | Detail and valuation success schemas | `PASS` | Nine routes now publish closed success schemas. The real token-account response contains exactly its ten required identity/balance/slot/state fields, excludes injected provenance/credentials, and rejects all 5/5 independent malformed or open-projection variants. |
 | Decision-support success schemas | `PASS` | Registry, risk, and candles retain compatibility. Execution policy now publishes exact ordered and unique steps; independent validation preserves the real policy and rejects reordered, reversed, duplicate, and omitted-stage variants (4/4). |
 | Automation-boundary success schemas | `PASS` | Pool quote and bot readiness now publish distinct closed schemas. Independent generated-style validation accepts the exact quote success projection and the actual healthy readiness-gate projection, rejects missing and unknown fields, and rejects unsafe quote or nonempty-ready-missing variants. |
-| Swap-preparation success schema | `FAIL` | Top-level, handoff/binding, preparation/transaction, simulation-policy, universal amount-effect, catalog identity, and all eleven instruction-evidence variants are closed. Six prior quote variants retain constructor parity. Two quote variants remain null; both Pump quote schemas still admit component-fee/BPS contradictions after fixing the prior ten relationship gaps, and Phoenix admits a status/remaining-input contradiction. |
+| Swap-preparation success schema | `FAIL` | Top-level, handoff/binding, preparation/transaction, simulation-policy, universal amount-effect, catalog identity, and all eleven instruction-evidence variants are closed. Eight quote variants retain constructor parity. Meteora remains null; Pump buy rejects a real post-correction fee-rounding boundary; and OpenBook leaves output and taker-fee economics unbound. |
 | Legacy collection success schema | `PASS` | Independent HTTP 200 requests confirm `/api/blocks` and `/api/transactions` remain bare arrays and both reference `legacy_collection_success_v1`; versioned cursor envelopes remain separate. |
 | Stats success schema | `PASS` | Independent healthy `/api/stats` HTTP 200 emits exactly the 24 advertised aggregate and evidence fields with canonical structure/chain projections; missing, unknown credential-bearing, and wrong count-type variants are rejected. |
 | Backup success schema | `PASS` | The real healthy backup projection satisfies the closed `backup_success_v1` contract. Independent canonical, missing-required, unknown credential-bearing, unhealthy, and malformed-identity probes confirm exact availability, freshness, identity, and completion-time constraints. |
@@ -721,8 +737,8 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact now publishes names, optionality, minimum 1, maximum 64 UTF-16 code units, and forbidden controls; all twenty generated-builder/runtime parity cases pass. |
 | HTTP query value discovery | `PASS` | The positive-u64 profile exactly advertises minimum 1, maximum 18446744073709551615, and 20-character bound; all five independent zero/minimum/maximum/overflow/overlength cases match shared admission. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 433/433; syntax passes 86/86; replay completes at 6,989.39 blocks/s with 9,676,144-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 604,467,523 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 434/434; syntax passes 86/86; replay completes at 6,755.34 blocks/s with 9,651,352-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes report `wrong_network`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 608,038,490 ms old at this trigger. |
 
 The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -1864,41 +1880,54 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 
 ## UPSTREAM-PUMP-BONDING-SELL-QUOTE-SCHEMA-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (delivered by `496e33f`)
 - Owner: `DEV`
 - Reproduction: validate the real `sellRouteQuote` body and the five prior economic negatives against `pump_bonding_curve_sell_quote_v1`; then preserve `totalFeeRaw=13` while changing only `protocolFeeRaw` from `10` to `0` and `creatorFeeRaw` from `3` to `13`, leaving their basis points at `100` and `25`.
-- Evidence: `e97ec6d` adds five bounded relationships and rejects all 5/5 prior contradictions. The real positive passes, but the isolated component redistribution also passes because no relationship binds `lpFeeRaw`, `protocolFeeRaw`, or `creatorFeeRaw` to `ceil(grossQuoteAmountRaw * correspondingBasisPoints / 10000)`, which `sellRouteQuote` computes directly.
+- Evidence: `496e33f` retains the five bounded relationships and adds exact ceiling-fee relationships for all three sell components. The real positive passes, all 5/5 prior contradictions reject, and the isolated component redistribution now rejects because every raw fee is bound to `ceil(grossQuoteAmountRaw * correspondingBasisPoints / 10000)`.
 - Affected contracts: token quote and preparation discovery, launch-token displayed price/output, fee disclosure, liquidity bounds, generated AI/trading-safety validators, schema digest/ETag, and pre-signing admission.
-- Expected versus actual behavior: a closed quote schema must reject economics that `sellRouteQuote` can never emit. Actual discovery rejects the five prior contradictions but still accepts a fee-component/BPS contradiction despite advertising the shape as exact.
-- Acceptance criteria: retain the five delivered relationships; bind every fee component to the exact constructor rounding formula and its corresponding basis points; preserve real legacy and transfer-neutral Token-2022 controls; add the real positive plus isolated component/BPS negatives.
-- Validation results: real positive 1/1 PASS; prior negatives 5/5 now reject; fresh component-fee/BPS negative 0/1 rejected. Focused committed schema/Pump/Phoenix suite 3/3, full 433/433, syntax 86/86, and replay PASS.
-- Compatibility/performance impact: discovery-only semantic hardening is required; existing valid bodies remain compatible. Fixed-count integer relationships are bounded.
-- Blockers: none; deterministic offline reproduction.
+- Expected versus actual behavior: generated validation rejects economics the real sell constructor cannot emit. Expected and actual now match.
+- Acceptance criteria: retain the five economic relationships; bind every fee component to its exact constructor rounding formula and corresponding basis points; preserve real legacy and transfer-neutral Token-2022 controls; add real positive and isolated component/BPS negatives. All criteria are met.
+- Validation results: real positive 1/1 PASS; prior negatives 5/5 reject; component-fee/BPS negative 1/1 rejects. Focused committed suite 7/7, full 434/434, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: discovery-only hardening changes digest/ETag while preserving valid runtime bodies. Fixed-count integer relationships are bounded.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-PUMP-BONDING-BUY-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
-- Reproduction: validate the real `buyRouteQuote` body and five prior economic negatives against `pump_bonding_curve_buy_quote_v1`; then preserve `totalFeeRaw=13` while changing only `protocolFeeRaw` from `10` to `0` and `creatorFeeRaw` from `3` to `13`, leaving their basis points at `100` and `25`.
-- Evidence: `e97ec6d` adds five bounded relationships and rejects all 5/5 prior contradictions. The real positive passes, but the component redistribution also passes because no relationship binds each fee raw amount to `ceil(netQuoteInputRaw * correspondingBasisPoints / 10000)`, which `buyRouteQuote` computes before its input-budget correction.
+- Reproduction: call `buyRouteQuote` with spendable input `10004`, protocol fee `1` bps, creator fee `1` bps, and sufficient finalized curve liquidity; validate the returned body against `pump_bonding_curve_buy_quote_v1`.
+- Evidence: the producer computes initial net `10001`, protocol and creator fees `2+2`, observes one unit of excess, corrects final `netQuoteInputRaw` to `10000`, and returns the original `2+2` components. `496e33f` validates each component as `ceil(netQuoteInputRaw * bps / 10000)`, which equals `1+1`, so the generated schema rejects the real body. This is a constructor/schema incompatibility, not an invented negative.
 - Affected contracts: token quote and preparation discovery, launch-token input budget/output, fee disclosure, token-liquidity bounds, generated AI/trading-safety validators, schema digest/ETag, and pre-signing admission.
-- Expected versus actual behavior: generated validators must reject economics that `buyRouteQuote` cannot emit. Actual discovery rejects the five prior contradictions but still admits a fee-component/BPS contradiction.
-- Acceptance criteria: retain the five delivered relationships; bind both component fee amounts to the exact constructor rounding formula and their corresponding basis points; retain real quote bodies and focused positive/component-negative regressions.
-- Validation results: real positive 1/1 PASS; prior negatives 5/5 now reject; fresh component-fee/BPS negative 0/1 rejected. Focused committed schema/Pump/Phoenix suite 3/3, full 433/433, syntax 86/86, and replay PASS.
-- Compatibility/performance impact: discovery-only semantic hardening is required; fixed-count integer relationships remain bounded and runtime bodies need not change.
+- Expected versus actual behavior: every real constructor body must satisfy its advertised schema while constructor-impossible fee components reject. Actual discovery rejects a valid rounding-boundary body because the producer does not recompute component fees after correcting its net budget.
+- Acceptance criteria: make the producer and schema use one exact post-correction fee basis; retain the five economic relationships; add the `10004` at `1/1` bps real boundary plus ordinary controls and isolated component negatives.
+- Validation results: ordinary control PASS; deterministic real boundary FAIL; prior negative economics remain rejected. Focused committed suite 7/7, full 434/434, syntax 86/86, and replay PASS, so current committed tests do not cover this boundary.
+- Compatibility/performance impact: correcting producer arithmetic may change raw fee/input atoms for rare rounding boundaries and therefore requires explicit compatibility review; schema validation remains fixed-count and bounded.
 - Blockers: none; deterministic offline reproduction.
 
 ## UPSTREAM-PHOENIX-QUOTE-SCHEMA-001
 
+- Severity: `PASS` (delivered by `496e33f`)
+- Owner: `DEV`
+- Reproduction: validate real `quoted/0` and `partial/1` Phoenix bodies, then isolate `partial/0` and `quoted/1` status/remaining-input contradictions without changing any aggregate or provenance field.
+- Evidence: `496e33f` adds two conditional patterns matching `quotePhoenixSnapshotExactInput`: `quoted` requires zero left and `partial` requires positive left. Both real controls validate and both isolated contradictions reject.
+- Affected contracts: Phoenix quote/preparation discovery, exact IOC fill completeness, generated AI/trading-safety validators, schema digest/ETag, partial-fill display, and pre-signing admission.
+- Expected versus actual behavior: `quoted` implies zero remaining input and `partial` implies positive remaining input. Expected and actual now match.
+- Acceptance criteria: enforce the exact two-way invariant; retain closed bounded levels, aggregate sums, slot ordering, execution boundaries, both real controls, and isolated status/left negatives. All criteria are met.
+- Validation results: real controls 2/2 PASS; isolated status/left negatives 2/2 reject; focused committed suite 7/7, full 434/434, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: additive discovery hardening changes digest/ETag and generated validators without changing valid runtime quote bytes. Validation is constant-time beyond the already bounded level aggregation.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-OPENBOOK-V2-QUOTE-SCHEMA-001
+
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
-- Reproduction: validate the real finalized Phoenix quote with `status="quoted"` and `amountLeftRaw="0"` against `phoenix_orderbook_quote_v1`, then mutate only `status` to `partial` without changing input conservation, level aggregates, slots, safety constants, or any other field.
-- Evidence: the real body passes and the four input/output/fee aggregate relationships remain true after the mutation, so the constructor-impossible body also validates. `quotePhoenixSnapshotExactInput` emits `status: remaining === 0n ? "quoted" : "partial"`; none of the schema's four relationships references `status` or conditionally constrains `amountLeftRaw`.
-- Affected contracts: Phoenix quote/preparation discovery, exact IOC fill completeness, generated AI/trading-safety validators, schema digest/ETag, partial-fill display, and pre-signing admission.
-- Expected versus actual behavior: `quoted` must imply zero remaining input and `partial` must imply positive remaining input. Actual discovery accepts `partial` with zero remaining input, which the producer cannot emit.
-- Acceptance criteria: add a bounded conditional relationship enforcing the exact two-way `status`/`amountLeftRaw` invariant; retain closed bounded levels, all four aggregate sums, slot ordering, execution boundaries, the real quoted control, and isolated status/left negatives.
-- Validation results: real positive 1/1 PASS; existing aggregate negatives 4/4 reject; fresh status/left negative 0/1 rejected. Focused committed schema/Pump/Phoenix suite 3/3, full 433/433, syntax 86/86, and replay PASS.
-- Compatibility/performance impact: additive discovery hardening changes digest/ETag and generated validators without changing valid runtime quote bytes. Validation is constant-time beyond the already bounded level aggregation.
+- Reproduction: produce a finalized OpenBook buy quote with `amountInRaw=7500`, `amountConsumedRaw=7402`, `amountLeftRaw=98`, `amountOutRaw=3000`, `takerFeeRaw=2`, `baseLotsFilled=3`, and `quoteLotsFilled=74`; validate it, then mutate only output to `2999` or only fee to `1`.
+- Evidence: the real body and both constructor-impossible mutations validate. `quoteOpenBookSnapshotExactInput` derives base native output as `baseLotsFilled * baseLotSizeRaw`, quote native input as `quoteLotsFilled * quoteLotSizeRaw`, and taker fee by ceiling multiplication with `takerFeeMillionths`. The schema publishes neither lot sizes nor fee rate and has no relationship binding `amountOutRaw` or `takerFeeRaw` to the level-derived lot totals.
+- Affected contracts: OpenBook quote/preparation discovery, displayed fill/output and fee economics, exact-input dust, generated AI/trading-safety validators, schema digest/ETag, and pre-signing admission.
+- Expected versus actual behavior: a closed quote schema must reject output or fee atoms the constructor cannot emit. Actual discovery proves level-lot aggregation and input conservation but accepts independently altered output and fee amounts.
+- Acceptance criteria: publish bounded base/quote lot sizes and taker-fee rate or equivalent immutable evidence; bind side-specific consumed/output atoms and exact ceiling fee to those values; retain real bid/ask, dust, partial/full status, level aggregation, slot-order, and isolated output/fee contradictions.
+- Validation results: real positive 1/1 PASS; isolated amount-output negative 0/1 rejected; isolated fee negative 0/1 rejected. Focused committed suite 7/7, full 434/434, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: additive quote evidence changes schema digest/ETag and runtime quote shape if producer fields are added; bounded fixed-level arithmetic remains deterministic and bounded.
 - Blockers: none; deterministic offline reproduction.
 
 ## UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001
@@ -1906,12 +1935,12 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
 - Reproduction: inspect `preparation_success_v1` from `/api/v1/query-contracts`; validate its closed top-level, handoff, binding, preparation, transaction, simulation-policy, universal instruction-amount, and input/output effect relationships, then apply the published rules to protocol-specific `quote` or `preparation.instructionEvidence` objects containing unknown credentials, unsafe quote state, or wrong program evidence.
-- Evidence: prior increments close handoff, transaction, policy, universal amounts, all three input/output effect bindings, catalog discovery, and type/protocol membership. All eleven instruction-evidence variants plus six prior quote variants match their constructors. Two quote variants remain schema-null; the two Pump schemas admit component-fee/BPS contradictions, and Phoenix admits a status/remaining-input contradiction.
+- Evidence: prior increments close handoff, transaction, policy, universal amounts, all three input/output effect bindings, catalog discovery, and type/protocol membership. All eleven instruction-evidence variants plus eight quote variants match their constructors. Meteora remains schema-null; Pump buy rejects a real post-correction fee-rounding boundary; and OpenBook does not bind constructor-derived output or taker fee to lot and fee-rate evidence.
 - Affected contracts: pool and token preparation success discovery, generated trading-safety validators, execution-handoff binding and preparation hash, quote identity/provenance, unsigned transaction evidence, signer/submission boundaries, secret redaction, schema digest/ETag, and downstream AI/commercial admission.
 - Expected behavior: preparation success discovery must explicitly project and close venue-specific quote and instruction-evidence variants so empty, unknown, credential-bearing, wrong-program, or unsafe content fails closed.
-- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, all eleven instruction-evidence variants, and six quote variants are verifiable. Two quote variants remain null, two referenced Pump quote variants do not bind component fees to their basis points, and Phoenix does not bind status to remaining input, leaving five variant/dimension outcomes unsafe.
+- Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, all eleven instruction-evidence variants, and eight quote variants are verifiable. Meteora remains null, Pump buy is incompatible at a real rounding boundary, and OpenBook leaves output and fee arithmetic unbound, leaving three variant outcomes unsafe.
 - Acceptance criteria: define closed bounded discriminated variants for `quote` and `instructionEvidence`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction/simulation-policy boundary.
-- Validation results: prior closed boundaries remain PASS; strict protocol-specific closure remains 17/22 PASS and 5/22 FAIL (six quote plus all eleven instruction variants PASS; two quotes null, two Pump quote variants and Phoenix semantically FAIL). Independent validation confirms the ten prior Pump contradictions fixed but admits three fresh isolated semantic contradictions. Focused suite 3/3 PASS; full suite 433/433 PASS; syntax 86/86 PASS; replay PASS at 6,989.39 blocks/s with 9,676,144-byte heap growth.
+- Validation results: prior closed boundaries remain PASS; strict protocol-specific closure advances to 19/22 PASS and 3/22 FAIL (eight quote plus all eleven instruction variants PASS; one quote is null, Pump buy is producer/schema-incompatible, and OpenBook is semantically incomplete). Focused suite 7/7 PASS; full suite 434/434 PASS; syntax 86/86 PASS; replay PASS at 6,755.34 blocks/s with 9,651,352-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -1921,7 +1950,7 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 604,467,523 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six supported RPC/WebSocket provider variables and default active exporter, warehouse checkpoint/status, backup, and recovery files are absent. Both retained indexes fail closed with `status=wrong_network`, `healthy=false`, and `reason=indexed_block_mainnet_identity_missing_or_invalid`. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 608,038,490 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -1930,4 +1959,4 @@ The contract minimum is satisfied with 70 distinct evidence domains: 68 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: bind every Pump bonding-curve fee component to its corresponding basis points and bind Phoenix quote status to `amountLeftRaw`, with real positive and isolated contradiction regressions before selecting another quote schema.
+- NEXT_DEV_ACTION: make Pump buy fee rounding constructor/schema-compatible at budget-correction boundaries and bind OpenBook output/fee atoms to published lot-size and taker-fee evidence, with real bid/ask positives and isolated boundary contradictions before selecting another quote schema.
