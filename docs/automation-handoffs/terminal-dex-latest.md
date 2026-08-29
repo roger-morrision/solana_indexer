@@ -1685,3 +1685,12 @@
 - Compatibility/migration/configuration: confirmed transaction RPC results are intentionally withheld until finality; finalized response bytes remain unchanged. Discovery schema, digest, and ETag change; no migration or configuration change is required.
 - Validation: focused coverage preserves canonical confirmed ingestion while proving the public view is empty before promotion, and asserts every token identity/u64 bound in discovery.
 - NEXT_WEB_ACTION: regenerate transaction and token-balance validators, treating pre-finalized transactions as unavailable and rejecting noncanonical identities or over-u64 quantities locally.
+
+## UPSTREAM largest-token-account RPC contract closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-LARGEST-ACCOUNTS-045` (holders/whales, wallet risk, token detail, and commercial RPC readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the bounded largest-account page because its finalized snapshot producer, cursor invalidation, and canonical token-account rows are already stable while discovery remained shallow.
+- Contract: `getIndexedTokenLargestAccounts` now publishes exact positional/named inputs, default limit 20, 1–500 bounds, nullable bounded cursor, null-on-miss, a closed finalized page envelope, canonical token/account/program identities, positive u64 balances, nullable u64 withheld balances, and exact coverage/completeness constants.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime requests/responses, cursor behavior, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: metadata, holder aggregation, and owner-account RPC schemas remain shallow; Meteora row authenticity still requires independently anchored finalized evidence or a trusted signature.
+- NEXT_WEB_ACTION: regenerate the largest-token-account RPC request/page validator and preserve finalized snapshot, positive-balance, withheld-amount, cursor, coverage, and completeness semantics.

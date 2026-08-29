@@ -476,6 +476,12 @@ test("token account and supply RPC contracts close parameters and producer resul
   for (const schema of [account.oneOf[1].properties.tokenAccount, account.oneOf[1].properties.mint, account.oneOf[1].properties.owner, supply.oneOf[1].properties.mint]) { assert.equal(schema.minimumLength, 32); assert.equal(schema.maximumLength, 44); assert.equal(schema.pattern, "^[1-9A-HJ-NP-Za-km-z]{32,44}$"); }
 });
 
+test("largest token account RPC contract binds pagination and finalized rows", () => {
+  const contract = queryContractSnapshot(), method = contract.rpc.methods.find((row) => row.method === "getIndexedTokenLargestAccounts"), schema = contract.rpcResultSchemas.indexed_token_largest_accounts_result_v1;
+  assert.deepEqual(method.params, { styles: ["positional", "named"], required: ["mint"], optional: ["limit", "cursor"], defaults: { limit: 20 }, limit: { minimum: 1, maximum: 500 }, cursor: { nullable: true, maximumLength: 1024 } });
+  assert.equal(schema.oneOf[0].type, "null"); assert.equal(schema.oneOf[1].additionalProperties, false); assert.equal(schema.oneOf[1].properties.data.maximumItems, 500); assert.equal(schema.oneOf[1].properties.data.items.additionalProperties, false); assert.equal(schema.oneOf[1].properties.data.items.properties.amountRaw.maximumRaw, "18446744073709551615"); assert.deepEqual(schema.oneOf[1].properties.commitment.values, ["finalized"]); assert.deepEqual(schema.oneOf[1].properties.complete.values, [true]);
+});
+
 test("legacy block and transaction collections publish their bare-array schema", () => {
   const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.legacy_collection_success_v1;
   assert.deepEqual(schema, { type: "array" });
