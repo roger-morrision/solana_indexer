@@ -1586,3 +1586,12 @@
 - Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, while runtime defaulting, request admission, responses, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged. Generated clients must refresh discovery before enforcing the relationship.
 - Remaining boundary: RPC method-specific results and executable-depth success bodies retain deeper nested schema opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: enforce `map_profile_defaults` when generating requests and reject missing, injected, or profile-inconsistent defaults before deriving cache keys or implicit query values.
+
+## UPSTREAM executable-depth success schema closure
+
+- Selected ID: `UPSTREAM-EXECUTABLE-DEPTH-SUCCESS-SCHEMA-038` (token detail, AI analysis, route depth, and trading-safety readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected executable-depth because its success catalog entry was only `{type:"object"}` even though the producer emits exactly one of two already-closed Pump bonding-curve quote shapes.
+- Contract: `executable_depth_success_v1` is now the exact two-variant union of the producer-tested sell and buy quote schemas, retaining their closed fields, exact safety flags, finalized evidence, bounded amounts, fee equations, liquidity limits, constant-product equations, and external-execution blockers. Real producer outputs select exactly one variant; focused mutations reject missing, credential-bearing, and type-invalid fields.
+- Compatibility/migration/configuration: the discovery schema and digest/ETag change, while executable-depth runtime responses, query admission, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: RPC success remains shallow and requires method-specific envelope/result closure; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate executable-depth validation from its exact sell/buy `oneOf` and reject bodies that match neither or ambiguously match both before displaying depth or informing analysis.
