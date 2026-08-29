@@ -1505,3 +1505,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime route behavior, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, or configuration.
 - Remaining boundary: nested HTTP outcome and parameter-profile objects retain incremental semantic closure opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the HTTP route registry and reject malformed, missing, duplicated, unknown-field, unsupported-method, or outcome-empty route envelopes before generating requests.
+
+## UPSTREAM HTTP outcome-envelope schema closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-HTTP-OUTCOME-SCHEMA-029` (commercial retry, representation, cache, and failure-handling readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected nested outcomes because retry behavior, status handling, content type, body presence, contract identity, and schema resolution govern every REST/RPC client but remained arbitrary objects inside closed route rows.
+- Contract: every route outcome is closed to outcome, status, retryability, and a closed five-field representation. Published outcome/status/body-kind vocabularies are exact, nullable representation references remain explicit, and unknown fields are forbidden. Focused negatives reject every missing field, unknown status/body kind, injected retry policy or credential, and incomplete representations.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime status codes, headers, bodies, ingestion, persistence, providers, RPC/WebSocket transport, migrations, or configuration.
+- Remaining boundary: nested parameter, default, condition, and path-profile maps retain incremental semantic closure opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate route-outcome validators and reject unknown, incomplete, credential-bearing, unsupported-status, or unsupported-representation outcomes before applying retry or body parsing behavior.
