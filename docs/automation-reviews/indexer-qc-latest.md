@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-29T22:35:42+07:00`
+- Run: `2026-08-29T23:36:13+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `9395882e0256380e0395afe7b2469574d7238864`
-- Compared with QA baseline: `2cfe6a1a3ca662a87859e42fbbe2b9c6ab553ca0` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 90 ahead, 0 behind before this evidence report
-- Latest DEV commits: `2355381` (HTTP exact set-partition invariant) and `9395882` (HTTP path-template binding invariant)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. The fail-closed dialect now declares both `set_partition` and `path_template_parameters`; every HTTP route binds its query partitions and template placeholders exactly. All 54 real routes pass both invariants, while seven isolated contradictions reject. Only method-to-route binding remains open in the broader route-envelope finding; the separate outcome-semantic and Meteora-authenticity findings also remain open. Independent reconciliation is now 72 PASS, 3 FAIL, and 1 BLOCKED across 76 domains; live qualification is blocked by absent fresh canonical evidence.
+- Revision: `026fcbe0a53424bc1f2848759cd0910c00f5517f`
+- Compared with QA baseline: `fd8d5a423e276ab1fe7c566c9f883dabe31049bd` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 93 ahead, 0 behind before this evidence report
+- Latest DEV commits: `3bfba5c` (HTTP path-method policy invariant) and `026fcbe` (HTTP parameter-profile map invariant)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. The fail-closed dialect now declares `path_method_policy` and `map_keys_catalog_values`, binding every route's method and query-profile map exactly. All 54 real routes pass both invariants; four method contradictions and three profile-map contradictions reject. This closes the broader route-envelope finding and hardens the remaining dynamic map boundary; the separate outcome-semantic and Meteora-authenticity findings remain open. Independent reconciliation is now 75 PASS, 2 FAIL, and 1 BLOCKED across 78 domains; live qualification is blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### HTTP set-partition and path-template invariants (2 PASS)
+### HTTP method and parameter-profile invariants (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-QUERY-CONTRACTS-HTTP-SET-PARTITION-032` | `/api/v1/query-contracts` / `http[].parameters,requiredParameters,optionalParameters` | `PASS` | The dialect declares `set_partition`, and every route publishes the exact `{kind:"set_partition",whole:"parameters",parts:["requiredParameters","optionalParameters"]}` relationship. Independent resolution accepts 54/54 real routes and rejects 3/3 overlap, incomplete-coverage, and unknown-member mutations. This also closes parent finding `UPSTREAM-QUERY-CONTRACTS-HTTP-PARAMETER-PARTITIONS-SCHEMA-030`. |
-| `UPSTREAM-QUERY-CONTRACTS-PATH-TEMPLATE-BINDING-033` | `/api/v1/query-contracts` / `http[].path,pathParameters` | `PASS` | The dialect declares `path_template_parameters`, and every route publishes the exact `{kind:"path_template_parameters",path:"path",bindings:"pathParameters",profile:"resourceIdentifier"}` relationship. Independent resolution accepts 54/54 real routes and rejects 4/4 missing, injected, renamed-template, and wrong-profile mutations. |
+| `UPSTREAM-QUERY-CONTRACTS-PATH-METHOD-POLICY-034` | `/api/v1/query-contracts` / `http[].path,method` | `PASS` | The dialect declares `path_method_policy`, and every route publishes the exact `/rpc` POST, `/prepare-swap` suffix POST, default GET policy. Independent resolution accepts 54/54 real routes, identifies exactly three POST routes, rejects GET on all three, and rejects POST on an ordinary GET route. This closes parent finding `UPSTREAM-QUERY-CONTRACTS-HTTP-ROUTE-ENVELOPE-SCHEMA-028`. |
+| `UPSTREAM-QUERY-CONTRACTS-PARAMETER-PROFILE-MAP-035` | `/api/v1/query-contracts` / `http[].parameters,parameterConstraints` | `PASS` | The dialect declares `map_keys_catalog_values`, binding `parameterConstraints` keys exactly to `parameters` and every value to a published `valueConstraints` profile. Independent resolution accepts 54/54 real routes and rejects missing, injected, and unknown-profile mappings 3/3. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `2cfe6a1`, in `2355381` and `9395882`. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `fd8d5a4`, in `3bfba5c` and `026fcbe`. QC detected source movement after the first validation pass, discarded every mixed-state result, refreshed the complete two-commit delta, and reran every tier. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting declarations, dialect registration, route positives, individual mutations, or assertions would be padding.
-- Validation: both exact relationships and dialect registrations PASS; all 54 real route partitions and path bindings PASS; partition negatives reject 3/3 and path-template negatives reject 4/4. Focused contract 3/3 and Meteora suites 19/19 PASS (12 contract/quote and 7 execution); 54 routes, 79 response schemas, 113 HTTP outcome-schema references, 28 dialect keywords, 31 relationship kinds, registry digest `63b173c2bdabaff5c123b47a92bdb4a0a6d7b5ea6d8916bb5abc5dd63de14569`, and contract digest `61a41882d18711f0db51bd9dc09a9bf7a96aafa17791f7bfdefc4288b708eac1` are structurally coherent; full suite 441/441 PASS; syntax 86/86 PASS; replay invariants PASS at 6,629.34 blocks/s with 9,007,608-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting declarations, dialect registration, policy branches, catalog checks, route positives, individual mutations, or assertions would be padding.
+- Validation: both exact relationships and dialect registrations PASS; all 54 real route methods and parameter-profile maps PASS; method negatives reject 4/4 and profile-map negatives reject 3/3. Focused contract 3/3 and Meteora suites 19/19 PASS (12 contract/quote and 7 execution); 54 routes, 79 response schemas, 113 HTTP outcome-schema references, 28 dialect keywords, 33 relationship kinds, registry digest `22d1fcd68ab763b7f098a3f3486724479f2322915d201b7ddb7ccf5517605946`, and contract digest `f28dcd0335f2e5dbf98a5f8c396a940fabb061e0d6f78d982e01dff129833ae9` are structurally coherent; full suite 441/441 PASS; syntax 86/86 PASS; replay invariants PASS at 7,416.68 blocks/s with 9,407,840-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### HTTP set-partition and path-template invariants (2 PASS)
+
+- Prior exact shortfall: 18; prior validation was focused contract 3/3 and Meteora 19/19, full 441/441, syntax 86/86, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -779,7 +785,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes exactly 79 required object schemas, rejects omissions and unknown names, and has canonical registry digest `63b173c2bdabaff5c123b47a92bdb4a0a6d7b5ea6d8916bb5abc5dd63de14569`; the full contract digest is `61a41882d18711f0db51bd9dc09a9bf7a96aafa17791f7bfdefc4288b708eac1`. Independent recomputation matches. Recursive enumeration confirms all 28 live schema-node keywords and all 31 used relationship kinds are declared with no unused entries, and all 113 HTTP outcome-schema references resolve. |
+| HTTP response schema registry structure | `PASS` | The registry publishes exactly 79 required object schemas, rejects omissions and unknown names, and has canonical registry digest `22d1fcd68ab763b7f098a3f3486724479f2322915d201b7ddb7ccf5517605946`; the full contract digest is `f28dcd0335f2e5dbf98a5f8c396a940fabb061e0d6f78d982e01dff129833ae9`. Independent recomputation matches. Recursive enumeration confirms all 28 live schema-node keywords and all 33 used relationship kinds are declared with no unused entries, and all 113 HTTP outcome-schema references resolve. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -838,19 +844,21 @@
 | Empty-query HTTP contracts | `PASS` | Twenty-two independent real HTTP requests reject query input with the stable redacted HTTP 400 contract; six query-free controls remain accepted by the validator. |
 | Canonical query identity | `PASS` | All twenty alternate-order cases fail the shared sorted encoding boundary; canonical controls, HTTP wiring, WebSocket parsing, authentication, and quota ordering remain compatible. |
 | Machine-readable query discovery | `PASS` | The WebSocket object has an exact closed schema for its path, ordered parameter/topic catalogs, four topic/filter mappings, filter constraints, and acknowledgement values. The preparation catalog now requires the exact eleven ordered five-field entries, while the response catalog requires exactly all 79 object schemas; independent catalog probes reject 159/159 and 480/480 structural mutations respectively. |
-| HTTP route-envelope discovery | `FAIL` | All 54 real routes satisfy the ten-field closed row shape; `unique_by(path)`, `set_partition`, and `path_template_parameters` close duplicate identities, query partitions, and path bindings. A GET `/rpc` remains schema-valid, so the broader route-envelope finding stays open. |
+| HTTP route-envelope discovery | `PASS` | All 54 real routes satisfy the ten-field closed row shape; `unique_by(path)`, `set_partition`, `path_template_parameters`, and `path_method_policy` close duplicate identities, query partitions, path bindings, and route-method identities. Every retained isolated contradiction now rejects. |
 | HTTP outcome-envelope discovery | `FAIL` | Real outcome shapes validate, but independently valid field vocabularies do not bind their semantics. Success/status/retryability, body-kind/body-required, and response-schema-reference contradictions remain schema-valid. |
 | HTTP parameter-partition discovery | `PASS` | Unique nonempty string members, the exact sole conditional rule, and the exact `set_partition` relationship now close the contract. All 54 routes pass; 12 structural plus three semantic negatives reject. |
 | HTTP path uniqueness | `PASS` | The exact declared `unique_by(path)` relationship accepts the 54 real routes and rejects a distinct object reusing an existing route path. |
 | HTTP set-partition invariant | `PASS` | The relationship is declared in the dialect and each route item. Independent resolution accepts 54/54 real routes and rejects overlap, incomplete coverage, and unknown names 3/3. |
 | HTTP path-template invariant | `PASS` | The relationship is declared in the dialect and each route item. Independent resolution accepts 54/54 real routes and rejects missing, injected, renamed-template, and wrong-profile bindings 4/4. |
+| HTTP path-method policy invariant | `PASS` | The relationship is declared in the dialect and each route item. Independent resolution accepts 54/54 real routes and rejects wrong methods for all three POST identities plus an ordinary GET identity 4/4. |
+| HTTP parameter-profile map invariant | `PASS` | The relationship is declared in the dialect and each route item. Independent resolution accepts 54/54 real routes and rejects missing, injected, and unknown-profile mappings 3/3. |
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 441/441; syntax passes 86/86; replay completes at 6,629.34 blocks/s with 9,007,608-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 647,624,893 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 441/441; syntax passes 86/86; replay completes at 7,416.68 blocks/s with 9,407,840-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 651,255,759 ms old at this trigger. |
 
-The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 78 distinct evidence domains: 75 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2029,16 +2037,16 @@ The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 
 
 ## UPSTREAM-QUERY-CONTRACTS-HTTP-ROUTE-ENVELOPE-SCHEMA-028
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (completed by `3bfba5c`)
 - Owner: `DEV`
 - Reproduction: load `query_contracts_success_v1.properties.http`, validate the real 54-route catalog and declared route relationships, then copy one route's path onto a distinct route, advertise `/rpc` as GET, remove a templated route's path binding, and overlap required and optional parameters. Apply only the published schema keywords and relationships.
-- Evidence: `4675b29` publishes `unique_by(path)`, `2355381` publishes `set_partition`, and `9395882` publishes `path_template_parameters`; independent relationship resolution accepts the real catalog and rejects duplicate-path, all three partition mutations, and all four path-binding mutations. No relationship yet binds method to path or route family, so the GET `/rpc` contradiction validates.
+- Evidence: `4675b29` publishes `unique_by(path)`, `2355381` publishes `set_partition`, `9395882` publishes `path_template_parameters`, and `3bfba5c` publishes `path_method_policy`; independent relationship resolution accepts the real catalog and rejects duplicate-path, all three partition mutations, all four path-binding mutations, wrong methods on all three POST routes, and POST on an ordinary GET route.
 - Affected contracts: REST/RPC request generation, route identity, authentication/quota keying, canonical path parameters, request-method selection, query defaults and constraints, replay cache identity, and AI/commercial safety admission.
-- Expected versus actual behavior: the advertised route-envelope schema must enforce every claimed unique path and protocol-invariant route binding. Actual generated-style validation still admits a method/path identity the real server cannot publish.
-- Acceptance criteria: path uniqueness, exact parameter partitioning, and exact path-template bindings are met; bind GET/POST to the correct paths or route families. Retain the real catalog and each isolated negative.
-- Validation results: real catalog, duplicate-path, partition, and path-template controls PASS; the method/path negative remains admitted. Focused committed tests 3/3, full 441/441, syntax 86/86, Meteora 19/19, and replay PASS.
+- Expected versus actual behavior: the advertised route-envelope schema enforces every claimed unique path and protocol-invariant route binding. Expected and actual now match.
+- Acceptance criteria: path uniqueness, exact parameter partitioning, exact path-template bindings, and exact GET/POST route-family policy are met; the real catalog and every isolated negative are retained. All criteria are met.
+- Validation results: real catalog, duplicate-path, partition, path-template, and method-policy controls PASS. Focused committed tests 3/3, full 441/441, syntax 86/86, Meteora 19/19, and replay PASS.
 - Compatibility/performance impact: discovery-only semantic hardening changes digest/ETag and generated validators without changing runtime route bytes. Validation remains bounded by 54 routes.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-QUERY-CONTRACTS-HTTP-OUTCOME-SCHEMA-029
 
@@ -2105,6 +2113,32 @@ The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 
 - Compatibility/performance impact: discovery vocabulary and digest/ETag change; runtime routing remains unchanged. Validation is bounded by the 54-route catalog and short template names.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-QUERY-CONTRACTS-PATH-METHOD-POLICY-034
+
+- Severity: `PASS` (delivered by `3bfba5c`)
+- Owner: `DEV`
+- Reproduction: resolve the route item's `path_method_policy` relationship and dialect declaration, validate all real routes, then independently substitute GET for `/rpc` and both `/prepare-swap` routes and substitute POST for an ordinary GET route.
+- Evidence: the schema publishes exactly `{kind:"path_method_policy",path:"path",method:"method",exact:{"/rpc":"POST"},suffixes:{"/prepare-swap":"POST"},default:"GET"}` and declares the kind in the fail-closed dialect. Independent resolution accepts 54/54 real routes, identifies exactly three POST identities, and rejects all four contradictions.
+- Affected contracts: REST/RPC and preparation routing, method admission, authentication/quota/audit identity, caching, replay mappings, and generated clients.
+- Expected versus actual behavior: `/rpc` and both preparation families are POST while every other published route is GET. Expected and actual match.
+- Acceptance criteria: declare the relationship kind and exact policy; retain 54 real positives; reject wrong methods for all three POST identities plus an ordinary GET identity. All criteria are met.
+- Validation results: dialect, policy descriptor, 54 routes, three POST negatives, and one GET negative PASS; focused contract 3/3, full 441/441, syntax 86/86, Meteora 19/19, and replay PASS.
+- Compatibility/performance impact: discovery vocabulary and digest/ETag change; runtime route methods remain unchanged. Validation is bounded by three constant policy branches and the 54-route catalog.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-QUERY-CONTRACTS-PARAMETER-PROFILE-MAP-035
+
+- Severity: `PASS` (delivered by `026fcbe`)
+- Owner: `DEV`
+- Reproduction: resolve the route item's `map_keys_catalog_values` relationship and dialect declaration, validate all real routes, then independently omit one declared parameter mapping, inject an undeclared mapping, or replace a real mapping with `privateProfile`.
+- Evidence: the schema publishes exactly `{kind:"map_keys_catalog_values",map:"parameterConstraints",keys:"parameters",catalog:"valueConstraints"}` and declares the kind in the fail-closed dialect. Independent resolution accepts 54/54 real routes and rejects all three contradictions.
+- Affected contracts: request builders, query validation, pagination, filters, quotes, canonical request identity, cache/quota keys, replay mappings, and generated clients.
+- Expected versus actual behavior: every declared query parameter has exactly one constraint profile and every profile resolves to the published value catalog. Expected and actual match.
+- Acceptance criteria: declare the relationship kind and exact descriptor; retain 54 real positives; reject missing, injected, and unknown-profile mappings. All criteria are met.
+- Validation results: dialect, descriptor, 54 routes, and three negatives PASS; focused contract 3/3, full 441/441, syntax 86/86, Meteora 19/19, and replay PASS.
+- Compatibility/performance impact: discovery vocabulary and digest/ETag change; runtime query validation remains unchanged. Validation is bounded by the small per-route parameter maps and ten-profile catalog.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2114,7 +2148,7 @@ The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 
 - Affected contracts: Meteora quote/preparation discovery, legacy and Token-2022 transfer-fee safety, trading/protocol fee display, bin-path provenance, generated AI/trading validators, schema digest/ETag, and pre-signing admission.
 - Expected versus actual behavior: the advertised schema must admit every real producer body and reject per-array economics the finalized producer cannot emit. A digest over mutable response fields is insufficient unless at least one input is authenticated or independently bound to finalized source evidence.
 - Acceptance criteria: retain all completed direction, transfer-fee, range, global aggregate, path, capacity, collect-fee-on-output, and execution-gate controls; bind each payload hash to immutable finalized snapshot evidence or a trusted producer signature; retain the real positive plus preserved-digest and recomputed-digest negatives.
-- Validation results: real and preserved-digest controls PASS; execution-time reproduction, required evidence labeling, real-producer verification proof, complete dialect declaration, bootstrap schema, nested dialect closure, admission-order closure, admission-outcome closure, canonicalization closure, path-profile closure, all ten value-profile closures, WebSocket bootstrap closure, exact preparation catalog, response catalog, HTTP path uniqueness, HTTP set partition, and HTTP path-template binding PASS; schema-only recomputed coupled mutation FAIL because it is admitted. Focused HTTP contract 3/3 and Meteora suites 19/19 PASS; full 441/441 PASS; syntax 86/86 PASS; replay PASS at 6,629.34 blocks/s with 9,007,608-byte heap growth.
+- Validation results: real and preserved-digest controls PASS; execution-time reproduction, required evidence labeling, real-producer verification proof, complete dialect declaration, bootstrap schema, nested dialect closure, admission-order closure, admission-outcome closure, canonicalization closure, path-profile closure, all ten value-profile closures, WebSocket bootstrap closure, exact preparation catalog, response catalog, HTTP path uniqueness, HTTP set partition, HTTP path-template binding, HTTP path-method policy, and HTTP parameter-profile mapping PASS; schema-only recomputed coupled mutation FAIL because it is admitted. Focused HTTP contract 3/3 and Meteora suites 19/19 PASS; full 441/441 PASS; syntax 86/86 PASS; replay PASS at 7,416.68 blocks/s with 9,407,840-byte heap growth.
 - Compatibility/performance impact: the additive quote fields and expanded relationship change digest/ETag and generated validators. A bounded content commitment or finalized row-local proof must remain within the existing 13,312-row cap; no replay or full-suite regression is observed.
 - Blockers: none; deterministic offline reproduction.
 
@@ -2141,7 +2175,7 @@ The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 
 - Expected behavior: preparation success discovery must explicitly project and close venue-specific quote and instruction-evidence variants so empty, unknown, credential-bearing, wrong-program, or unsafe content fails closed.
 - Actual behavior: external authority, cataloged preparation identity, preparation, transaction, shared simulation policy, universal raw amounts, all three signer-to-effect relationships, all eleven instruction-evidence variants, and ten quote variants are verifiable. Meteora remains semantically underbound at row-local traversal economics, leaving one variant outcome unsafe.
 - Acceptance criteria: define closed bounded discriminated variants for `quote` and `instructionEvidence`; reject empty, unknown credential-bearing, wrong-program, unsafe-quote, and cross-object mismatches; retain all real venue bodies and every completed handoff/preparation/transaction/simulation-policy boundary.
-- Validation results: prior closed boundaries, Meteora execution reproduction, instruction-evidence labeling, real-producer verification proof, complete dialect declaration, bootstrap schema, nested dialect closure, admission-order closure, admission-outcome closure, canonicalization closure, path-profile closure, all ten value-profile closures, WebSocket bootstrap closure, exact preparation catalog, response catalog, HTTP path uniqueness, HTTP set partition, and HTTP path-template binding PASS; strict protocol-specific schema closure remains 21/22 PASS and 1/22 FAIL (ten quote plus all eleven instruction variants PASS; Meteora finalized-content discovery parity fails). Focused HTTP contract 3/3 and Meteora suites 19/19 PASS; full suite 441/441 PASS; syntax 86/86 PASS; replay PASS at 6,629.34 blocks/s with 9,007,608-byte heap growth.
+- Validation results: prior closed boundaries, Meteora execution reproduction, instruction-evidence labeling, real-producer verification proof, complete dialect declaration, bootstrap schema, nested dialect closure, admission-order closure, admission-outcome closure, canonicalization closure, path-profile closure, all ten value-profile closures, WebSocket bootstrap closure, exact preparation catalog, response catalog, HTTP path uniqueness, HTTP set partition, HTTP path-template binding, HTTP path-method policy, and HTTP parameter-profile mapping PASS; strict protocol-specific schema closure remains 21/22 PASS and 1/22 FAIL (ten quote plus all eleven instruction variants PASS; Meteora finalized-content discovery parity fails). Focused HTTP contract 3/3 and Meteora suites 19/19 PASS; full suite 441/441 PASS; syntax 86/86 PASS; replay PASS at 7,416.68 blocks/s with 9,407,840-byte heap growth.
 - Compatibility impact: this is a discovery hardening requirement; runtime bytes may remain unchanged, but generated clients must regenerate after the schema digest changes. Protocol-specific unions must cover every currently emitted venue without weakening unknown-field rejection.
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; the defect is deterministic and offline reproducible.
@@ -2151,7 +2185,7 @@ The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 647,624,893 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 651,255,759 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -2160,4 +2194,4 @@ The contract minimum is satisfied with 76 distinct evidence domains: 72 PASS, 3 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: bind each HTTP route's method to the exact runtime method or route family in the published schema, retaining the real 54-route catalog while rejecting the independently reproduced GET `/rpc` contradiction.
+- NEXT_DEV_ACTION: bind each HTTP response outcome's status, retryability, representation body semantics, and nonnull `bodySchema` to the exact published response catalog, retaining all real outcomes while rejecting the four independently reproduced semantic contradictions.
