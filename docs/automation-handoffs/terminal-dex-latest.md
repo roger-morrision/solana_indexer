@@ -1312,3 +1312,11 @@
 - Contract: each Meteora traversal row now publishes the finalized output capacity visited in that array. `meteora_bin_array_output_capacity` requires every nonterminal array to be fully exhausted and caps the terminal array, rejecting redistribution while preserving partial fills.
 - Compatibility/migration/configuration: the quote body and discovery dialect gain one required bounded row field and relationship, changing the schema digest/ETag. Persistence, providers, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
 - NEXT_WEB_ACTION: regenerate Meteora validators and enforce `meteora_bin_array_output_capacity` before displaying or preparing a quote.
+
+## UPSTREAM Meteora per-array input-capacity parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-BIN-ARRAY-INPUT-CAPACITY-PARITY-007` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001`).
+- BA/PO decision: fresh 22-opportunity inspection found consumed-input redistribution remained unbound and output capacity did not account for collect-fee-on-output semantics; exact constructor capacity evidence was the highest-value ready safety increment.
+- Contract: traversal rows now publish maximum reachable input and fee-adjusted output from the same finalized bin math. The capacity relationship requires both dimensions to be exhausted on nonterminal arrays and caps both on the terminal array.
+- Compatibility/migration/configuration: one required row field and expanded relationship change quote bytes and the discovery digest/ETag. Valid persistence, provider, RPC/WebSocket, migration, and configuration behavior is unchanged.
+- NEXT_WEB_ACTION: regenerate Meteora validators and enforce both input and fee-adjusted output capacity for every traversal row.
