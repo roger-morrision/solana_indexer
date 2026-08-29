@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T01:36:44+07:00`
+- Run: `2026-08-30T02:36:15+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `54874984250d00f25d93d430c4d065693135c2d7`
-- Compared with QA baseline: `b78d0c87aa84c45273e03fa3067567a7a17c7572` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 98 ahead, 0 behind before this evidence report
-- Latest DEV commits: `d3ea607` (executable-depth success union) and `5487498` (route-local outcome identity)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. Executable-depth success now publishes the exact closed sell/buy Pump quote union, and every route publishes `unique_by(outcome)`. Real sell/buy outputs select exactly one branch; six descriptor mutations reject; all 54 route-local identity sets pass and duplicate identities reject on all 50 multi-outcome routes. Independent reconciliation is now 80 PASS, 1 FAIL, and 1 BLOCKED across 82 domains; live qualification is blocked by absent fresh canonical evidence.
+- Revision: `fdf0e49f1677bb8f2128898bfb4eea6ad23f7597`
+- Compared with QA baseline: `517c3a05f29d9d7a5d238666ae6326fb78be87a6` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 101 ahead, 0 behind before this evidence report
+- Latest DEV commits: `278344c` (closed RPC response envelopes) and `fdf0e49` (RPC method/result-schema catalog)
+- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete stable DEV delta. The three-branch RPC response envelope is closed and matches seven real success/error/batch boundaries while rejecting nine malformed or credential-bearing mutations. The runtime catalog publishes all 12 exact read-only methods and result-schema identities, but its own query-contract bootstrap describes both `rpc` and `rpcResultSchemas` only as open objects and admits six independently unsafe discovery mutations. Independent reconciliation is now 81 PASS, 2 FAIL, and 1 BLOCKED across 84 domains; live qualification is blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Executable-depth schema and route-outcome identity closure (2 PASS)
+### RPC response-envelope closure and method-catalog discovery (1 PASS, 1 FAIL)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-EXECUTABLE-DEPTH-SUCCESS-SCHEMA-038` | `/internal/tokens/{mint}/executable-depth` HTTP 200 | `PASS` | `executable_depth_success_v1` is exactly `oneOf` the closed sell and buy Pump bonding-curve quote schemas. Real producer outputs select one branch each; both inherit constant unsafe/external-execution flags, closed fees/evidence, 8/7 economic relationships, and disjoint formula/amount fields. Six independently mutated descriptors reject. |
-| `UPSTREAM-QUERY-CONTRACTS-OUTCOME-IDENTITY-039` | `/api/v1/query-contracts` / `http[].responseOutcomes` | `PASS` | Every route publishes the exact `unique_by(outcome)` relationship. Independent resolution accepts all 54 routes and 119 outcomes, then rejects a duplicate identity on each of the 50 routes with multiple outcomes even when the duplicate carries an altered status. |
+| `UPSTREAM-RPC-ENVELOPE-SCHEMA-040` | `/rpc` HTTP 200 / `rpc_success_v1` | `PASS` | The schema is an exact three-branch `oneOf`: closed single success, closed single error, or a 1-100 item batch of those branches. Seven real runtime envelopes validate, including invalid object IDs normalized to a null-ID error and the 100/101 boundary; all nine independent malformed, ambiguous, oversized, empty, unknown-field, and credential-bearing mutations reject. |
+| `UPSTREAM-RPC-METHOD-CATALOG-041` | `/api/v1/query-contracts` / `rpc`, `rpcResultSchemas` | `FAIL` | The actual snapshot correctly publishes `/rpc`, read-only mode, 1-100 batch bounds, 12 unique runtime methods, 12 unique result-schema names, seven nullable result schemas, and five object result schemas; every published method dispatches and an unpublished private method returns `-32601`. However, `query_contracts_success_v1.properties.rpc` and `.rpcResultSchemas` are only `{type:"object"}`, admitting empty, non-read-only, duplicate, private-method, empty-result-map, and credential-bearing result-schema mutations (6/6). |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `b78d0c8`, in `d3ea607` and `5487498`. QC detected the actual DEV writer lock and uncommitted product changes after the first validation pass, discarded every mixed-state result, waited through commit and explicit lock release, refreshed the complete two-commit delta, and reran every tier. No additional distinct DEV outcome exists.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
+- Available DEV delta: exactly two distinct committed outcomes exist after `517c3a0`, in `278344c` and `fdf0e49`. QC detected the actual DEV writer lock and uncommitted product changes after the first validation pass, discarded every mixed-state result, waited through commit and explicit lock release, refreshed the complete two-commit delta, and reran every tier. No additional distinct DEV outcome exists.
+- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP.
 - Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting declarations, dialect registration, policy branches, catalog checks, route positives, individual mutations, or assertions would be padding.
-- Validation: the exact executable-depth union and outcome-identity relationship PASS; real producer outputs select one branch each; descriptor negatives reject 6/6; 54/54 route identities PASS and duplicate negatives reject 50/50. Focused contract/producer 5/5 and Meteora suites 19/19 PASS (12 contract/quote and 7 execution); 54 routes, 119 outcomes, 81 response schemas, 115 JSON outcome-schema references, 28 dialect keywords, 35 relationship kinds, registry digest `9d1b50981dc3eae996076e46a515ea2b662ac051d3d935b33f6fe2a69da1b3eb`, and contract digest `5464fc74458f600741166f08500525f475ee75ddea00a8fd8d16fcdf3e5438a0` are structurally coherent; full suite 442/442 PASS; syntax 86/86 PASS; replay invariants PASS at 6,750.82 blocks/s with 10,018,048-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: the envelope harness confirms three exact branches, seven real positive envelopes, nine rejected negatives, and the 100-item maximum. Runtime catalog identity and dispatch PASS across all 12 methods, while six unsafe bootstrap catalog mutations are admitted. Focused RPC/query-contract run is 8/8 PASS (six named tests plus two file-load controls), and Meteora suites remain 19/19 PASS (12 contract/quote and 7 execution). The registry contains 81 response schemas with digest `ea79782dba9875010bda463e423c05606e55da7b8701c23c0aa3c4538a63020c`; the complete contract digest is `494fc8c046d900dd3523221fed7a5d032e48a74cee5be4971eeb61766464918f`. Full suite 444/444 PASS; syntax 86/86 PASS; replay invariants PASS at 8,864.04 blocks/s with 9,652,312-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Executable-depth schema and route-outcome identity closure (2 PASS)
+
+- Prior exact shortfall: 18; prior validation was focused contract/producer 5/5 and Meteora 19/19, full 442/442, syntax 86/86, and replay PASS.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -787,7 +793,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 70-domain reconciliation
+## Independent 84-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -797,7 +803,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas, rejects omissions and unknown names, and has canonical registry digest `9d1b50981dc3eae996076e46a515ea2b662ac051d3d935b33f6fe2a69da1b3eb`; the full contract digest is `5464fc74458f600741166f08500525f475ee75ddea00a8fd8d16fcdf3e5438a0`. Independent recomputation matches. Recursive enumeration confirms all 28 live schema-node keywords and all 35 used relationship kinds are declared with no unused entries, and all 115 JSON outcome-schema references resolve. |
+| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `ea79782dba9875010bda463e423c05606e55da7b8701c23c0aa3c4538a63020c`; the full contract digest is `494fc8c046d900dd3523221fed7a5d032e48a74cee5be4971eeb61766464918f`. Independent recomputation matches. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -841,6 +847,8 @@
 | Provenance, freshness, and finality | `PASS` | Malformed provenance, wrong-network, stale/future evidence, finality promotion, and finalized downgrade tests all fail closed as designed. |
 | REST schemas and pagination | `PASS` | Stable cursor scope/digest, filtering, explicit projections, invalid-cursor rejection, and compact catalogs pass; the path defect is tracked separately. |
 | Read-only JSON-RPC | `PASS` | Indexed method allowlist, parameter bounds, cursor isolation, malformed/oversized envelope, and invalid-evidence tests pass. |
+| RPC response-envelope discovery | `PASS` | The three closed success/error/batch branches validate all seven exercised runtime boundaries and reject all nine malformed, ambiguous, oversized, empty, unknown-field, and credential-bearing mutations. |
+| RPC method/result-schema discovery | `FAIL` | The emitted catalog itself exactly matches 12 runtime methods and result schemas, but the bootstrap contract exposes both catalog fields as unconstrained objects and admits all six independent unsafe catalog mutations. |
 | WebSocket contracts and replay | `PASS` | Ordered persisted replay, resume, snapshot isolation, corruption rejection, acknowledgement, timeout, capacity, and backpressure tests pass. |
 | Numeric precision | `PASS` | Raw integer fields use exact string/UInt64/UInt256 or numerator/denominator contracts; Token-2022 epoch fee and Q64/lot/bin math tests pass. |
 | Replay, reorg, and idempotency | `PASS` | 1,000-block replay preserves canonical counts, duplicate idempotency, replacement correction, heap, and throughput invariants. |
@@ -871,10 +879,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 442/442; syntax passes 86/86; replay completes at 6,750.82 blocks/s with 10,018,048-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 683,687,866 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 444/444; syntax passes 86/86; replay completes at 8,864.04 blocks/s with 9,652,312-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 662,058,537 ms old at this trigger. |
 
-The contract minimum is satisfied with 82 distinct evidence domains: 80 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 84 distinct evidence domains: 81 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2207,6 +2215,33 @@ The contract minimum is satisfied with 82 distinct evidence domains: 80 PASS, 1 
 - Compatibility/performance impact: discovery schema, digest, and ETag change; runtime status, headers, and body bytes remain unchanged. Validation is linear over at most five route-local outcomes.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-RPC-ENVELOPE-SCHEMA-040
+
+- Severity: `PASS` (delivered by `278344c`)
+- Owner: `DEV`
+- Reproduction: resolve `/rpc` HTTP 200 to `rpc_success_v1`, issue success, method-not-found, invalid object-ID, mixed-batch, empty-batch, 100-item, and 101-item requests, then apply the published schema to each response and nine independently malformed envelope mutations.
+- Evidence: `rpc_success_v1` is exactly a three-branch `oneOf` of closed single success, closed single error, and a 1-100 item batch whose members are either closed single branch. Runtime normalizes invalid object IDs to the null-ID error, returns 100 batch members, and returns one bounded error for 101 inputs. All seven real outputs validate; success/error ambiguity, wrong version, object ID, empty error, credential injection, empty/oversized output batches, and unknown batch-item fields reject 9/9.
+- Affected contracts: JSON-RPC clients, batch parsing and cardinality, cache/body identity, generated validators, error redaction, and query-contract digest/ETag.
+- Expected versus actual behavior: every runtime 200 body selects exactly one bounded success/error/batch branch and malformed or credential-bearing shapes select none. Expected and actual match.
+- Acceptance criteria: close the single branches; bound batches to 1-100; retain string/integer/null IDs; reject mixed success/error members, unknown fields, invalid IDs, and unsafe sizes. All criteria are met.
+- Validation results: real positives 7/7 and independent negatives 9/9 PASS; focused RPC/query-contract 8/8, Meteora 19/19, full 444/444, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: discovery schema, digest, and ETag change while runtime response bytes remain compatible. Recursive validation is bounded to 100 already-bounded members.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-RPC-METHOD-CATALOG-041
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: resolve `rpc` and `rpcResultSchemas` from the actual query-contract snapshot, verify each listed method against real dispatch, then validate empty, non-read-only, duplicate, private-method, empty-result-map, and credential-bearing result-schema mutations against `query_contracts_success_v1.properties.rpc` and `.rpcResultSchemas`.
+- Evidence: the emitted snapshot correctly publishes path `/rpc`, `readOnly:true`, batch bounds 1-100, the exact 12 public runtime methods, 12 unique matching result-schema identities, seven nullable schemas, and five object schemas. All 12 methods dispatch without `-32601`, while an unpublished private method returns `-32601`. The bootstrap schema nevertheless defines both catalog fields only as `{type:"object"}`, so all six unsafe discovery mutations validate.
+- Affected contracts: query-contract bootstrap safety, generated JSON-RPC clients, method/result dispatch, read-only authorization assumptions, schema selection, credential redaction, contract digest/ETag, and cache regeneration.
+- Expected behavior: the bootstrap schema must independently require the exact read-only RPC path, 1-100 batch bounds, complete unique 12-method/result mapping, exact result-schema key membership, and closed bounded result-schema descriptors.
+- Actual behavior: the concrete snapshot is correct but a schema-driven consumer cannot distinguish it from empty, writable, duplicate, private, or credential-bearing catalog payloads.
+- Acceptance criteria: close both catalog objects; require exact constants and complete unique membership; bind every method result to the exact result-schema map; reject all six retained mutations while preserving all 12 real dispatch positives and the private-method negative.
+- Validation results: emitted catalog identity 12/12 PASS, runtime public dispatch 12/12 PASS, private dispatch rejection PASS, bootstrap unsafe mutations 0/6 reject (FAIL); focused 8/8, Meteora 19/19, full 444/444, syntax 86/86, replay PASS at 8,864.04 blocks/s, and health fails closed as designed.
+- Compatibility/performance impact: discovery-only hardening changes digest/ETag and requires generated clients to refresh. Exact membership checks are bounded to 12 methods and 12 result schemas; runtime RPC bytes, persistence, provider, WebSocket, database, and configuration need not change.
+- Blockers: none; deterministic offline reproduction.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2253,7 +2288,7 @@ The contract minimum is satisfied with 82 distinct evidence domains: 80 PASS, 1 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 683,687,866 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 662,058,537 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -2262,4 +2297,4 @@ The contract minimum is satisfied with 82 distinct evidence domains: 80 PASS, 1 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: bind each Meteora traversal payload hash to independently verifiable finalized snapshot evidence or a trusted producer signature while retaining all completed quote, capacity, execution-reproduction, and schema controls.
+- NEXT_DEV_ACTION: close query-contract discovery for `rpc` and `rpcResultSchemas` with exact read-only path/batch/method/result-schema membership and uniqueness, retaining all 12 runtime methods while rejecting the six independently admitted bootstrap mutations.
