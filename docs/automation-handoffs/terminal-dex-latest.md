@@ -1344,3 +1344,11 @@
 - Contract: every Meteora traversal row now carries its finalized bin-array payload hash and a SHA-256 JSON-array commitment over the complete row identity, amount, fee, rate-capacity tuple, and payload hash. The new `meteora_bin_array_capacity_commitment` relationship lets generated validators reject coupled value/capacity changes while retaining existing exact capacity rules.
 - Compatibility/migration/configuration: two required row fields and one relationship kind change quote bytes and the discovery digest/ETag. Generated clients must refresh. Persistence, providers, RPC/WebSocket transport, database migrations, and configuration are unchanged; quotes remain explicitly non-executable and unsafe for automation.
 - NEXT_WEB_ACTION: regenerate Meteora validators and verify each `capacityCommitment` with `sha256-json-array-v1` before displaying or preparing the quote.
+
+## UPSTREAM Meteora execution-time economics reproduction
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-EXECUTION-RECOMPUTATION-011` (hardens `UPSTREAM-METEORA-DLMM-BIN-ARRAY-CAPACITY-COMMITMENT-010`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining trust boundary in producer-carried commitments. A caller can recompute an unkeyed digest, so unsigned transaction construction must compare the quote against independently reproduced finalized bin economics.
+- Contract: Meteora quotes publish `calculatedAtUnixMs`, preserving the exact producer calculation context. Before constructing a current-contract swap, execution reruns the exact quote engine over the supplied finalized pool and bin arrays and requires deep equality with every quote field; coupled tuple mutations now fail even when their digest is recomputed.
+- Compatibility/migration/configuration: one required quote timestamp changes quote bytes and the discovery digest/ETag. Legacy internal construction fixtures without the new field remain compatible, while every quote emitted by the current producer takes the strict reproduction path. Persistence, providers, RPC/WebSocket transport, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: refresh the Meteora quote contract and require `calculatedAtUnixMs`; treat any preparation-time reproduction failure as a hard no-route result.

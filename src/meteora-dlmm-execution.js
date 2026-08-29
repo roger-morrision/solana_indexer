@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
+import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
 import { decodeBase58Address, findProgramAddress } from "./solana-pda.js";
@@ -52,6 +54,11 @@ function selectBinArrays(quote, pool) {
 }
 
 export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null, transferHookAccountData = null }) {
+  if (quote?.calculatedAtUnixMs != null) {
+    if (!Number.isSafeInteger(quote.calculatedAtUnixMs) || quote.calculatedAtUnixMs < 0) throw new Error("Meteora execution quote calculation time is invalid");
+    const reproduced = quoteMeteoraDlmmSnapshotExactInput({ snapshot: { type: "meteora_dlmm_pool_snapshot", commitment: "finalized", stateSlot: quote.stateSlot, balanceSlot: quote.balanceSlot, observedAt: quote.observedAt, pools: [pool] }, poolAddress: pool?.address, inputMint: quote.inputMint, amountIn: quote.amountInRaw, now: quote.calculatedAtUnixMs, staleAfterMs: Number.MAX_SAFE_INTEGER });
+    if (!isDeepStrictEqual(reproduced, quote)) throw new Error("Meteora execution quote does not match finalized bin economics");
+  }
   const direction = quote?.inputMint === pool?.tokenMint0 && quote?.outputMint === pool?.tokenMint1 ? true : quote?.inputMint === pool?.tokenMint1 && quote?.outputMint === pool?.tokenMint0 ? false : null;
   const tokenPrograms = new Set([TOKEN_PROGRAM, TOKEN_2022_PROGRAM]), hasToken2022 = pool?.tokenProgram0 === TOKEN_2022_PROGRAM || pool?.tokenProgram1 === TOKEN_2022_PROGRAM;
   if (quote?.schemaVersion !== 1 || quote.protocol !== "meteora-dlmm" || quote.status !== "quoted" || quote.amountLeftRaw !== "0" || direction == null || quote.swapForY !== direction || quote.pool !== pool?.address || pool.programId !== METEORA_DLMM_PROGRAM || !tokenPrograms.has(pool.tokenProgram0) || !tokenPrograms.has(pool.tokenProgram1) || ![quote.stateSlot, quote.binArraySlot, quote.balanceSlot, quote.mintEvidenceSlot, quote.epoch].every((slot) => Number.isSafeInteger(slot) && slot >= 0) || quote.binArraySlot < quote.stateSlot || quote.binArraySlot > quote.balanceSlot || quote.mintEvidenceSlot < quote.balanceSlot || pool.binArraySlot !== quote.binArraySlot || pool.mintEvidenceSlot !== quote.mintEvidenceSlot || pool.epoch !== quote.epoch || !validateBoundPoolMintEvidence(pool, quote.balanceSlot) || typeof pool.oracle !== "string" || !pool.oracle) throw new Error("Meteora execution quote evidence is invalid");
