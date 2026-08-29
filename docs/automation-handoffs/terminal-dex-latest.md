@@ -1523,3 +1523,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime query validation, quotes, ingestion, persistence, providers, REST/RPC/WebSocket transport, migrations, or configuration.
 - Remaining boundary: dynamic path/profile/default maps retain incremental semantic closure opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate parameter partitions and conditional rules and reject duplicate or non-string names, unknown condition fields, substituted parameters/kinds, reordered program sets, or multiple conditions.
+
+## UPSTREAM HTTP path-uniqueness schema invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-HTTP-PATH-UNIQUENESS-031` (commercial request routing, quota identity, cache identity, and replay readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the duplicate-path gap because test helpers rejected it but the published schema did not encode it. The existing fail-closed `unique_by` relationship makes the correction dependency-ready without expanding the dialect.
+- Contract: the 54-route HTTP catalog now publishes `unique_by(path)`. Focused validation resolves that relationship from the schema, accepts the real catalog, and rejects a duplicate-path substitution through the declared invariant.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime routes, quota keys, cache behavior, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, or configuration.
+- Remaining boundary: method/path-template binding and disjoint parameter partitions require further schema-level relationships; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: enforce the published `unique_by(path)` relationship when loading discovery and reject duplicate route identities before generating clients, quotas, caches, or replay mappings.
