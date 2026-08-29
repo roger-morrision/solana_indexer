@@ -430,17 +430,26 @@ test("RPC discovery publishes the exact read-only method and result-schema catal
   assert.deepEqual({ path: contract.rpc.path, readOnly: contract.rpc.readOnly, batch: contract.rpc.batch }, { path: "/rpc", readOnly: true, batch: { minimumItems: 1, maximumItems: 100 } });
   assert.deepEqual(names, ["getIndexerHealth", "getIndexerStats", "getIndexedBlock", "getIndexedBlocks", "getIndexedTransaction", "getIndexedSignaturesForAddress", "getIndexedTokenAccount", "getIndexedTokenSupply", "getIndexedTokenMetadata", "getIndexedTokenLargestAccounts", "getIndexedTokenHolders", "getIndexedTokenAccountsByOwner"]);
   assert.equal(new Set(names).size, 12); assert.equal(new Set(methods.map(({ resultSchema }) => resultSchema)).size, 12); assert.deepEqual(methods.map(({ resultSchema }) => resultSchema).sort(), schemas.sort());
-  for (const { resultSchema } of methods) assert.ok(contract.rpcResultSchemas[resultSchema].type, resultSchema);
-  assert.deepEqual(contract.rpcResultSchemas.indexed_block_result_v1.type, ["object", "null"]); assert.equal(contract.rpcResultSchemas.indexed_blocks_result_v1.type, "object");
+  for (const { resultSchema } of methods) assert.ok(contract.rpcResultSchemas[resultSchema].type || contract.rpcResultSchemas[resultSchema].oneOf, resultSchema);
+  assert.equal(contract.rpcResultSchemas.indexed_block_result_v1.oneOf.length, 2); assert.equal(contract.rpcResultSchemas.indexed_transaction_result_v1.oneOf.length, 2); assert.equal(contract.rpcResultSchemas.indexed_blocks_result_v1.type, "object");
 });
 
 test("query-contract bootstrap closes RPC catalog identity and membership", () => {
   const contract = queryContractSnapshot(), bootstrap = contract.responseBodySchemas.query_contracts_success_v1.properties, rpcSchema = bootstrap.rpc, resultSchema = bootstrap.rpcResultSchemas;
   const validRpc = (value) => value && Object.keys(value).every((key) => rpcSchema.required.includes(key)) && rpcSchema.required.every((key) => key in value) && value.path === "/rpc" && value.readOnly === true && value.batch?.minimumItems === 1 && value.batch?.maximumItems === 100 && JSON.stringify(value.methods) === JSON.stringify(rpcSchema.properties.methods.exactItems);
-  const validResults = (value) => value && Object.keys(value).length === resultSchema.required.length && resultSchema.required.every((name) => { const descriptor = value[name], expected = resultSchema.properties[name].properties.type; return descriptor && Object.keys(descriptor).length === 1 && (expected.values ? expected.values.includes(descriptor.type) : JSON.stringify(descriptor.type) === JSON.stringify(expected.exactItems)); });
+  const validResults = (value) => value && Object.keys(value).length === resultSchema.required.length && resultSchema.required.every((name) => { const descriptor = value[name], rule = resultSchema.properties[name]; if (!descriptor || !Object.keys(descriptor).every((key) => rule.required.includes(key))) return false; const expected = rule.properties.type; return rule.required[0] === "oneOf" ? JSON.stringify(descriptor.oneOf) === JSON.stringify(rule.properties.oneOf.exactItems) : expected.values ? expected.values.includes(descriptor.type) : JSON.stringify(descriptor.type) === JSON.stringify(expected.exactItems); });
   assert.equal(validRpc(contract.rpc), true); assert.equal(validResults(contract.rpcResultSchemas), true); assert.equal(rpcSchema.additionalProperties, false); assert.equal(resultSchema.additionalProperties, false);
   for (const invalid of [{ ...contract.rpc, readOnly: false }, { ...contract.rpc, methods: [] }, { ...contract.rpc, methods: [...contract.rpc.methods, contract.rpc.methods[0]] }, { ...contract.rpc, methods: [{ method: "privateMethod", resultSchema: "private_result_v1" }] }]) assert.equal(validRpc(invalid), false);
   assert.equal(validResults({}), false); assert.equal(validResults({ ...contract.rpcResultSchemas, indexed_blocks_result_v1: { type: "object", credential: "secret" } }), false);
+});
+
+test("block and transaction RPC contracts close parameters and producer results", async (t) => {
+  const contract = queryContractSnapshot(), methods = new Map(contract.rpc.methods.map((row) => [row.method, row])), blockSchema = contract.rpcResultSchemas.indexed_block_result_v1.oneOf[1], transactionSchema = contract.rpcResultSchemas.indexed_transaction_result_v1.oneOf[1];
+  assert.deepEqual(methods.get("getIndexedBlock").params, { styles: ["positional", "named"], required: ["slot"] }); assert.deepEqual(methods.get("getIndexedTransaction").params, { styles: ["positional", "named"], required: ["signature"] });
+  const store = new IndexStore("unused"); await store.load(); store.apply(parseBlock(JSON.parse(await fs.readFile(fixture, "utf8")))); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/rpc`, call = async (method, params) => (await (await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) })).json()).result;
+  const block = await call("getIndexedBlock", { slot: 100 }), transaction = await call("getIndexedTransaction", ["signature-1"]); assert.deepEqual(Object.keys(block).sort(), blockSchema.required.slice().sort()); assert.deepEqual(Object.keys(transaction).sort(), transactionSchema.required.slice().sort());
+  for (const [body, schema] of [[block, blockSchema], [transaction, transactionSchema]]) { assert.equal(schema.additionalProperties, false); assert.ok(Object.keys(body).every((key) => schema.properties[key])); }
+  assert.equal(await call("getIndexedBlock", [999999]), null); assert.equal(await call("getIndexedTransaction", { signature: "missing" }), null);
 });
 
 test("legacy block and transaction collections publish their bare-array schema", () => {

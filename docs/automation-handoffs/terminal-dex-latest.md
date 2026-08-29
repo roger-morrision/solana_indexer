@@ -1631,3 +1631,12 @@
 - Compatibility/migration/configuration: the discovery schema, digest, and ETag change; emitted catalog values, RPC runtime behavior, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: result descriptors bind top-level kinds but not nested fields or request parameter styles; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: enforce the closed RPC bootstrap before generating clients and reject writable, empty, duplicate, private, incomplete, or credential-bearing catalogs.
+
+## UPSTREAM block and transaction RPC contract closure
+
+- Selected ID: `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042` (block explorer, transaction detail, replay/reorg, and commercial RPC readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the first deep RPC slice because block and transaction methods are dependency-ready, high-use primitives with stable producer projections and explicit null-on-miss behavior.
+- Contract: `getIndexedBlock` and `getIndexedTransaction` now publish exact positional/named parameter styles and required identities. Their result schemas are null-or-closed producer objects with bounded scalar types, complete required fields, closed provenance, and no unknown properties. Producer-backed tests cover both parameter styles, real results, and null misses.
+- Compatibility/migration/configuration: RPC discovery descriptors, bootstrap schema, digest, and ETag change; runtime requests/responses, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: paginated block/signature results and the eight token/intelligence result schemas retain top-level-only descriptors; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate block and transaction RPC request/result validation from the new parameter and closed result descriptors before rendering explorer or replay data.
