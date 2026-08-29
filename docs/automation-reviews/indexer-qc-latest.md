@@ -1,27 +1,33 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T05:36:48+07:00`
+- Run: `2026-08-30T06:36:19+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `86f771fbc0b4baf97c7bc1fe21dc6876bd574d3d`
-- Compared with QA baseline: `6639c14c34e0db4a4687f4e6b948f090ffa40dc2` (2 DEV commits, 4 changed files)
-- Compared with `origin/main`: 111 ahead, 0 behind before this evidence report
-- Latest DEV commits: `4373e5e` (quarantined incomplete retained blocks) and `86f771f` (closed token-account/supply RPC descriptors)
-- Overall result: 1 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across three reviewed stable IDs mapping to the complete two-outcome DEV delta. `UPSTREAM-RPC-PAGINATED-HISTORY-CONTRACTS-043` now passes: canonical singular/page blocks serve, while all eighteen independent missing/negative/fractional/unsafe-count, time, and finalized-provenance mutations fail closed. `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042` remains failed because a confirmed block plus matching confirmed transaction makes block views unavailable but leaves `indexedTransactions()` available, and `getIndexedTransaction` emits `commitment:"confirmed"` against a finalized-only schema. New token-balance contracts also fail producer-invariant closure because all four over-u64 raw mutations and five noncanonical identity mutations validate. Independent reconciliation is 82 PASS, 3 FAIL, and 1 BLOCKED across 86 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `b72b16edc883b704febfc964de1b5caeebb94257`
+- Compared with QA baseline: `98d5e78bfd07874cab4118aa5baf7e20ed6113af` (2 DEV commits, 4 changed files)
+- Compared with `origin/main`: 114 ahead, 0 behind before this evidence report
+- Latest DEV commits: `508a3c8` (aligned finalized transaction and token-balance safety boundaries) and `b72b16e` (closed largest-token-account RPC discovery)
+- Overall result: 3 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across three reviewed stable IDs mapping to the complete two-outcome DEV delta. `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042` now preserves canonical confirmed ingestion while withholding the row from all public indexed-transaction views until finalized. `UPSTREAM-RPC-TOKEN-BALANCE-CONTRACTS-044` now rejects all independently exercised over-u64 and noncanonical identity mutations while retaining real bodies and nullable controls. `UPSTREAM-RPC-TOKEN-LARGEST-ACCOUNTS-045` publishes an exact bounded finalized-page contract that matches real first/continued pages. Independent reconciliation is 84 PASS, 1 FAIL, and 1 BLOCKED across 86 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Retained block admission and token-balance RPC contracts (1 PASS, 2 FAIL across stable IDs)
+### Finalized RPC safety boundaries and largest-token-account discovery (3 PASS across stable IDs)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042` | `/rpc` / `getIndexedBlock`, `getIndexedTransaction` | `FAIL` | Block admission now rejects all 18 independent unsafe mutations. A retained block and transaction with matching `confirmed` provenance still pass `canonicalPersistedTransaction`/`indexedTransactions`; the real RPC emits a confirmed transaction although `indexed_transaction_result_v1` allows only `finalized`. |
-| `UPSTREAM-RPC-PAGINATED-HISTORY-CONTRACTS-043` | `/rpc` / `getIndexedBlocks`, `getIndexedSignaturesForAddress` | `PASS` | Canonical singular/page block results serve; all 18 missing, negative, fractional, unsafe-integer, invalid-time, and invalid/finalized-provenance block mutations quarantine. Existing exact descriptors, four page controls, two cursor continuations, six runtime negatives, thirteen schema negatives, and snapshot isolation remain compatible. |
-| `UPSTREAM-RPC-TOKEN-BALANCE-CONTRACTS-044` | `/rpc` / `getIndexedTokenAccount`, `getIndexedTokenSupply` | `FAIL` | Both real producer bodies, null misses, exact descriptors, and 24/24 missing-required mutations validate as expected. The schemas omit u64 maxima and canonical identity constraints, admitting 4/4 over-u64 balance/supply/withheld mutations plus 5/5 one-character token-account/mint/program identity mutations that the public request boundary or canonical producer cannot emit. |
+| `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042` | `/rpc` / `getIndexedTransaction` | `PASS` | A confirmed block and transaction remain internally canonical, but `indexedTransactions()` and the real singular RPC withhold the row. Promoting both matching provenances to finalized serves a schema-valid finalized result. |
+| `UPSTREAM-RPC-TOKEN-BALANCE-CONTRACTS-044` | `/rpc` / `getIndexedTokenAccount`, `getIndexedTokenSupply` | `PASS` | Both real producer bodies and null misses validate. All 24 missing-required, four over-u64, six noncanonical identity (including nullable owner), and three nullable controls behave exactly as published. |
+| `UPSTREAM-RPC-TOKEN-LARGEST-ACCOUNTS-045` | `/rpc` / `getIndexedTokenLargestAccounts` | `PASS` | Exact positional/named descriptor, two real paginated producer bodies, null miss, and closed finalized-page constants validate. All 13 envelope/row missing-required, six row contradiction, and five envelope contradiction mutations reject. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `6639c14`, in `4373e5e` and `86f771f`; the complete two-commit, four-file delta was exhausted. Three stable IDs are shown because the shared retained-block outcome affects both 042 and 043; it is counted once and not padded. No additional distinct DEV outcome exists.
-- Verification result: 1 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP across the three stable IDs; both distinct DEV outcomes were exhausted.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct committed outcomes, and splitting shared-root IDs, count fields, raw fields, identities, parameter styles, or mutations would be padding.
-- Validation: block admission accepts the canonical control and rejects 18/18 independently mutated retained blocks; real singular/page block results remain available. Confirmed transaction parity fails 1/1 because the runtime emits a confirmed result against the finalized-only schema. Token-account/supply validation accepts 2/2 real bodies, 2/2 null misses, and 2/2 exact descriptors; rejects 24/24 missing-required mutations, but admits 4/4 over-u64 and 5/5 noncanonical identity mutations. Focused RPC/query-contract run is 25/25 PASS, and Meteora suites remain 19/19 PASS. The registry digest is `8e663a1b17d2f5f395c2e75d4e75947b82dcafcc49bd2da4064ea0068ed1676a`; the complete contract digest is `ab01e17cea780071839a208c3f6a4af295a8c5c1a7b4653c4d3632494ef42b8c`. Full suite 449/449 PASS; syntax 86/86 PASS; replay invariants PASS at 7,945.56 blocks/s with 9,512,344-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `98d5e78`, in `508a3c8` and `b72b16e`; the complete two-commit, four-file delta was exhausted. The first outcome closes two prior stable IDs and is counted once; the second adds one distinct RPC contract. No additional distinct DEV outcome exists.
+- Verification result: 3 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the three stable IDs; both distinct DEV outcomes were exhausted.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct committed outcomes, and splitting shared-root IDs, raw fields, identities, page fields, parameter styles, or individual mutations would be padding.
+- Validation: confirmed ingestion remains internally canonical while public collection/singular transaction results withhold the row until finalized; the promoted finalized producer result validates. Token-account/supply validation accepts 2/2 real bodies, 2/2 null misses, and all nullable controls, while rejecting 24/24 missing-required, 4/4 over-u64, and 6/6 noncanonical identity mutations. Largest-account validation accepts 2/2 real pages, a null miss, and the exact descriptor while rejecting 13/13 missing-required, 6/6 row contradictions, and 5/5 envelope contradictions. Focused RPC/query-contract run is 35/35 PASS, and focused Meteora suites are 12/12 PASS. The registry digest is `59b3668719b530f78c318fdd2cabc69c3f6b9b5aebeedae3c2df6ba5efa6876c`; the complete contract digest is `bd340582f9503f5d85833240bf2e92d01f4d416233dd3b515fb6c2ee0fbc9fdd`. Full suite 451/451 PASS; syntax 86/86 PASS; replay invariants PASS at 4,657.39 blocks/s with 11,522,960-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Retained block admission and token-balance RPC contracts (1 PASS, 2 FAIL at prior baseline)
+
+- Prior exact shortfall: 18; prior validation was focused RPC/query-contract 25/25 and Meteora 19/19, full 449/449, syntax 86/86, and replay PASS. Current `508a3c8` closes both retained failures; `UPSTREAM-RPC-PAGINATED-HISTORY-CONTRACTS-043` remains closed from `4373e5e`.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -816,7 +822,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `8e663a1b17d2f5f395c2e75d4e75947b82dcafcc49bd2da4064ea0068ed1676a`; the full contract digest is `ab01e17cea780071839a208c3f6a4af295a8c5c1a7b4653c4d3632494ef42b8c`. Independent recomputation matches. |
+| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `59b3668719b530f78c318fdd2cabc69c3f6b9b5aebeedae3c2df6ba5efa6876c`; the full contract digest is `bd340582f9503f5d85833240bf2e92d01f4d416233dd3b515fb6c2ee0fbc9fdd`. Independent recomputation matches. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -851,7 +857,7 @@
 | Recovery unavailable schema | `PASS` | Exclusive variants retain identity, timestamp, and duration controls, and the stale branch now binds `ageMs` strictly above `maximumAgeMs`; independent below/equal/above probes select 0/0/1 branches. |
 | Stats unavailable schema | `PASS` | A malformed persisted collection emits exactly the 24 required `stats_unavailable_v1` fields, passes independent type and closed-key validation, carries explicit invalid structure/chain evidence, and excludes health-only status fields. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
-| Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence` and authoritative-exclusion concentration tests pass. |
+| Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence`, authoritative-exclusion concentration, and the new finalized largest-account page contract all pass. Two real largest-account pages, null miss, cursor continuation, exact descriptor, and 24 independent schema contradictions are covered. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
 | Pool identity and quote evidence | `PASS` | Finalized Raydium, Orca, Meteora, Pump/PumpSwap, Phoenix, and OpenBook snapshot/quote tests pass with exact venue dependencies. |
 | Price and depeg reference | `PASS` | Independent USDC reference, Pyth evidence, expiry, depeg bound, and nominal USD path tests pass. |
@@ -862,8 +868,8 @@
 | Read-only JSON-RPC | `PASS` | Indexed method allowlist, parameter bounds, cursor isolation, malformed/oversized envelope, and invalid-evidence tests pass. |
 | RPC response-envelope discovery | `PASS` | The three closed success/error/batch branches validate all seven exercised runtime boundaries and reject all nine malformed, ambiguous, oversized, empty, unknown-field, and credential-bearing mutations. |
 | RPC method/result-schema discovery | `PASS` | The emitted catalog and bootstrap both bind the exact path, read-only flag, batch bounds, ordered 12-method/result mapping, complete 12-key result map, and closed descriptor types. Independent generated-style validation accepts both real catalogs, rejects all 15 mutations, and preserves snapshot isolation. |
-| RPC block/history result discovery | `FAIL` | Canonical singular/page blocks and existing descriptors/cursors validate, and all eighteen incomplete or non-finalized block controls now quarantine. Transaction parity remains unsafe: a confirmed block plus matching confirmed transaction leaves `indexedTransactions()` available and `getIndexedTransaction` emits a confirmed body even though its published provenance schema permits finalized only. |
-| RPC token-account/supply result discovery | `FAIL` | Both canonical bodies, null misses, exact parameter descriptors, closed keys, and 24 missing-required controls validate. Published raw integer strings lack their producer-enforced u64 ceilings, and identity strings lack canonical public-boundary constraints, so all four over-u64 and five noncanonical-identity mutations remain admitted. |
+| RPC block/history result discovery | `PASS` | Canonical singular/page blocks and existing descriptors/cursors validate, and all eighteen incomplete or non-finalized block controls quarantine. Confirmed transaction evidence remains internally canonical but is withheld from collection and singular RPC results until matching finalized promotion, which then serves a schema-valid body. |
+| RPC token-account/supply result discovery | `PASS` | Both canonical bodies, null misses, exact descriptors, closed keys, and 24 missing-required controls validate. Published u64 maxima, canonical base58 identities, nullable owner/withheld forms, and exact token-program IDs reject all four over-u64 and six noncanonical-identity mutations. |
 | WebSocket contracts and replay | `PASS` | Ordered persisted replay, resume, snapshot isolation, corruption rejection, acknowledgement, timeout, capacity, and backpressure tests pass. |
 | Numeric precision | `PASS` | Raw integer fields use exact string/UInt64/UInt256 or numerator/denominator contracts; Token-2022 epoch fee and Q64/lot/bin math tests pass. |
 | Replay, reorg, and idempotency | `PASS` | 1,000-block replay preserves canonical counts, duplicate idempotency, replacement correction, heap, and throughput invariants. |
@@ -894,10 +900,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 449/449; syntax passes 86/86; replay completes at 7,945.56 blocks/s with 9,512,344-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 672,891,271 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 451/451; syntax passes 86/86; replay completes at 4,657.39 blocks/s with 11,522,960-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 676,462,286 ms old at this trigger. |
 
-The contract minimum is satisfied with 86 distinct evidence domains: 82 PASS, 3 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The contract minimum is satisfied with 86 distinct evidence domains: 84 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2258,16 +2264,16 @@ The contract minimum is satisfied with 86 distinct evidence domains: 82 PASS, 3 
 
 ## UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (delivered by `508a3c8`)
 - Owner: `DEV`
 - Reproduction: apply a canonical finalized block and transaction, then change both matching provenance commitments to `confirmed`. Confirm block views quarantine, call `IndexStore.indexedTransactions()`, and request `getIndexedTransaction([signature])` through the real RPC handler before applying `indexed_transaction_result_v1`.
-- Evidence: `4373e5e` closes the reported block gap: a canonical control serves and 18/18 independently missing, negative, fractional, unsafe-integer, time, and provenance mutations make block views unavailable. But `canonicalPersistedTransaction` explicitly accepts both confirmed and finalized matching provenance, so `indexedTransactions()` remains available and the real singular RPC returns `commitment:"confirmed"`; the published transaction provenance permits only `finalized`.
+- Evidence: `508a3c8` preserves the internally canonical confirmed row but filters it from `indexedTransactions()`. The independent real RPC returns null before finalization; after matching block/transaction promotion it returns a body whose provenance is finalized and satisfies `indexed_transaction_result_v1`.
 - Affected contracts: JSON-RPC block/transaction clients, generated validators, ancestry and replay/reorg safety, provenance/finality qualification, time ordering, payer attribution, schema digest/ETag, and cache regeneration.
-- Expected versus actual behavior: every successful non-null transaction RPC body must satisfy its advertised finalized provenance schema. Confirmed retained evidence may remain internally canonical, but it must not cross a finalized-only public result boundary.
+- Expected versus actual behavior: every successful non-null transaction RPC body satisfies its advertised finalized provenance schema. Confirmed retained evidence remains internally canonical without crossing the finalized-only public result boundary. Expected and actual now match.
 - Acceptance criteria: require finalized provenance in the public indexed-transaction view or publish and test an honest confirmed/finalized union; preserve confirmed ingestion/replay semantics, canonical finalized positives, null misses, both parameter styles, all nine retained schema negatives, and block quarantine controls.
-- Validation results: block quarantine mutations reject 18/18 and canonical singular/page blocks PASS; confirmed transaction availability reproduces 1/1 and its real RPC result fails the finalized-only schema. Focused RPC/query-contract 25/25 PASS; Meteora 19/19 PASS; full 449/449 PASS; syntax 86/86 PASS; replay PASS at 7,945.56 blocks/s with 9,512,344-byte heap growth; operational health fails closed as designed.
+- Validation results: confirmed internal canonical control PASS; public collection withholding PASS; singular RPC null-before-finality PASS; promoted finalized producer/schema control PASS. Focused RPC/query-contract 35/35 PASS; Meteora 12/12 PASS; full 451/451 PASS; syntax 86/86 PASS; replay PASS at 4,657.39 blocks/s with 11,522,960-byte heap growth; operational health fails closed as designed.
 - Compatibility/performance impact: block quarantine may withhold incomplete legacy rows as intended. Closing transaction parity either withholds confirmed results until finalization or expands discovery honestly; no provider, production, or database state was mutated.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-RPC-PAGINATED-HISTORY-CONTRACTS-043
 
@@ -2284,16 +2290,29 @@ The contract minimum is satisfied with 86 distinct evidence domains: 82 PASS, 3 
 
 ## UPSTREAM-RPC-TOKEN-BALANCE-CONTRACTS-044
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (delivered by `508a3c8`)
 - Owner: `DEV`
 - Reproduction: create one canonical finalized SPL-token account snapshot, call `getIndexedTokenAccount` and `getIndexedTokenSupply` through the real RPC handler, validate both bodies and null misses, then replace account/supply/withheld raw amounts with `18446744073709551616` and replace token-account/mint/program identities with `"x"` before applying the published result schemas.
-- Evidence: both producer bodies, both null misses, both exact positional/named descriptors, and all 24 missing-required controls behave correctly. The producer caps account, supply, and withheld raw amounts at u64, but all four over-u64 mutations validate because the result properties publish only a digit pattern. The public request boundary requires canonical 32-44 character base58 identities and producers restrict token programs, but all five one-character identity mutations validate because result identity properties require only nonempty strings.
+- Evidence: both producer bodies, both null misses, both exact positional/named descriptors, all 24 missing-required controls, and nullable owner/withheld controls behave correctly. All four over-u64 mutations now reject through exact `maximumRaw`; all six one-character token-account/mint/owner/program mutations reject through canonical base58 and exact token-program constraints.
 - Affected contracts: wallet balances, token detail, holder/supply analysis, Token-2022 withheld-fund accounting, generated RPC validators, exact integer precision, cache identity, and trading-safety admission.
-- Expected versus actual behavior: the advertised result schemas admit every real producer body and reject raw amounts or identities that cannot cross the canonical request/producer boundary. Real bodies pass, but nine producer-impossible mutations are admitted.
+- Expected versus actual behavior: the advertised result schemas admit every real producer body and reject raw amounts or identities that cannot cross the canonical request/producer boundary. Expected and actual now match.
 - Acceptance criteria: bind all four balance/supply/withheld raw properties to the producer u64 maximum; bind token-account, mint, owner when non-null, and program identities to canonical Solana/token-program constraints; preserve both parameter styles, real bodies, null misses, closed fields, coverage/completeness constants, and the 24 required-field negatives.
-- Validation results: producer positives 2/2 PASS; null misses 2/2 PASS; descriptors 2/2 PASS; missing-required negatives 24/24 reject; over-u64 mutations 4/4 FAIL because admitted; noncanonical identity mutations 5/5 FAIL because admitted. Focused RPC/query-contract 25/25, Meteora 19/19, full 449/449, syntax 86/86, and replay PASS.
+- Validation results: producer positives 2/2 PASS; null misses 2/2 PASS; descriptors 2/2 PASS; missing-required negatives 24/24 reject; over-u64 mutations 4/4 reject; noncanonical identity mutations 6/6 reject; nullable controls 3/3 PASS. Focused RPC/query-contract 35/35, Meteora 12/12, full 451/451, syntax 86/86, and replay PASS.
 - Compatibility/performance impact: discovery hardening changes digest/ETag and generated validators while canonical runtime bytes remain compatible. String-length/raw-maximum validation is constant time over already-bounded fields.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-RPC-TOKEN-LARGEST-ACCOUNTS-045
+
+- Severity: `PASS` (delivered by `b72b16e`)
+- Owner: `DEV`
+- Reproduction: create a canonical finalized SPL-token snapshot with two positive accounts, call `getIndexedTokenLargestAccounts` using named then positional pagination, validate both real pages and a null miss, and apply the published result schema to isolated row/envelope contradictions.
+- Evidence: the exact descriptor publishes both styles, required mint, optional limit/cursor, default limit 20, 1-500 bounds, and nullable 1,024-character cursor. Both real pages and the null miss validate; 13/13 missing-required controls, six row contradictions (zero/over-u64 amounts, over-u64 withheld, noncanonical account/owner/program), and five envelope contradictions (mint, finality, coverage, completeness, cursor) reject.
+- Affected contracts: holder/whale discovery, wallet/token concentration clients, finalized account-snapshot pagination, cursor regeneration, generated RPC validators, exact raw precision, and schema digest/ETag.
+- Expected versus actual behavior: discovery exactly describes the existing bounded finalized producer and excludes rows or envelopes that cannot cross its runtime boundary. Expected and actual match.
+- Acceptance criteria: exact positional/named descriptor; bounded cursor and page size; null miss; closed page and row shapes; canonical mint/account/owner/program identities; positive u64 balances; nullable u64 withheld balances; finalized/coverage/completeness constants; first/continued page and cursor isolation. All criteria are met.
+- Validation results: descriptor 1/1 PASS; real pages 2/2 PASS; null miss 1/1 PASS; missing-required controls reject 13/13; row contradictions reject 6/6; envelope contradictions reject 5/5. Focused RPC/query-contract 35/35, full 451/451, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: discovery/digest/ETag change only; runtime bytes, cursor behavior, persistence, providers, REST/WebSocket, database state, and configuration remain unchanged. Validation remains bounded to 500 rows.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
@@ -2341,7 +2360,7 @@ The contract minimum is satisfied with 86 distinct evidence domains: 82 PASS, 3 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 672,891,271 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 676,462,286 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -2350,4 +2369,4 @@ The contract minimum is satisfied with 86 distinct evidence domains: 82 PASS, 3 
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: make the public indexed-transaction view finalized-only so a confirmed retained transaction cannot cross `getIndexedTransaction` against its finalized-only schema, while preserving internal confirmed ingestion, finality promotion, canonical finalized results, null misses, and existing block/page quarantine controls.
+- NEXT_DEV_ACTION: bind each Meteora traversal payload hash to independently verifiable finalized snapshot evidence or a trusted producer signature while retaining all completed direction, transfer-fee, range, aggregate, path, capacity, execution-reproduction, and schema controls.
