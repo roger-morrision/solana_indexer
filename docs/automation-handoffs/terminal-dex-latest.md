@@ -1649,3 +1649,12 @@
 - Compatibility/migration/configuration: nested RPC result descriptors, bootstrap schema, digest, and ETag change; canonical runtime bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: paginated block/signature results and token/intelligence RPC schemas retain shallower contracts; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: enforce ancestry, nonnegative time, payer identity, and finalized provenance invariants before accepting block or transaction RPC results for replay, explorer, or cache use.
+
+## UPSTREAM paginated history RPC contracts
+
+- Selected ID: `UPSTREAM-RPC-PAGINATED-HISTORY-CONTRACTS-043` (explorer history, wallet activity, replay, cursor, and commercial RPC readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected paginated block/signature history after canonical singular-result closure because both producers have stable bounded pages and snapshot-bound cursor invalidation already covered at runtime.
+- Contract: `getIndexedBlocks` and `getIndexedSignaturesForAddress` now publish positional/named parameter styles, required/optional identities, default limit 100, exact 1–500 bounds, and nullable bounded cursors. Result schemas close page envelopes, cap rows at 500, reuse canonical block rows, close finalized signature rows, and bind retained-history coverage plus `complete:false`. Bootstrap descriptors are exact full-schema values.
+- Compatibility/migration/configuration: RPC discovery, bootstrap schema, digest, and ETag change; runtime pagination, cursor invalidation, response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: token-account, supply, metadata, holder, and owner-account RPC result schemas retain shallow descriptors; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: generate paginated history requests and validators from the new descriptors, preserving 500-row limits and treating invalidated cursors as fresh-page restart signals rather than merging snapshots.
