@@ -1433,3 +1433,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: query value constraints and other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate template-route builders from the closed resource-identifier profile and reject decoded slashes, controls, noncanonical encoding, or out-of-range identifiers before requests are sent.
+
+## UPSTREAM query-contract value-catalog closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-VALUE-CATALOG-SCHEMA-021` (commercial request-builder profile readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the query-value catalog boundary because HTTP routes reference ten shared validation profiles, yet the bootstrap schema previously accepted omitted profiles, private injected profiles, and scalar replacements.
+- Contract: `query_contracts_success_v1.valueConstraints` is now closed to exactly `amountRaw`, `collectionFilter`, `cursor`, `inputMint`, `interval`, `limit`, `limitTick`, `side`, `status`, and `window`, with every entry required to remain an object. Exhaustive focused negatives remove every profile and reject unknown, scalar, null, and array catalogs.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: each query-value profile retains an object/type guarantee and can be semantically closed in dependency-ordered increments; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the query-value profile catalog and reject discovery documents with missing, unknown, or non-object profiles before building any route request.
