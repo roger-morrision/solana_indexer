@@ -1424,3 +1424,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: path/value constraints and other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate request builders from the exact canonicalization policy and reject alternate encoding, duplicate-name, or alternate-order identities before sending requests.
+
+## UPSTREAM query-contract path-constraint closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-PATH-CONSTRAINTS-SCHEMA-020` (template-route identity and safety readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected path constraints because token, pool, wallet, account, and transaction detail routes share this identity boundary, yet the bootstrap schema previously accepted arbitrary encoding kinds, lengths, decoded separators, controls, and extensions.
+- Contract: `query_contracts_success_v1.pathValueConstraints` is now closed to the sole `resourceIdentifier` profile, which fixes canonical percent-encoded segments, decoded length 1–256, and rejection of decoded slashes and control characters. Focused negatives reject kind substitution, widened bounds, weakened safety flags, missing fields, and unknown outer or nested policy.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: query value constraints and other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate template-route builders from the closed resource-identifier profile and reject decoded slashes, controls, noncanonical encoding, or out-of-range identifiers before requests are sent.
