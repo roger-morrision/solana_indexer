@@ -1451,3 +1451,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: eight lower-risk query-value profiles retain object/type guarantees for subsequent semantic closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate amount and cursor validators and reject zero/overflow trade sizes or unscoped, malformed, and oversized continuation cursors before requests are sent.
+
+## UPSTREAM string query-value profile closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-STRING-VALUE-PROFILES-SCHEMA-023` (discovery/filter and concentrated-liquidity request readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected `collectionFilter`, `inputMint`, and `limitTick` because discovery/trending filters and pool-quote identity/tick controls are runtime-enforced but remained arbitrary objects in the bootstrap schema.
+- Contract: collection filters are closed to 1–64 UTF-16 code units with controls forbidden; input mint text is closed to a nonempty string profile; and limit ticks are closed to signed safe-integer string syntax. Focused negatives reject missing/unknown fields, widened filter length, control allowance, empty mint allowance, wrong tick kind, and decimal tick syntax.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: five enum/integer query-value profiles retain object/type guarantees for subsequent semantic closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate collection-filter, input-mint, and limit-tick validators and reject controls, oversized filters, empty mints, or non-integer tick syntax before requests are sent.
