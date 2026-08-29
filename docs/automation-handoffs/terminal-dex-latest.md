@@ -1287,3 +1287,12 @@
 - Compatibility/migration/configuration: the quote body and discovery schema gain four required evidence fields, changing the schema digest/ETag. Persistence, provider/RPC/WebSocket behavior, database migrations, and configuration are unchanged; generated clients must refresh before admitting new quotes.
 - Remaining boundary: aggregate trading/protocol fee, maximum fee rate, end-bin, and bin-array membership require bounded per-bin traversal evidence and remain fail-closed roadmap work.
 - NEXT_WEB_ACTION: regenerate Meteora validators for the four transfer-fee parameters and enforce `meteora_transfer_fee_economics` before displaying or preparing a quote.
+
+## UPSTREAM Meteora bounded bin-traversal parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-BIN-TRAVERSAL-PARITY-004` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001` and `UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001`).
+- BA/PO decision: fresh 22-opportunity reconciliation selected the remaining deterministic HIGH Meteora gap because bounded consumed-bin evidence closes fee display, path provenance, AI safety, and commercial preparation admission without exposing the full finalized bin snapshot.
+- Contract: Meteora quotes now include one closed aggregate row per traversed bin array, capped at 13,312 rows. `meteora_bin_traversal_economics` binds net consumed input, gross output, trading/protocol fee sums, maximum fee rate, directional row order, per-array start/end bins, each endpoint-to-array mapping, and the exact sorted unique bin-array set.
+- Compatibility/migration/configuration: the quote body and discovery schema gain required bounded `binTraversal` evidence, changing the schema digest/ETag. Persistence, provider/RPC/WebSocket behavior, database migrations, and configuration are unchanged; generated clients must refresh before accepting quotes.
+- Validation boundary: aggregate/path mutations are now rejected from producer-carried evidence; individual row economics remain derived by the existing exact offline quote engine and are never an authorization signal.
+- NEXT_WEB_ACTION: regenerate Meteora quote validators with bounded `binTraversal` rows and enforce `meteora_bin_traversal_economics` before display or preparation.
