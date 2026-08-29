@@ -425,6 +425,15 @@ test("RPC response schema closes success error and bounded batch envelopes", asy
   const producedBatch = await call([{ jsonrpc: "2.0", id: 3, method: "getIndexerStats" }, { jsonrpc: "2.0", id: 4, method: "unknown" }]); assert.equal(producedBatch.length, 2); assert.ok("result" in producedBatch[0]); assert.ok("error" in producedBatch[1]);
 });
 
+test("RPC discovery publishes the exact read-only method and result-schema catalog", () => {
+  const contract = queryContractSnapshot(), methods = contract.rpc.methods, names = methods.map(({ method }) => method), schemas = Object.keys(contract.rpcResultSchemas);
+  assert.deepEqual({ path: contract.rpc.path, readOnly: contract.rpc.readOnly, batch: contract.rpc.batch }, { path: "/rpc", readOnly: true, batch: { minimumItems: 1, maximumItems: 100 } });
+  assert.deepEqual(names, ["getIndexerHealth", "getIndexerStats", "getIndexedBlock", "getIndexedBlocks", "getIndexedTransaction", "getIndexedSignaturesForAddress", "getIndexedTokenAccount", "getIndexedTokenSupply", "getIndexedTokenMetadata", "getIndexedTokenLargestAccounts", "getIndexedTokenHolders", "getIndexedTokenAccountsByOwner"]);
+  assert.equal(new Set(names).size, 12); assert.equal(new Set(methods.map(({ resultSchema }) => resultSchema)).size, 12); assert.deepEqual(methods.map(({ resultSchema }) => resultSchema).sort(), schemas.sort());
+  for (const { resultSchema } of methods) assert.ok(contract.rpcResultSchemas[resultSchema].type, resultSchema);
+  assert.deepEqual(contract.rpcResultSchemas.indexed_block_result_v1.type, ["object", "null"]); assert.equal(contract.rpcResultSchemas.indexed_blocks_result_v1.type, "object");
+});
+
 test("legacy block and transaction collections publish their bare-array schema", () => {
   const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.legacy_collection_success_v1;
   assert.deepEqual(schema, { type: "array" });

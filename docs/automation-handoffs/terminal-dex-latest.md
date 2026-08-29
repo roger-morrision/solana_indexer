@@ -1613,3 +1613,12 @@
 - Compatibility/migration/configuration: discovery schema and digest/ETag change; invalid object/array/fractional RPC IDs now fail closed as JSON-RPC invalid requests. Valid RPC methods, status codes, response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Consumers must refresh discovery before enforcing the envelope union.
 - Remaining boundary: RPC method inventory and method-specific result schemas are not yet published; result payloads intentionally remain JSON-valued until that catalog can be evidence-backed. Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate RPC parsing from the three envelope variants and reject mixed result/error members, extra envelope fields, invalid JSON-RPC versions, malformed errors, and batches outside 1–100 items.
+
+## UPSTREAM RPC method catalog
+
+- Selected ID: `UPSTREAM-RPC-METHOD-CATALOG-041` (commercial RPC client generation, wallet/token intelligence, replay, and read-only safety readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the method inventory after envelope closure because dispatch implements 12 read-only methods while discovery exposed no authoritative method-to-result binding.
+- Contract: query-contract discovery now publishes `/rpc` read-only identity, the exact 1–100 batch boundary, all 12 implemented methods, one unique result-schema identity per method, and a complete result-schema catalog. Nullable producer outcomes are distinguished from object-only results without claiming unverified nested closure.
+- Compatibility/migration/configuration: discovery bootstrap shape, digest, and ETag change; RPC dispatch, valid request/response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: the 12 result schemas currently bind top-level JSON kinds only; deeper field closure and parameter-style contracts remain incremental work. Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: generate the RPC allowlist and result dispatch from `rpc.methods`, resolve every `resultSchema` through `rpcResultSchemas`, and reject unknown, duplicate, missing, or non-read-only method bindings.
