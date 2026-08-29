@@ -1676,3 +1676,12 @@
 - Compatibility/migration/configuration: discovery descriptors, bootstrap schema, digest, and ETag change; runtime request/response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated clients must refresh discovery.
 - Remaining boundary: metadata, largest-account, holder, and owner-account RPC schemas retain shallow descriptors; Meteora row authenticity still requires independently anchored finalized evidence or a trusted signature.
 - NEXT_WEB_ACTION: regenerate token-account and supply RPC validators and preserve raw integer strings, nullable withheld amounts, finalized supply evidence, and distinct completeness semantics.
+
+## UPSTREAM finalized transaction and token-boundary parity
+
+- Selected IDs: `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042`, `UPSTREAM-RPC-TOKEN-BALANCE-CONTRACTS-044` (replay safety, wallet balances, holder analysis, and generated RPC client integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and prioritized two QC-confirmed producer/schema mismatches: confirmed transactions crossing a finalized-only public contract and token schemas admitting impossible over-u64 values or noncanonical identities.
+- Contract: internal confirmed ingestion remains canonical, while the public indexed-transaction collection now exposes finalized rows only. Token account/supply schemas cap all raw quantities at u64, require canonical 32–44 character base58 identities, and restrict program IDs to SPL Token or Token-2022.
+- Compatibility/migration/configuration: confirmed transaction RPC results are intentionally withheld until finality; finalized response bytes remain unchanged. Discovery schema, digest, and ETag change; no migration or configuration change is required.
+- Validation: focused coverage preserves canonical confirmed ingestion while proving the public view is empty before promotion, and asserts every token identity/u64 bound in discovery.
+- NEXT_WEB_ACTION: regenerate transaction and token-balance validators, treating pre-finalized transactions as unavailable and rejecting noncanonical identities or over-u64 quantities locally.

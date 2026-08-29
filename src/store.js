@@ -796,7 +796,7 @@ export class IndexStore {
   indexedTransactions() {
     const entries = Object.entries(this.state.transactions);
     if (entries.some(([key, transaction]) => !canonicalPersistedTransaction(key, transaction, this.state.blocks))) return { available: false, reason: "indexed_transaction_evidence_invalid", data: [] };
-    return { available: true, reason: null, data: entries.map(([, row]) => row).sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature)) };
+    return { available: true, reason: null, data: entries.map(([, row]) => row).filter((row) => row.provenance.commitment === "finalized").sort((a, b) => b.slot - a.slot || a.signature.localeCompare(b.signature)) };
   }
   instructionQuality() {
     const canonical = canonicalPersistedInstructionLog(this.state.instructions, this.state.transactions, this.state.blocks);

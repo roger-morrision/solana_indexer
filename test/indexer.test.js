@@ -472,6 +472,8 @@ test("token account and supply RPC contracts close parameters and producer resul
   const account = contract.rpcResultSchemas.indexed_token_account_result_v1, supply = contract.rpcResultSchemas.indexed_token_supply_result_v1;
   assert.equal(account.oneOf[0].type, "null"); assert.equal(account.oneOf[1].additionalProperties, false); assert.equal(account.oneOf[1].properties.coverage.values[0], "latest_canonical_observed_account"); assert.deepEqual(account.oneOf[1].properties.complete.values, [false]);
   assert.equal(supply.oneOf[0].type, "null"); assert.equal(supply.oneOf[1].additionalProperties, false); assert.deepEqual(supply.oneOf[1].properties.commitment.values, ["finalized"]); assert.deepEqual(supply.oneOf[1].properties.complete.values, [true]); assert.equal(supply.oneOf[1].properties.sourceHash.pattern, "^[0-9a-f]{64}$");
+  for (const schema of [account.oneOf[1].properties.amountRaw, account.oneOf[1].properties.withheldAmountRaw, supply.oneOf[1].properties.supplyRaw, supply.oneOf[1].properties.mintWithheldAmountRaw]) assert.equal(schema.maximumRaw, "18446744073709551615");
+  for (const schema of [account.oneOf[1].properties.tokenAccount, account.oneOf[1].properties.mint, account.oneOf[1].properties.owner, supply.oneOf[1].properties.mint]) { assert.equal(schema.minimumLength, 32); assert.equal(schema.maximumLength, 44); assert.equal(schema.pattern, "^[1-9A-HJ-NP-Za-km-z]{32,44}$"); }
 });
 
 test("legacy block and transaction collections publish their bare-array schema", () => {
@@ -3171,6 +3173,14 @@ test("transaction readiness, REST, and RPC fail closed on invalid persisted evid
   store.state.transactions.invalid = { ...store.state.transactions["signature-1"] }; const server = createServer({ staleAfterMs: 120_000 }, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
   const rpc = async (method) => (await (await fetch(`${base}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: ["signature-1"] }) })).json()); assert.equal((await rpc("getIndexedTransaction")).error.code, -32002);
   for (const pathname of ["/api/v1/transactions", "/api/transactions", "/api/transaction/signature-1"]) { const response = await fetch(`${base}${pathname}`); assert.equal(response.status, 503); assert.deepEqual(await response.json(), { schemaVersion: 1, available: false, reason: "indexed_transaction_evidence_invalid" }); }
+});
+
+test("public indexed transaction view withholds canonical confirmed rows until finalization", async () => {
+  const store = new IndexStore("unused"); await store.load();
+  const raw = JSON.parse(await fs.readFile(fixture, "utf8")); raw.provenance = { ...raw.provenance, commitment: "confirmed" };
+  store.apply(parseBlock(raw));
+  assert.equal(store.structureQuality().canonical, true);
+  assert.deepEqual(store.indexedTransactions(), { available: true, reason: null, data: [] });
 });
 
 test("instruction readiness and warehouse export fail closed on detached or duplicate evidence", async () => {
