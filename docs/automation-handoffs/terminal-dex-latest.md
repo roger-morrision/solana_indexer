@@ -1442,3 +1442,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: each query-value profile retains an object/type guarantee and can be semantically closed in dependency-ordered increments; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the query-value profile catalog and reject discovery documents with missing, unknown, or non-object profiles before building any route request.
+
+## UPSTREAM critical query-value profile closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-CRITICAL-VALUE-PROFILES-SCHEMA-022` (trading-size and replay/page identity safety).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected `amountRaw` plus `cursor` because they protect exact-input trading bounds and stable scoped pagination, while their entries remained arbitrary objects after catalog closure.
+- Contract: `amountRaw` is closed to positive canonical u64 decimal strings bounded to 1–18446744073709551615 and 20 characters. `cursor` is closed to canonical URL-safe cursor text, 1,024 characters, and mandatory collection-scope binding. Focused negatives reject missing/unknown fields, zero/overflow bounds, weakened scope binding, and widened cursor length.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: eight lower-risk query-value profiles retain object/type guarantees for subsequent semantic closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate amount and cursor validators and reject zero/overflow trade sizes or unscoped, malformed, and oversized continuation cursors before requests are sent.
