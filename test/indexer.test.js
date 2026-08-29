@@ -465,6 +465,15 @@ test("paginated block and signature RPC contracts bind limits cursors and page r
   for (const [pageBody, schema] of [[blocks, blocksSchema], [signatures, signaturesSchema]]) { assert.equal(schema.additionalProperties, false); assert.ok(pageBody.data.length <= schema.properties.data.maximumItems); assert.ok(pageBody.nextCursor === null || /^[A-Za-z0-9_-]{1,1024}$/.test(pageBody.nextCursor)); }
 });
 
+test("token account and supply RPC contracts close parameters and producer results", () => {
+  const contract = queryContractSnapshot(), methods = new Map(contract.rpc.methods.map((row) => [row.method, row]));
+  assert.deepEqual(methods.get("getIndexedTokenAccount").params, { styles: ["positional", "named"], required: ["tokenAccount"] });
+  assert.deepEqual(methods.get("getIndexedTokenSupply").params, { styles: ["positional", "named"], required: ["mint"] });
+  const account = contract.rpcResultSchemas.indexed_token_account_result_v1, supply = contract.rpcResultSchemas.indexed_token_supply_result_v1;
+  assert.equal(account.oneOf[0].type, "null"); assert.equal(account.oneOf[1].additionalProperties, false); assert.equal(account.oneOf[1].properties.coverage.values[0], "latest_canonical_observed_account"); assert.deepEqual(account.oneOf[1].properties.complete.values, [false]);
+  assert.equal(supply.oneOf[0].type, "null"); assert.equal(supply.oneOf[1].additionalProperties, false); assert.deepEqual(supply.oneOf[1].properties.commitment.values, ["finalized"]); assert.deepEqual(supply.oneOf[1].properties.complete.values, [true]); assert.equal(supply.oneOf[1].properties.sourceHash.pattern, "^[0-9a-f]{64}$");
+});
+
 test("legacy block and transaction collections publish their bare-array schema", () => {
   const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.legacy_collection_success_v1;
   assert.deepEqual(schema, { type: "array" });

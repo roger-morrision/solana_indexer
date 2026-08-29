@@ -1667,3 +1667,12 @@
 - Compatibility/migration/configuration: valid finalized response bytes and discovery schemas are unchanged; malformed legacy retained blocks are quarantined until replayed from canonical evidence. No migration or configuration change is required.
 - Validation: focused RPC regression covers missing counts and non-finalized provenance in addition to existing malformed-key and cursor cases.
 - NEXT_WEB_ACTION: continue enforcing the published finalized block schema and treat retained-evidence unavailability as retryable quarantine rather than accepting partial explorer or replay rows.
+
+## UPSTREAM token-balance RPC contract closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-BALANCE-CONTRACTS-044` (wallet balances, token detail, holders, trading safety, and commercial RPC client readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected token account plus supply after block-history producer parity because both canonical snapshot-backed producers are stable while discovery still exposed only shallow object/null descriptors.
+- Contract: `getIndexedTokenAccount` and `getIndexedTokenSupply` now publish exact positional/named required identities. Their result schemas are null-or-closed producer objects and bind exact raw balances, decimals, slots, finalized supply provenance, immutable source hash, coverage, and completeness semantics.
+- Compatibility/migration/configuration: discovery descriptors, bootstrap schema, digest, and ETag change; runtime request/response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated clients must refresh discovery.
+- Remaining boundary: metadata, largest-account, holder, and owner-account RPC schemas retain shallow descriptors; Meteora row authenticity still requires independently anchored finalized evidence or a trusted signature.
+- NEXT_WEB_ACTION: regenerate token-account and supply RPC validators and preserve raw integer strings, nullable withheld amounts, finalized supply evidence, and distinct completeness semantics.
