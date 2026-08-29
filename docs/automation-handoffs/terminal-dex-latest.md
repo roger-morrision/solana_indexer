@@ -1496,3 +1496,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes, ingestion, persistence, providers, REST/RPC/WebSocket behavior, migrations, or configuration.
 - Remaining boundary: the HTTP route catalog retains incremental closure opportunities; individual embedded schemas remain governed by the already published fail-closed dialect, while Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the response-schema registry and reject discovery documents with missing, unknown, or non-object schema entries before resolving any route outcome.
+
+## UPSTREAM HTTP route-envelope schema closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-HTTP-ROUTE-ENVELOPE-SCHEMA-028` (commercial REST/RPC, discovery, replay, and safety admission readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the 54-route HTTP catalog envelope because generated clients depend on its method, path, parameter partitions, defaults, constraints, conditions, and outcomes, while the bootstrap previously guaranteed only a nonempty array.
+- Contract: every HTTP catalog row now requires the exact ten-field route envelope, permits only GET/POST, requires object and array partitions of the correct kinds, requires at least one outcome, forbids unknown row fields, fixes catalog cardinality, and requires unique paths. Focused negatives reject every missing field, scalar rows, duplicate paths, unsupported methods, empty outcomes, unknown policy, and shortened catalogs.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime route behavior, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, or configuration.
+- Remaining boundary: nested HTTP outcome and parameter-profile objects retain incremental semantic closure opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the HTTP route registry and reject malformed, missing, duplicated, unknown-field, unsupported-method, or outcome-empty route envelopes before generating requests.
