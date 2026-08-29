@@ -1577,3 +1577,12 @@
 - Compatibility/migration/configuration: discovery vocabulary, two success-schema names, and digest/ETag change; runtime status codes, headers, response bodies, ingestion, persistence, providers, WebSocket transport, migrations, and configuration remain unchanged. Generated clients must refresh discovery before enforcing the new relationship.
 - Remaining boundary: RPC method-specific results and executable-depth success bodies retain deeper nested schema opportunities; optional-parameter default maps remain unbound; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: implement fail-closed `response_outcome_semantics` validation and reject outcome/status, retryability, content-type, body-presence, contract-identity, or response-schema contradictions before applying retry, parsing, or cache behavior.
+
+## UPSTREAM parameter-default map invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-PARAMETER-DEFAULT-MAP-037` (commercial request-builder, cache identity, trending, pagination, candle, and executable-depth readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected default-map binding because optional query defaults alter request semantics but the published object admitted omitted defaults, undeclared keys, and values inconsistent with their mapped constraint profile.
+- Contract: the fail-closed dialect adds `map_profile_defaults`; `parameterDefaults` must contain exactly the optional parameters whose `parameterConstraints` profile publishes a default, and every value must equal that catalog default. All 54 routes pass; focused mutations reject omission, injection, changed defaults, and defaults on a non-defaulted optional profile.
+- Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, while runtime defaulting, request admission, responses, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged. Generated clients must refresh discovery before enforcing the relationship.
+- Remaining boundary: RPC method-specific results and executable-depth success bodies retain deeper nested schema opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: enforce `map_profile_defaults` when generating requests and reject missing, injected, or profile-inconsistent defaults before deriving cache keys or implicit query values.
