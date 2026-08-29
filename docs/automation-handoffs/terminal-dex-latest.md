@@ -1514,3 +1514,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime status codes, headers, bodies, ingestion, persistence, providers, RPC/WebSocket transport, migrations, or configuration.
 - Remaining boundary: nested parameter, default, condition, and path-profile maps retain incremental semantic closure opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate route-outcome validators and reject unknown, incomplete, credential-bearing, unsupported-status, or unsupported-representation outcomes before applying retry or body parsing behavior.
+
+## UPSTREAM HTTP parameter-partition schema closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-HTTP-PARAMETER-PARTITIONS-SCHEMA-030` (commercial request-builder and quote-route admission readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected parameter partitions because required/optional query identity and the CLMM/Whirlpool limit-tick condition control request construction but their array members and nested condition remained arbitrary.
+- Contract: parameter, required, and optional partitions now contain unique nonempty strings. Conditional requirements are bounded to the sole closed limit-tick/pool-program rule with exact ordered CLMM and Whirlpool program IDs. Focused negatives reject duplicate/scalar names, unknown fields, parameter or kind substitution, reordered programs, and multiple conditions.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime query validation, quotes, ingestion, persistence, providers, REST/RPC/WebSocket transport, migrations, or configuration.
+- Remaining boundary: dynamic path/profile/default maps retain incremental semantic closure opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate parameter partitions and conditional rules and reject duplicate or non-string names, unknown condition fields, substituted parameters/kinds, reordered program sets, or multiple conditions.
