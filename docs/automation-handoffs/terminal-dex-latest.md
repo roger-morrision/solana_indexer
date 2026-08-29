@@ -1460,3 +1460,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: five enum/integer query-value profiles retain object/type guarantees for subsequent semantic closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate collection-filter, input-mint, and limit-tick validators and reject controls, oversized filters, empty mints, or non-integer tick syntax before requests are sent.
+
+## UPSTREAM enum and integer query-value profile closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-ENUMERIC-VALUE-PROFILES-SCHEMA-024` (discovery ranking, candles, pagination, and quote-direction readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the final five query-value profiles because their exact enums, numeric bounds, defaults, and leading-zero rules affect discovery/trending, candle aggregation, pagination, pool lifecycle filtering, and trading direction.
+- Contract: `interval`, `limit`, `side`, `status`, and `window` are now closed to their exact ordered values, kinds, defaults, integer bounds, regex, and leading-zero policy. Focused negatives reject every missing/unknown field, reordered enum, weakened interval rule, widened limit, changed defaults, and alternate direction/window defaults.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: all ten query-value profiles are semantically closed; other bootstrap HTTP/WebSocket/preparation/registry sections remain candidates for incremental closure, while Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate interval, limit, side, status, and window validators and enforce the exact ordered enums, bounds, defaults, and leading-zero rules before requests are sent.
