@@ -1336,3 +1336,11 @@
 - Contract: traversal rows now publish their computed maximum fee-rate capacity, and `meteora_bin_array_output_capacity` requires exact equality for every row alongside amount and fee capacities.
 - Compatibility/migration/configuration: one required bounded row field and expanded relationship change quote bytes and schema digest/ETag. Persistence, providers, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
 - NEXT_WEB_ACTION: regenerate Meteora validators and require every traversal row's maximum fee rate to equal its finalized rate capacity.
+
+## UPSTREAM Meteora finalized capacity commitment
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-BIN-ARRAY-CAPACITY-COMMITMENT-010` (advances `UPSTREAM-METEORA-DLMM-BIN-ARRAY-FEE-CAPACITY-PARITY-008` and `UPSTREAM-METEORA-DLMM-BIN-ARRAY-RATE-PARITY-009`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected QC's two coupled-mutation failures as the highest-value dependency-ready trading-safety increment. Exact per-array economics already exist, but their producer-carried capacities needed a content binding to finalized source evidence.
+- Contract: every Meteora traversal row now carries its finalized bin-array payload hash and a SHA-256 JSON-array commitment over the complete row identity, amount, fee, rate-capacity tuple, and payload hash. The new `meteora_bin_array_capacity_commitment` relationship lets generated validators reject coupled value/capacity changes while retaining existing exact capacity rules.
+- Compatibility/migration/configuration: two required row fields and one relationship kind change quote bytes and the discovery digest/ETag. Generated clients must refresh. Persistence, providers, RPC/WebSocket transport, database migrations, and configuration are unchanged; quotes remain explicitly non-executable and unsafe for automation.
+- NEXT_WEB_ACTION: regenerate Meteora validators and verify each `capacityCommitment` with `sha256-json-array-v1` before displaying or preparing the quote.
