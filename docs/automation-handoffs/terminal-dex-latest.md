@@ -1304,3 +1304,11 @@
 - Contract: Meteora quote and traversal evidence now cap bin-array indexes to `-6656..6655` and their derivable bin IDs to `-465920..465919`, matching finalized account decoding and execution admission.
 - Compatibility/migration/configuration: discovery-only fail-closed hardening changes the schema digest/ETag and rejects values no producer could emit. Valid quote bytes, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: regenerate Meteora validators and reject bin-array indexes or bin IDs outside the published decoder domain before display or preparation.
+
+## UPSTREAM Meteora per-array output-capacity parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-BIN-ARRAY-CAPACITY-PARITY-006` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001` and `UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected QC's reproducible remaining HIGH defect because global sums admitted impossible redistribution across finalized bin arrays.
+- Contract: each Meteora traversal row now publishes the finalized output capacity visited in that array. `meteora_bin_array_output_capacity` requires every nonterminal array to be fully exhausted and caps the terminal array, rejecting redistribution while preserving partial fills.
+- Compatibility/migration/configuration: the quote body and discovery dialect gain one required bounded row field and relationship, changing the schema digest/ETag. Persistence, providers, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
+- NEXT_WEB_ACTION: regenerate Meteora validators and enforce `meteora_bin_array_output_capacity` before displaying or preparing a quote.
