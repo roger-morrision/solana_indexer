@@ -1532,3 +1532,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime routes, quota keys, cache behavior, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, or configuration.
 - Remaining boundary: method/path-template binding and disjoint parameter partitions require further schema-level relationships; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: enforce the published `unique_by(path)` relationship when loading discovery and reject duplicate route identities before generating clients, quotas, caches, or replay mappings.
+
+## UPSTREAM HTTP set-partition invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-HTTP-SET-PARTITION-032` (commercial request identity, cache, quota, signature, and replay readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the required/optional partition gap after independent evidence showed the published schema admitted overlap, omission, and unknown-name contradictions even though runtime builders and helper tests expected an exact partition.
+- Contract: the fail-closed dialect adds `set_partition`; every HTTP row declares `parameters` as the whole and `requiredParameters` plus `optionalParameters` as disjoint exhaustive parts. Real routes pass; focused mutations reject overlap, incomplete coverage, and unknown names.
+- Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime query handling, cache/quota behavior, signatures, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: method/path-template and dynamic path/profile/default-map bindings retain incremental schema-level opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: implement fail-closed `set_partition` validation and reject any route whose required and optional parameters overlap, omit a declared parameter, or introduce an undeclared name.
