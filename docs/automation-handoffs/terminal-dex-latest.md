@@ -1478,3 +1478,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime WebSocket messages, admission, persistence, migrations, providers, RPC behavior, or configuration.
 - Remaining boundary: other bootstrap HTTP, preparation, registry, and response-schema catalogs retain incremental closure opportunities; Meteora schema-only payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the WebSocket discovery validator and require the exact path, ordered catalogs, topic filters, filter constraints, and acknowledgement values before opening a subscription.
+
+## UPSTREAM preparation-variant catalog closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-PREPARATION-CATALOG-SCHEMA-026` (AI/trading-safety and commercial preparation readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the preparation catalog because type/protocol membership, route family, quote schema, and instruction-evidence schema govern unsigned transaction admission but the bootstrap previously guaranteed only a nonempty array.
+- Contract: `query_contracts_success_v1.preparationVariants` is closed to the exact ordered eleven-entry catalog and exact five-field row shape. Focused negatives reject omission, reordering, protocol substitution, private fields, and quote or instruction-schema remapping.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not quote/preparation response bytes, transaction construction, persistence, providers, REST/RPC/WebSocket transport, migrations, or configuration.
+- Remaining boundary: HTTP and response-schema bootstrap catalogs retain incremental closure opportunities; Meteora schema-only payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the preparation catalog and reject missing, reordered, remapped, cross-protocol, or extended variants before validating or displaying unsigned preparations.
