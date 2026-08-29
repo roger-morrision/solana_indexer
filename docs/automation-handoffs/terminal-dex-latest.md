@@ -1640,3 +1640,12 @@
 - Compatibility/migration/configuration: RPC discovery descriptors, bootstrap schema, digest, and ETag change; runtime requests/responses, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: paginated block/signature results and the eight token/intelligence result schemas retain top-level-only descriptors; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate block and transaction RPC request/result validation from the new parameter and closed result descriptors before rendering explorer or replay data.
+
+## UPSTREAM canonical block and transaction RPC invariants
+
+- Selected ID: `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042` (high-severity replay/reorg, explorer, and provenance safety correction).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and prioritized the new QC-confirmed gap because type-closed schemas still admitted nine states that canonical persistence and public projections cannot emit.
+- Contract: non-null block results now require nonempty ancestry hashes, `parentSlot < slot`, nonnegative nullable block time, and non-null closed finalized provenance. Non-null transaction results require nonnegative nullable block time, a nonempty fee payer, and the same non-null provenance. All nine retained impossible mutations reject while real results and null misses remain valid.
+- Compatibility/migration/configuration: nested RPC result descriptors, bootstrap schema, digest, and ETag change; canonical runtime bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: paginated block/signature results and token/intelligence RPC schemas retain shallower contracts; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: enforce ancestry, nonnegative time, payer identity, and finalized provenance invariants before accepting block or transaction RPC results for replay, explorer, or cache use.
