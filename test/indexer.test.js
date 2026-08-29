@@ -1668,6 +1668,22 @@ test("Meteora quote schema binds aggregate fees and exact path to traversed bins
   for (const invalid of [{ ...quote, tradingFeeRaw: "3" }, { ...quote, protocolFeeRaw: "0" }, { ...quote, maximumFeeRateNumerator: "249999" }, { ...quote, endBinId: 1 }, { ...quote, binArrayIndexes: [1] }, { ...quote, binTraversal: quote.binTraversal.toReversed() }, { ...quote, binTraversal: [{ ...quote.binTraversal[0], binArrayIndex: 1 }, quote.binTraversal[1]] }]) assert.equal(meteoraBinTraversalValid(invalid, relation), false);
 });
 
+test("Meteora quote schema caps bin evidence to the decoder domain", () => {
+  const schema = queryContractSnapshot().responseBodySchemas.meteora_dlmm_quote_v1;
+  const indexes = schema.properties.binArrayIndexes.items;
+  const traversal = schema.properties.binTraversal.items.properties;
+  assert.deepEqual(indexes, { type: "integer", minimum: -6656, maximum: 6655 });
+  assert.deepEqual(traversal.binArrayIndex, indexes);
+  for (const property of [schema.properties.startBinId, schema.properties.endBinId, traversal.startBinId, traversal.endBinId]) {
+    assert.equal(property.minimum, -465920);
+    assert.equal(property.maximum, 465919);
+  }
+  assert.equal(Math.floor(-465920 / 70), indexes.minimum);
+  assert.equal(Math.floor(465919 / 70), indexes.maximum);
+  assert.equal(-6657 < indexes.minimum, true);
+  assert.equal(6656 > indexes.maximum, true);
+});
+
 test("Meteora quote schema binds fee mode and bin traversal to direction", () => {
   const schema = queryContractSnapshot().responseBodySchemas.meteora_dlmm_quote_v1;
   const relation = schema.relationships.find(({ kind }) => kind === "meteora_directional_semantics");

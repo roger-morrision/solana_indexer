@@ -1296,3 +1296,11 @@
 - Compatibility/migration/configuration: the quote body and discovery schema gain required bounded `binTraversal` evidence, changing the schema digest/ETag. Persistence, provider/RPC/WebSocket behavior, database migrations, and configuration are unchanged; generated clients must refresh before accepting quotes.
 - Validation boundary: aggregate/path mutations are now rejected from producer-carried evidence; individual row economics remain derived by the existing exact offline quote engine and are never an authorization signal.
 - NEXT_WEB_ACTION: regenerate Meteora quote validators with bounded `binTraversal` rows and enforce `meteora_bin_traversal_economics` before display or preparation.
+
+## UPSTREAM Meteora bin-array decoder-range parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-BIN-ARRAY-RANGE-PARITY-005` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001` and `UPSTREAM-QA-PREPARATION-SUCCESS-NESTED-BOUNDARY-001`).
+- BA/PO decision: fresh 22-opportunity reconciliation found that discovery still admitted array indexes outside the decoder and execution domain; tightening this deterministic HIGH preparation boundary outranked unrelated additive work.
+- Contract: Meteora quote and traversal evidence now cap bin-array indexes to `-6656..6655` and their derivable bin IDs to `-465920..465919`, matching finalized account decoding and execution admission.
+- Compatibility/migration/configuration: discovery-only fail-closed hardening changes the schema digest/ETag and rejects values no producer could emit. Valid quote bytes, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: regenerate Meteora validators and reject bin-array indexes or bin IDs outside the published decoder domain before display or preparation.
