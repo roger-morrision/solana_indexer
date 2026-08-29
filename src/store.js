@@ -171,7 +171,15 @@ export function canonicalExecutionQualifications(state) {
   const rows = state?.executionQualifications;
   return Boolean(rows && typeof rows === "object" && !Array.isArray(rows) && Object.entries(rows).every(([pool, row]) => canonicalExecutionQualificationRow(state, pool, row, row?.venueEvidenceSlot)));
 }
-function canonicalPersistedBlock(key, block) { if (!/^(?:0|[1-9]\d*)$/.test(key)) return false; const slot = Number(key); return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot) && typeof block?.blockhash === "string" && Boolean(block.blockhash) && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash) && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot; }
+function canonicalPersistedBlock(key, block) {
+  if (!/^(?:0|[1-9]\d*)$/.test(key)) return false;
+  const slot = Number(key);
+  return Number.isSafeInteger(slot) && (block?.slot == null || block.slot === slot)
+    && typeof block?.blockhash === "string" && Boolean(block.blockhash)
+    && typeof block.previousBlockhash === "string" && Boolean(block.previousBlockhash)
+    && Number.isSafeInteger(block.parentSlot) && block.parentSlot >= 0 && block.parentSlot < slot
+    && [block.transactionCount, block.instructionCount, block.transferCount].every((count) => Number.isSafeInteger(count) && count >= 0);
+}
 function canonicalPersistedTransaction(key, transaction, blocks) {
   const block = blocks?.[String(transaction?.slot)], provenance = transaction?.provenance, blockProvenance = block?.provenance;
   return typeof key === "string" && Boolean(key) && transaction?.signature === key && Number.isSafeInteger(transaction.slot) && transaction.slot >= 0 && canonicalPersistedBlock(String(transaction.slot), block) && canonicalBlockTimeMs(transaction.blockTime) != null && transaction.blockTime === block.blockTime && typeof transaction.success === "boolean" && Number.isSafeInteger(transaction.feeLamports) && transaction.feeLamports >= 0 && typeof transaction.feePayer === "string" && Boolean(transaction.feePayer) && Array.isArray(transaction.accounts) && transaction.accounts.every((account) => typeof account === "string" && Boolean(account)) && Number.isSafeInteger(transaction.logCount) && transaction.logCount >= 0 && ["confirmed", "finalized"].includes(provenance?.commitment) && provenance.genesisHash === MAINNET_GENESIS_HASH && typeof provenance.source === "string" && Boolean(provenance.source) && parseCanonicalUtcTimestamp(provenance.observedAt) != null && provenance.commitment === blockProvenance?.commitment && provenance.genesisHash === blockProvenance?.genesisHash && provenance.source === blockProvenance?.source && provenance.observedAt === blockProvenance?.observedAt;
@@ -775,7 +783,12 @@ export class IndexStore {
   }
   indexedBlocks() {
     const entries = Object.entries(this.state.blocks);
-    if (entries.some(([key, block]) => !canonicalPersistedBlock(key, block) || canonicalBlockTimeMs(block.blockTime) == null)) {
+    if (entries.some(([key, block]) => {
+      const provenance = block?.provenance;
+      return !canonicalPersistedBlock(key, block) || canonicalBlockTimeMs(block.blockTime) == null
+        || provenance?.commitment !== "finalized" || provenance.genesisHash !== MAINNET_GENESIS_HASH
+        || typeof provenance.source !== "string" || !provenance.source || parseCanonicalUtcTimestamp(provenance.observedAt) == null;
+    })) {
       return { available: false, reason: "indexed_block_evidence_invalid", data: [] };
     }
     return { available: true, reason: null, data: entries.map(([key, row]) => ({ ...row, slot: Number(key) })).sort((a, b) => b.slot - a.slot) };

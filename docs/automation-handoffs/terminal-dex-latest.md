@@ -1658,3 +1658,12 @@
 - Compatibility/migration/configuration: RPC discovery, bootstrap schema, digest, and ETag change; runtime pagination, cursor invalidation, response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: token-account, supply, metadata, holder, and owner-account RPC result schemas retain shallow descriptors; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: generate paginated history requests and validators from the new descriptors, preserving 500-row limits and treating invalidated cursors as fresh-page restart signals rather than merging snapshots.
+
+## UPSTREAM retained block admission parity
+
+- Selected IDs: `UPSTREAM-RPC-BLOCK-TRANSACTION-CONTRACTS-042`, `UPSTREAM-RPC-PAGINATED-HISTORY-CONTRACTS-043` (replay/reorg, explorer, cursor, and commercial RPC integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and prioritized the shared QC-confirmed producer defect because retained blocks missing published counts or provenance could escape through both singular and paginated successful RPC responses.
+- Contract: persisted block admission now requires nonnegative transaction/instruction/transfer counts. Public block collections additionally require canonical time and complete finalized mainnet provenance with a named source and canonical observation timestamp, so singular and paginated RPC/REST producers fail closed on incomplete or merely confirmed retained evidence.
+- Compatibility/migration/configuration: valid finalized response bytes and discovery schemas are unchanged; malformed legacy retained blocks are quarantined until replayed from canonical evidence. No migration or configuration change is required.
+- Validation: focused RPC regression covers missing counts and non-finalized provenance in addition to existing malformed-key and cursor cases.
+- NEXT_WEB_ACTION: continue enforcing the published finalized block schema and treat retained-evidence unavailability as retryable quarantine rather than accepting partial explorer or replay rows.
