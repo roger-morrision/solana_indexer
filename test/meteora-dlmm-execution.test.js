@@ -30,7 +30,7 @@ test("Meteora legacy swap construction binds official ABI accounts and finalized
   const args = fixture(), instruction = buildMeteoraDlmmSwapInstruction({ ...args, minimumOutputRaw: "850" });
   assert.equal(instruction.programId, METEORA_DLMM_PROGRAM); assert.equal(instruction.dataHex, `${METEORA_DLMM_EXECUTION_CONSTANTS.swapDiscriminatorHex}e8030000000000005203000000000000`);
   assert.deepEqual(instruction.accounts.slice(0, 15).map(({ signer, writable }) => [signer, writable]), [[false, true], [false, false], [false, true], [false, true], [false, true], [false, true], [false, false], [false, false], [false, true], [false, false], [true, false], [false, false], [false, false], [false, false], [false, false]]);
-  assert.equal(instruction.accounts.at(-1).address, args.pool.binArrays[0].address); assert.equal(instruction.evidence.minimumOutputRaw, "850");
+  assert.equal(instruction.accounts.at(-1).address, args.pool.binArrays[0].address); assert.equal(instruction.evidence.minimumOutputRaw, "850"); assert.equal(instruction.evidence.quoteEconomicsVerification, "legacy_unattested");
   assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...args, minimumOutputRaw: "901" }), /bounds/); assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...args, quote: { ...args.quote, binArrayIndexes: [512] }, minimumOutputRaw: "850" }), /bitmap-extension/); assert.throws(() => buildMeteoraDlmmSwapInstruction({ ...args, pool: { ...args.pool, tokenProgram0: address(12) }, minimumOutputRaw: "850" }), /evidence/);
 });
 

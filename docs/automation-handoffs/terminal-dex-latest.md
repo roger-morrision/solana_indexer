@@ -1352,3 +1352,12 @@
 - Contract: Meteora quotes publish `calculatedAtUnixMs`, preserving the exact producer calculation context. Before constructing a current-contract swap, execution reruns the exact quote engine over the supplied finalized pool and bin arrays and requires deep equality with every quote field; coupled tuple mutations now fail even when their digest is recomputed.
 - Compatibility/migration/configuration: one required quote timestamp changes quote bytes and the discovery digest/ETag. Legacy internal construction fixtures without the new field remain compatible, while every quote emitted by the current producer takes the strict reproduction path. Persistence, providers, RPC/WebSocket transport, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: refresh the Meteora quote contract and require `calculatedAtUnixMs`; treat any preparation-time reproduction failure as a hard no-route result.
+
+## UPSTREAM Meteora quote-reproduction instruction evidence
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-REPRODUCTION-EVIDENCE-012` (exposes the outcome of `UPSTREAM-METEORA-DLMM-EXECUTION-RECOMPUTATION-011`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities. Exposing the already-enforced reproduction result to safety and commercial preparation consumers was the highest-value dependency-ready increment; inventing a self-asserted signature for schema-only commitment consumers was rejected because no independent trust key or finalized account proof is configured.
+- Contract: Meteora instruction evidence now requires `quoteEconomicsVerification`. Current producer quotes that pass exact finalized-bin reproduction report `reproduced_from_finalized_bin_arrays`; compatibility-only quotes without calculation context are explicitly labeled `legacy_unattested`.
+- Compatibility/migration/configuration: one required enum changes the instruction-evidence schema digest/ETag. Legacy internal construction remains available but is distinguishable and must not be promoted as verified. Persistence, providers, RPC/WebSocket transport, database migrations, and configuration are unchanged.
+- Remaining boundary: schema-only verification of producer-carried capacity commitments still requires an independently fetched finalized account payload or a configured trusted signing key; ownership is architecture/operator configuration.
+- NEXT_WEB_ACTION: refresh the Meteora instruction-evidence validator and admit preparation only when `quoteEconomicsVerification` is `reproduced_from_finalized_bin_arrays`.
