@@ -1622,3 +1622,12 @@
 - Compatibility/migration/configuration: discovery bootstrap shape, digest, and ETag change; RPC dispatch, valid request/response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: the 12 result schemas currently bind top-level JSON kinds only; deeper field closure and parameter-style contracts remain incremental work. Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: generate the RPC allowlist and result dispatch from `rpc.methods`, resolve every `resultSchema` through `rpcResultSchemas`, and reject unknown, duplicate, missing, or non-read-only method bindings.
+
+## UPSTREAM RPC method-catalog bootstrap closure
+
+- Selected ID: `UPSTREAM-RPC-METHOD-CATALOG-041` (high-severity commercial RPC bootstrap and generated-client safety correction).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and prioritized the new QC-confirmed bootstrap defect because the correct 12-method snapshot was still described by two arbitrary objects, allowing clients to accept writable, empty, duplicate, private, or credential-bearing catalogs.
+- Contract: `query_contracts_success_v1` now closes the RPC path, read-only constant, exact 1–100 batch bounds, exact ordered 12-method/result mapping, complete result-schema key set, and every descriptor's sole exact type field. All six retained unsafe mutations reject.
+- Compatibility/migration/configuration: the discovery schema, digest, and ETag change; emitted catalog values, RPC runtime behavior, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: result descriptors bind top-level kinds but not nested fields or request parameter styles; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: enforce the closed RPC bootstrap before generating clients and reject writable, empty, duplicate, private, incomplete, or credential-bearing catalogs.

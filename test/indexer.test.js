@@ -434,6 +434,15 @@ test("RPC discovery publishes the exact read-only method and result-schema catal
   assert.deepEqual(contract.rpcResultSchemas.indexed_block_result_v1.type, ["object", "null"]); assert.equal(contract.rpcResultSchemas.indexed_blocks_result_v1.type, "object");
 });
 
+test("query-contract bootstrap closes RPC catalog identity and membership", () => {
+  const contract = queryContractSnapshot(), bootstrap = contract.responseBodySchemas.query_contracts_success_v1.properties, rpcSchema = bootstrap.rpc, resultSchema = bootstrap.rpcResultSchemas;
+  const validRpc = (value) => value && Object.keys(value).every((key) => rpcSchema.required.includes(key)) && rpcSchema.required.every((key) => key in value) && value.path === "/rpc" && value.readOnly === true && value.batch?.minimumItems === 1 && value.batch?.maximumItems === 100 && JSON.stringify(value.methods) === JSON.stringify(rpcSchema.properties.methods.exactItems);
+  const validResults = (value) => value && Object.keys(value).length === resultSchema.required.length && resultSchema.required.every((name) => { const descriptor = value[name], expected = resultSchema.properties[name].properties.type; return descriptor && Object.keys(descriptor).length === 1 && (expected.values ? expected.values.includes(descriptor.type) : JSON.stringify(descriptor.type) === JSON.stringify(expected.exactItems)); });
+  assert.equal(validRpc(contract.rpc), true); assert.equal(validResults(contract.rpcResultSchemas), true); assert.equal(rpcSchema.additionalProperties, false); assert.equal(resultSchema.additionalProperties, false);
+  for (const invalid of [{ ...contract.rpc, readOnly: false }, { ...contract.rpc, methods: [] }, { ...contract.rpc, methods: [...contract.rpc.methods, contract.rpc.methods[0]] }, { ...contract.rpc, methods: [{ method: "privateMethod", resultSchema: "private_result_v1" }] }]) assert.equal(validRpc(invalid), false);
+  assert.equal(validResults({}), false); assert.equal(validResults({ ...contract.rpcResultSchemas, indexed_blocks_result_v1: { type: "object", credential: "secret" } }), false);
+});
+
 test("legacy block and transaction collections publish their bare-array schema", () => {
   const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.legacy_collection_success_v1;
   assert.deepEqual(schema, { type: "array" });
