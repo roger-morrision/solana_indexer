@@ -1278,3 +1278,12 @@
 - Compatibility/migration/configuration: discovery-only fail-closed hardening changes the schema digest/ETag; valid runtime quote bodies, persistence, providers, RPC/WebSocket, migrations, and configuration are unchanged. Generated clients must refresh the relationship dialect.
 - Remaining boundary: exact legacy/Token-2022 transfer fees, aggregate trading/protocol fees, maximum fee rate, and traversed bin-array membership remain open until the quote carries sufficient bounded finalized fee/path evidence.
 - NEXT_WEB_ACTION: implement `meteora_directional_semantics` and reject mismatched fee flags or reverse bin traversal before displaying or preparing a Meteora quote.
+
+## UPSTREAM Meteora transfer-fee economics parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-TRANSFER-FEE-PARITY-003` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001`).
+- BA/PO decision: fresh 22-opportunity reconciliation selected exact transfer-fee reconstruction because legacy and Token-2022 quote admission still trusted mutable fee atoms despite the active finalized mint parameters already being available to the producer.
+- Contract: Meteora quotes now carry bounded input/output transfer-fee basis points and maximum-fee atoms. `meteora_transfer_fee_economics` binds inverse net-to-gross input calculation and ceiling-rounded capped output calculation; legacy routes publish canonical zero parameters.
+- Compatibility/migration/configuration: the quote body and discovery schema gain four required evidence fields, changing the schema digest/ETag. Persistence, provider/RPC/WebSocket behavior, database migrations, and configuration are unchanged; generated clients must refresh before admitting new quotes.
+- Remaining boundary: aggregate trading/protocol fee, maximum fee rate, end-bin, and bin-array membership require bounded per-bin traversal evidence and remain fail-closed roadmap work.
+- NEXT_WEB_ACTION: regenerate Meteora validators for the four transfer-fee parameters and enforce `meteora_transfer_fee_economics` before displaying or preparing a quote.
