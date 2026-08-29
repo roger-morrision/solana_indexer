@@ -1397,3 +1397,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: the other bootstrap sections retain top-level presence/type guarantees and can be closed incrementally; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the discovery bootstrap validator and require the exact fail-closed dialect envelope before interpreting any embedded response schema.
+
+## UPSTREAM query-contract HTTP-admission closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-ADMISSION-SCHEMA-017` (commercial and safety admission-order readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the HTTP admission envelope because authentication, quota, canonicalization, method, body, and quality gates protect every REST consumer, yet the bootstrap schema previously accepted any object and could not detect reordered or omitted gates.
+- Contract: `query_contracts_success_v1.httpAdmission` is now closed to exactly `order` and `outcomes`; `order` requires the 14 unique admission stages in their published sequence. Focused negatives reject reordering, omission, unknown fields, and duplicate stages while leaving the outcomes catalog available for later incremental closure.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: admission outcomes and other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the discovery bootstrap validator and reject documents whose HTTP admission stages are missing, duplicated, unknown, or out of order.
