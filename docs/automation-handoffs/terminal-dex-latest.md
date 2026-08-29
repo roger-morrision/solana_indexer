@@ -1269,3 +1269,12 @@
 - Contract: Meteora preparation discovery now references a closed quote schema covering exact legacy/Token-2022 amounts, fee mode, bin path, finalized slots, partial/full status, conservation, fee bounds, and immutable execution gates.
 - Compatibility/migration/configuration: additive discovery metadata changes the contract digest/ETag; generated validators must refresh. Runtime quote bytes, persistence, RPC/WebSocket, migrations, providers, and configuration are unchanged.
 - NEXT_WEB_ACTION: regenerate Meteora quote validators and reject unknown fields, amount/output conservation failures, fee inversions, invalid bin paths, slot inversions, or altered execution gates before display or preparation.
+
+## UPSTREAM Meteora direction and fee-mode parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-QUOTE-PARITY-002` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready portion of the sole remaining HIGH nested preparation defect: the published fields already prove collect-fee mode compatibility and directional bin traversal, while exact transfer-fee and per-bin fee reconstruction require additional finalized evidence rather than approximation.
+- Contract: `meteora_dlmm_quote_v1` now publishes `meteora_directional_semantics`, requiring X-to-Y quotes to use matching fee flags and descending bins, while Y-to-X requires input-side Token Y fees and ascending bins. Both valid X-to-Y collect-fee modes remain admitted.
+- Compatibility/migration/configuration: discovery-only fail-closed hardening changes the schema digest/ETag; valid runtime quote bodies, persistence, providers, RPC/WebSocket, migrations, and configuration are unchanged. Generated clients must refresh the relationship dialect.
+- Remaining boundary: exact legacy/Token-2022 transfer fees, aggregate trading/protocol fees, maximum fee rate, and traversed bin-array membership remain open until the quote carries sufficient bounded finalized fee/path evidence.
+- NEXT_WEB_ACTION: implement `meteora_directional_semantics` and reject mismatched fee flags or reverse bin traversal before displaying or preparing a Meteora quote.
