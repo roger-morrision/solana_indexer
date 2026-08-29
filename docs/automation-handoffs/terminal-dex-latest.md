@@ -1568,3 +1568,12 @@
 - Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime query validation, request behavior, responses, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: optional-parameter default maps retain incremental schema-level binding opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: implement fail-closed `map_keys_catalog_values` validation and reject routes whose parameter-profile keys differ from declared parameters or whose mapped profile is absent from `valueConstraints`.
+
+## UPSTREAM response-outcome semantic invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-RESPONSE-OUTCOME-SEMANTICS-036` (commercial retry, parsing, cache, RPC, executable-depth, and safety readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected outcome semantics because closed row shapes still admitted contradictory outcome/status, retryability, body-presence, content-type, contract-identity, and schema-reference combinations.
+- Contract: the fail-closed dialect adds `response_outcome_semantics`, binding each outcome name to its exact status and retryability, each body kind to exact content type and presence, required body contracts to the route/outcome identity algorithm, and every JSON representation to the closed response-schema catalog. Previously unbound RPC and executable-depth successes now publish catalog references. Focused mutations reject status, retryability, body-presence, and private-schema contradictions.
+- Compatibility/migration/configuration: discovery vocabulary, two success-schema names, and digest/ETag change; runtime status codes, headers, response bodies, ingestion, persistence, providers, WebSocket transport, migrations, and configuration remain unchanged. Generated clients must refresh discovery before enforcing the new relationship.
+- Remaining boundary: RPC method-specific results and executable-depth success bodies retain deeper nested schema opportunities; optional-parameter default maps remain unbound; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: implement fail-closed `response_outcome_semantics` validation and reject outcome/status, retryability, content-type, body-presence, contract-identity, or response-schema contradictions before applying retry, parsing, or cache behavior.
