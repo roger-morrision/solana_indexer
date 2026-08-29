@@ -1595,3 +1595,12 @@
 - Compatibility/migration/configuration: the discovery schema and digest/ETag change, while executable-depth runtime responses, query admission, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: RPC success remains shallow and requires method-specific envelope/result closure; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate executable-depth validation from its exact sell/buy `oneOf` and reject bodies that match neither or ambiguously match both before displaying depth or informing analysis.
+
+## UPSTREAM route-outcome identity invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-OUTCOME-IDENTITY-039` (commercial retry, parsing, cache, RPC, and generated-client readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected route-local outcome identity because semantic fields were bound but `responseOutcomes` still admitted duplicate outcome names, allowing ambiguous retry and parser branches.
+- Contract: every route's `responseOutcomes` array now publishes the existing fail-closed `unique_by(outcome)` relationship. All 54 routes and 119 outcomes retain their current identities; a duplicate success or failure identity is rejected independently of its otherwise valid envelope.
+- Compatibility/migration/configuration: discovery schema and digest/ETag change, while runtime status codes, headers, bodies, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
+- Remaining boundary: RPC success remains shallow and requires method-specific envelope/result closure; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: enforce route-local `unique_by(outcome)` during discovery loading and reject duplicate retry, parsing, or cache branches before client generation.
