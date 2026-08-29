@@ -1487,3 +1487,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not quote/preparation response bytes, transaction construction, persistence, providers, REST/RPC/WebSocket transport, migrations, or configuration.
 - Remaining boundary: HTTP and response-schema bootstrap catalogs retain incremental closure opportunities; Meteora schema-only payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the preparation catalog and reject missing, reordered, remapped, cross-protocol, or extended variants before validating or displaying unsigned preparations.
+
+## UPSTREAM response-schema catalog closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-RESPONSE-SCHEMA-CATALOG-027` (commercial API/RPC/WebSocket, replay, AI, and trading-safety validator readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the response-schema catalog because every success and failure outcome resolves through it, while the bootstrap previously guaranteed only an arbitrary object.
+- Contract: `query_contracts_success_v1.responseBodySchemas` now requires exactly every published schema name, forbids unknown names, and requires every entry to remain an object. Focused negatives reject missing, injected, scalar, null, and array catalogs.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes, ingestion, persistence, providers, REST/RPC/WebSocket behavior, migrations, or configuration.
+- Remaining boundary: the HTTP route catalog retains incremental closure opportunities; individual embedded schemas remain governed by the already published fail-closed dialect, while Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the response-schema registry and reject discovery documents with missing, unknown, or non-object schema entries before resolving any route outcome.
