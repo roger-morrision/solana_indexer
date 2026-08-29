@@ -1604,3 +1604,12 @@
 - Compatibility/migration/configuration: discovery schema and digest/ETag change, while runtime status codes, headers, bodies, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged. Generated consumers must refresh discovery.
 - Remaining boundary: RPC success remains shallow and requires method-specific envelope/result closure; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: enforce route-local `unique_by(outcome)` during discovery loading and reject duplicate retry, parsing, or cache branches before client generation.
+
+## UPSTREAM RPC envelope schema closure
+
+- Selected ID: `UPSTREAM-RPC-ENVELOPE-SCHEMA-040` (commercial RPC parsing, error handling, batching, and replay readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-first RPC envelope boundary because `/rpc` still advertised only an arbitrary object while the producer emits mutually exclusive JSON-RPC success/error objects and bounded batches. Method-result bindings remain a separate increment because discovery does not yet publish a method catalog.
+- Contract: `rpc_success_v1` now closes single success and error envelopes, constrains `jsonrpc` to `2.0`, preserves string/integer/null request identities, closes error code/message shape, and bounds batches to 1–100 envelopes. RPC admission now rejects nonconforming IDs with the standard null-ID invalid-request error. Producer-backed regression coverage exercises single success, single error, invalid identity, and mixed batch output.
+- Compatibility/migration/configuration: discovery schema and digest/ETag change; invalid object/array/fractional RPC IDs now fail closed as JSON-RPC invalid requests. Valid RPC methods, status codes, response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged. Consumers must refresh discovery before enforcing the envelope union.
+- Remaining boundary: RPC method inventory and method-specific result schemas are not yet published; result payloads intentionally remain JSON-valued until that catalog can be evidence-backed. Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate RPC parsing from the three envelope variants and reject mixed result/error members, extra envelope fields, invalid JSON-RPC versions, malformed errors, and batches outside 1–100 items.
