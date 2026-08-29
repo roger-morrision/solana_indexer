@@ -1388,3 +1388,12 @@
 - Compatibility/migration/configuration: additive discovery metadata and one new response schema change the discovery digest/ETag. Runtime response bytes, ingestion, persistence, providers, RPC/WebSocket behavior, database migrations, and configuration are unchanged.
 - Remaining boundary: schema-only Meteora payload authenticity remains blocked on independently fetched finalized bytes or a trusted signing key; owner is architecture/operator configuration.
 - NEXT_WEB_ACTION: bootstrap generated clients from `query_contracts_success_v1` and reject discovery documents with missing top-level sections or an invalid contract hash.
+
+## UPSTREAM query-contract dialect-envelope closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-DIALECT-SCHEMA-016` (nested bootstrap safety for `UPSTREAM-QUERY-CONTRACTS-BOOTSTRAP-SCHEMA-015`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dialect envelope because it governs every generated response validator, yet the bootstrap schema previously accepted any object in that position despite requiring clients to fail closed on unknown vocabulary.
+- Contract: `query_contracts_success_v1.bodySchemaDialect` is now closed to the exact dialect name, version 1, `fail_closed` unknown-keyword policy, and nonempty unique string lists for schema keywords and relationship kinds. Focused negatives reject a permissive policy, missing vocabulary, unknown fields, and duplicate keywords.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: the other bootstrap sections retain top-level presence/type guarantees and can be closed incrementally; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the discovery bootstrap validator and require the exact fail-closed dialect envelope before interpreting any embedded response schema.

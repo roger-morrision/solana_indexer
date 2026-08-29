@@ -192,6 +192,7 @@ RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.ageMs.maximumProperty = "s
 RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.lagEvents.maximumProperty = "maxLagEvents";
 RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.sequence.minimumProperty = "oldestSequence";
 RESPONSE_BODY_SCHEMAS.warehouse_success_v1.properties.sequence.minimumOffset = -1;
+RESPONSE_BODY_SCHEMAS.query_contracts_success_v1.properties.bodySchemaDialect = { type: "object", required: ["name", "version", "unknownKeywordPolicy", "keywords", "relationshipKinds"], optional: [], additionalProperties: false, properties: { name: { type: "string", values: ["solana-indexer-response-schema"] }, version: { type: "integer", values: [1] }, unknownKeywordPolicy: { type: "string", values: ["fail_closed"] }, keywords: { type: "array", minimumItems: 1, uniqueItems: true, items: { type: "string", minimumLength: 1 } }, relationshipKinds: { type: "array", minimumItems: 1, uniqueItems: true, items: { type: "string", minimumLength: 1 } } } };
 RESPONSE_BODY_SCHEMAS.feed_health_success_v1 = structuredClone(RESPONSE_BODY_SCHEMAS.index_health_success_v1);
 RESPONSE_BODY_SCHEMAS.feed_health_success_v1.required = RESPONSE_BODY_SCHEMAS.feed_health_success_v1.required.filter((property) => property !== "network");
 delete RESPONSE_BODY_SCHEMAS.feed_health_success_v1.properties.network;
