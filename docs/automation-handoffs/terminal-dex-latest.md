@@ -1361,3 +1361,12 @@
 - Compatibility/migration/configuration: one required enum changes the instruction-evidence schema digest/ETag. Legacy internal construction remains available but is distinguishable and must not be promoted as verified. Persistence, providers, RPC/WebSocket transport, database migrations, and configuration are unchanged.
 - Remaining boundary: schema-only verification of producer-carried capacity commitments still requires an independently fetched finalized account payload or a configured trusted signing key; ownership is architecture/operator configuration.
 - NEXT_WEB_ACTION: refresh the Meteora instruction-evidence validator and admit preparation only when `quoteEconomicsVerification` is `reproduced_from_finalized_bin_arrays`.
+
+## UPSTREAM Meteora reproduction-proof regression
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-VERIFICATION-PROOF-013` (acceptance closure for `UPSTREAM-METEORA-DLMM-REPRODUCTION-EVIDENCE-012`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected stable producer-path proof because discovery consumers need durable repository evidence that the verified enum is reached by the exact quote engine, not merely accepted by a hand-built schema fixture. QC independently confirmed the prior sentinel contract after selection; that PASS was reconciled as verification evidence rather than treated as the work queue.
+- Contract: instruction construction now captures one validated calculation timestamp and assigns `reproduced_from_finalized_bin_arrays` only after exact finalized-bin quote reproduction and deep equality complete. A real quote-engine result is constructed into an unsigned instruction and asserted to carry that value; the recomputed coupled-mutation control remains rejected.
+- Compatibility/migration/configuration: no wire-shape, schema, persistence, provider, RPC/WebSocket, database, migration, or configuration change. Legacy construction remains explicitly `legacy_unattested`; current producer semantics are unchanged but now directly regression-proven.
+- Remaining boundary: schema-only commitment verification still requires independently fetched finalized account bytes or an operator-configured trust key; owner is architecture/operator configuration.
+- NEXT_WEB_ACTION: retain the strict preparation gate on `reproduced_from_finalized_bin_arrays` and reject `legacy_unattested` evidence without fallback.
