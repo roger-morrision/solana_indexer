@@ -1550,3 +1550,12 @@
 - Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime routing, query validation, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: method-to-route-family and dynamic query-profile/default maps retain incremental schema-level opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: implement fail-closed `path_template_parameters` validation and reject routes whose template placeholders and path-parameter keys differ or whose binding profile is not `resourceIdentifier`.
+
+## UPSTREAM path-method policy invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-PATH-METHOD-POLICY-034` (commercial routing, quota, audit, cache, and preparation readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected method binding because `/rpc` and both preparation families must be POST while the other 51 routes must be GET, yet the generic enum admitted cross-family substitutions.
+- Contract: the fail-closed dialect adds `path_method_policy`, binding `/rpc` exactly and the `/prepare-swap` suffix family to POST with GET as the default. All 54 routes pass; focused mutations reject GET on every POST identity and POST on an ordinary GET route.
+- Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime methods, routing, quotas, audit identities, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: dynamic query-profile/default maps retain incremental schema-level opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: implement fail-closed `path_method_policy` validation and reject any discovery route whose method differs from the exact `/rpc`, preparation-family, or default GET policy.
