@@ -1328,3 +1328,11 @@
 - Contract: traversal rows now publish trading- and protocol-fee capacities. Nonterminal arrays must exhaust both fee capacities; terminal fees cannot exceed them, closing fee-only cross-array redistribution while retaining both fee modes.
 - Compatibility/migration/configuration: two required bounded row fields and an expanded relationship change quote bytes and schema digest/ETag. Persistence, providers, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
 - NEXT_WEB_ACTION: regenerate Meteora validators and enforce row-local trading and protocol fee capacities before display or preparation.
+
+## UPSTREAM Meteora per-array fee-rate parity
+
+- Selected ID: `UPSTREAM-METEORA-DLMM-BIN-ARRAY-RATE-PARITY-009` (advances `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001`).
+- BA/PO decision: fresh 22-opportunity inspection found row-local maximum fee rates remained mutable below the global maximum; the finalized rate is fill-independent and ready for exact bounded validation.
+- Contract: traversal rows now publish their computed maximum fee-rate capacity, and `meteora_bin_array_output_capacity` requires exact equality for every row alongside amount and fee capacities.
+- Compatibility/migration/configuration: one required bounded row field and expanded relationship change quote bytes and schema digest/ETag. Persistence, providers, RPC/WebSocket behavior, migrations, and configuration remain unchanged.
+- NEXT_WEB_ACTION: regenerate Meteora validators and require every traversal row's maximum fee rate to equal its finalized rate capacity.
