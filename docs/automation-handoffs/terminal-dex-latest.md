@@ -1406,3 +1406,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: admission outcomes and other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the discovery bootstrap validator and reject documents whose HTTP admission stages are missing, duplicated, unknown, or out of order.
+
+## UPSTREAM query-contract admission-outcome closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-ADMISSION-OUTCOMES-SCHEMA-018` (commercial and safety failure-semantics readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the admission outcome catalog because it governs authentication, quotas, canonicalization, method handling, and quality gates before routing, yet the bootstrap schema previously accepted arbitrary outcome keys and values.
+- Contract: `query_contracts_success_v1.httpAdmission.outcomes` is now closed to the exact 13 pre-route gates. Every gate fixes its status or ordered status set, retryability, and applicable `Retry-After` or `Allow` behavior; focused negatives reject missing/unknown gates, unsafe retry changes, false `Allow` claims, and reordered validation statuses.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the discovery bootstrap validator and enforce each admission gate's exact status, retryability, and header semantics before interpreting route outcomes.
