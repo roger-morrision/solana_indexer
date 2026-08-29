@@ -1379,3 +1379,12 @@
 - Compatibility/migration/configuration: additive discovery correction changes the contract digest/ETag. Runtime quote and preparation bytes, persistence, providers, RPC/WebSocket behavior, database migrations, and configuration are unchanged; generators may now implement the already-published capacity rule without violating unknown-kind policy.
 - Remaining boundary: schema-only authenticity of producer-carried payload hashes remains blocked on independently fetched finalized bytes or a trusted signing key; owner is architecture/operator configuration.
 - NEXT_WEB_ACTION: refresh the response-schema dialect and enable `meteora_bin_array_output_capacity` validation before accepting Meteora quote schemas.
+
+## UPSTREAM query-contract bootstrap schema
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-BOOTSTRAP-SCHEMA-015` (commercial API bootstrap readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the missing discovery bootstrap contract because `/api/v1/query-contracts` described every JSON success response except its own, leaving new commercial and replay clients without a machine-readable admission envelope.
+- Contract: the query-contract endpoint's HTTP 200 outcome now references closed `query_contracts_success_v1`, requiring the exact top-level bootstrap sections, nonempty HTTP and preparation catalogs, and a lowercase SHA-256 contract identity. Embedded schemas remain governed by the advertised fail-closed dialect rather than recursively duplicating that dialect inside itself.
+- Compatibility/migration/configuration: additive discovery metadata and one new response schema change the discovery digest/ETag. Runtime response bytes, ingestion, persistence, providers, RPC/WebSocket behavior, database migrations, and configuration are unchanged.
+- Remaining boundary: schema-only Meteora payload authenticity remains blocked on independently fetched finalized bytes or a trusted signing key; owner is architecture/operator configuration.
+- NEXT_WEB_ACTION: bootstrap generated clients from `query_contracts_success_v1` and reject discovery documents with missing top-level sections or an invalid contract hash.
