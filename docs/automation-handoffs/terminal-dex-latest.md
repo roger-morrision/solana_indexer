@@ -1469,3 +1469,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: all ten query-value profiles are semantically closed; other bootstrap HTTP/WebSocket/preparation/registry sections remain candidates for incremental closure, while Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate interval, limit, side, status, and window validators and enforce the exact ordered enums, bounds, defaults, and leading-zero rules before requests are sent.
+
+## UPSTREAM WebSocket discovery schema closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-WEBSOCKET-SCHEMA-025` (streaming, replay/reorg, and commercial subscription readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the WebSocket bootstrap boundary because its path, parameters, topics, topic-specific filters, filter limits, and acknowledgement values govern every streaming consumer but previously remained an arbitrary object in the discovery response schema.
+- Contract: `query_contracts_success_v1.webSocket` is closed to the exact `/ws` path, ordered parameter and topic catalogs, four topic/filter mappings, closed filter constraints, and ordered acknowledgement values. Focused negatives reject missing/unknown fields, path substitution, reordered catalogs, expanded topic filters, widened limits, control characters, and reversed acknowledgement semantics.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime WebSocket messages, admission, persistence, migrations, providers, RPC behavior, or configuration.
+- Remaining boundary: other bootstrap HTTP, preparation, registry, and response-schema catalogs retain incremental closure opportunities; Meteora schema-only payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate the WebSocket discovery validator and require the exact path, ordered catalogs, topic filters, filter constraints, and acknowledgement values before opening a subscription.
