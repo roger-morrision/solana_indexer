@@ -1415,3 +1415,12 @@
 - Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
 - Remaining boundary: other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: regenerate the discovery bootstrap validator and enforce each admission gate's exact status, retryability, and header semantics before interpreting route outcomes.
+
+## UPSTREAM query-contract canonicalization closure
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-CANONICALIZATION-SCHEMA-019` (commercial API/RPC request-identity readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected canonicalization because cache keys, tenant quotas, signatures, replay identity, and route admission share this boundary, yet the bootstrap schema previously accepted arbitrary normalization algorithms and permissive booleans.
+- Contract: `query_contracts_success_v1.canonicalization` is now closed to `url-search-params-sort-v1`, unique query names, and mandatory rejection of alternate encodings and alternate order. Focused negatives reject algorithm substitution, every weakened boolean, missing fields, and unknown normalization extensions.
+- Compatibility/migration/configuration: nested discovery hardening changes the contract digest/ETag but not runtime response bytes. Ingestion, persistence, providers, REST/RPC/WebSocket behavior, database migrations, and configuration remain unchanged.
+- Remaining boundary: path/value constraints and other bootstrap sections retain presence/type guarantees for incremental closure; Meteora payload authenticity remains blocked on independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: regenerate request builders from the exact canonicalization policy and reject alternate encoding, duplicate-name, or alternate-order identities before sending requests.
