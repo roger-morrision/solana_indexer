@@ -1370,3 +1370,12 @@
 - Compatibility/migration/configuration: no wire-shape, schema, persistence, provider, RPC/WebSocket, database, migration, or configuration change. Legacy construction remains explicitly `legacy_unattested`; current producer semantics are unchanged but now directly regression-proven.
 - Remaining boundary: schema-only commitment verification still requires independently fetched finalized account bytes or an operator-configured trust key; owner is architecture/operator configuration.
 - NEXT_WEB_ACTION: retain the strict preparation gate on `reproduced_from_finalized_bin_arrays` and reject `legacy_unattested` evidence without fallback.
+
+## UPSTREAM Meteora capacity-dialect parity
+
+- Selected ID: `UPSTREAM-CONTRACT-DIALECT-METEORA-CAPACITY-014` (commercial discovery hardening for `UPSTREAM-METEORA-DLMM-BIN-ARRAY-CAPACITY-PARITY-006`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected a dependency-ready commercial blocker: the quote schema used `meteora_bin_array_output_capacity`, but the fail-closed dialect did not declare it, so compliant generated clients had to reject the schema as unsupported.
+- Contract: `/api/v1/query-contracts` now declares `meteora_bin_array_output_capacity` among supported relationship kinds. Exhaustive regression coverage derives every relationship kind used by every live response schema and rejects any future undeclared kind.
+- Compatibility/migration/configuration: additive discovery correction changes the contract digest/ETag. Runtime quote and preparation bytes, persistence, providers, RPC/WebSocket behavior, database migrations, and configuration are unchanged; generators may now implement the already-published capacity rule without violating unknown-kind policy.
+- Remaining boundary: schema-only authenticity of producer-carried payload hashes remains blocked on independently fetched finalized bytes or a trusted signing key; owner is architecture/operator configuration.
+- NEXT_WEB_ACTION: refresh the response-schema dialect and enable `meteora_bin_array_output_capacity` validation before accepting Meteora quote schemas.

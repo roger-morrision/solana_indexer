@@ -247,16 +247,17 @@ test("query contracts identify the fail-closed response schema dialect", () => {
   const contract = queryContractSnapshot(), dialect = contract.bodySchemaDialect;
   assert.deepEqual({ name: dialect.name, version: dialect.version, unknownKeywordPolicy: dialect.unknownKeywordPolicy }, { name: "solana-indexer-response-schema", version: 1, unknownKeywordPolicy: "fail_closed" });
   for (const keyword of ["exactItems", "uniqueItems", "maximumProperty", "minimumProperty", "strictlyIncreasing", "relationships"]) assert.ok(dialect.keywords.includes(keyword), keyword);
-  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "decimal_less_than", "constant_product_exact_input", "orca_sqrt_price_at_tick", "nullable_pair", "array_slot_bounds", "conditional_array_empty", "unique_by", "conditional_pattern", "decimal_less_than_or_equal", "decimal_sum_less_than_or_equal", "pump_bonding_sell_constant_product", "pump_bonding_buy_constant_product", "array_decimal_sum", "decimal_ceiling_fee", "openbook_lot_economics", "meteora_directional_semantics", "meteora_transfer_fee_economics", "meteora_bin_traversal_economics", "meteora_bin_array_capacity_commitment", "conditional_type", "array_length", "decimal_sum", "catalog_membership", "decimal_negation", "difference", "equal", "mirror"]);
+  assert.deepEqual(dialect.relationshipKinds, ["conditional_value", "decimal_less_than", "constant_product_exact_input", "orca_sqrt_price_at_tick", "nullable_pair", "array_slot_bounds", "conditional_array_empty", "unique_by", "conditional_pattern", "decimal_less_than_or_equal", "decimal_sum_less_than_or_equal", "pump_bonding_sell_constant_product", "pump_bonding_buy_constant_product", "array_decimal_sum", "decimal_ceiling_fee", "openbook_lot_economics", "meteora_directional_semantics", "meteora_transfer_fee_economics", "meteora_bin_traversal_economics", "meteora_bin_array_capacity_commitment", "meteora_bin_array_output_capacity", "conditional_type", "array_length", "decimal_sum", "catalog_membership", "decimal_negation", "difference", "equal", "mirror"]);
   const sequenceRule = contract.responseBodySchemas.execution_policy_success_v1.properties.requiredSteps;
   assert.ok(Object.keys(sequenceRule).every((keyword) => dialect.keywords.includes(keyword)), "execution policy uses only declared dialect keywords");
 });
 
-test("response schema dialect covers every live schema-node keyword", () => {
-  const contract = queryContractSnapshot(), used = new Set();
+test("response schema dialect covers every live schema-node keyword and relationship kind", () => {
+  const contract = queryContractSnapshot(), used = new Set(), usedRelationships = new Set();
   const visit = (rule) => {
     for (const [keyword, value] of Object.entries(rule)) {
       used.add(keyword);
+      if (keyword === "relationships") for (const relationship of value) usedRelationships.add(relationship.kind);
       if (keyword === "properties") for (const child of Object.values(value)) visit(child);
       else if (keyword === "items" && value && typeof value === "object" && !Array.isArray(value)) visit(value);
       else if (keyword === "oneOf") for (const child of value) visit(child);
@@ -264,6 +265,7 @@ test("response schema dialect covers every live schema-node keyword", () => {
   };
   for (const schema of Object.values(contract.responseBodySchemas)) visit(schema);
   assert.deepEqual([...used].filter((keyword) => !contract.bodySchemaDialect.keywords.includes(keyword)).sort(), []);
+  assert.deepEqual([...usedRelationships].filter((kind) => !contract.bodySchemaDialect.relationshipKinds.includes(kind)).sort(), []);
   assert.ok(contract.bodySchemaDialect.keywords.includes("kind"));
 });
 

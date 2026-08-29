@@ -326,6 +326,7 @@ export function queryContractSnapshot() {
   contract.bodySchemaDialect.relationshipKinds.splice(17, 0, "meteora_transfer_fee_economics");
   contract.bodySchemaDialect.relationshipKinds.splice(18, 0, "meteora_bin_traversal_economics");
   contract.bodySchemaDialect.relationshipKinds.splice(19, 0, "meteora_bin_array_capacity_commitment");
+  contract.bodySchemaDialect.relationshipKinds.splice(20, 0, "meteora_bin_array_output_capacity");
   contract.bodySchemaDialect.keywords.sort();
   contract.preparationVariants = PREPARATION_VARIANTS;
   contract.responseBodySchemas = RESPONSE_BODY_SCHEMAS;
