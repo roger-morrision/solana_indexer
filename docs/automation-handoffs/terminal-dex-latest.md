@@ -1541,3 +1541,12 @@
 - Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime query handling, cache/quota behavior, signatures, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: method/path-template and dynamic path/profile/default-map bindings retain incremental schema-level opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: implement fail-closed `set_partition` validation and reject any route whose required and optional parameters overlap, omit a declared parameter, or introduce an undeclared name.
+
+## UPSTREAM path-template binding invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-PATH-TEMPLATE-BINDING-033` (token, pool, wallet, transaction, replay, and commercial route identity readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected template binding because 27 detail/preparation routes depend on exact placeholder maps, yet the published schema admitted omitted, injected, renamed, or private-profile bindings.
+- Contract: the fail-closed dialect adds `path_template_parameters`; every HTTP row binds placeholders parsed from `path` to exactly the keys in `pathParameters`, each using `resourceIdentifier`. Real exact and template routes pass; focused mutations reject missing, injected, renamed, and substituted-profile bindings.
+- Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime routing, query validation, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: method-to-route-family and dynamic query-profile/default maps retain incremental schema-level opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: implement fail-closed `path_template_parameters` validation and reject routes whose template placeholders and path-parameter keys differ or whose binding profile is not `resourceIdentifier`.
