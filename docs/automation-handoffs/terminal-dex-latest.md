@@ -1559,3 +1559,12 @@
 - Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime methods, routing, quotas, audit identities, response bytes, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: dynamic query-profile/default maps retain incremental schema-level opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
 - NEXT_WEB_ACTION: implement fail-closed `path_method_policy` validation and reject any discovery route whose method differs from the exact `/rpc`, preparation-family, or default GET policy.
+
+## UPSTREAM parameter-profile map invariant
+
+- Selected ID: `UPSTREAM-QUERY-CONTRACTS-PARAMETER-PROFILE-MAP-035` (commercial request-builder, quote, filter, pagination, and replay readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected parameter-profile binding because every declared query name requires exactly one entry referencing the ten closed value profiles, yet the generic map admitted missing, injected, and private-profile mappings.
+- Contract: the fail-closed dialect adds `map_keys_catalog_values`; each route binds `parameterConstraints` keys exactly to `parameters` and requires every mapped value to name an entry in `valueConstraints`. All 54 routes pass; focused mutations reject omission, injection, and unknown profiles.
+- Compatibility/migration/configuration: discovery vocabulary and digest/ETag change, but runtime query validation, request behavior, responses, ingestion, persistence, providers, RPC/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: optional-parameter default maps retain incremental schema-level binding opportunities; Meteora payload authenticity still requires independent finalized evidence or a trusted signing key.
+- NEXT_WEB_ACTION: implement fail-closed `map_keys_catalog_values` validation and reject routes whose parameter-profile keys differ from declared parameters or whose mapped profile is absent from `valueConstraints`.
