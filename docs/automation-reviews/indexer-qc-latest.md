@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T22:36:34+07:00`
+- Run: `2026-08-30T23:35:35+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `0fb7433d67dce8352cb5d4775712aa36d7117440`
-- Compared with QA baseline: `c201d4c8ceeb9a05715f850617dcfe3298c9732f` (2 DEV commits, 5 changed files)
-- Compared with `origin/main`: 162 ahead, 0 behind before this evidence report
-- Latest DEV commits: `69264d3` (offline monitoring truth-table fixtures) and `0fb7433` (bounded Prometheus alert preflight)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-ALERTS-OFFLINE-RULE-FIXTURES-068` adds eight credential-free canonical, contradictory, absent-series, and present-`NaN` profiles; `UPSTREAM-PROMTOOL-ALERT-PREFLIGHT-069` adds a bounded, redacted native parser preflight with explicit checked PASS and executable-unavailable SKIP evidence. Reconciliation is 108 PASS, 1 FAIL, and 1 BLOCKED across 110 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `4b8cc11f42b05d40e53ea262e8dd3c2387918356`
+- Compared with QA baseline: `fe7c834709f8013fdbf7a32ed825699d89fdd853` (2 DEV commits, 5 changed files)
+- Compared with `origin/main`: 165 ahead, 0 behind before this evidence report
+- Latest DEV commits: `7e1f538` (native Prometheus alert-rule evaluation) and `4b8cc11` (isolated missing progress-operand evaluation)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PROMTOOL-RULE-TEST-PREFLIGHT-070` adds bounded native `promtool test rules` evaluation after syntax validation; `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-PRESENCE-071` proves each missing progress operand fails closed independently while a present `NaN` source-tip remains supported. Reconciliation is 110 PASS, 1 FAIL, and 1 BLOCKED across 112 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Offline monitoring fixtures and parser preflight (2 PASS)
+### Native alert evaluation and progress-operand isolation (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `69264d3` / `UPSTREAM-ALERTS-OFFLINE-RULE-FIXTURES-068` | Versioned monitoring alert truth-table fixtures | `PASS` | Eight ordered, unique, credential-free profiles cover canonical, three finite contradictions, three required-series absences, and supported present-`NaN` progress. The DEV focused test passes and an independent source-to-rule harness confirms the three exact published expressions, closed fixture keys, alert vocabulary, and every expected outcome. |
-| `0fb7433` / `UPSTREAM-PROMTOOL-ALERT-PREFLIGHT-069` | Bounded native Prometheus rule parser preflight | `PASS` | The canonical package command uses argv-safe `promtool check rules`, a 30-second timeout, 8,192-byte output bounds, a bounded nonsymlink regular rule file, and redacted failures. Independent controls prove checked PASS, executable-unavailable SKIP, parser failure/redaction, exact probe path, and rejection of relative, directory, empty, and oversized inputs. The real local run returns explicit `SKIP/promtool_unavailable`; it is not treated as parser or deployment qualification. |
+| `7e1f538` / `UPSTREAM-PROMTOOL-RULE-TEST-PREFLIGHT-070` | Bounded native Prometheus rule evaluation | `PASS` | The canonical preflight validates the rule and test files independently, runs argv-safe `promtool check rules` before `promtool test rules`, and retains 30-second and 8,192-byte bounds for both probes. Six unique test groups contain ten alert expectations: nine critical firings and one explicit present-`NaN` non-firing control. Independent controls verify syntax-before-evaluation, exact probe pairs, checked PASS, executable-unavailable SKIP, redaction, and path/file fail-closed behavior. |
+| `4b8cc11` / `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-PRESENCE-071` | Missing progress-operand isolation | `PASS` | Three dedicated rule-evaluation groups independently omit index tip, source tip, and export lag; each expects `SolanaIndexerProgressInconsistent` with critical severity. A separate present-`NaN` source-tip group expects no alert, preserving partial-provenance compatibility without weakening missing-series detection. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `c201d4c`, in `69264d3` and `0fb7433`; QC detected the native DEV writer lock and source movement after the first validation pass, discarded mixed-state results, refreshed the complete stable two-commit, five-file delta after lock release, and reran every tier. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `fe7c834`, in `7e1f538` and `4b8cc11`; source advanced during validation, so QC discarded mixed-state results, refreshed the complete stable two-commit, five-file delta after both DEV locks were clear, and reran every tier. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
 - Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting alert names, expressions, `absent` operands, severity, duration, or assertions would be padding.
-- Validation: independent fixture/preflight harness 64/64 PASS; focused monitoring 3/3 PASS; focused RPC/query-contract 45/45 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 11/11 PASS. The response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 4,308.56 blocks/s with 9,666,200-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: independent native-rule-evaluation harness 35/35 PASS; focused monitoring 3/3 PASS; focused RPC/query-contract 45/45 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 11/11 PASS. The response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 3,598.39 blocks/s with 9,784,616-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Offline monitoring fixtures and parser preflight (2 PASS)
+
+- Prior exact shortfall: 18; prior validation was independent fixture/preflight harness 64/64, focused monitoring 3/3, RPC/query-contract 45/45, health/feed/monitoring 37/37, Meteora/transfer-hook 11/11, full 469/469, syntax 87/87, and replay PASS. Stable IDs 068 and 069 remain closed.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -1004,7 +1010,7 @@
 | Bounded performance | `PASS` | Full suite passes 469/469; syntax passes 87/87; replay completes at 4,308.56 blocks/s with 9,666,200-byte heap growth below 536,870,912 bytes. |
 | Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 759,277,675 ms old at this trigger. |
 
-The review reconciles 110 distinct evidence domains: 108 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The review reconciles 112 distinct evidence domains: 110 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2721,6 +2727,26 @@ The review reconciles 110 distinct evidence domains: 108 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: canonical command; native parser argv; bounded file, time, and output; explicit checked PASS; explicit executable-unavailable SKIP only; redacted fail-closed errors; no provider or production mutation. All criteria are met.
 - Validation results: independent combined fixture/preflight harness 64/64 PASS; real canonical preflight explicit SKIP; focused monitoring 3/3, RPC/query-contract 45/45, health/feed/monitoring 37/37, Meteora/transfer-hook 11/11, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-PROMTOOL-RULE-TEST-PREFLIGHT-070
+
+- Severity: `PASS` (delivered by `7e1f538`)
+- Owner: `DEV`
+- Evidence: the canonical package command now supplies bounded absolute nonsymlink regular paths for both the alert rules and rule-test fixture, then runs `promtool check rules` before `promtool test rules`. Both argv-safe probes retain independent 30-second timeouts and 8,192-byte stdout/stderr limits. Six unique fixture groups define ten exact alert expectations: nine critical firings and one present-`NaN` non-firing control.
+- Actual behavior: independent controls verify the exact syntax/evaluation probe pair, syntax-before-evaluation ordering, checked PASS envelope, executable-unavailable SKIP envelope, redacted fail-closed errors, and rejection of relative, directory, empty, and oversized inputs. The local canonical command returns explicit `SKIP/promtool_unavailable`; it is not counted as a native evaluation PASS or live deployment qualification.
+- Compatibility/performance impact: additive developer and operations validation only; runtime alert expressions, metrics, REST/RPC/WebSocket contracts, persistence, providers, and production state remain unchanged. Both native probes are bounded.
+- Acceptance criteria: canonical same-directory rule/test fixture pair; syntax before evaluation; bounded files, time, and output; explicit checked PASS; explicit executable-unavailable SKIP only; redacted fail-closed errors; no provider or production mutation. All criteria are met.
+- Validation results: independent native-rule-evaluation harness 35/35 PASS; focused monitoring 3/3, RPC/query-contract 45/45, health/feed/monitoring 37/37, Meteora/transfer-hook 11/11, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-PROMTOOL-PROGRESS-OPERAND-PRESENCE-071
+
+- Severity: `PASS` (delivered by `4b8cc11`)
+- Owner: `DEV`
+- Evidence: three dedicated `promtool` evaluation groups independently remove `solana_indexer_indexed_tip_slot`, `solana_indexer_source_tip_slot`, and `solana_indexer_export_lag_slots`. Each group expects exactly `SolanaIndexerProgressInconsistent` with critical severity. A separate group supplies a present `NaN` source-tip and explicitly expects no alert.
+- Actual behavior: missing progress operands remain distinguishable from supported present-but-partial provenance. The test fixture preserves the exact alert identity and fixed-cardinality critical label without credentials, provider identities, or live dependencies.
+- Compatibility/performance impact: test evidence only; alert rules, metric producers, APIs, persistence, provider configuration, replay, and production behavior are unchanged.
+- Acceptance criteria: independently evaluate every absent progress operand; require the critical progress alert for each absence; retain a present-`NaN` non-firing control; keep fixtures bounded and credential-free. All criteria are met.
+- Validation results: independent native-rule-evaluation harness 35/35 PASS; focused monitoring 3/3, RPC/query-contract 45/45, health/feed/monitoring 37/37, Meteora/transfer-hook 11/11, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2767,7 +2793,7 @@ The review reconciles 110 distinct evidence domains: 108 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 759,277,675 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 762,818,608 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
