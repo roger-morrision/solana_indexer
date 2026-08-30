@@ -2118,3 +2118,13 @@
 - Compatibility/migration/configuration: regression and handoff evidence only; current repaired runtime admission order, discovery bytes and digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged.
 - Remaining boundary: the retained QC finding requires independent rerun against this revision; live commercial qualification still depends on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
 - NEXT_WEB_ACTION: generate required quote and depth builder arguments from discovery metadata and treat any preflight 400 as a client-construction error before retrying decision-state failures.
+
+## UPSTREAM discovery-driven HTTP value admission parity
+
+- Selected ID: `UPSTREAM-HTTP-VALUE-CONSTRAINT-MATRIX-081` (commercial SDK correctness, candle integrity, bot filter safety, discovery trust, and API supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected discovery-driven value parity because QC retained failures for decimal/exponent candle aliases and unbounded bot pool filters, while current source and hard-coded tests indicate both repairs exist. Binding probes to published profiles prevents discovery bounds and runtime verification from drifting independently.
+- Contract: the candle route must resolve the `interval` enum and bot-readiness `pool` must resolve `collectionFilter`; tests derive minimum/maximum valid values and decimal, exponent, leading-zero, empty, control-bearing, and overlength invalid values from those profiles, then require runtime 400 outcomes for the decision-relevant invalid forms.
+- Validation contract: focused coverage binds exact route-to-profile mappings, all six published intervals, collection-filter UTF-16 bounds and control policy, five candle boundaries/aliases, five bot-filter boundaries, and five live HTTP 400 responses.
+- Compatibility/migration/configuration: regression and handoff evidence only; current repaired runtime admission, discovery bytes and digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged.
+- Remaining boundary: the two retained QC failures require independent rerun against this revision; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: generate candle enums and bot collection-filter validation directly from discovery profiles so invalid aliases and filters are rejected before requests reach the indexer.
