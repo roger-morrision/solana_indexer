@@ -66,3 +66,42 @@ tests:
       - eval_time: 1m
         alertname: TerminalDexIndexProgressInconsistent
         exp_alerts: []
+  - name: missing index tip fails closed
+    interval: 1m
+    input_series:
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120
+      - series: terminal_dex_index_export_lag_slots
+        values: 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+  - name: missing source tip fails closed
+    interval: 1m
+    input_series:
+      - series: terminal_dex_index_tip_slot
+        values: 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+  - name: missing export lag fails closed
+    interval: 1m
+    input_series:
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }

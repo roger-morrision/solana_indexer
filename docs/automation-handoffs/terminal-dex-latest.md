@@ -2018,3 +2018,13 @@
 - Compatibility/migration/configuration: additive offline validation and test data only; production alert expressions, metrics, REST/RPC/WebSocket bytes, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: native offline evaluation does not establish live rule reload, scrape continuity, notification delivery, or canonical production evidence.
 - NEXT_WEB_ACTION: map the three native rule-test families to dashboard remediation states while preserving absent-series versus contradictory-value distinctions.
+
+## UPSTREAM native progress-operand presence coverage
+
+- Selected ID: `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-PRESENCE-071` (partial scrape detection, ingestion recovery, discovery freshness, replay safety, and commercial SLA monitoring).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected isolated source-tip, index-tip, and export-lag absence cases because the native suite's all-series-absent profile did not prove each `absent(...)` branch independently. QC was consulted after selection and had not yet reviewed ID 070.
+- Contract: the checked-in Prometheus rule tests now retain the other two progress operands while omitting exactly one required series per case, and require `TerminalDexIndexProgressInconsistent` to fire after its one-minute hold in all three profiles.
+- Validation contract: focused repository coverage requires all three stable fixture names and six total progress-alert evaluations spanning contradiction, all-series absence, supported `NaN`, and isolated operand absence.
+- Compatibility/migration/configuration: additive test evidence only; alert expressions, metrics, runtime behavior, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: local native evaluation remains SKIP until promtool is installed; live scrape and notification delivery still require operational qualification.
+- NEXT_WEB_ACTION: preserve separate remediation copy for missing index tip, source tip, and export lag so operators can identify the broken scrape or producer boundary without exposing provider identity.
