@@ -1838,3 +1838,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, readiness policy, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: state-specific cross-field requirements remain conservative because progressive evidence intentionally stops at the first failed gate; live readiness remains operator-blocked.
 - NEXT_WEB_ACTION: regenerate nested health validators and reject credential-bearing or unknown retry, exclusion, ingestion, structure, chain, and progressive-quality fields before alert or readiness evaluation.
+
+## UPSTREAM indexer-health state semantic closure
+
+- Selected ID: `UPSTREAM-RPC-INDEXER-HEALTH-STATE-SEMANTICS-054` (availability monitoring, AI/trading admission, replay safety, alert correctness, and commercial SLA integrity).
+- BA/PO decision: fresh inspection reconciled 22 evidence-backed opportunities and selected the remaining deterministic health boundary because the closed envelope still admitted contradictory status, boolean, reason, age, threshold, and timestamp combinations.
+- Contract: `indexer-health-state-semantics-v1` publishes 13 bounded rules tying healthy/stale/clock-skew timing to the freshness threshold, requiring timed states to carry latest-block time, requiring untimed states to omit it and use null age, binding healthy to the sole true boolean and null reason, and fixing the public reasons for five deterministic failure states.
+- Validation contract: generated-style verification accepts all eight real health states and rejects 13 isolated contradictions spanning boolean identity, nullability, threshold boundaries, timestamp presence, negative clock age, and exact state reasons.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, readiness policy, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: `invalid_evidence` intentionally retains multiple producer-specific non-empty reasons, and progressive evidence still stops at the first failed gate; live readiness remains blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate the health validator with `indexer-health-state-semantics-v1` and reject status, healthy, reason, age, threshold, or latest-block-time contradictions before alerting or readiness admission.
