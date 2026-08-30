@@ -1,26 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T05:36:41+07:00`
+- Run: `2026-08-31T06:36:12+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `add5393b442e5472122a2897ae47e411e42fe543`
-- Compared with QA baseline: `323f2e1ca9917478e47db6da587ec82e3c6899f6` (2 DEV commits, 2 changed files)
-- Compared with `origin/main`: 183 ahead, 0 behind before this evidence report
-- Latest DEV commits: `34ba3b9` (complete HTTP value-profile matrix) and `add5393` (HTTP value-profile boundary matrix)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-HTTP-VALUE-PROFILE-MATRIX-082` proves all 54 discovered routes bind the complete ten-profile catalog with valid, invalid, and unknown-parameter parity; `UPSTREAM-HTTP-VALUE-BOUNDARY-MATRIX-083` adds exact accepted/rejected boundaries across every profile. Reconciliation is 122 PASS, 1 FAIL, and 1 BLOCKED across 124 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `c554f4d0a9faf6db713d441e49344a29fa283fd4`
+- Compared with QA baseline: `85e248c5453cbfc4f2af76c9cb127764e5df2023` (2 DEV commits, 2 changed files)
+- Compared with `origin/main`: 186 ahead, 0 behind before this evidence report
+- Latest DEV commits: `c0ae22c` (HTTP default admission parity) and `c554f4d` (conditional quote admission parity)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-HTTP-DEFAULT-ADMISSION-MATRIX-084` proves every published default is admissible and runtime-equivalent to omission; `UPSTREAM-HTTP-CONDITIONAL-ADMISSION-MATRIX-085` proves the discovered concentrated-liquidity `limitTick` condition matches all required and forbidden runtime branches. Reconciliation is 124 PASS, 1 FAIL, and 1 BLOCKED across 126 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Complete HTTP value-profile parity (2 PASS)
+### HTTP default and conditional admission parity (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `34ba3b9` / `UPSTREAM-HTTP-VALUE-PROFILE-MATRIX-082` | Complete profile binding and representative parity | `PASS` | All 54 HTTP routes bind only the exact ten published profiles; every route accepts canonical representatives and rejects unknown parameters, every profile has an actual route binding, and one noncanonical representative per profile rejects. |
-| `add5393` / `UPSTREAM-HTTP-VALUE-BOUNDARY-MATRIX-083` | Profile-derived accepted/rejected boundaries | `PASS` | The complete catalog drives 29 accepted and 24 rejected boundary cases across u64, UTF-16 strings, cursor syntax/length, enum membership, integer bounds, safe-integer bounds, leading zeros, decimal aliases, controls, and overflow. |
+| `c0ae22c` / `UPSTREAM-HTTP-DEFAULT-ADMISSION-MATRIX-084` | Published default admission and omission parity | `PASS` | Independent discovery-derived probes validate all 29 default bindings across the exact four default-bearing profiles and compare all 24 default-bearing routes over live local HTTP; explicit defaults and omission return identical status and stable response semantics. |
+| `c554f4d` / `UPSTREAM-HTTP-CONDITIONAL-ADMISSION-MATRIX-085` | Conditional quote admission parity | `PASS` | Discovery exposes exactly one conditional route and the exact two concentrated-liquidity program IDs. Both reject omitted `limitTick` and advance with `limitTick=0`; the Raydium CPMM control advances on omission and rejects the extraneous parameter. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `323f2e1`, in `34ba3b9` and `add5393`; the root DEV writer lock appeared after the first validation tiers, so QC discarded all mixed-state evidence, waited for lock release, refreshed the complete delta, and reran every tier against stable `add5393`. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `85e248c`, in `c0ae22c` and `c554f4d`; the root DEV writer lock appeared during the first validation attempt, so QC discarded all mixed-state evidence, waited for lock release, refreshed the complete delta, and reran every tier against stable `c554f4d`. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting 54 routes, ten profiles, or 53 boundary cases into synthetic outcomes would be padding.
-- Validation: independent route/profile/boundary harness 217/217 PASS; focused current regression 1/1 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 18/18 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 5,017.93 blocks/s with 9,634,608-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 759,283,889 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting 24 routes, 29 bindings, two concentrated programs, or individual HTTP branches into synthetic outcomes would be padding.
+- Validation: independent default/conditional harness PASS across 29 bindings, 24 omission comparisons, two matching-program branches, and one nonmatching control; focused current regressions 2/2 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 471/471 PASS; syntax 87/87 PASS; replay invariants PASS at 8,145.74 blocks/s with 9,139,104-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 762,854,960 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2885,6 +2885,26 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: exact ten-profile matrix; 29 accepted and 24 rejected cases; actual bound-route execution; integer, string, enum, syntax, length, control, leading-zero, decimal, sign, and overflow boundaries; retained route-wide admission controls. All criteria are met.
 - Validation results: independent route/profile/boundary harness 217/217 PASS across current IDs 082–083; focused current regression 1/1, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-HTTP-DEFAULT-ADMISSION-MATRIX-084
+
+- Severity: `PASS` (delivered by `c0ae22c`)
+- Owner: `DEV`
+- Evidence: discovery contains exactly 24 routes and 29 route/parameter bindings with defaults across the exact `interval`, `limit`, `side`, and `window` profiles. Independent probes confirm every route value equals its referenced profile default and passes shared admission. All 24 live local HTTP comparisons return identical status and stable response semantics when defaults are explicit or omitted; only request-time observation timestamps are normalized.
+- Actual behavior: published defaults are valid runtime inputs and omission is semantically equivalent to supplying every discovered default. This preserves deterministic generated-client behavior and canonical cache keys without introducing route-specific assumptions.
+- Compatibility/performance impact: additive regression and handoff evidence only; default values, response bytes, discovery digest, product code, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged. The bounded local comparison covers 24 routes.
+- Acceptance criteria: derive every default-bearing route and binding from discovery; require exact profile-default equality; require explicit shared-admission success; compare omission with explicit defaults over live HTTP. All criteria are met.
+- Validation results: independent default/conditional harness PASS across 29 default bindings and 24 omission comparisons; focused current regressions 2/2, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 471/471, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-HTTP-CONDITIONAL-ADMISSION-MATRIX-085
+
+- Severity: `PASS` (delivered by `c554f4d`)
+- Owner: `DEV`
+- Evidence: discovery exposes exactly one conditional route, `/internal/pools/{pool}/quote`, whose `limitTick` parameter uses the published `limitTick` profile and becomes required only for the exact Raydium CLMM and Orca Whirlpool program IDs. Independent live local HTTP probes show both matching programs return redacted HTTP 400 when `limitTick` is omitted and advance to the expected fail-closed HTTP 503 state gate when `limitTick=0` is supplied. A Raydium CPMM control advances on omission and rejects extraneous `limitTick` with HTTP 400.
+- Actual behavior: runtime quote admission matches the complete published `pool_program_in` condition in both required branches and the nonmatching forbidden branch. Required `amountRaw` and `inputMint` inputs remain canonical in every probe.
+- Compatibility/performance impact: additive regression and handoff evidence only; quote admission behavior, discovery bytes and digest, product code, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged. The matrix is bounded to the published condition values plus one nonmatching control.
+- Acceptance criteria: derive the only conditional route, parameter/profile binding, condition kind, and matching program set from discovery; verify both required branches and one forbidden control through actual HTTP admission. All criteria are met.
+- Validation results: independent default/conditional harness PASS across two matching-program branches and one nonmatching control; focused current regressions 2/2, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 471/471, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2931,7 +2951,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 759,283,889 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 762,854,960 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
