@@ -1768,3 +1768,13 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime result bytes, cursor format and scope, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
 - Remaining boundary: owner-page cross-field and ordering semantics await independent QC; live wallet completeness cannot be claimed from the tracked mint set, and live qualification remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate `getIndexedTokenAccountsByOwner` request/result validators and preserve per-row raw, withheld, closure, and snapshot-completeness evidence without treating the tracked inventory as globally complete.
+
+## UPSTREAM holder and owner-page semantic closure
+
+- Selected IDs: `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` and `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` (holder concentration, wallet inventory, trader intelligence, AI safety, and commercial RPC correctness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; QC at `2ecc763` made the two related deterministic token-page failures the highest-value dependency-ready coherent repair.
+- Contracts: holder semantics now require an unconfigured exclusion registry to be non-stale and bind terminal top-ten raw value to the first ten ranked rows. Owner results add owner/mint-filter and page evidence plus nine bounded rules for page/cursor arithmetic, filter identity, unique ascending token accounts, same-mint program/decimal consistency, and legacy SPL withheld-null behavior.
+- Validation contract: generated-style verification accepts real first, continuation, full, empty, and coherent future-clock cases while rejecting both new holder contradictions and all seven owner/request contradictions reported by QC.
+- Compatibility/migration/configuration: owner responses add `page`, `owner`, and `mintFilter`; discovery schema, digest, and ETag change. Cursor encoding/scope, holder and account calculations, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
+- Remaining boundary: independent QC must confirm the 19-rule holder and nine-rule owner algorithms; live completeness and freshness qualification remain blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate holder and owner-account validators with the published semantic algorithms and reject aggregate, exclusion-state, filter, ordering, identity, mint-consistency, or withheld-balance contradictions before caching.
