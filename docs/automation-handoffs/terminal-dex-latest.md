@@ -1848,3 +1848,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, readiness policy, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: `invalid_evidence` intentionally retains multiple producer-specific non-empty reasons, and progressive evidence still stops at the first failed gate; live readiness remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate the health validator with `indexer-health-state-semantics-v1` and reject status, healthy, reason, age, threshold, or latest-block-time contradictions before alerting or readiness admission.
+
+## UPSTREAM indexer-health producer-profile repair
+
+- Selected ID: `UPSTREAM-RPC-INDEXER-HEALTH-NESTED-CONTRACT-053` (monitoring availability, evidence isolation, AI/trading admission, replay safety, and commercial SLA integrity).
+- BA/PO decision: fresh inspection reconciled 22 evidence-backed opportunities; QC confirmed state semantics but retained this HIGH issue because the real empty response failed its schema and eight progressive sections admitted empty or cross-profile evidence.
+- Contract: ingestion now admits the producer's bounded `unknown` commitment for an empty index. Events, decoder registry/output, derived ledger, aggregates, snapshots, metadata, and recovery each publish a distinct closed schema with every producer field required and no shared superset.
+- Validation contract: the real empty loopback commitment is covered, each of eight progressive profiles has exact required-key identity, and every profile rejects all seven foreign profile shapes plus empty objects and unknown fields.
+- Compatibility/migration/configuration: additive discovery correction only; runtime health bytes, fail-closed readiness, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: progressive sections remain conditionally present because health intentionally stops at the first failed gate; live readiness remains blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate the indexer-health validator with the eight section-specific profiles and accept `ingestion.commitment="unknown"` only as bounded provenance evidence, never as finalized readiness.
