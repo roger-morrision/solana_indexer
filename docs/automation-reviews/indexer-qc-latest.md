@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T09:36:52+07:00`
+- Run: `2026-08-30T10:35:23+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `ccfc46d2257bfbe9ce98b0f459ac458b08db865c`
-- Compared with QA baseline: `a81f97d1ed4f32541371078eb8e36e56f345056d` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 123 ahead, 0 behind before this evidence report
-- Latest DEV commits: `d74cc5d` (added token-holder page evidence and 12-rule semantics) and `ccfc46d` (added the DEV holder semantic mutation verifier)
-- Overall result: 0 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the two distinct DEV outcomes mapped to stable ID `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047`. The repair rejects 17/18 retained contradictions, but negative freshness age remains schema-valid and four coupled terminal/full-page contradictions remain admitted: incomplete row amount/account sums, duplicate holder identity, and producer-impossible tie ordering. The DEV verifier passes its own substituted 18-case set but omits the retained negative-age case and all four fresh coupled cases. Independent reconciliation remains 85 PASS, 2 FAIL, and 1 BLOCKED across 88 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `c0ae683ea776e98d7630ffcc66b5397fe364f736`
+- Compared with QA baseline: `9837c022cbb9fb5320ab662a5c7b53be4e519112` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 126 ahead, 0 behind before this evidence report
+- Latest DEV commits: `5175625` (added five holder terminal/freshness rules) and `c0ae683` (added owner token-account RPC discovery)
+- Overall result: 0 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` now rejects all five reported mutations and preserves coherent future-clock fail-closed evidence, but admits coupled top-ten/concentration understatement and an unconfigured exclusion registry marked stale. New `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` closes shapes and bounds but admits seven producer/request contradictions. Independent reconciliation is 85 PASS, 3 FAIL, and 1 BLOCKED across 89 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Token-holder semantic repair and mutation verification (0 PASS, 2 FAIL)
+### Holder terminal semantics and owner token-account discovery (0 PASS, 2 FAIL)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `d74cc5d` / `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` | `/rpc` / `getIndexedTokenHolders` | `FAIL` | Real first, continuation, and full pages plus null miss and descriptor validate; 47/47 required-field omissions and 17/18 retained contradictions reject. Negative `freshness.ageMs` remains admitted, as do four fresh producer-impossible full-page mutations: understated row amount/account sums, duplicate holder owner, and reversed equal-balance tie order. |
-| `ccfc46d` / `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` | committed holder semantic mutation verifier | `FAIL` | The verifier passes its own 18 cases, but replaces the retained negative-age mutation with `page.total`, so it does not prove the stated prior closure; it also omits the four independently admitted coupled/full-page contradictions. |
+| `5175625` / `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` | `/rpc` / `getIndexedTokenHolders` | `FAIL` | Real first/continuation/full pages, null, coherent future-clock control, descriptor, and 47 omissions pass; all five reported mutations now reject. Coupled `top10ObservedRaw` plus concentration understatement and unconfigured `exclusionEvidence.stale:true` remain schema-valid despite contradicting the canonical producer. |
+| `c0ae683` / `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` | `/rpc` / `getIndexedTokenAccountsByOwner` | `FAIL` | First, continuation, full, and empty results plus descriptor pass; 14/14 omissions and 10/10 structural/boundary negatives reject. Seven valid-shape mutations are admitted: owner/mint filter mismatch, reordered and duplicate accounts, same-mint decimals/program divergence, and withheld balance on a legacy SPL row. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `a81f97d`, in `d74cc5d` and `ccfc46d`; the complete two-commit, three-file delta was exhausted. QC detected `ccfc46d` after locking `d74cc5d`, discarded the stale validation target, refreshed the complete stable delta, and reran every tier. No additional distinct DEV outcome exists.
-- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP across both distinct DEV outcomes under one preserved stable finding ID.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct committed outcomes, and splitting relationship rules, mutations, page fields, or assertions would be padding.
-- Validation: real first/continuation/full pages 3/3 PASS; null miss/descriptor PASS; 47/47 missing-required negatives reject; retained semantic contradictions reject 17/18, with negative `ageMs` admitted; all 4/4 fresh coupled/full-page contradictions are admitted. Focused RPC/query-contract run is 36/36 PASS, and focused Meteora suites are 19/19 PASS. The registry digest is `c8309778414bcaa5db86ce188bb6765c3dcfc8549ada989253a0bc52f452d51b`; the complete contract digest is `738bbe6ff2317a07c6513fe544303b94bd998ed5b461c3f31b933742c2943eb3`. Full suite 453/453 PASS; syntax 86/86 PASS; replay invariants PASS at 5,819.76 blocks/s with 9,387,736-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `9837c02`, in `5175625` and `c0ae683`; the complete two-commit, three-file delta was exhausted. QC detected the DEV writer lock and uncommitted product changes after the provisional holder probe, paused all broader validation, discarded that target, refreshed to stable `c0ae683`, and reran every tier. No additional distinct DEV outcome exists.
+- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP across both distinct DEV outcomes and two stable finding IDs.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct committed outcomes, and splitting relationship rules, mutations, filters, fields, or assertions would be padding.
+- Validation: holder real pages 3/3, null and coherent future-clock controls PASS; 47/47 omissions and all 5/5 reported mutations reject; 2/2 fresh coupled contradictions are admitted. Owner-account real results 4/4 and descriptor PASS; 14/14 omissions and 10/10 structural negatives reject; 7/7 semantic contradictions are admitted. Focused RPC/query-contract run is 37/37 PASS, and focused Meteora suites are 19/19 PASS. The registry digest is `4e089e707ebbd805bf7281a198d421b14f96feb03d746458d03b012e7effce93`; the complete contract digest is `96f3e82592ca24d6324d2e62d8ed75c93cdf1c699a320a64fa87592ed6a4cb96`. Full suite 454/454 PASS; syntax 86/86 PASS; replay invariants PASS at 5,076.72 blocks/s with 10,028,592-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Token-holder semantic repair and mutation verification (0 PASS, 2 FAIL at prior baseline)
+
+- Prior exact shortfall: 18; prior validation was focused RPC/query-contract 36/36 and Meteora 19/19, full 453/453, syntax 86/86, and replay PASS. Current `5175625` closes all five reported holder mutations, while two fresh coupled contradictions retain the stable finding.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -829,7 +835,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 88-domain reconciliation
+## Independent 89-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -839,7 +845,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `c8309778414bcaa5db86ce188bb6765c3dcfc8549ada989253a0bc52f452d51b`; the full contract digest is `738bbe6ff2317a07c6513fe544303b94bd998ed5b461c3f31b933742c2943eb3`. Independent recomputation matches. |
+| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `4e089e707ebbd805bf7281a198d421b14f96feb03d746458d03b012e7effce93`; the full contract digest is `96f3e82592ca24d6324d2e62d8ed75c93cdf1c699a320a64fa87592ed6a4cb96`. Independent recomputation matches. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -888,7 +894,8 @@
 | RPC block/history result discovery | `PASS` | Canonical singular/page blocks and existing descriptors/cursors validate, and all eighteen incomplete or non-finalized block controls quarantine. Confirmed transaction evidence remains internally canonical but is withheld from collection and singular RPC results until matching finalized promotion, which then serves a schema-valid body. |
 | RPC token-account/supply result discovery | `PASS` | Both canonical bodies, null misses, exact descriptors, closed keys, and 24 missing-required controls validate. Published u64 maxima, canonical base58 identities, nullable owner/withheld forms, and exact token-program IDs reject all four over-u64 and six noncanonical-identity mutations. |
 | RPC token-metadata result discovery | `PASS` | Three exclusive result branches preserve real absent/present/enriched and null-miss forms. All 28 branch/provenance omissions, seven retained authoritative-state contradictions, the direct nested/top-level mint mismatch, and eight nested closure/boundary mutations reject. |
-| RPC token-holder result discovery | `FAIL` | Closed rows and nested evidence validate real first/continuation/full pages and reject 47/47 missing-required mutations. The new relationship rejects 17/18 retained contradictions, but negative freshness age remains admitted; all four fresh coupled/full-page mutations also validate because terminal row sums need not equal aggregates, holder owners need not be unique, and deterministic tie ordering is unbound. |
+| RPC token-holder result discovery | `FAIL` | Closed rows and nested evidence validate real first/continuation/full pages, null, coherent future-clock evidence, and reject 47/47 missing-required mutations plus all five reported terminal/freshness cases. A coupled top-ten/concentration understatement and stale flag on an unconfigured exclusion registry remain admitted. |
+| RPC owner token-account result discovery | `FAIL` | First, continuation, full, and empty results plus the exact descriptor validate; 14/14 omissions and 10/10 structural/boundary mutations reject. The schema admits 7/7 producer/request contradictions spanning owner/mint filters, ordering, uniqueness, same-mint decimals/program identity, and legacy withheld balance. |
 | WebSocket contracts and replay | `PASS` | Ordered persisted replay, resume, snapshot isolation, corruption rejection, acknowledgement, timeout, capacity, and backpressure tests pass. |
 | Numeric precision | `PASS` | Raw integer fields use exact string/UInt64/UInt256 or numerator/denominator contracts; Token-2022 epoch fee and Q64/lot/bin math tests pass. |
 | Replay, reorg, and idempotency | `PASS` | 1,000-block replay preserves canonical counts, duplicate idempotency, replacement correction, heap, and throughput invariants. |
@@ -919,10 +926,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 453/453; syntax passes 86/86; replay completes at 5,819.76 blocks/s with 9,387,736-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 687,295,288 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 454/454; syntax passes 86/86; replay completes at 5,076.72 blocks/s with 10,028,592-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 690,806,087 ms old at this trigger. |
 
-The review reconciles 88 distinct evidence domains: 85 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The review reconciles 89 distinct evidence domains: 85 PASS, 3 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2350,13 +2357,26 @@ The review reconciles 88 distinct evidence domains: 85 PASS, 2 FAIL, and 1 BLOCK
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
-- Reproduction: create a canonical finalized mint snapshot with three token accounts aggregated into two holders, call `getIndexedTokenHolders` through the real RPC handler for first, continuation, and terminal full pages, validate against the published schema plus `holder-page-semantics-v1`, replay the original 18 valid-shape mutations, then mutate full-page row sums, holder identity, and equal-balance order while preserving page arithmetic.
-- Evidence: real pages 3/3, null miss, exact descriptor, closed top-level/nested shapes, and all 47 missing-required controls behave correctly. The relationship rejects 17/18 retained mutations; `freshness.ageMs:-1` remains admitted because the property has no nonnegative bound and the relationship does not bind it. Four fresh producer-impossible full-page bodies also validate: amount sum 59 against aggregate 60, account sum 2 against aggregate 3, duplicate holder owner, and reversed equal-balance owner order. The `ccfc46d` DEV verifier passes only because it replaces the retained negative-age case with a page-total mutation and omits all four coupled cases.
+- Reproduction: create a canonical finalized mint snapshot with three token accounts aggregated into two holders, call `getIndexedTokenHolders` through the real RPC handler for first, continuation, and terminal full pages, validate all seventeen `holder-page-semantics-v1` rules, replay the five reported mutations, then apply coupled top-ten/concentration and exclusion-configuration mutations while preserving every published invariant.
+- Evidence: real pages 3/3, null, exact descriptor, coherent future-clock fail-closed control, closed top-level/nested shapes, and all 47 missing-required controls behave correctly. All five reported negative-age, terminal-sum, duplicate-owner, and ordering mutations now reject. Two producer-impossible coupled bodies validate: `top10ObservedRaw` and the concentration numerator can jointly understate the exact top-ten row sum (59 versus 60), and an unconfigured exclusion registry can claim `stale:true` while every provenance field remains null.
 - Affected contracts: holder/whale concentration, token detail, wallet intelligence, AI risk and trading-safety gates, exclusion governance, Token-2022 withheld-fund accounting, cursor caches, generated RPC validators, and commercial RPC readiness.
-- Expected versus actual behavior: a generated validator must require nonnegative freshness age, exact terminal/full-page row amount and account sums, unique holder owners, and the producer's deterministic amount-descending/owner-ascending order in addition to the twelve current invariants. Runtime emits coherent values, but discovery admits those five contradictions.
-- Acceptance criteria: reject the retained negative-age mutation and all four coupled/full-page mutations while preserving exact request styles/defaults/bounds, first/continuation/full pages, null miss, closed evidence projections, positive u64 holder balances, finalized identity, explicit withheld attribution, replacement-invalidated cursor, and `safeForAutomation:false`; the committed DEV verifier must exercise the exact retained and fresh set.
-- Validation results: real pages 3/3 PASS; null miss and descriptor PASS; missing-required negatives 47/47 reject; retained semantic contradictions 17/18 reject; fresh coupled/full-page contradictions 0/4 reject (FAIL). Focused RPC/query-contract 36/36 PASS; Meteora 19/19 PASS; full 453/453 PASS; syntax 86/86 PASS; replay PASS at 5,819.76 blocks/s with 9,387,736-byte heap growth; operational health fails closed as designed.
+- Expected versus actual behavior: on a terminal full page, `top10ObservedRaw` must equal the exact sum of the first ten ranked rows (or every row when fewer than ten), and an unconfigured exclusion registry must have `stale:false`. Runtime emits both correctly, but generated validators admit coupled contradictions.
+- Acceptance criteria: reject both coupled mutations while preserving all 23 reported/retained negatives, real first/continuation/full pages, coherent future-clock fail-closed evidence, null result, finalized/exclusion/withheld projections, replacement-invalidated cursor, and `safeForAutomation:false`.
+- Validation results: real pages 3/3 PASS; null, descriptor, and coherent future-clock control PASS; missing-required negatives 47/47 reject; reported mutations 5/5 reject; fresh coupled contradictions 0/2 reject (FAIL). Focused RPC/query-contract 37/37 PASS; Meteora 19/19 PASS; full 454/454 PASS; syntax 86/86 PASS; replay PASS at 5,076.72 blocks/s with 10,028,592-byte heap growth; operational health fails closed as designed.
 - Compatibility/performance impact: semantic discovery hardening changes schema digest/ETag and generated validators while canonical runtime response bytes can remain unchanged. Relationships remain bounded by the existing 500-row page cap; no replay or full-suite regression was observed.
+- Blockers: none; deterministic offline reproduction.
+
+## UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: create a canonical finalized legacy SPL mint snapshot with two accounts owned by one wallet, call `getIndexedTokenAccountsByOwner` through named and positional first/continuation/full pages plus an empty unfiltered owner result, validate the exact descriptor and closed schema, then mutate request-filter identity, row ordering/uniqueness, same-mint decimals/program identity, and withheld balance.
+- Evidence: all 4/4 real results and the descriptor validate; 14/14 top-level/row omissions and 10/10 invalid identity, program, decimals, u64, slot, or unknown-field mutations reject. All 7/7 valid-shape producer/request contradictions validate: a row can disagree with requested owner or mint; rows can be reversed or duplicate a token-account identity; rows for the same mint can disagree on decimals or token program; and a legacy SPL row can report a non-null withheld amount.
+- Affected contracts: wallet token inventory, funding and trader intelligence, token detail, pagination/caching, generated RPC clients, AI evidence, raw-balance correctness, Token-2022 interpretation, and commercial RPC readiness.
+- Expected versus actual behavior: the result must bind rows to requested owner and optional mint, require unique ascending token-account identities, preserve one decimals/program identity per mint, and require legacy SPL withheld balances to be null. Runtime enforces these boundaries, but discovery currently proves only individual row shapes and bounds.
+- Acceptance criteria: add bounded request/result and row relationships rejecting all seven mutations while preserving named/positional parameters, first/continuation/full/empty results, cursor scope and replacement invalidation, canonical projection gating, u64 precision, `coverage:"latest_canonical_observed_accounts"`, and `complete:false`.
+- Validation results: real results 4/4 and descriptor PASS; omissions 14/14 reject; structural/boundary mutations 10/10 reject; semantic contradictions 0/7 reject (FAIL). Focused RPC/query-contract 37/37, Meteora 19/19, full 454/454, syntax 86/86, and replay PASS.
+- Compatibility/performance impact: semantic discovery hardening changes schema digest/ETag and generated validators; runtime response bytes can remain compatible. Relationships remain bounded by the 500-row cap.
 - Blockers: none; deterministic offline reproduction.
 
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
@@ -2405,7 +2425,7 @@ The review reconciles 88 distinct evidence domains: 85 PASS, 2 FAIL, and 1 BLOCK
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 687,295,288 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 690,806,087 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -2414,4 +2434,4 @@ The review reconciles 88 distinct evidence domains: 85 PASS, 2 FAIL, and 1 BLOCK
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: bind nonnegative holder freshness age, terminal/full-page amount and account sums exactly to aggregates, unique holder owners, and deterministic amount-descending/owner-ascending order, then make the committed verifier reject the exact retained 18 plus all four fresh mutations while preserving first/continuation/full pages, null miss, finalized evidence, exclusion/withheld projections, and `safeForAutomation:false`.
+- NEXT_DEV_ACTION: bind terminal full-page `top10ObservedRaw` to the exact first-ten ranked-row sum and require `exclusionEvidence.stale:false` when exclusions are unconfigured, rejecting both coupled holder mutations while preserving all completed holder controls and coherent future-clock fail-closed evidence.
