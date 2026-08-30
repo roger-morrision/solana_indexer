@@ -1758,3 +1758,13 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime response bytes, holder aggregation, pagination and cursor identity, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
 - Remaining boundary: independent QC must confirm all retained and fresh mutations; owner-account RPC discovery remains shallow, and live holder qualification remains blocked on fresh canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate holder validators with all 17 `holder-page-semantics-v1` rules and reject non-reconciling terminal pages, duplicate or misordered owners, and freshness age/flag contradictions.
+
+## UPSTREAM owner token-account RPC contract closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` (wallet inventory, token detail, trader intelligence, AI evidence, and commercial RPC generation).
+- BA/PO decision: fresh inspection reconciled 22 evidence-backed opportunities and selected the last shallow token RPC result because its owner/mint filtering, canonical projection gate, deterministic ordering, cursor invalidation, and raw-balance producer are dependency-ready and already exercised offline.
+- Contract: `getIndexedTokenAccountsByOwner` now advertises exact positional/named owner input, optional mint/limit/cursor inputs, default and bounded pagination, a closed 500-row result, canonical account/mint/owner/program identity, decimals, u64 raw and optional withheld balances, slot/closed/snapshot evidence, canonical cursor syntax, partial tracked-inventory coverage, and `complete:false`.
+- Validation contract: discovery assertions bind every parameter and result field while the existing producer regression covers first/continuation pages, owner/mint filtering, relevant-evidence failure, cursor replacement invalidation, and credential-free public projection.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime result bytes, cursor format and scope, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
+- Remaining boundary: owner-page cross-field and ordering semantics await independent QC; live wallet completeness cannot be claimed from the tracked mint set, and live qualification remains blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate `getIndexedTokenAccountsByOwner` request/result validators and preserve per-row raw, withheld, closure, and snapshot-completeness evidence without treating the tracked inventory as globally complete.

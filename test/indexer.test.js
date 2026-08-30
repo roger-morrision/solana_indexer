@@ -482,6 +482,13 @@ test("largest token account RPC contract binds pagination and finalized rows", (
   assert.equal(schema.oneOf[0].type, "null"); assert.equal(schema.oneOf[1].additionalProperties, false); assert.equal(schema.oneOf[1].properties.data.maximumItems, 500); assert.equal(schema.oneOf[1].properties.data.items.additionalProperties, false); assert.equal(schema.oneOf[1].properties.data.items.properties.amountRaw.maximumRaw, "18446744073709551615"); assert.deepEqual(schema.oneOf[1].properties.commitment.values, ["finalized"]); assert.deepEqual(schema.oneOf[1].properties.complete.values, [true]);
 });
 
+test("owner token-account RPC contract closes filters pagination and rows", () => {
+  const contract = queryContractSnapshot(), method = contract.rpc.methods.find((row) => row.method === "getIndexedTokenAccountsByOwner"), schema = contract.rpcResultSchemas.indexed_token_accounts_by_owner_result_v1;
+  assert.deepEqual(method.params, { styles: ["positional", "named"], required: ["owner"], optional: ["mint", "limit", "cursor"], defaults: { limit: 100 }, limit: { minimum: 1, maximum: 500 }, cursor: { nullable: true, maximumLength: 1024 } });
+  assert.deepEqual(schema.required, ["data", "nextCursor", "coverage", "complete"]); assert.deepEqual(schema.optional, []); assert.equal(schema.additionalProperties, false); assert.equal(schema.properties.data.maximumItems, 500); assert.equal(schema.properties.data.items.additionalProperties, false);
+  assert.deepEqual(schema.properties.data.items.required, ["tokenAccount", "mint", "owner", "programId", "decimals", "amountRaw", "withheldAmountRaw", "lastSlot", "closed", "snapshotComplete"]); assert.deepEqual(schema.properties.data.items.properties.programId.values, [SPL_TOKEN_PROGRAM, "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"]); assert.deepEqual(schema.properties.coverage.values, ["latest_canonical_observed_accounts"]); assert.deepEqual(schema.properties.complete.values, [false]);
+});
+
 test("token metadata RPC contract closes authoritative envelope and provenance", () => {
   const contract = queryContractSnapshot(), method = contract.rpc.methods.find((row) => row.method === "getIndexedTokenMetadata"), [, absent, present] = contract.rpcResultSchemas.indexed_token_metadata_result_v1.oneOf;
   assert.deepEqual(method.params, { styles: ["positional", "named"], required: ["mint"] }); assert.equal(absent.additionalProperties, false); assert.deepEqual(absent.properties.metadataPresent.values, [false]); assert.deepEqual(absent.properties.authoritativeAbsence.values, [true]); assert.equal(absent.properties.metadata.type, "null"); assert.equal(absent.properties.offchainMetadata.type, "null");
