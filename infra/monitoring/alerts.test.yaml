@@ -90,6 +90,52 @@ tests:
         exp_alerts:
           - exp_labels: { severity: critical }
             exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+  - name: transient contradictions recover before hold
+    interval: 30s
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 0 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 1 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 19 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
+  - name: transient missing series recover before hold
+    interval: 30s
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: _ 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: _ 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: _ 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 20 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
   - name: present NaN partial progress remains supported
     interval: 1m
     input_series:

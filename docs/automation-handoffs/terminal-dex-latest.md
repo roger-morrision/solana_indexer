@@ -2058,3 +2058,13 @@
 - Compatibility/migration/configuration: additive native timing evidence only; production alert expressions, one-minute holds, gauges, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: native execution remains SKIP until promtool is installed; offline timing does not prove live evaluation cadence or notification delivery.
 - NEXT_WEB_ACTION: display the one-minute pending interval before escalating semantic monitoring failures, without treating pending, skipped, or absent scrape evidence as resolved.
+
+## UPSTREAM native semantic-alert transient recovery
+
+- Selected ID: `UPSTREAM-PROMTOOL-TRANSIENT-RECOVERY-075` (false-positive prevention, incident trust, scrape recovery, AI/trading safety, and commercial SLA stability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected transient-recovery evaluation because the native suite proved pending and firing states but did not prove that a contradiction or missing required series which clears before the one-minute hold never reaches firing. QC closed ID 074 after selection and remained verification input only.
+- Contract: two 30-second native profiles begin with either all three finite semantic contradictions or the required retry, exclusion, and source-tip series absent, restore canonical evidence after 30 seconds, and require all three alerts to remain absent at one minute.
+- Validation contract: focused repository coverage requires both stable recovery profile names, both 30-second intervals, explicit finite and omitted-sample transitions, and six additional non-firing outcomes while preserving every sustained one-minute critical outcome.
+- Compatibility/migration/configuration: additive native test evidence only; production alert expressions and one-minute holds, gauges, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged. No migration or operator configuration is required.
+- Remaining boundary: native execution remains SKIP until promtool is installed; offline recovery controls do not establish live scrape cadence, rule reload, Alertmanager delivery, or canonical production evidence.
+- NEXT_WEB_ACTION: clear pending dashboard states when canonical evidence returns within the one-minute hold, while preserving incident history and never treating absent scrape evidence as recovery.
