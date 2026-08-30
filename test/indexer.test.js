@@ -755,13 +755,14 @@ test("query contract snapshots are detached from shared schema and constraint re
   assert.equal(fresh.valueConstraints.limit.maximum, 500);
   assert.match(fresh.contractSha256, /^[0-9a-f]{64}$/);
 });
-test("quote query admission rejects missing and non-u64 inputs before unhealthy decision state", async (t) => {
+test("published required query parameters reject before unhealthy decision state", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.valueConstraints.amountRaw, { kind: "positive_u64_decimal_string", pattern: "^[0-9]+$", minimumRaw: "1", maximumRaw: "18446744073709551615", maximumLength: 20 });
   for (const amount of ["1", "18446744073709551615"]) assert.doesNotThrow(() => validateAllowedQueryParameters(new URL(`/internal/tokens/mint/executable-depth?amountRaw=${amount}`, "http://indexer.test")));
   for (const amount of ["0", "18446744073709551616", "999999999999999999999"]) assert.throws(() => validateAllowedQueryParameters(new URL(`/internal/tokens/mint/executable-depth?amountRaw=${amount}`, "http://indexer.test")), (error) => error.code === "BAD_REQUEST", amount);
   const store = new IndexStore("unused"); await store.load(); store.derivedLedgerQuality = () => ({ canonical: false, reason: "injected_decision_state_failure" }); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const base = `http://127.0.0.1:${server.address().port}`;
-  for (const target of ["/internal/pools/pool/quote", "/internal/pools/pool/quote?amountRaw=1", "/internal/tokens/mint/executable-depth", "/internal/tokens/mint/executable-depth?amountRaw=0", "/internal/tokens/mint/executable-depth?amountRaw=18446744073709551616"]) assert.equal((await fetch(`${base}${target}`)).status, 400, target);
-  assert.equal((await fetch(`${base}/internal/tokens/mint/executable-depth?amountRaw=18446744073709551615`)).status, 503);
+  const requiredValues = { amountRaw: "1", inputMint: "mint" }, requiredRoutes = contract.http.filter(({ requiredParameters }) => requiredParameters.length > 0); assert.deepEqual(requiredRoutes.map(({ path }) => path), ["/internal/pools/{pool}/quote", "/internal/tokens/{mint}/executable-depth"]);
+  for (const route of requiredRoutes) { const path = route.path.replace(/\{[^}]+\}/g, "resource"); for (const missing of route.requiredParameters) { const query = new URLSearchParams(route.requiredParameters.filter((name) => name !== missing).map((name) => [name, requiredValues[name]])); const target = `${path}${query.size ? `?${query}` : ""}`; assert.equal((await fetch(`${base}${target}`)).status, 400, `${route.path}:${missing}`); } const complete = new URLSearchParams(route.requiredParameters.map((name) => [name, requiredValues[name]])); assert.equal((await fetch(`${base}${path}?${complete}`)).status, 503, `${route.path}:complete`); }
+  for (const target of ["/internal/tokens/mint/executable-depth?amountRaw=0", "/internal/tokens/mint/executable-depth?amountRaw=18446744073709551616"]) assert.equal((await fetch(`${base}${target}`)).status, 400, target);
 });
 test("every published HTTP route shares one runtime allowlist contract", () => {
   const value = { amountRaw: "1", cursor: "eyJrZXkiOiJrIiwic2NvcGUiOm51bGwsInZlcnNpb24iOjF9", inputMint: "m", interval: "60", limit: "1", limitTick: "0", mint: "m", pool: "p", protocol: "x", side: "sell", status: "active", window: "1h" };

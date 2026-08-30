@@ -2108,3 +2108,13 @@
 - Compatibility/migration/configuration: additive native test evidence only; production alert expressions and one-minute holds, gauges, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged. No migration or operator configuration is required.
 - Remaining boundary: native execution remains SKIP until promtool is installed; offline governance isolation does not establish live scrape cadence, rule reload, Alertmanager delivery, or canonical production evidence.
 - NEXT_WEB_ACTION: show whether retry canonicality or exclusion governance is missing and clear only the affected state after that specific gauge returns canonically.
+
+## UPSTREAM discovery-driven required-parameter admission parity
+
+- Selected ID: `UPSTREAM-HTTP-REQUIRED-ADMISSION-MATRIX-080` (commercial SDK correctness, quote/depth safety, contract discovery trust, AI/trading fail-closed behavior, and API supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected exhaustive required-parameter parity because QC retained an older failure claiming quote/depth omissions reached noncanonical decision state, while current source and a narrow hard-coded regression indicate the repair exists. Deriving probes from the published contract prevents future route or requirement additions from escaping runtime verification.
+- Contract: every discovered HTTP route with nonempty `requiredParameters` is enumerated; omitting each required parameter independently must return 400 under injected noncanonical decision state, while supplying the complete required set must progress to the expected fail-closed 503 state gate. The current discovered set is exactly pool quote and executable depth.
+- Validation contract: focused coverage binds the discovery-derived route set, three independent omissions (`amountRaw`, `inputMint`, and depth `amountRaw`), two complete-set state-gate outcomes, and retained positive-u64 boundary rejection.
+- Compatibility/migration/configuration: regression and handoff evidence only; current repaired runtime admission order, discovery bytes and digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged.
+- Remaining boundary: the retained QC finding requires independent rerun against this revision; live commercial qualification still depends on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: generate required quote and depth builder arguments from discovery metadata and treat any preflight 400 as a client-construction error before retrying decision-state failures.
