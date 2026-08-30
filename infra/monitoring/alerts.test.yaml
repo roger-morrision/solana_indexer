@@ -2,6 +2,29 @@ rule_files:
   - alerts.yaml
 evaluation_interval: 1m
 tests:
+  - name: canonical monitoring evidence remains quiet
+    interval: 1m
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
   - name: finite monitoring contradictions
     interval: 1m
     input_series:

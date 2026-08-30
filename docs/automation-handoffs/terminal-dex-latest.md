@@ -2038,3 +2038,13 @@
 - Compatibility/migration/configuration: additive native test evidence only; production alert expressions, gauges, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged.
 - Remaining boundary: real native execution remains SKIP until promtool is installed; live scrape continuity, rule reload, and notification delivery still require operator evidence.
 - NEXT_WEB_ACTION: show distinct missing retry-canonicality and missing exclusion-governance remediation states without displaying retry payload, holder selectors, evidence labels, or provider identity.
+
+## UPSTREAM native canonical alert silence
+
+- Selected ID: `UPSTREAM-PROMTOOL-CANONICAL-NONFIRING-073` (false-positive prevention, incident trust, holder governance, ingestion operations, and commercial SLA stability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected a complete canonical non-firing profile because native fixtures covered every contradiction and missing-series branch but lacked quiet controls for retry and holder-governance alerts. QC was consulted after selection and had not yet reviewed ID 072.
+- Contract: one canonical Prometheus profile supplies valid retry canonicality, non-future exclusion governance, and exact source-tip minus index-tip equals export-lag evidence; all three critical semantic alerts must remain absent after one minute.
+- Validation contract: focused coverage requires the stable canonical profile, one empty alert expectation for each semantic alert, and the existing present-`NaN` progress non-firing control.
+- Compatibility/migration/configuration: additive native test evidence only; production alert rules, gauges, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged.
+- Remaining boundary: native execution remains SKIP until promtool is installed, and offline silence cannot establish live scrape or notification behavior.
+- NEXT_WEB_ACTION: treat a fully canonical quiet profile as the dashboard baseline and never infer incident clearance from missing scrape data or skipped native validation.
