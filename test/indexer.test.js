@@ -440,6 +440,13 @@ test("zero-parameter RPC methods reject ignored request input", async (t) => {
   for (const method of ["getIndexerHealth", "getIndexerStats"]) { for (const params of [undefined, null, [], {}]) assert.ok("result" in await call(method, params)); for (const params of [[1], { private: true }, "ignored", 1, true]) assert.deepEqual((await call(method, params)).error, { code: -32602, message: "Invalid params" }); }
 });
 
+test("indexer stats RPC publishes and returns its closed top-level result", async (t) => {
+  const contract = queryContractSnapshot(), schema = contract.rpcResultSchemas.indexer_stats_result_v1, restSchema = contract.responseBodySchemas.stats_success_v1;
+  assert.deepEqual(schema, restSchema); assert.equal(schema.additionalProperties, false); assert.deepEqual(schema.optional, []); assert.deepEqual(schema.required, ["tip", "blocks", "transactions", "instructions", "programEvents", "transfers", "nativeTransfers", "balanceChanges", "tokenAccounts", "swaps", "pools", "poolSnapshots", "accounts", "mints", "deadLetters", "unresolvedDeadLetters", "droppedDeadLetters", "deadLetterRetry", "holderExclusions", "reorgCorrections", "updatedAt", "ingestion", "structure", "chain"]);
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const response = await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getIndexerStats" }) }), body = await response.json();
+  assert.equal(response.status, 200); assert.deepEqual(Object.keys(body.result).sort(), [...schema.required].sort()); for (const key of schema.required) assert.ok(schema.properties[key], key); assert.equal(body.result.structure.canonical, true); assert.equal(body.result.chain.canonical, true);
+});
+
 test("query-contract bootstrap closes RPC catalog identity and membership", () => {
   const contract = queryContractSnapshot(), bootstrap = contract.responseBodySchemas.query_contracts_success_v1.properties, rpcSchema = bootstrap.rpc, resultSchema = bootstrap.rpcResultSchemas;
   const validRpc = (value) => value && Object.keys(value).every((key) => rpcSchema.required.includes(key)) && rpcSchema.required.every((key) => key in value) && value.path === "/rpc" && value.readOnly === true && value.batch?.minimumItems === 1 && value.batch?.maximumItems === 100 && JSON.stringify(value.methods) === JSON.stringify(rpcSchema.properties.methods.exactItems);

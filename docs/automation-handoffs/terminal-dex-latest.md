@@ -1798,3 +1798,13 @@
 - Compatibility/migration/configuration: additive discovery only; runtime request/result bytes, nine bounded row/page rules, cursor format and scope, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: health and stats RPC result descriptors remain shallow; live wallet completeness and freshness qualification remain blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate the owner-account RPC validator with request/result equality and reject owner or mint-filter echo drift before applying the nine result-page rules or caching a page.
+
+## UPSTREAM indexer-stats RPC result closure
+
+- Selected ID: `UPSTREAM-RPC-INDEXER-STATS-CONTRACT-050` (commercial monitoring, SDK generation, operational dashboards, cache safety, and developer experience).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready stats descriptor because owner request/result identity is repaired while `getIndexerStats` still advertised only an unconstrained object despite sharing a stable public projection with `/api/stats`.
+- Contract: `indexer_stats_result_v1` now reuses the closed `stats_success_v1` schema, requiring the exact 24-field stats, ingestion, structure, and chain projection and rejecting unknown top-level fields.
+- Validation contract: discovery equality prevents REST/RPC drift; a live loopback RPC result must have exact required-key parity and canonical structure/chain evidence.
+- Compatibility/migration/configuration: additive discovery hardening only; canonical RPC and REST response bytes, persistence, providers, migrations, WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: nested retry, exclusion, ingestion, structure, and chain descriptors retain their existing conservative object boundaries; `getIndexerHealth` remains shallow and live readiness remains operator-blocked.
+- NEXT_WEB_ACTION: regenerate the indexer-stats RPC validator from the shared closed schema and reject missing or unknown top-level monitoring fields before caching or aggregation.
