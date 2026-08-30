@@ -1694,3 +1694,12 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime requests/responses, cursor behavior, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: metadata, holder aggregation, and owner-account RPC schemas remain shallow; Meteora row authenticity still requires independently anchored finalized evidence or a trusted signature.
 - NEXT_WEB_ACTION: regenerate the largest-token-account RPC request/page validator and preserve finalized snapshot, positive-balance, withheld-amount, cursor, coverage, and completeness semantics.
+
+## UPSTREAM token-metadata RPC envelope closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-METADATA-CONTRACTS-046` (token detail, AI analysis, metadata trust, cache identity, and commercial RPC readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected metadata after QC confirmed transaction, token-balance, and largest-account closure because the producer already distinguishes authoritative absence from incomplete search and rejects malformed enrichment.
+- Contract: `getIndexedTokenMetadata` now publishes exact positional/named mint input, null-on-miss, a closed authoritative envelope, canonical mint identity, complete finalized Metaplex-search coverage, non-automation-safe semantics, and closed slot/commitment/time/source-hash/search-complete provenance.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime metadata bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: nested on-chain metadata and optional off-chain enrichment objects retain shallow object/null descriptors pending their own bounded field-level closure; holder and owner-account RPC schemas also remain shallow.
+- NEXT_WEB_ACTION: regenerate the metadata RPC envelope validator, preserve authoritative-absence semantics, and continue treating nested metadata/enrichment as untrusted until their field schemas are closed.

@@ -482,6 +482,12 @@ test("largest token account RPC contract binds pagination and finalized rows", (
   assert.equal(schema.oneOf[0].type, "null"); assert.equal(schema.oneOf[1].additionalProperties, false); assert.equal(schema.oneOf[1].properties.data.maximumItems, 500); assert.equal(schema.oneOf[1].properties.data.items.additionalProperties, false); assert.equal(schema.oneOf[1].properties.data.items.properties.amountRaw.maximumRaw, "18446744073709551615"); assert.deepEqual(schema.oneOf[1].properties.commitment.values, ["finalized"]); assert.deepEqual(schema.oneOf[1].properties.complete.values, [true]);
 });
 
+test("token metadata RPC contract closes authoritative envelope and provenance", () => {
+  const contract = queryContractSnapshot(), method = contract.rpc.methods.find((row) => row.method === "getIndexedTokenMetadata"), schema = contract.rpcResultSchemas.indexed_token_metadata_result_v1.oneOf[1];
+  assert.deepEqual(method.params, { styles: ["positional", "named"], required: ["mint"] }); assert.equal(schema.additionalProperties, false); assert.deepEqual(schema.properties.coverage.values, ["complete_finalized_metaplex_program_search"]); assert.deepEqual(schema.properties.complete.values, [true]); assert.deepEqual(schema.properties.safeForAutomation.values, [false]);
+  assert.deepEqual(schema.properties.provenance.required, ["slot", "commitment", "observedAt", "sourceHash", "searchComplete"]); assert.equal(schema.properties.provenance.additionalProperties, false); assert.deepEqual(schema.properties.provenance.properties.commitment.values, ["finalized"]); assert.deepEqual(schema.properties.provenance.properties.searchComplete.values, [true]);
+});
+
 test("legacy block and transaction collections publish their bare-array schema", () => {
   const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.legacy_collection_success_v1;
   assert.deepEqual(schema, { type: "array" });
