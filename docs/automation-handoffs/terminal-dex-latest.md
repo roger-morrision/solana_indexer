@@ -1938,3 +1938,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime exclusion bytes, registry loading, holder/security calculations, persistence, providers, migrations, REST/RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: ingestion tip/lag arithmetic remains separately discoverable; live qualification remains operator-blocked on fresh canonical provider and sink evidence.
 - NEXT_WEB_ACTION: implement `holder-exclusion-registry-semantics-v1` once in generated monitoring validators and reject configuration, timing, clock-skew, expiry, or freshness contradictions before holder-risk and trading-safety decisions.
+
+## UPSTREAM index-ingestion progress semantics
+
+- Selected ID: `UPSTREAM-MONITORING-INGESTION-PROGRESS-SEMANTICS-063` (data-lag monitoring, discovery/trending freshness, replay operations, AI/trading admission, and commercial SLA integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; five index-derived monitoring schemas expose tip, source-tip, and export-lag evidence without declaring their cross-field meaning. Producer inspection confirmed partial provenance is intentionally supported, so a conditional arithmetic contract is the highest-value dependency-ready increment without narrowing compatibility.
+- Contract: `index-ingestion-progress-semantics-v1` requires any progress evidence to have an indexed tip, prevents a present source tip from trailing that tip, reconciles source tip to index tip plus lag when both progress values are present, and binds an absent tip to the exact unknown-source, unknown-commitment, null-progress diagnostic profile.
+- Validation contract: five REST/RPC index-derived schemas share the four-rule descriptor while combined feed health retains its distinct exporter ingestion schema; empty, complete, source-tip-only, and lag-only profiles validate, while five isolated tip, arithmetic, source, and commitment contradictions reject.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime provenance bytes, partial-provenance support, ingestion, persistence, providers, migrations, REST/RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: live qualification remains operator-blocked on fresh canonical provider, exporter, warehouse, backup, recovery, and complete index evidence.
+- NEXT_WEB_ACTION: implement `index-ingestion-progress-semantics-v1` for index-derived monitoring validators while preserving valid partial provenance and keeping combined-feed exporter ingestion distinct.
