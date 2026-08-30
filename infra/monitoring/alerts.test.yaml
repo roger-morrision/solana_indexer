@@ -136,6 +136,44 @@ tests:
       - eval_time: 1m
         alertname: TerminalDexIndexProgressInconsistent
         exp_alerts: []
+  - name: sustained contradictions fire at hold and clear after recovery
+    interval: 30s
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 0 0 0 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 1 1 1 0
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 19 19 19 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Dead-letter retry evidence is structurally invalid or contains legacy unscheduled work" }
+      - eval_time: 1m
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Reviewed holder-exclusion governance evidence is future-dated and must not affect risk decisions" }
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+      - eval_time: 1m30s
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts: []
+      - eval_time: 1m30s
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts: []
+      - eval_time: 1m30s
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
   - name: present NaN partial progress remains supported
     interval: 1m
     input_series:
