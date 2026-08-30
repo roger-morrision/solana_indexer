@@ -1,27 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T15:35:28+07:00`
+- Run: `2026-08-30T16:35:29+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `d0ee1360aa144dbd353d36191de02c989256d1c0`
-- Compared with QA baseline: `4913a533a8d797a1d7b52fb5db72c2b21ef02df5` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 141 ahead, 0 behind before this evidence report
-- Latest DEV commits: `9ce7b4b` (indexer-health producer-profile repair) and `d0ee136` (health nullable-event and shared stats nested-contract remediation)
-- Overall result: 2 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete three-outcome DEV delta. The first `9ce7b4b` slice remained producer-incompatible for a real invalid-event body, while `d0ee136` closes that retained health finding and adds a distinct closed REST/RPC stats nested-contract domain. Reconciliation is 94 PASS, 1 FAIL, and 1 BLOCKED across 96 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `9db59d558e5dd308f2f3c1f04b0cef00f1bba908`
+- Compared with QA baseline: `8ab4d473f5d9f784764fbd5ef55d3b56e7dc3607` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 144 ahead, 0 behind before this evidence report
+- Latest DEV commits: `9af9253` (unavailable REST stats nested-evidence closure) and `9db59d5` (unavailable public-health nested-evidence closure)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. Stable IDs `UPSTREAM-REST-STATS-UNAVAILABLE-NESTED-CONTRACT-056` and `UPSTREAM-REST-INDEX-HEALTH-UNAVAILABLE-NESTED-CONTRACT-057` close the failure-path monitoring profiles while preserving their distinct top-level unavailable envelopes. Reconciliation is 96 PASS, 1 FAIL, and 1 BLOCKED across 98 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (2/20)
 
-### Monitoring nested-contract repairs (2 PASS, 1 FAIL)
+### Unavailable monitoring nested-evidence closures (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `9ce7b4b` / `UPSTREAM-RPC-INDEXER-HEALTH-NESTED-CONTRACT-053` | `/rpc` / `getIndexerHealth` | `FAIL` | The real empty-index result now validates; eight profiles are distinct and reject 8/8 empty, 8/8 credential-bearing, and 56/56 foreign-profile shapes. A real invalid-event loopback result with an empty retained log and nonzero event high-water mark emits `events.oldestSequence=null`, which the new integer-only profile rejects. The committed regression checks only key presence for profile objects and therefore misses this type incompatibility. |
-| `d0ee136` / `UPSTREAM-RPC-INDEXER-HEALTH-NESTED-CONTRACT-053` | `/rpc` / `getIndexerHealth` | `PASS` | The event profile now admits the producer-valid nullable oldest sequence. Independent recursive validation accepts real empty-index and invalid-event loopback bodies, preserves eight distinct profiles, and rejects 8/8 empty, 8/8 credential-bearing, and 56/56 foreign-profile shapes. |
-| `d0ee136` / `UPSTREAM-RPC-INDEXER-STATS-NESTED-CONTRACT-055` | `/api/stats`; `/rpc` / `getIndexerStats` | `PASS` | REST and RPC expose byte-equivalent nested retry, exclusion, ingestion, structure, and chain projections under shared closed schemas. The real result validates; all 5/5 missing-required and 5/5 credential-bearing nested mutations reject. |
+| `9af9253` / `UPSTREAM-REST-STATS-UNAVAILABLE-NESTED-CONTRACT-056` | `/api/stats` HTTP 503 | `PASS` | The unavailable schema reuses all five exact success/RPC monitoring profiles. Independent recursive validation accepts the real malformed-state 503; rejects 5/5 missing-required and 5/5 credential-bearing nested mutations; and confirms all seven reachable nested object nodes are closed, including retry stages and chain-conflict rows. |
+| `9db59d5` / `UPSTREAM-REST-INDEX-HEALTH-UNAVAILABLE-NESTED-CONTRACT-057` | `/api/health` HTTP 503 | `PASS` | The unavailable schema reuses all 13 exact RPC health profiles. Independent recursive validation accepts real empty, malformed-state, and invalid-event 503 bodies; rejects missing-required and credential-bearing mutations for all four profiles present across those bodies; and confirms all 15 reachable nested schema object nodes are closed. |
 
-- Available DEV delta: exactly three distinct committed outcomes exist after `4913a53`, across `9ce7b4b` and `d0ee136`; the complete two-commit, three-file delta was exhausted on stable HEAD with no DEV writer lock. No additional distinct DEV outcome exists.
-- Verification result: 2 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across the three distinct DEV outcomes. The historical FAIL records the incomplete `9ce7b4b` slice; its stable finding is closed by the separately reviewed `d0ee136` outcome.
-- Exact fix/enhancement shortfall: 17; the stable delta contains exactly three distinct outcomes, and splitting profile names, keys, shapes, mutations, assertions, or shared-schema properties would be padding.
-- Validation: the independent recursive validator accepts real empty-index and invalid-event health results; confirms eight distinct producer profiles; rejects 8/8 empty, 8/8 credential-bearing, and 56/56 foreign-profile shapes; confirms REST/RPC stats equality and the real stats result; and rejects 5/5 missing-required plus 5/5 credential-bearing nested stats mutations. Focused RPC/query-contract is 45/45 PASS and focused Meteora is 12/12 PASS. The response-schema registry digest is `88ec328db7b76421ac34f3981dcc258a3a3957310e1d9f6bd4497270e5ee0157`; the complete contract digest is `b58ce0f73b331cbd5b4c9966673aa97223eddb6e14156f222dc90d26a6c15b16`. Full suite 462/462 PASS; syntax 86/86 PASS; replay invariants PASS at 6,539.89 blocks/s with 9,769,696-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `8ab4d47`, one in each of `9af9253` and `9db59d5`; the complete two-commit, three-file delta was exhausted after the intervening DEV writer lock released and the full validation matrix was rerun on stable HEAD. No additional distinct DEV outcome exists.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting shared profiles, nested objects, producer states, fields, mutations, or assertions would be padding.
+- Validation: stats identity is 5/5 with successful REST and RPC schemas; the real stats HTTP 503 validates; missing-required and credential-bearing stats mutations reject 5/5 each; and its seven reachable nested object nodes are closed. Health identity is 13/13 with RPC; real empty, malformed-state, and invalid-event HTTP 503 bodies validate; missing-required and credential-bearing mutations reject 4/4 present profiles each; and all 15 reachable nested schema object nodes are closed. Focused RPC/query-contract is 45/45 PASS, focused stats is 5/5 PASS, focused health is 28/28 PASS, and focused Meteora is 12/12 PASS. The response-schema registry digest is `2822bbef898f2af6eab368b64d1e93bf1a0c444b8daf0295d21fec04a5c8cc33`; the complete contract digest is `bccb113323262517ff16f5b77d2cc3e963518ff74af4d4edc3a15cb5bc0c0422`. Full suite 463/463 PASS; syntax 86/86 PASS; replay invariants PASS at 4,501.72 blocks/s with 9,516,808-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (3/20; retained)
+
+### Monitoring nested-contract repairs (2 PASS, 1 FAIL)
+
+- Prior exact shortfall: 17; prior validation was focused RPC/query-contract 45/45 and Meteora 12/12, full 462/462, syntax 86/86, and replay PASS. Stable IDs 053 and 055 remain closed.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -854,7 +859,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 96-domain reconciliation
+## Independent 98-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -864,7 +869,7 @@
 | Decision-quality unavailable discovery | `PASS` | All 29 decision consumers publish exactly one retryable JSON 503 outcome; 24 are new and five retained heterogeneous controls remain correct. All 29 distinct real HTTP decision-failure probes return the advertised status family. |
 | HTTP response representation discovery | `PASS` | All 119 published outcomes include a representation profile; independent JSON, Prometheus, HTML, and empty-304 responses match declared content types and body requirements. |
 | HTTP body-contract identity | `PASS` | All 118 body-bearing outcomes publish unique stable derived version-1 identities bounded to 79 characters; the sole bodyless 304 publishes a null identity and repeated unmodified snapshot digests are stable. |
-| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `88ec328db7b76421ac34f3981dcc258a3a3957310e1d9f6bd4497270e5ee0157`; the full contract digest is `b58ce0f73b331cbd5b4c9966673aa97223eddb6e14156f222dc90d26a6c15b16`. Independent recomputation matches. |
+| HTTP response schema registry structure | `PASS` | The registry publishes exactly 81 required object schemas and has canonical registry digest `2822bbef898f2af6eab368b64d1e93bf1a0c444b8daf0295d21fec04a5c8cc33`; the full contract digest is `bccb113323262517ff16f5b77d2cc3e963518ff74af4d4edc3a15cb5bc0c0422`. Independent recomputation matches. |
 | Static asset unavailable schema | `PASS` | `/` and `/index.html` independently publish `static_asset_unavailable_v1`; real missing-asset requests return the exact sole-field sentinel body, while extra fields and alternate sentinels are rejected. |
 | Feed-health unavailable schema | `PASS` | The nested ingestion projection now requires its stable fields, bounds optional evidence, and rejects unknown credential-bearing properties while retaining real absent and malformed evidence forms. |
 | Feed-health success projection | `PASS` | The real combined healthy HTTP 200 body satisfies the closed index/exporter projection. Independent top-level freshness plus nested ingestion freshness, lag, and exact-progress negatives all reject. |
@@ -893,11 +898,13 @@
 | Bot-readiness unavailable schema | `PASS` | The two-branch `oneOf` binds version 1 to required `available:false` and version 2 to required `ready:false`. Real version-1/version-2 bodies select exactly one branch; five missing, cross-version, or contradictory sentinel bodies select none. |
 | Gap-feed unavailable schema | `PASS` | Real ingestion refusal plus injected structure and recovery refusals satisfy `gap_feed_unavailable_v1`, retain mandatory `available:false`, use only advertised top-level fields, and exclude unknown recovery state. |
 | Public-health unavailable schema | `PASS` | Empty and structurally invalid retained indexes emit 503 bodies satisfying `index_health_unavailable_v1`: nonempty status/reason, constant `healthy:false`, and only explicitly typed public health projection fields. |
+| Public-health unavailable nested schema | `PASS` | `9db59d5` reuses all 13 exact RPC health evidence profiles. Independent recursive validation accepts real empty, malformed-state, and invalid-event HTTP 503 bodies; rejects missing-required and credential-bearing mutations for all four profiles present across those bodies; and confirms all 15 reachable nested schema object nodes are closed. |
 | Ingestion unavailable schema | `PASS` | Absent exporter status and invalid provider identity emit distinct fail-closed 503 forms that pass independent required, optional, type, constant, minimum, array-item, and closed-key validation against `ingestion_unavailable_v1`. |
 | Warehouse unavailable schema | `PASS` | Absent and malformed checkpoints emit `checkpoint_unavailable` and `checkpoint_invalid` 503 forms that pass independent full-property validation against `warehouse_unavailable_v1` while retaining sequence, lag, age, and configured limits. |
 | Backup unavailable schema | `PASS` | Exclusive variants retain all prior cross-form controls, and the stale branch now binds `ageMs` strictly above `maximumAgeMs`; independent below/equal/above probes select 0/0/1 branches. |
 | Recovery unavailable schema | `PASS` | Exclusive variants retain identity, timestamp, and duration controls, and the stale branch now binds `ageMs` strictly above `maximumAgeMs`; independent below/equal/above probes select 0/0/1 branches. |
 | Stats unavailable schema | `PASS` | A malformed persisted collection emits exactly the 24 required `stats_unavailable_v1` fields, passes independent type and closed-key validation, carries explicit invalid structure/chain evidence, and excludes health-only status fields. |
+| Stats unavailable nested schema | `PASS` | `9af9253` reuses the exact five closed success/RPC monitoring profiles. Independent recursive validation accepts the real malformed-state HTTP 503, rejects 5/5 missing-required and 5/5 credential-bearing nested mutations, and confirms all seven reachable object nodes—including retry stages and chain-conflict rows—are closed. |
 | Token/account/supply authority | `PASS` | Full suite passes indexed token balance, Token-2022 funding, complete finalized account snapshot, token-account projection, and token-supply contracts. |
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence`, authoritative-exclusion concentration, and the new finalized largest-account page contract all pass. Two real largest-account pages, null miss, cursor continuation, exact descriptor, and 24 independent schema contradictions are covered. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
@@ -952,10 +959,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 462/462; syntax passes 86/86; replay completes at 6,539.89 blocks/s with 9,769,696-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 708,810,798 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 463/463; syntax passes 86/86; replay completes at 4,501.72 blocks/s with 9,516,808-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 712,411,776 ms old at this trigger. |
 
-The review reconciles 96 distinct evidence domains: 94 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The review reconciles 98 distinct evidence domains: 96 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2496,6 +2503,32 @@ The review reconciles 96 distinct evidence domains: 94 PASS, 1 FAIL, and 1 BLOCK
 - Compatibility/performance impact: discovery digest/ETag and generated validators change while runtime result bytes remain compatible. Validation is bounded to five small nested projections.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-REST-STATS-UNAVAILABLE-NESTED-CONTRACT-056
+
+- Severity: `PASS` (delivered by `9af9253`)
+- Owner: `DEV`
+- Reproduction: corrupt persisted event and dead-letter collection shapes, request `/api/stats`, recursively validate the real HTTP 503 against `stats_unavailable_v1`, compare its five monitoring profiles with both `stats_success_v1` and `indexer_stats_result_v1`, then delete one required key or add one credential-bearing key in each nested result object.
+- Evidence: the real malformed-state response is HTTP 503 and recursively validates. All five unavailable profiles are deeply identical to both successful REST and RPC stats. Missing-required and credential-bearing mutations reject 5/5 each, and all seven reachable object nodes are closed, including retry-stage and chain-conflict item schemas.
+- Affected contracts: incident telemetry, unavailable REST stats discovery, successful REST/RPC compatibility, ingestion provenance/finality, exclusion governance, dead-letter recovery, chain identity, generated validators, monitoring caches, and secret redaction.
+- Expected versus actual behavior: the quarantined stats response must reuse the exact closed monitoring evidence profiles without weakening its distinct top-level unavailable envelope. Expected and actual match.
+- Acceptance criteria: preserve the real HTTP 503 and top-level unavailable projection; reuse all five exact success/RPC nested schemas; reject missing-required and unknown credential-bearing content recursively; keep retry stages and chain-conflict rows closed. All criteria are met.
+- Validation results: real HTTP 503 PASS; success identity 5/5 PASS; RPC identity 5/5 PASS; missing-required negatives reject 5/5; credential-bearing negatives reject 5/5; reachable closed object nodes 7/7 PASS. Focused stats 5/5, focused RPC/query-contract 45/45, full 463/463, syntax 86/86, replay, and operational fail-closed checks pass.
+- Compatibility/performance impact: discovery digest/ETag and generated validators change while runtime 503 bytes remain compatible. Recursive validation is bounded to five small monitoring projections.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-REST-INDEX-HEALTH-UNAVAILABLE-NESTED-CONTRACT-057
+
+- Severity: `PASS` (delivered by `9db59d5`)
+- Owner: `DEV`
+- Reproduction: request `/api/health` from real empty, malformed-collection, and invalid-event stores; recursively validate every HTTP 503 against `index_health_unavailable_v1`; compare all 13 nested schemas with `indexer_health_result_v1`; then delete one required key or add one credential-bearing key for each profile present across the real bodies.
+- Evidence: all three real HTTP 503 bodies validate. The unavailable schema deeply equals the RPC schema for 13/13 retry, exclusion, ingestion, structure, chain, event, decoder, ledger, aggregate, snapshot, metadata, and recovery profiles. Missing-required and credential-bearing mutations reject for all 4/4 profiles present across the exercised bodies, and all 15 reachable nested object nodes are closed.
+- Affected contracts: public availability monitoring, incident response, freshness/finality and replay admission, AI/trading safety, commercial SLAs, generated validators, cache identity, and secret redaction.
+- Expected versus actual behavior: public-health failures must preserve their distinct top-level HTTP envelope while reusing the producer-exact closed evidence profiles already published for RPC health. Expected and actual match.
+- Acceptance criteria: preserve real empty and invalid-evidence HTTP 503 bodies; reuse all 13 exact RPC profiles; reject missing-required and credential-bearing content for every present profile; recursively close retry stages and chain-conflict items. All criteria are met.
+- Validation results: real HTTP 503 bodies 3/3 PASS; RPC schema identity 13/13 PASS; present-profile missing-required negatives reject 4/4; credential-bearing negatives reject 4/4; reachable closed object nodes 15/15 PASS. Focused health 28/28, RPC/query-contract 45/45, full 463/463, syntax 86/86, replay, and operational fail-closed checks pass.
+- Compatibility/performance impact: discovery digest/ETag and generated validators change while runtime health bytes and status/reason semantics remain compatible. Recursive validation is bounded to 13 small evidence profiles.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2542,7 +2575,7 @@ The review reconciles 96 distinct evidence domains: 94 PASS, 1 FAIL, and 1 BLOCK
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 708,810,798 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 712,411,776 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
