@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T19:37:01+07:00`
+- Run: `2026-08-30T20:35:32+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `f193d60df3b957b18c02b8ca3898e8854eb14e48`
-- Compared with QA baseline: `d97b740854f9083e06d812625b40f46f7799e25e` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 153 ahead, 0 behind before this evidence report
-- Latest DEV commits: `5771f0b` (holder-exclusion governance semantics) and `f193d60` (index-ingestion progress semantics)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-MONITORING-HOLDER-EXCLUSION-SEMANTICS-062` binds exclusion configuration, timing, clock-skew, expiry, freshness, and counts across all six REST/RPC monitoring schemas; `UPSTREAM-MONITORING-INGESTION-PROGRESS-SEMANTICS-063` binds complete and partial index progress across five index-derived schemas while preserving distinct combined-feed exporter ingestion. Reconciliation is 102 PASS, 1 FAIL, and 1 BLOCKED across 104 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `58765b05a2def01ccb644fc9fcefb612aa2034b7`
+- Compared with QA baseline: `8214a2199abbc26e0921b5361014f7ba17d09707` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 156 ahead, 0 behind before this evidence report
+- Latest DEV commits: `4c8341f` (successful REST health monitoring semantic parity) and `58765b0` (Prometheus monitoring semantic gauges)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-REST-HEALTH-SUCCESS-MONITORING-SEMANTIC-PARITY-064` brings successful public health into exact retry, exclusion-governance, and index-progress relationship parity while preserving distinct feed exporter ingestion; `UPSTREAM-METRICS-MONITORING-SEMANTIC-PARITY-065` exposes the fixed-cardinality scheduled-retry, retry-canonicality, exclusion-future-state, source-tip, and export-lag gauges needed to evaluate those semantics operationally. Reconciliation is 104 PASS, 1 FAIL, and 1 BLOCKED across 106 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Monitoring governance and progress semantics (2 PASS)
+### Health and Prometheus monitoring semantic parity (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `5771f0b` / `UPSTREAM-MONITORING-HOLDER-EXCLUSION-SEMANTICS-062` | Six REST/RPC stats and health schemas | `PASS` | All 6/6 schemas reuse the exact four-rule `holder-exclusion-registry-semantics-v1` descriptor. Independent unconfigured, fresh, future-observed, and expired producer profiles validate; 13/13 configuration, timing, count, future-state, freshness, and expiry contradictions reject. |
-| `f193d60` / `UPSTREAM-MONITORING-INGESTION-PROGRESS-SEMANTICS-063` | Five index-derived REST/RPC monitoring schemas | `PASS` | All 5/5 index-derived schemas reuse the exact four-rule `index-ingestion-progress-semantics-v1` descriptor while the combined-feed exporter schema remains distinct. Empty, complete, source-tip-only, and lag-only profiles validate; 7/7 missing-tip, source-tip ordering, arithmetic, unknown-source, unknown-commitment, and null-progress contradictions reject. |
+| `4c8341f` / `UPSTREAM-REST-HEALTH-SUCCESS-MONITORING-SEMANTIC-PARITY-064` | Successful public and combined-feed REST health schemas | `PASS` | Independent harness completed 21/21 checks: public health has exact RPC retry, exclusion, and ingestion relationship identity; combined-feed health has exact retry and exclusion identity while exporter ingestion remains distinct; all five nested schemas remain closed; retry/exclusion/ingestion algorithms and 7/4/4 rule sets are exact; stricter canonical/finalized success constraints and detached snapshot behavior remain intact. |
+| `58765b0` / `UPSTREAM-METRICS-MONITORING-SEMANTIC-PARITY-065` | Prometheus monitoring projection | `PASS` | Independent harness proved exact nontrivial scheduled and noncanonical retry gauges, explicit non-future exclusion state, fail-closed `NaN` source-tip/export-lag values, singleton fixed cardinality, and absence of filename/error identities. Existing due/deferred/legacy and stage evidence remains intact. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `d97b740`, in `5771f0b` and `f193d60`; the complete two-commit, three-file delta was exhausted after the DEV writer lock cleared and stable HEAD was refreshed. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `8214a21`, in `4c8341f` and `58765b0`; QC detected source movement after the first validation pass, withheld mixed-state results, refreshed the complete stable two-commit, three-file delta after the DEV writer finished, and reran every tier. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting shared profiles, nested objects, producer states, fields, mutations, or assertions would be padding.
-- Validation: holder-exclusion relationship identity is 6/6, rules are 4/4, four producer boundary profiles validate, and 13/13 contradictions reject. Index-ingestion relationship identity is 5/5, rules are 4/4, four complete/partial profiles validate, exporter ingestion remains distinct, and 7/7 contradictions reject. Focused RPC/query-contract is 26/26 PASS, focused health/feed is 33/33 PASS, and focused Meteora is 12/12 PASS. The response-schema registry digest is `d9a4f0a41589959c906b72c1cac2bc5141d0fd44f9242272b4a39c5fefd07578`; the complete contract digest is `b80971a77e1ed9ae0f49c8f738cc0f3f262133bf9120dfbdc241517c467ad2c8`. Full suite 466/466 PASS; syntax 86/86 PASS; replay invariants PASS at 5,660.82 blocks/s with 9,569,360-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting routes, gauges, relationship aliases, rule lists, fields, or assertions would be padding.
+- Validation: independent health/metrics harness 28/28 PASS; focused RPC/query-contract 58/58 PASS; focused health/feed/monitoring 36/36 PASS; focused Meteora 12/12 PASS. The response-schema registry digest is `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest is `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 467/467 PASS; syntax 86/86 PASS; replay invariants PASS at 6,501.97 blocks/s with 9,498,696-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Monitoring governance and progress semantics (2 PASS)
+
+- Prior exact shortfall: 18; prior validation was focused RPC/query-contract 26/26, health/feed 33/33, and Meteora 12/12, full 466/466, syntax 86/86, and replay PASS. Stable IDs 062 and 063 remain closed.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2631,6 +2637,32 @@ The review reconciles 99 distinct evidence domains: 97 PASS, 1 FAIL, and 1 BLOCK
 - Compatibility/performance impact: discovery digest/ETag and generated validators change while runtime provenance bytes, partial-evidence support, ingestion, persistence, providers, and transport remain compatible. Validation is constant-time over the parent tip and four bounded projection fields.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-REST-HEALTH-SUCCESS-MONITORING-SEMANTIC-PARITY-064
+
+- Severity: `PASS` (delivered by `4c8341f`)
+- Owner: `DEV`
+- Reproduction: extract `deadLetterRetry`, `holderExclusions`, and `ingestion` from successful public health; extract retry and exclusions from successful combined-feed health; compare them with RPC health; confirm feed exporter ingestion remains distinct; verify closed nested schemas, exact algorithms and rule counts, stricter successful-response constraints, and detached contract snapshots.
+- Evidence: independent harness completed 21/21 checks. Public health shares exact RPC retry, exclusion-governance, and index-progress relationships. Combined-feed health shares exact retry and exclusion relationships but retains its three-rule exporter-ingestion contract. Retry/exclusion/ingestion schemas remain closed, their algorithms and 7/4/4 rule sets are exact, public retry remains canonical-only, public ingestion remains finalized-only, and mutating one returned snapshot does not mutate the registry.
+- Affected contracts: successful public health, successful combined-feed health, availability monitoring, holder-risk integrity, replay and feed admission, generated validators, cache identity, commercial health SLAs, and AI/trading fail-closed gates.
+- Expected versus actual behavior: successful REST health clients must enforce the same monitoring relationships as RPC clients without misapplying index-progress semantics to exporter ingestion. Expected and actual match.
+- Acceptance criteria: reuse exact retry and exclusion relationships in both successful REST schemas; add index-progress semantics only to public index ingestion; retain exporter ingestion distinction; retain canonical/finalized success constraints and closed shapes. All criteria are met.
+- Validation results: independent parity checks 21/21 PASS; focused health/feed 35/35, RPC/query-contract 58/58, Meteora 12/12, full 467/467, syntax 86/86, replay invariants, public mainnet RPC health, and operational fail-closed checks pass.
+- Compatibility/performance impact: discovery digest/ETag and generated validators change while runtime health bytes, status, ingestion, persistence, providers, and transport remain compatible. Validation remains constant-time over bounded monitoring fields; replay sustained 5,229.54 blocks/s.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-METRICS-MONITORING-SEMANTIC-PARITY-065
+
+- Severity: `PASS` (delivered by `58765b0`)
+- Owner: `DEV`
+- Reproduction: create due, deferred, and legacy dead letters with private filenames and errors; request `/metrics`; verify scheduled retry arithmetic, retry canonicality, exclusion future-state, index source tip, and export lag; then check missing progress, singleton cardinality, and output redaction.
+- Evidence: the nontrivial retry profile emits scheduled `2`, due `1`, deferred `1`, legacy `1`, and canonical `0`. Unconfigured exclusions emit observed-in-future `0`; absent index progress emits `NaN` for source tip and export lag. Each new unlabelled gauge appears exactly once, the scheduled retry remains within the existing fixed `state` vocabulary, and no private filename or error content appears.
+- Affected contracts: Prometheus monitoring, retry recovery dashboards, exclusion-governance alerts, ingestion-lag monitoring, incident response, commercial observability, and safe automation gates.
+- Expected versus actual behavior: operators must be able to evaluate the published retry, exclusion, and ingestion relationships from fixed-cardinality redacted metrics, with absent progress failing closed. Expected and actual match.
+- Acceptance criteria: expose scheduled retry count, retry canonicality, future-observed exclusion state, source tip, and export lag; retain fixed cardinality and redaction; emit `NaN` for absent numeric progress; preserve existing metrics. All criteria are met.
+- Validation results: independent health/metrics harness 28/28 PASS across both current outcomes; focused health/feed/monitoring 36/36, RPC/query-contract 58/58, Meteora 12/12, full 467/467, syntax 86/86, replay invariants, and operational fail-closed checks pass.
+- Compatibility/performance impact: five additive fixed-cardinality Prometheus series; existing names, runtime REST/RPC/WebSocket bytes, persistence, providers, and configuration are unchanged. Replay sustained 6,501.97 blocks/s.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2677,7 +2709,7 @@ The review reconciles 99 distinct evidence domains: 97 PASS, 1 FAIL, and 1 BLOCK
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 723,304,586 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 726,815,436 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
