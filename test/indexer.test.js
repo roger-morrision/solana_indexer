@@ -30,6 +30,7 @@ import { buildPumpSwapBuyExactQuoteInInstruction, buildPumpSwapSellInstruction, 
 import { buildPumpBuyExactQuoteInV2Instruction, buildPumpSellV2Instruction, createPumpBuyExactQuoteInV2SigningRequest, createPumpSellV2SigningRequest, preparePumpBuyExactQuoteInV2Simulation, preparePumpSellV2Simulation, simulatePreparedPumpBuyExactQuoteInV2, simulatePreparedPumpSellV2, verifyFinalizedPumpBuyExactQuoteInV2, verifyFinalizedPumpSellV2, verifyPumpBuyExactQuoteInV2SignedRequest, verifyPumpSellV2SignedRequest, PUMP_BONDING_CURVE_EXECUTION_CONSTANTS } from "../src/pump-bonding-curve-execution.js";
 import { assessPumpV2TokenProgramPolicy, PUMP_TOKEN_PROGRAM_POLICY } from "../src/pump-token-program-policy.js";
 import { bindExecutionHandoff, EXECUTION_HANDOFF_POLICY } from "../src/execution-handoff-policy.js";
+import { preflightMonitoringAlerts } from "../src/monitoring-alert-preflight.js";
 import { createOrcaPoolSnapshot, decodeOrcaTickArrayAccount, decodeOrcaWhirlpoolAccount, ORCA_WHIRLPOOL_PROGRAM } from "../src/orca-pool-snapshot.js";
 import { createMeteoraDlmmPoolSnapshot, decodeMeteoraBinArrayAccount, decodeMeteoraLbPairAccount, METEORA_DLMM_PROGRAM } from "../src/meteora-dlmm-pool-snapshot.js";
 import { createPhoenixMarketSnapshot, decodePhoenixMarketAccount, quotePhoenixSnapshotExactInput, PHOENIX_MARKET_HEADER_DISCRIMINANT, PHOENIX_PROGRAM } from "../src/phoenix-market-snapshot.js";
@@ -3786,6 +3787,15 @@ test("monitoring invariant alert fixtures cover canonical, contradictory, absent
     if (!["sourceTip", "indexTip", "exportLag"].every((key) => present(metrics, key)) || ([metrics.sourceTip, metrics.indexTip, metrics.exportLag].every(numeric) && metrics.sourceTip - metrics.indexTip !== metrics.exportLag)) actual.push("TerminalDexIndexProgressInconsistent");
     assert.deepEqual(actual, expected, name);
   }
+});
+
+test("monitoring alert preflight passes, skips unavailable promtool, and fails closed", async () => {
+  const ruleFile = path.join(rootDir, "infra/monitoring/alerts.yaml");
+  assert.deepEqual(await preflightMonitoringAlerts({ ruleFile, probe: async () => "SUCCESS" }), { schemaVersion: 1, kind: "monitoring_alert_preflight", status: "pass", checked: true, reason: null });
+  const unavailable = Object.assign(new Error("spawn promtool ENOENT"), { code: "ENOENT" });
+  assert.deepEqual(await preflightMonitoringAlerts({ ruleFile, probe: async () => { throw unavailable; } }), { schemaVersion: 1, kind: "monitoring_alert_preflight", status: "skip", checked: false, reason: "promtool_unavailable" });
+  await assert.rejects(preflightMonitoringAlerts({ ruleFile, probe: async () => { throw new Error("private parser output"); } }), /Prometheus alert rule preflight failed/);
+  await assert.rejects(preflightMonitoringAlerts({ ruleFile: "infra/monitoring/alerts.yaml" }), /must be absolute/);
 });
 
 test("backup and restore tooling verifies integrity and gates destructive restore", async () => {

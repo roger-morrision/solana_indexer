@@ -37,6 +37,7 @@
     "validate:recovery": "node src/recovery-qualification.js",
     "validate:backfill": "node src/backfill-qualification.js",
     "validate:geyser-abi": "node src/geyser-abi-preflight.js",
+    "validate:monitoring-alerts": "node src/monitoring-alert-preflight.js --rules infra/monitoring/alerts.yaml",
     "watch": "node src/cli.js watch",
     "status": "node src/cli.js status",
     "test": "node --test"

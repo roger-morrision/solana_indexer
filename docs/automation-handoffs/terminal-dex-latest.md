@@ -1998,3 +1998,13 @@
 - Compatibility/migration/configuration: test evidence only; Prometheus rules, runtime metrics, REST/RPC/WebSocket bytes, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: these fixtures verify the bounded semantic truth table offline but do not replace Prometheus parser/runtime qualification or fresh canonical operational evidence.
 - NEXT_WEB_ACTION: use the same eight named profiles when validating dashboard remediation states, distinguishing absent-series incidents from contradictory-value incidents without exposing provider or registry identities.
+
+## UPSTREAM Prometheus alert-bundle preflight
+
+- Selected ID: `UPSTREAM-PROMTOOL-ALERT-PREFLIGHT-069` (deployment correctness, incident readiness, holder governance, ingestion recovery, and commercial observability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected a bounded native-tool preflight because the alert truth-table fixtures do not prove that Prometheus itself accepts the complete YAML rule bundle. QC was consulted only after selection and retained the prior monitoring outcomes as verification evidence.
+- Contract: `validate:monitoring-alerts` checks the canonical alert bundle with `promtool check rules`, returns explicit versioned PASS evidence when checked, and returns explicit SKIP evidence only when the executable is unavailable. Parser failures, timeouts, unsafe rule files, and other tool errors fail closed with redacted diagnostics.
+- Validation contract: focused tests cover PASS, executable-unavailable SKIP, parser failure, and noncanonical rule-file input; the real local command must report PASS, FAIL, or SKIP without network or provider access.
+- Compatibility/migration/configuration: additive developer/operations validation only; alert rules, runtime metrics, REST/RPC/WebSocket bytes, persistence, providers, migrations, and configuration are unchanged. Installing `promtool` upgrades local validation from SKIP to checked PASS/FAIL automatically.
+- Remaining boundary: offline parsing cannot establish live Prometheus reload, scrape availability, or canonical production evidence.
+- NEXT_WEB_ACTION: surface whether each deployed alert bundle was parser-checked or skipped, but never treat a skipped preflight as production qualification.
