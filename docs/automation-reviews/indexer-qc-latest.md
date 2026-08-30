@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T23:35:35+07:00`
+- Run: `2026-08-31T00:37:06+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `4b8cc11f42b05d40e53ea262e8dd3c2387918356`
-- Compared with QA baseline: `fe7c834709f8013fdbf7a32ed825699d89fdd853` (2 DEV commits, 5 changed files)
-- Compared with `origin/main`: 165 ahead, 0 behind before this evidence report
-- Latest DEV commits: `7e1f538` (native Prometheus alert-rule evaluation) and `4b8cc11` (isolated missing progress-operand evaluation)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PROMTOOL-RULE-TEST-PREFLIGHT-070` adds bounded native `promtool test rules` evaluation after syntax validation; `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-PRESENCE-071` proves each missing progress operand fails closed independently while a present `NaN` source-tip remains supported. Reconciliation is 110 PASS, 1 FAIL, and 1 BLOCKED across 112 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `e753ef899f4e14f7b06736320ac06303dd3517aa`
+- Compared with QA baseline: `68f2a260d4d24551d1925be2407f73dadf006646` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 168 ahead, 0 behind before this evidence report
+- Latest DEV commits: `28f362e` (isolated missing governance-series evaluation) and `e753ef8` (canonical alert non-firing evaluation)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PROMTOOL-GOVERNANCE-SERIES-PRESENCE-072` isolates absent retry-canonicality and holder-exclusion future-state gauges while keeping every other semantic input canonical; `UPSTREAM-PROMTOOL-CANONICAL-NONFIRING-073` proves all three semantic alerts remain quiet for a complete canonical profile. Reconciliation is 112 PASS, 1 FAIL, and 1 BLOCKED across 114 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Native alert evaluation and progress-operand isolation (2 PASS)
+### Governance-series isolation and canonical alert silence (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `7e1f538` / `UPSTREAM-PROMTOOL-RULE-TEST-PREFLIGHT-070` | Bounded native Prometheus rule evaluation | `PASS` | The canonical preflight validates the rule and test files independently, runs argv-safe `promtool check rules` before `promtool test rules`, and retains 30-second and 8,192-byte bounds for both probes. Six unique test groups contain ten alert expectations: nine critical firings and one explicit present-`NaN` non-firing control. Independent controls verify syntax-before-evaluation, exact probe pairs, checked PASS, executable-unavailable SKIP, redaction, and path/file fail-closed behavior. |
-| `4b8cc11` / `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-PRESENCE-071` | Missing progress-operand isolation | `PASS` | Three dedicated rule-evaluation groups independently omit index tip, source tip, and export lag; each expects `SolanaIndexerProgressInconsistent` with critical severity. A separate present-`NaN` source-tip group expects no alert, preserving partial-provenance compatibility without weakening missing-series detection. |
+| `28f362e` / `UPSTREAM-PROMTOOL-GOVERNANCE-SERIES-PRESENCE-072` | Missing governance-series isolation | `PASS` | Two dedicated rule-evaluation groups omit exactly one governance metric each. Missing retry canonicality fires only `TerminalDexDeadLetterRetryEvidenceInvalid`; missing exclusion future-state evidence fires only `TerminalDexHolderExclusionsFutureDated`. Both retain the other four semantic gauges at canonical values, exact critical labels, one-minute evaluation, bounded fixed-cardinality annotations, and credential-free input. |
+| `e753ef8` / `UPSTREAM-PROMTOOL-CANONICAL-NONFIRING-073` | Canonical semantic-alert silence | `PASS` | One complete canonical profile supplies retry canonicality 1, future exclusion state 0, source tip 120, index tip 100, and export lag 20. It explicitly evaluates all three semantic alerts after one minute and expects each to remain absent, complementing the retained present-`NaN` non-firing control. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `fe7c834`, in `7e1f538` and `4b8cc11`; source advanced during validation, so QC discarded mixed-state results, refreshed the complete stable two-commit, five-file delta after both DEV locks were clear, and reran every tier. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `68f2a26`, in `28f362e` and `e753ef8`; source advanced during validation, so QC discarded mixed-state results, refreshed the complete stable two-commit, three-file delta after both DEV locks were clear, and reran every tier. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
 - Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting alert names, expressions, `absent` operands, severity, duration, or assertions would be padding.
-- Validation: independent native-rule-evaluation harness 35/35 PASS; focused monitoring 3/3 PASS; focused RPC/query-contract 45/45 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 11/11 PASS. The response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 3,598.39 blocks/s with 9,784,616-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Validation: independent governance/canonical rule-evaluation harness 46/46 PASS; focused monitoring 3/3 PASS; focused RPC/query-contract 19/19 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. The response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 7,241.82 blocks/s with 9,511,376-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Native alert evaluation and progress-operand isolation (2 PASS)
+
+- Prior exact shortfall: 18; prior validation was independent native-rule-evaluation harness 35/35, focused monitoring 3/3, RPC/query-contract 45/45, health/feed/monitoring 37/37, Meteora/transfer-hook 11/11, full 469/469, syntax 87/87, and replay PASS. Stable IDs 070 and 071 remain closed.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -1007,10 +1013,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 469/469; syntax passes 87/87; replay completes at 4,308.56 blocks/s with 9,666,200-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 759,277,675 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 469/469; syntax passes 87/87; replay completes at 7,241.82 blocks/s with 9,511,376-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 766,509,501 ms old at this trigger. |
 
-The review reconciles 112 distinct evidence domains: 110 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The review reconciles 114 distinct evidence domains: 112 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2747,6 +2753,26 @@ The review reconciles 112 distinct evidence domains: 110 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: independently evaluate every absent progress operand; require the critical progress alert for each absence; retain a present-`NaN` non-firing control; keep fixtures bounded and credential-free. All criteria are met.
 - Validation results: independent native-rule-evaluation harness 35/35 PASS; focused monitoring 3/3, RPC/query-contract 45/45, health/feed/monitoring 37/37, Meteora/transfer-hook 11/11, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-PROMTOOL-GOVERNANCE-SERIES-PRESENCE-072
+
+- Severity: `PASS` (delivered by `28f362e`)
+- Owner: `DEV`
+- Evidence: two stable native rule-test groups independently omit `terminal_dex_dead_letter_retry_canonical` and `terminal_dex_holder_exclusions_observed_in_future`. Each retains the other governance gauge plus source tip 120, index tip 100, and export lag 20, so the expected critical alert is attributable to exactly one absent series. Each group contains one exact alert expectation and no endpoint, credential, provider, holder selector, or unbounded label.
+- Actual behavior: absent retry canonicality fires only `TerminalDexDeadLetterRetryEvidenceInvalid`; absent exclusion future-state evidence fires only `TerminalDexHolderExclusionsFutureDated`. Both are evaluated after the published one-minute hold with the exact fixed summary and severity.
+- Compatibility/performance impact: additive native test evidence only; production rules, metrics, API contracts, persistence, providers, migrations, replay, and runtime behavior remain unchanged.
+- Acceptance criteria: isolate each governance-series absence; retain all unrelated semantic inputs at canonical values; require only the corresponding critical alert; preserve bounded credential-free fixtures. All criteria are met.
+- Validation results: independent governance/canonical harness 46/46 PASS; focused monitoring 3/3, RPC/query-contract 19/19, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-PROMTOOL-CANONICAL-NONFIRING-073
+
+- Severity: `PASS` (delivered by `e753ef8`)
+- Owner: `DEV`
+- Evidence: one complete canonical native profile supplies retry canonicality 1, exclusion future-state 0, source tip 120, index tip 100, and export lag 20. It evaluates the retry, exclusion, and progress semantic alerts separately after one minute and gives each an explicit empty alert expectation. The existing present-`NaN` progress case remains a fourth explicit non-firing expectation.
+- Actual behavior: the test corpus now proves both fail-closed absence and false-positive resistance for all three fixed-cardinality semantic alerts without treating missing scrape evidence as canonical silence.
+- Compatibility/performance impact: additive native test evidence only; production rules, metrics, REST/RPC/WebSocket contracts, ingestion, persistence, provider configuration, and runtime behavior remain unchanged.
+- Acceptance criteria: provide all five canonical inputs; evaluate all three alerts after their hold; require each to remain absent; retain the partial-provenance non-firing control and all contradiction/absence cases. All criteria are met.
+- Validation results: independent governance/canonical harness 46/46 PASS; focused monitoring 3/3, RPC/query-contract 19/19, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2793,7 +2819,7 @@ The review reconciles 112 distinct evidence domains: 110 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 762,818,608 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 766,509,501 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
