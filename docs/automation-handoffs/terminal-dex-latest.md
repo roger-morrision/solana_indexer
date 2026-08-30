@@ -1712,3 +1712,12 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime response bytes, acquisition, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: holder aggregation and owner-account RPC results remain shallow; metadata URL scheme/credential and UTF-8 byte-length semantics remain enforced by the producer even where the portable response dialect publishes conservative string bounds.
 - NEXT_WEB_ACTION: regenerate nested metadata validators and never promote optional off-chain display enrichment into trusted identity or automation evidence.
+
+## UPSTREAM token-metadata authoritative-state closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-METADATA-CONTRACTS-046` (token detail, metadata trust, AI analysis, cache identity, and commercial RPC correctness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; new independent QC made the deterministic seven-case metadata semantic gap the highest-value dependency-ready increment ahead of holder schema closure.
+- Contract: the result now has mutually exclusive null-miss, authoritative-absence, and metadata-present branches. The absence branch requires null metadata/off-chain enrichment, `metadataPresent:false`, and `authoritativeAbsence:true`; the present branch requires non-null metadata, inverse flags, and exact equality between top-level and nested mint identity.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; canonical runtime response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: optional off-chain enrichment stays nullable only for metadata-present results and remains explicitly untrusted/non-automation-safe; holder aggregation and owner-account RPC results remain shallow.
+- NEXT_WEB_ACTION: regenerate the token-metadata validator for the three exclusive result branches and enforce present-branch mint equality before caching or rendering enrichment.
