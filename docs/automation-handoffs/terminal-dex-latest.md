@@ -1721,3 +1721,12 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; canonical runtime response bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: optional off-chain enrichment stays nullable only for metadata-present results and remains explicitly untrusted/non-automation-safe; holder aggregation and owner-account RPC results remain shallow.
 - NEXT_WEB_ACTION: regenerate the token-metadata validator for the three exclusive result branches and enforce present-branch mint equality before caching or rendering enrichment.
+
+## UPSTREAM token-holder RPC contract closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` (holders/whales, token concentration, wallet intelligence, AI risk, and commercial RPC readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the holder page because its finalized producer, aggregation, exclusion governance, privacy projection, stable cursor, and replacement invalidation are already tested while discovery remained shallow.
+- Contract: `getIndexedTokenHolders` now publishes exact positional/named pagination inputs, null-on-miss, a closed 500-row page, canonical owner identities or explicit account-bound unknown-owner sentinels, positive u64 balances, finalized slot/commitment, bounded coverage states, explicit non-automation safety, closed concentration ratios, separately unattributed Token-2022 withheld funds, closed exclusion provenance/categories, freshness, and bounded missing-evidence reasons.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime responses, holder aggregation, cursor behavior, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: owner-account RPC results remain shallow; live holder qualification still requires fresh canonical snapshot and exclusion evidence, and Meteora authenticity remains externally blocked.
+- NEXT_WEB_ACTION: regenerate the holder RPC validator and preserve raw balances, finalized snapshot identity, exclusion/freshness gates, unattributed withheld funds, concentration uncertainty, and `safeForAutomation:false`.

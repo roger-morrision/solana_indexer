@@ -491,6 +491,14 @@ test("token metadata RPC contract closes authoritative envelope and provenance",
   assert.equal(present.properties.offchainMetadata.additionalProperties, false); assert.deepEqual(present.properties.offchainMetadata.properties.trusted.values, [false]); assert.deepEqual(present.properties.offchainMetadata.properties.automationSafe.values, [false]); assert.equal(present.properties.offchainMetadata.properties.fields.additionalProperties, false); assert.equal(present.properties.offchainMetadata.properties.fields.properties.attributes.maximumItems, 100); assert.equal(present.properties.offchainMetadata.properties.fields.properties.attributes.items.additionalProperties, false);
 });
 
+test("token holder RPC contract closes snapshot, exclusion, and concentration evidence", () => {
+  const contract = queryContractSnapshot(), method = contract.rpc.methods.find((row) => row.method === "getIndexedTokenHolders"), schema = contract.rpcResultSchemas.indexed_token_holders_result_v1.oneOf[1];
+  assert.deepEqual(method.params, { styles: ["positional", "named"], required: ["mint"], optional: ["limit", "cursor"], defaults: { limit: 100 }, limit: { minimum: 1, maximum: 500 }, cursor: { nullable: true, maximumLength: 1024 } });
+  assert.equal(schema.additionalProperties, false); assert.equal(schema.properties.data.maximumItems, 500); assert.equal(schema.properties.data.items.additionalProperties, false); assert.deepEqual(schema.properties.commitment.values, ["finalized"]); assert.deepEqual(schema.properties.safeForAutomation.values, [false]);
+  assert.equal(schema.properties.withheldEvidence.additionalProperties, false); assert.deepEqual(schema.properties.withheldEvidence.properties.attributedToHolders.values, [false]); assert.equal(schema.properties.exclusionEvidence.additionalProperties, false); assert.equal(schema.properties.exclusionEvidence.properties.categories.maximumItems, 6); assert.equal(schema.properties.freshness.additionalProperties, false); assert.equal(schema.properties.missing.maximumItems, 3);
+  assert.equal(schema.properties.concentration.additionalProperties, false); assert.deepEqual(schema.properties.concentration.relationships, [{ kind: "decimal_less_than_or_equal", lesser: "numeratorRaw", greater: "denominatorRaw" }]);
+});
+
 test("legacy block and transaction collections publish their bare-array schema", () => {
   const contract = queryContractSnapshot(), schema = contract.responseBodySchemas.legacy_collection_success_v1;
   assert.deepEqual(schema, { type: "array" });
