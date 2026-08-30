@@ -768,12 +768,15 @@ test("published required query parameters reject before unhealthy decision state
   for (const target of ["/internal/tokens/mint/executable-depth?amountRaw=0", "/internal/tokens/mint/executable-depth?amountRaw=18446744073709551616"]) assert.equal((await fetch(`${base}${target}`)).status, 400, target);
 });
 test("every published HTTP route shares one runtime allowlist contract", () => {
-  const value = { amountRaw: "1", cursor: "eyJrZXkiOiJrIiwic2NvcGUiOm51bGwsInZlcnNpb24iOjF9", inputMint: "m", interval: "60", limit: "1", limitTick: "0", mint: "m", pool: "p", protocol: "x", side: "sell", status: "active", window: "1h" };
-  for (const route of queryContractSnapshot().http) {
-    const concrete = route.path.replace(/\{[^}]+\}/g, "resource"), query = new URLSearchParams(route.parameters.map((name) => [name, value[name]])); query.sort(); const url = new URL(`${concrete}${query.size ? `?${query}` : ""}`, "http://indexer.test");
+  const contract = queryContractSnapshot(), validByProfile = { amountRaw: "1", collectionFilter: "p", cursor: "eyJrZXkiOiJrIiwic2NvcGUiOm51bGwsInZlcnNpb24iOjF9", inputMint: "m", interval: "60", limit: "1", limitTick: "0", side: "sell", status: "active", window: "1h" }, invalidByProfile = { amountRaw: "0", collectionFilter: "", cursor: "!", inputMint: "", interval: "61", limit: "0", limitTick: "1.0", side: "hold", status: "__invalid__", window: "5M" }, bindings = new Map();
+  assert.deepEqual(Object.keys(validByProfile).sort(), Object.keys(contract.valueConstraints).sort()); assert.deepEqual(Object.keys(invalidByProfile).sort(), Object.keys(contract.valueConstraints).sort());
+  for (const route of contract.http) {
+    const concrete = route.path.replace(/\{[^}]+\}/g, "resource"), query = new URLSearchParams(route.parameters.map((name) => { const profile = route.parameterConstraints[name]; bindings.set(profile, bindings.get(profile) ?? { route, name }); return [name, validByProfile[profile]]; })); query.sort(); const url = new URL(`${concrete}${query.size ? `?${query}` : ""}`, "http://indexer.test");
     assert.doesNotThrow(() => validateAllowedQueryParameters(url), route.path);
     const unsupported = new URL(url); unsupported.searchParams.set("unsupported", "1"); unsupported.searchParams.sort(); assert.throws(() => validateAllowedQueryParameters(unsupported), (error) => error.code === "BAD_REQUEST", route.path);
   }
+  assert.deepEqual([...bindings.keys()].sort(), Object.keys(contract.valueConstraints).sort());
+  for (const [profile, { route, name }] of bindings) { const concrete = route.path.replace(/\{[^}]+\}/g, "resource"), query = new URLSearchParams(route.parameters.map((parameter) => [parameter, parameter === name ? invalidByProfile[profile] : validByProfile[route.parameterConstraints[parameter]]])); const url = new URL(`${concrete}?${query}`, "http://indexer.test"); assert.throws(() => validateAllowedQueryParameters(url), (error) => error.code === "BAD_REQUEST", `${route.path}:${name}:${profile}`); }
 });
 test("template path contracts reject noncanonical identities before query admission", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.pathValueConstraints.resourceIdentifier, { kind: "canonical_percent_encoded_segment", decodedMinimumLength: 1, decodedMaximumLength: 256, decodedSlashAllowed: false, decodedControlCharactersAllowed: false });

@@ -2128,3 +2128,13 @@
 - Compatibility/migration/configuration: regression and handoff evidence only; current repaired runtime admission, discovery bytes and digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged.
 - Remaining boundary: the two retained QC failures require independent rerun against this revision; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
 - NEXT_WEB_ACTION: generate candle enums and bot collection-filter validation directly from discovery profiles so invalid aliases and filters are rejected before requests reach the indexer.
+
+## UPSTREAM complete HTTP value-profile admission parity
+
+- Selected ID: `UPSTREAM-HTTP-VALUE-PROFILE-MATRIX-082` (commercial SDK correctness, discovery/runtime parity, AI/trading fail-closed safety, and API supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected complete value-profile binding because the route-wide allowlist regression supplied values by parameter name and did not prove that every published profile had both an accepted and rejected runtime representative. QC was consulted after selection and independently closed IDs 080–081.
+- Contract: the regression derives each parameter's value profile from `parameterConstraints`, requires the runtime route matrix to bind every published `valueConstraints` profile, accepts one canonical representative per profile on every route, and rejects one noncanonical representative through an actual discovered route binding.
+- Validation contract: focused coverage requires exact catalog equality for valid values, invalid values, and discovered bindings across all ten profiles while preserving per-route unknown-parameter rejection.
+- Compatibility/migration/configuration: additive regression and handoff evidence only; discovery bytes, runtime admission behavior, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: profile representatives protect catalog coverage but do not replace exhaustive per-profile boundary cases; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: generate client-side validators by each route's `parameterConstraints` binding and reject values that fail the referenced catalog profile before transport.
