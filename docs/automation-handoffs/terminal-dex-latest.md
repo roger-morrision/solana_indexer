@@ -1928,3 +1928,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime retry bytes, scheduling, persistence, recovery behavior, providers, migrations, REST/RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: holder-exclusion freshness/configuration and ingestion tip/lag arithmetic remain separately discoverable candidates; live qualification remains operator-blocked.
 - NEXT_WEB_ACTION: implement `dead-letter-retry-semantics-v1` once in generated monitoring validators and apply it to every REST/RPC stats and health retry projection before alerting or recovery decisions.
+
+## UPSTREAM holder-exclusion registry semantics
+
+- Selected ID: `UPSTREAM-MONITORING-HOLDER-EXCLUSION-SEMANTICS-062` (holder/whale accuracy, token-risk analysis, AI/trading admission, incident monitoring, and commercial data integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; independent QC closed IDs 060–061, while all six monitoring schemas still exposed exclusion governance fields without their producer-enforced configuration, timing, clock-skew, expiry, and freshness relationships. This shared safety boundary outranked route-local polish because stale or future governance evidence can distort holder concentration and downstream risk decisions.
+- Contract: `holder-exclusion-registry-semantics-v1` requires unconfigured evidence to carry null timing and zero counts, configured evidence to carry both timing values, future observation to match negative age exactly, and freshness to mean non-future evidence with positive expiry remaining.
+- Validation contract: all six REST/RPC stats and health schemas share the four-rule descriptor; real unconfigured and configured producer profiles validate, while five isolated timing, future-state, freshness, and expiry contradictions reject.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime exclusion bytes, registry loading, holder/security calculations, persistence, providers, migrations, REST/RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: ingestion tip/lag arithmetic remains separately discoverable; live qualification remains operator-blocked on fresh canonical provider and sink evidence.
+- NEXT_WEB_ACTION: implement `holder-exclusion-registry-semantics-v1` once in generated monitoring validators and reject configuration, timing, clock-skew, expiry, or freshness contradictions before holder-risk and trading-safety decisions.
