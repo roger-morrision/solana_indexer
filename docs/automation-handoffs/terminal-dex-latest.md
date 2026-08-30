@@ -2008,3 +2008,13 @@
 - Compatibility/migration/configuration: additive developer/operations validation only; alert rules, runtime metrics, REST/RPC/WebSocket bytes, persistence, providers, migrations, and configuration are unchanged. Installing `promtool` upgrades local validation from SKIP to checked PASS/FAIL automatically.
 - Remaining boundary: offline parsing cannot establish live Prometheus reload, scrape availability, or canonical production evidence.
 - NEXT_WEB_ACTION: surface whether each deployed alert bundle was parser-checked or skipped, but never treat a skipped preflight as production qualification.
+
+## UPSTREAM native Prometheus rule evaluation
+
+- Selected ID: `UPSTREAM-PROMTOOL-RULE-TEST-PREFLIGHT-070` (incident correctness, deployment safety, holder governance, ingestion recovery, and commercial observability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected native rule evaluation because parser acceptance alone cannot prove the intended alert outcomes under Prometheus timing and absent-series semantics. QC closed IDs 068–069 after selection and was retained as verification input only.
+- Contract: the canonical monitoring preflight now runs bounded `promtool check rules` followed by bounded `promtool test rules` against a checked-in suite covering finite contradictions, required-series absence, and present-`NaN` partial progress. PASS evidence names both checks; executable absence remains explicit SKIP, while either native check fails closed.
+- Validation contract: focused coverage requires both safe input files, both check identities, checked PASS evidence, executable-unavailable SKIP, redacted failure, and the three semantic fixture families. The real host result remains separately reported.
+- Compatibility/migration/configuration: additive offline validation and test data only; production alert expressions, metrics, REST/RPC/WebSocket bytes, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: native offline evaluation does not establish live rule reload, scrape continuity, notification delivery, or canonical production evidence.
+- NEXT_WEB_ACTION: map the three native rule-test families to dashboard remediation states while preserving absent-series versus contradictory-value distinctions.

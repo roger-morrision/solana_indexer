@@ -3790,12 +3790,13 @@ test("monitoring invariant alert fixtures cover canonical, contradictory, absent
 });
 
 test("monitoring alert preflight passes, skips unavailable promtool, and fails closed", async () => {
-  const ruleFile = path.join(rootDir, "infra/monitoring/alerts.yaml");
-  assert.deepEqual(await preflightMonitoringAlerts({ ruleFile, probe: async () => "SUCCESS" }), { schemaVersion: 1, kind: "monitoring_alert_preflight", status: "pass", checked: true, reason: null });
+  const ruleFile = path.join(rootDir, "infra/monitoring/alerts.yaml"), ruleTestFile = path.join(rootDir, "infra/monitoring/alerts.test.yaml");
+  let probed; assert.deepEqual(await preflightMonitoringAlerts({ ruleFile, ruleTestFile, probe: async (...files) => { probed = files; return "SUCCESS"; } }), { schemaVersion: 1, kind: "monitoring_alert_preflight", status: "pass", checked: true, checks: ["syntax", "evaluation"], reason: null }); assert.deepEqual(probed, [ruleFile, ruleTestFile]);
   const unavailable = Object.assign(new Error("spawn promtool ENOENT"), { code: "ENOENT" });
-  assert.deepEqual(await preflightMonitoringAlerts({ ruleFile, probe: async () => { throw unavailable; } }), { schemaVersion: 1, kind: "monitoring_alert_preflight", status: "skip", checked: false, reason: "promtool_unavailable" });
-  await assert.rejects(preflightMonitoringAlerts({ ruleFile, probe: async () => { throw new Error("private parser output"); } }), /Prometheus alert rule preflight failed/);
-  await assert.rejects(preflightMonitoringAlerts({ ruleFile: "infra/monitoring/alerts.yaml" }), /must be absolute/);
+  assert.deepEqual(await preflightMonitoringAlerts({ ruleFile, ruleTestFile, probe: async () => { throw unavailable; } }), { schemaVersion: 1, kind: "monitoring_alert_preflight", status: "skip", checked: false, reason: "promtool_unavailable" });
+  await assert.rejects(preflightMonitoringAlerts({ ruleFile, ruleTestFile, probe: async () => { throw new Error("private parser output"); } }), /Prometheus alert rule preflight failed/);
+  await assert.rejects(preflightMonitoringAlerts({ ruleFile: "infra/monitoring/alerts.yaml", ruleTestFile }), /must be absolute/);
+  const ruleTests = await fs.readFile(ruleTestFile, "utf8"), preflightSource = await fs.readFile(path.join(rootDir, "src/monitoring-alert-preflight.js"), "utf8"); assert.match(ruleTests, /finite monitoring contradictions/); assert.match(ruleTests, /missing series fail closed/); assert.match(ruleTests, /present NaN partial progress remains supported/); assert.match(ruleTests, /TerminalDexIndexProgressInconsistent/); assert.match(preflightSource, /args: \["check", "rules", ruleFile\]/); assert.match(preflightSource, /args: \["test", "rules", ruleTestFile\]/);
 });
 
 test("backup and restore tooling verifies integrity and gates destructive restore", async () => {

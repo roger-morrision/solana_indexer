@@ -1,0 +1,68 @@
+rule_files:
+  - alerts.yaml
+evaluation_interval: 1m
+tests:
+  - name: finite monitoring contradictions
+    interval: 1m
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 0 0
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 1 1
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 19 19
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Dead-letter retry evidence is structurally invalid or contains legacy unscheduled work" }
+      - eval_time: 1m
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Reviewed holder-exclusion governance evidence is future-dated and must not affect risk decisions" }
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+  - name: missing series fail closed
+    interval: 1m
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexDeadLetterRetryEvidenceInvalid
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Dead-letter retry evidence is structurally invalid or contains legacy unscheduled work" }
+      - eval_time: 1m
+        alertname: TerminalDexHolderExclusionsFutureDated
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Reviewed holder-exclusion governance evidence is future-dated and must not affect risk decisions" }
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+  - name: present NaN partial progress remains supported
+    interval: 1m
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: NaN NaN
+      - series: terminal_dex_index_tip_slot
+        values: 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: NaN NaN
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
