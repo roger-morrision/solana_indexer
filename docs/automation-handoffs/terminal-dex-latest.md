@@ -1978,3 +1978,13 @@
 - Compatibility/migration/configuration: additive alert rules only; metric names, runtime behavior, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged. Operators must reload the existing Prometheus rule bundle through their normal deployment process.
 - Remaining boundary: dashboards may visualize these gauges separately; live qualification remains operator-blocked on fresh canonical local evidence.
 - NEXT_WEB_ACTION: display the three invariant alerts with their component gauges and remediation guidance in the operations dashboard without exposing registry or provider identities.
+
+## UPSTREAM monitoring alert series-presence closure
+
+- Selected ID: `UPSTREAM-ALERTS-MONITORING-SERIES-PRESENCE-067` (deployment safety, incident detection, recovery integrity, holder-risk governance, and commercial observability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; the three semantic alerts correctly detect contradictory values but Prometheus comparisons return no vector when a required series is absent. Because the producer always emits these fixed-cardinality series, missing-series detection is a dependency-ready fail-closed repair that outranks synthetic alert fixtures.
+- Contract: each semantic alert now also fires when its required metric is absent. The index-progress alert independently requires index tip, source tip, and export lag series; present `NaN` values remain non-firing, preserving valid partial-provenance behavior while distinguishing it from deployment or scrape regression.
+- Validation contract: infrastructure coverage requires exact `absent(...)` clauses for retry canonicality, exclusion future-state, and all three progress operands alongside each contradiction expression.
+- Compatibility/migration/configuration: additive fail-closed alert hardening only; gauges, runtime behavior, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged. Operators must reload the existing rule bundle normally.
+- Remaining boundary: live qualification remains operator-blocked on fresh canonical local index and sink evidence.
+- NEXT_WEB_ACTION: distinguish missing-series pages from value-contradiction pages in dashboard remediation text while preserving the same critical severity and redacted evidence boundary.
