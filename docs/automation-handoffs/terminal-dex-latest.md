@@ -1988,3 +1988,13 @@
 - Compatibility/migration/configuration: additive fail-closed alert hardening only; gauges, runtime behavior, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged. Operators must reload the existing rule bundle normally.
 - Remaining boundary: live qualification remains operator-blocked on fresh canonical local index and sink evidence.
 - NEXT_WEB_ACTION: distinguish missing-series pages from value-contradiction pages in dashboard remediation text while preserving the same critical severity and redacted evidence boundary.
+
+## UPSTREAM offline monitoring rule fixtures
+
+- Selected ID: `UPSTREAM-ALERTS-OFFLINE-RULE-FIXTURES-068` (incident regression safety, deployment readiness, holder governance, ingestion recovery, and commercial observability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected executable alert profiles because exact-expression assertions alone did not preserve the intended truth table across canonical, contradictory, absent-series, and supported partial-provenance states. QC independently closed IDs 066–067 after selection and was used as verification evidence, not as the work queue.
+- Contract: a versioned credential-free fixture defines eight bounded monitoring profiles. Missing required fixed-cardinality series and finite contradictions alert; canonical values and present `NaN` partial progress do not.
+- Validation contract: the focused Node test evaluates every fixture against the three published alert identities and rejects profile deletion, reordering, or semantic drift.
+- Compatibility/migration/configuration: test evidence only; Prometheus rules, runtime metrics, REST/RPC/WebSocket bytes, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: these fixtures verify the bounded semantic truth table offline but do not replace Prometheus parser/runtime qualification or fresh canonical operational evidence.
+- NEXT_WEB_ACTION: use the same eight named profiles when validating dashboard remediation states, distinguishing absent-series incidents from contradictory-value incidents without exposing provider or registry identities.

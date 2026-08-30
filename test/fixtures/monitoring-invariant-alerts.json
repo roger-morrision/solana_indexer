@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    { "name": "canonical", "metrics": { "retryCanonical": 1, "exclusionsFuture": 0, "sourceTip": 120, "indexTip": 100, "exportLag": 20 }, "alerts": [] },
+    { "name": "retry-contradiction", "metrics": { "retryCanonical": 0, "exclusionsFuture": 0, "sourceTip": 120, "indexTip": 100, "exportLag": 20 }, "alerts": ["TerminalDexDeadLetterRetryEvidenceInvalid"] },
+    { "name": "exclusion-contradiction", "metrics": { "retryCanonical": 1, "exclusionsFuture": 1, "sourceTip": 120, "indexTip": 100, "exportLag": 20 }, "alerts": ["TerminalDexHolderExclusionsFutureDated"] },
+    { "name": "progress-contradiction", "metrics": { "retryCanonical": 1, "exclusionsFuture": 0, "sourceTip": 120, "indexTip": 100, "exportLag": 19 }, "alerts": ["TerminalDexIndexProgressInconsistent"] },
+    { "name": "retry-series-absent", "metrics": { "exclusionsFuture": 0, "sourceTip": 120, "indexTip": 100, "exportLag": 20 }, "alerts": ["TerminalDexDeadLetterRetryEvidenceInvalid"] },
+    { "name": "exclusion-series-absent", "metrics": { "retryCanonical": 1, "sourceTip": 120, "indexTip": 100, "exportLag": 20 }, "alerts": ["TerminalDexHolderExclusionsFutureDated"] },
+    { "name": "progress-series-absent", "metrics": { "retryCanonical": 1, "exclusionsFuture": 0, "indexTip": 100, "exportLag": 20 }, "alerts": ["TerminalDexIndexProgressInconsistent"] },
+    { "name": "supported-partial-progress", "metrics": { "retryCanonical": 1, "exclusionsFuture": 0, "sourceTip": "NaN", "indexTip": 100, "exportLag": "NaN" }, "alerts": [] }
+  ]
+}

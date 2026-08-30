@@ -3774,6 +3774,20 @@ test("mTLS gateway and production SLO alerts fail closed", async () => {
   assert.match(alerts, /max by \(projection\) \(terminal_dex_warehouse_invalid_postgres_preimages\) > 0/); assert.match(alerts, /max by \(stage\) \(terminal_dex_warehouse_failure_stage\) == 1/); assert.match(alerts, /TerminalDexWarehouseProjectionIntegrity[\s\S]*for: 1m/); assert.match(alerts, /TerminalDexWarehouseFailureStage[\s\S]*for: 2m/);
 });
 
+test("monitoring invariant alert fixtures cover canonical, contradictory, absent, and NaN profiles", async () => {
+  const fixture = JSON.parse(await fs.readFile(path.join(rootDir, "test/fixtures/monitoring-invariant-alerts.json"), "utf8"));
+  assert.equal(fixture.schemaVersion, 1);
+  assert.deepEqual(fixture.profiles.map(({ name }) => name), ["canonical", "retry-contradiction", "exclusion-contradiction", "progress-contradiction", "retry-series-absent", "exclusion-series-absent", "progress-series-absent", "supported-partial-progress"]);
+  const present = (metrics, key) => Object.hasOwn(metrics, key), numeric = (value) => typeof value === "number" && Number.isFinite(value);
+  for (const { name, metrics, alerts: expected } of fixture.profiles) {
+    const actual = [];
+    if (!present(metrics, "retryCanonical") || metrics.retryCanonical === 0) actual.push("TerminalDexDeadLetterRetryEvidenceInvalid");
+    if (!present(metrics, "exclusionsFuture") || metrics.exclusionsFuture === 1) actual.push("TerminalDexHolderExclusionsFutureDated");
+    if (!["sourceTip", "indexTip", "exportLag"].every((key) => present(metrics, key)) || ([metrics.sourceTip, metrics.indexTip, metrics.exportLag].every(numeric) && metrics.sourceTip - metrics.indexTip !== metrics.exportLag)) actual.push("TerminalDexIndexProgressInconsistent");
+    assert.deepEqual(actual, expected, name);
+  }
+});
+
 test("backup and restore tooling verifies integrity and gates destructive restore", async () => {
   const backup = await fs.readFile(path.join(rootDir, "ops/backup.sh"), "utf8"), fetchBackup = await fs.readFile(path.join(rootDir, "ops/fetch-backup.sh"), "utf8"), restore = await fs.readFile(path.join(rootDir, "ops/restore.sh"), "utf8");
   assert.match(backup, /tar --create --format=ustar/); assert.doesNotMatch(backup, /--ignore-failed-read/);
