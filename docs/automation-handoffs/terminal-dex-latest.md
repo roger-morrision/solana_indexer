@@ -1730,3 +1730,12 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime responses, holder aggregation, cursor behavior, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: owner-account RPC results remain shallow; live holder qualification still requires fresh canonical snapshot and exclusion evidence, and Meteora authenticity remains externally blocked.
 - NEXT_WEB_ACTION: regenerate the holder RPC validator and preserve raw balances, finalized snapshot identity, exclusion/freshness gates, unattributed withheld funds, concentration uncertainty, and `safeForAutomation:false`.
+
+## UPSTREAM token-holder semantic closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` (holders/whales, concentration risk, exclusion governance, AI safety, cursor caches, and commercial RPC correctness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; independent QC promoted the deterministic 18-case holder semantic failure ahead of owner-account discovery.
+- Contract: holder pages now include closed start/count/total/remaining evidence. The bounded `holder-page-semantics-v1` relationship binds row sums/counts to aggregates, exact concentration identity/nullability, completeness/coverage/freshness/missing evidence, assessability/exclusion governance, configured exclusion provenance, and cursor termination.
+- Compatibility/migration/configuration: the holder result additively gains `page`; discovery schema, digest, and ETag change. Pagination order/cursor identity, holder math, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: generated validators must implement the published 12-rule bounded relationship; owner-account RPC results remain shallow, and live qualification still requires fresh canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate holder validators with `holder-page-semantics-v1`, require exact page evidence, and reject aggregate, concentration, freshness, exclusion, coverage, row-total, or cursor contradictions.
