@@ -1808,3 +1808,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; canonical RPC and REST response bytes, persistence, providers, migrations, WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: nested retry, exclusion, ingestion, structure, and chain descriptors retain their existing conservative object boundaries; `getIndexerHealth` remains shallow and live readiness remains operator-blocked.
 - NEXT_WEB_ACTION: regenerate the indexer-stats RPC validator from the shared closed schema and reject missing or unknown top-level monitoring fields before caching or aggregation.
+
+## UPSTREAM parameterized RPC admission closure
+
+- Selected ID: `UPSTREAM-RPC-PARAMETERIZED-ADMISSION-051` (commercial API correctness, cache identity, replay safety, wallet/token integrity, and abuse-resistant request handling).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; QC at `e451321` closed owner binding and stats-schema work but proved 20 shared admission contradictions, making strict parameter shape enforcement the highest-value dependency-ready repair.
+- Contract: every cataloged parameterized RPC method now rejects positional arrays longer than its published required-plus-optional profile and named objects containing any property outside that profile with JSON-RPC `-32602`.
+- Validation contract: the test derives all ten parameterized methods from discovery and proves both overflow positional and unknown named input reject, preventing method-list drift from silently reopening admission.
+- Compatibility/migration/configuration: clients relying on ignored arguments must remove them; canonical positional/named requests, defaults, omission/null behavior, results, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
+- Remaining boundary: health RPC result discovery remains shallow; value/type validation remains method-specific, and live readiness remains operator-blocked.
+- NEXT_WEB_ACTION: remove unknown named and overflow positional arguments from all parameterized RPC calls and treat `-32602` as a non-retryable client contract error.
