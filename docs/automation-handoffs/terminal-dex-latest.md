@@ -2048,3 +2048,13 @@
 - Compatibility/migration/configuration: additive native test evidence only; production alert rules, gauges, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged.
 - Remaining boundary: native execution remains SKIP until promtool is installed, and offline silence cannot establish live scrape or notification behavior.
 - NEXT_WEB_ACTION: treat a fully canonical quiet profile as the dashboard baseline and never infer incident clearance from missing scrape data or skipped native validation.
+
+## UPSTREAM native semantic-alert hold timing
+
+- Selected ID: `UPSTREAM-PROMTOOL-ALERT-HOLD-SEMANTICS-074` (noise control, incident trust, deployment safety, recovery operations, and commercial SLA stability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected pending-state evaluation because native fixtures proved firing after one minute but did not protect the declared hold from accidental removal or shortening. QC closed IDs 072–073 after selection and remained verification input only.
+- Contract: finite contradictions and complete series absence now evaluate all three semantic alerts at zero minutes with no firing, then retain their required critical firings after the configured one-minute hold.
+- Validation contract: focused coverage requires six zero-minute evaluations, ten total empty alert expectations including canonical and present-`NaN` controls, and the existing one-minute critical outcomes.
+- Compatibility/migration/configuration: additive native timing evidence only; production alert expressions, one-minute holds, gauges, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: native execution remains SKIP until promtool is installed; offline timing does not prove live evaluation cadence or notification delivery.
+- NEXT_WEB_ACTION: display the one-minute pending interval before escalating semantic monitoring failures, without treating pending, skipped, or absent scrape evidence as resolved.
