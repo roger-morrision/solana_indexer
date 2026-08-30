@@ -2158,3 +2158,13 @@
 - Compatibility/migration/configuration: additive regression and handoff evidence only; default values, response bytes, discovery digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: equality is verified against deterministic offline index state; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
 - NEXT_WEB_ACTION: omit query parameters whose requested values equal the discovered defaults so cache keys remain canonical while preserving explicit controls for non-default values.
+
+## UPSTREAM conditional quote admission matrix
+
+- Selected ID: `UPSTREAM-HTTP-CONDITIONAL-ADMISSION-MATRIX-085` (quote safety, commercial SDK generation, discovery/runtime parity, and AI/trading fail-closed behavior).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected conditional quote admission because discovery identifies venue-dependent `limitTick` requirements but existing coverage asserted only metadata shape. QC was consulted after selection and independently closed IDs 082–083; ID 084 remains awaiting independent review.
+- Contract: the discovered conditional-route set must contain exactly pool quote; both published concentrated-liquidity programs reject omitted `limitTick` and accept a valid value through conditional admission, while the nonmatching Raydium CPMM control accepts omission and rejects an extraneous `limitTick`.
+- Validation contract: focused coverage derives both matching program IDs and the parameter/profile binding from discovery, verifies two required and one forbidden runtime branches, and preserves canonical required query inputs.
+- Compatibility/migration/configuration: additive regression and handoff evidence only; quote behavior, discovery bytes and digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: future conditional kinds require their own discovery-bound evaluator; live quote qualification remains blocked on canonical provider, snapshot, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: require `limitTick` in generated quote builders only for the two program IDs published by `pool_program_in`, and reject it for every other venue before transport.
