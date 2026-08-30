@@ -1748,3 +1748,13 @@
 - Compatibility/migration/configuration: test and evidence hardening only; runtime/discovery bytes, schema digest/ETag, cursor behavior, ingestion, persistence, migrations, providers, and configuration remain unchanged.
 - Remaining boundary: independent QC must still confirm the new relationship implementation; owner-account RPC discovery remains shallow.
 - NEXT_WEB_ACTION: implement `holder-page-semantics-v1` in generated validators and run the same 18 isolated mutations before consuming holder concentration or exclusion evidence.
+
+## UPSTREAM token-holder terminal-page and freshness closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` (holder/whale accuracy, concentration risk, AI safety, cursor consumers, and commercial RPC correctness).
+- BA/PO decision: fresh inspection reconciled 22 evidence-backed opportunities; independent QC at `9837c02` retained this HIGH contract ahead of owner-account discovery because negative freshness age and four producer-impossible terminal/full-page states remained admissible.
+- Contract: `holder-page-semantics-v1` now publishes 17 rules. Freshness age must agree with future/stale flags; owners are unique and ordered by descending raw balance then ascending identity; and a full page beginning at zero must exactly reconcile row raw balances and token-account counts with envelope aggregates.
+- Validation contract: the generated-style verifier keeps the prior 18 isolated contradictions and adds the five independently reported cases: negative age, understated terminal amount sum, understated terminal account sum, duplicate owner, and reversed equal-balance tie order.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime response bytes, holder aggregation, pagination and cursor identity, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
+- Remaining boundary: independent QC must confirm all retained and fresh mutations; owner-account RPC discovery remains shallow, and live holder qualification remains blocked on fresh canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate holder validators with all 17 `holder-page-semantics-v1` rules and reject non-reconciling terminal pages, duplicate or misordered owners, and freshness age/flag contradictions.
