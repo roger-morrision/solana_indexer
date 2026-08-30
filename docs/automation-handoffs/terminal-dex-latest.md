@@ -1878,3 +1878,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime 503 bytes, status classification, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: public and combined health unavailable envelopes retain separate progressive and exporter-specific producer shapes; live service qualification remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate the `/api/stats` 503 validator from `stats_unavailable_v1` and reject unknown nested retry, exclusion, ingestion, structure, or chain fields before displaying or retaining incident telemetry.
+
+## UPSTREAM unavailable public-health nested evidence closure
+
+- Selected ID: `UPSTREAM-REST-INDEX-HEALTH-UNAVAILABLE-NESTED-CONTRACT-057` (incident safety, public availability monitoring, AI/trading admission, replay gating, commercial SLAs, and credential isolation).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; the same redacted health producer already has 13 independently verified closed RPC profiles, while `/api/health` 503 discovery still admitted arbitrary nested objects. This high-value, dependency-ready parity repair prevents failure-path diagnostics from becoming a weaker trust boundary than RPC health.
+- Contract: `index_health_unavailable_v1` now reuses the exact closed retry, exclusion, ingestion, structure, chain, event, decoder, ledger, aggregate, snapshot, metadata, and recovery schemas published by `indexer_health_result_v1`.
+- Validation contract: discovery equality covers all 13 nested profiles; real empty and malformed-state 503 bodies must satisfy every required/allowed key boundary for each progressively present profile.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, status/reason semantics, readiness policy, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: combined feed-health 503 replaces index ingestion evidence with a distinct exporter-status producer and therefore requires a separate producer-compatible composition; live service qualification remains blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate the `/api/health` 503 validator from `index_health_unavailable_v1` and reject unknown or incomplete nested evidence before alerting, readiness admission, caching, or incident display.

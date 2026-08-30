@@ -405,7 +405,9 @@ const RPC_HEALTH_PROGRESSIVE_SCHEMAS = {
   recovery: rpcHealthQualitySchema(["canonical", "capacityExceeded", "droppedDeadLetters", "processedFiles", "deadLetters", "reorgCorrections", "reason"], ["canonical", "capacityExceeded"])
 };
 RPC_HEALTH_PROGRESSIVE_SCHEMAS.events.properties.oldestSequence = RPC_NULLABLE_COUNT_SCHEMA;
-Object.assign(RPC_RESULT_SCHEMAS.indexer_health_result_v1.properties, { deadLetterRetry: RPC_HEALTH_RETRY_SCHEMA, holderExclusions: RPC_HEALTH_EXCLUSIONS_SCHEMA, ingestion: RPC_HEALTH_INGESTION_SCHEMA, structure: RPC_HEALTH_STRUCTURE_SCHEMA, chain: RPC_HEALTH_CHAIN_SCHEMA, ...RPC_HEALTH_PROGRESSIVE_SCHEMAS });
+const RPC_HEALTH_NESTED_SCHEMAS = { deadLetterRetry: RPC_HEALTH_RETRY_SCHEMA, holderExclusions: RPC_HEALTH_EXCLUSIONS_SCHEMA, ingestion: RPC_HEALTH_INGESTION_SCHEMA, structure: RPC_HEALTH_STRUCTURE_SCHEMA, chain: RPC_HEALTH_CHAIN_SCHEMA, ...RPC_HEALTH_PROGRESSIVE_SCHEMAS };
+Object.assign(RPC_RESULT_SCHEMAS.indexer_health_result_v1.properties, RPC_HEALTH_NESTED_SCHEMAS);
+Object.assign(RESPONSE_BODY_SCHEMAS.index_health_unavailable_v1.properties, RPC_HEALTH_NESTED_SCHEMAS);
 const RPC_STATS_NESTED_SCHEMAS = { deadLetterRetry: RPC_HEALTH_RETRY_SCHEMA, holderExclusions: RPC_HEALTH_EXCLUSIONS_SCHEMA, ingestion: RPC_HEALTH_INGESTION_SCHEMA, structure: RPC_HEALTH_STRUCTURE_SCHEMA, chain: RPC_HEALTH_CHAIN_SCHEMA };
 Object.assign(RESPONSE_BODY_SCHEMAS.stats_success_v1.properties, RPC_STATS_NESTED_SCHEMAS);
 Object.assign(RPC_RESULT_SCHEMAS.indexer_stats_result_v1.properties, RPC_STATS_NESTED_SCHEMAS);
