@@ -1788,3 +1788,13 @@
 - Compatibility/migration/configuration: requests with ignored non-empty parameters now fail closed; canonical clients are unchanged. Discovery schema, digest, and ETag change; result bodies, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
 - Remaining boundary: health and stats RPC result descriptors remain shallow; independent QC of token page semantics is pending, and live qualification remains operator-blocked.
 - NEXT_WEB_ACTION: regenerate health/stats request builders as zero-parameter methods and remove any client-supplied compatibility or diagnostic arguments before invocation.
+
+## UPSTREAM owner RPC request/result identity closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` (wallet inventory, trader intelligence, AI evidence integrity, cache scope, and commercial RPC correctness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; QC at `0676ae0` closed holder and zero-parameter admission work but proved two coupled owner-page identity drifts, making this deterministic HIGH contract gap the highest-value dependency-ready increment.
+- Contract: `getIndexedTokenAccountsByOwner` now publishes `rpc-request-result-equality-v1` bindings from positional or named `owner` and optional `mint` parameters to result `owner` and `mintFilter`; omitted mint must bind to null.
+- Validation contract: generated-style checks accept named and positional filtered/unfiltered controls while rejecting independently drifted owner and mint-filter results even when every row is changed consistently with the forged echo.
+- Compatibility/migration/configuration: additive discovery only; runtime request/result bytes, nine bounded row/page rules, cursor format and scope, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: health and stats RPC result descriptors remain shallow; live wallet completeness and freshness qualification remain blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate the owner-account RPC validator with request/result equality and reject owner or mint-filter echo drift before applying the nine result-page rules or caching a page.
