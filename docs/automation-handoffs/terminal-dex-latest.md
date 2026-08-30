@@ -2098,3 +2098,13 @@
 - Compatibility/migration/configuration: additive native test evidence only; production alert expressions and one-minute holds, gauges, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged. No migration or operator configuration is required.
 - Remaining boundary: native execution remains SKIP until promtool is installed; offline operand isolation does not establish live scrape cadence, rule reload, Alertmanager delivery, or canonical production evidence.
 - NEXT_WEB_ACTION: identify the missing progress operand in incident remediation and clear that state only after the specific gauge returns with a complete canonical relationship.
+
+## UPSTREAM native governance-series recovery isolation
+
+- Selected ID: `UPSTREAM-PROMTOOL-GOVERNANCE-RECOVERY-079` (dead-letter recovery, holder-risk governance, incident diagnosis, AI/trading safety, and commercial SLA stability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected governance-series recovery because isolated retry and exclusion absence already proved fail-closed firing, while their continuous firing-and-clearing lifecycle was covered only in a combined profile. QC closed IDs 076–077 after selection and had not yet reviewed ID 078.
+- Contract: two 30-second native profiles independently omit retry canonicality or exclusion future-state through the one-minute threshold while every unrelated gauge remains canonical, require only the corresponding critical alert, restore the missing gauge at 90 seconds, and require immediate clearing.
+- Validation contract: focused repository coverage requires both stable lifecycle names, omitted-to-canonical sequences, one exact one-minute critical and 90-second empty outcome per governance alert, unchanged progress-alert counts, and preserved combined and transient controls.
+- Compatibility/migration/configuration: additive native test evidence only; production alert expressions and one-minute holds, gauges, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged. No migration or operator configuration is required.
+- Remaining boundary: native execution remains SKIP until promtool is installed; offline governance isolation does not establish live scrape cadence, rule reload, Alertmanager delivery, or canonical production evidence.
+- NEXT_WEB_ACTION: show whether retry canonicality or exclusion governance is missing and clear only the affected state after that specific gauge returns canonically.
