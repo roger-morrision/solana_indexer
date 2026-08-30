@@ -1739,3 +1739,12 @@
 - Compatibility/migration/configuration: the holder result additively gains `page`; discovery schema, digest, and ETag change. Pagination order/cursor identity, holder math, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: generated validators must implement the published 12-rule bounded relationship; owner-account RPC results remain shallow, and live qualification still requires fresh canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate holder validators with `holder-page-semantics-v1`, require exact page evidence, and reject aggregate, concentration, freshness, exclusion, coverage, row-total, or cursor contradictions.
+
+## UPSTREAM token-holder semantic mutation verification
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` (holder/whale accuracy, concentration risk, exclusion governance, cursor safety, and generated-validator readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected independent semantic verification because no post-`d74cc5d` QC result existed and moving to owner discovery without proving the HIGH holder repair would leave material risk unresolved.
+- Validation contract: a generated-style verifier applies every published `holder-page-semantics-v1` invariant to both real continuation and terminal pages, then rejects 18 isolated contradictions spanning counts, raw totals, concentration, completeness, assessability, exclusions, freshness, missing reasons, coverage, cursor termination, row totals, unconfigured provenance, and page arithmetic.
+- Compatibility/migration/configuration: test and evidence hardening only; runtime/discovery bytes, schema digest/ETag, cursor behavior, ingestion, persistence, migrations, providers, and configuration remain unchanged.
+- Remaining boundary: independent QC must still confirm the new relationship implementation; owner-account RPC discovery remains shallow.
+- NEXT_WEB_ACTION: implement `holder-page-semantics-v1` in generated validators and run the same 18 isolated mutations before consuming holder concentration or exclusion evidence.
