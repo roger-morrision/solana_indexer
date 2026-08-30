@@ -1,27 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T11:36:24+07:00`
+- Run: `2026-08-30T12:36:55+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `b349c66593b794e6d4e6e388228ae89dd5d1ac79`
-- Compared with QA baseline: `2ecc76311bf4e953b35a03b8cd8718e3b18d0c6e` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 129 ahead, 0 behind before this evidence report
-- Latest DEV commits: `28ec484` (bound holder and owner token-page semantics) and `b349c66` (rejected ignored zero-parameter RPC inputs)
-- Overall result: 2 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete three-outcome DEV delta. `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` is closed by exact terminal top-ten reconciliation and non-stale unconfigured exclusions. `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` rejects all seven reported row-level contradictions but remains open because jointly changing the echoed owner or mint filter and every row preserves all nine result rules while contradicting the request. New `UPSTREAM-RPC-ZERO-PARAM-ADMISSION-049` passes all empty/non-empty admission controls. Independent reconciliation is 87 PASS, 2 FAIL, and 1 BLOCKED across 90 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
+- Revision: `56bf531f5a7b0c8bbeb387335ed4962f6d1da0e8`
+- Compared with QA baseline: `0676ae0065f5d5a5ab22593c4e48563d607a8ffd` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 132 ahead, 0 behind before this evidence report
+- Latest DEV commits: `dbfa6b4` (bound owner-account results to request identities) and `56bf531` (closed the indexer-stats RPC top-level result)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` is closed by executable named/positional owner and mint-filter request/result bindings. New `UPSTREAM-RPC-INDEXER-STATS-CONTRACT-050` closes the exact 24-field top-level result. Independent validation found `UPSTREAM-RPC-PARAMETERIZED-ADMISSION-051`: all ten parameterized RPC methods ignore an extra positional value and an unknown named field. Reconciliation is 89 PASS, 2 FAIL, and 1 BLOCKED across 92 deduplicated domains; live qualification remains blocked by absent fresh canonical evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (2/20)
 
-### Token-page semantic closure and zero-parameter RPC admission (2 PASS, 1 FAIL)
+### Owner request/result identity and indexer-stats closure (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `28ec484` / `UPSTREAM-RPC-TOKEN-HOLDERS-CONTRACTS-047` | `/rpc` / `getIndexedTokenHolders` | `PASS` | The published algorithm has all 19 rules. Real first/continuation/full pages and coherent future-clock evidence pass; both retained coupled contradictions now reject under exact terminal first-ten-row reconciliation and `unconfigured_exclusions_not_stale`. |
-| `28ec484` / `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` | `/rpc` / `getIndexedTokenAccountsByOwner` | `FAIL` | The nine-rule bounded result algorithm rejects all 7/7 reported row-level contradictions. Two fresh coupled request contradictions remain admitted: jointly replacing echoed owner plus every row owner, or echoed mint filter plus every row mint, preserves every result rule while disagreeing with the invocation. |
-| `b349c66` / `UPSTREAM-RPC-ZERO-PARAM-ADMISSION-049` | `/rpc` / `getIndexerHealth`, `getIndexerStats` | `PASS` | Discovery publishes exact empty positional/named profiles. Independent live-loopback probes accept absent/null/empty-array/empty-object parameters 8/8 and reject non-empty array/object plus string/number/boolean inputs 10/10 with `-32602`. |
+| `dbfa6b4` / `UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048` | `/rpc` / `getIndexedTokenAccountsByOwner` | `PASS` | `rpc-request-result-equality-v1` accepts 6/6 named, positional, filtered, null-mint, and omitted-mint controls and rejects 4/4 forged owner/mint echoes, including the two coupled drifts retained by QC. The nine row/page rules remain intact. |
+| `56bf531` / `UPSTREAM-RPC-INDEXER-STATS-CONTRACT-050` | `/rpc` / `getIndexerStats` | `PASS` | The RPC schema is exactly the shared closed `stats_success_v1` schema. The live loopback result has all 24 required top-level keys; 24 missing-key mutations and one credential-bearing unknown field reject 25/25. |
 
-- Available DEV delta: exactly three distinct committed outcomes exist after `2ecc763`: holder semantic repair and owner semantic repair in `28ec484`, plus zero-parameter RPC admission in `b349c66`. The complete two-commit, three-file delta was exhausted. QC detected the DEV writer lock and uncommitted changes immediately after a provisional harness error, discarded that target, paused validation, refreshed to clean stable `b349c66`, and reran every tier. No additional distinct DEV outcome exists.
-- Verification result: 2 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across three distinct DEV outcomes and three stable finding IDs.
-- Exact fix/enhancement shortfall: 17; the stable delta contains exactly three distinct outcomes, and splitting rules, mutations, fields, methods, or assertions would be padding.
-- Validation: holder published rules 19/19 and retained coupled contradictions 2/2 reject; owner published rules 9/9 and reported contradictions 7/7 reject, while 2/2 fresh coupled request/result identity drifts are admitted; zero-parameter live controls accept 8/8 canonical empty forms and reject 10/10 non-empty/scalar forms. Focused RPC/query-contract run is 38/38 PASS, and focused Meteora suites are 19/19 PASS. The registry digest is `689c2b684c65cb59b063ee4bc91f7135002700bf116f819cb5337b7a7d7899f6`; the complete contract digest is `fed24b043d9df186dc0e2e1dfab385f27350ea79697862f154ab45798a7ab790`. Full suite 455/455 PASS; syntax 86/86 PASS; replay invariants PASS at 5,237.56 blocks/s with 9,631,992-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `0676ae0`, in `dbfa6b4` and `56bf531`; the complete two-commit, three-file delta was exhausted. QC detected the DEV writer lock before the first harness execution, collected no mixed-state evidence, waited for release, refreshed from `dbfa6b4` to clean stable `56bf531`, and ran every tier. No additional distinct DEV outcome exists.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across both distinct DEV outcomes and two stable finding IDs.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting bindings, parameter forms, result fields, methods, or assertions would be padding.
+- Validation: owner request/result bindings accept 6/6 canonical forms and reject 4/4 forged echoes; indexer stats accepts the live result and rejects 25/25 missing/unknown top-level mutations. Fresh parameter-admission probing shows all ten parameterized methods admit both overflow positional and unknown named input, 20/20 contradictions. Focused RPC/query-contract run is 39/39 PASS, and focused Meteora suites are 19/19 PASS. The registry digest is `78f47e16ac3c77f6f491702ff07c17e6db3945ffbc281e6a4c1ac690e1706209`; the complete contract digest is `d0573b9cfc0b27c8e73795da225a55dbb2bc6ad5bc88e4fd8d620c743f67d6d6`. Full suite 456/456 PASS; syntax 86/86 PASS; replay invariants PASS at 4,696.28 blocks/s with 10,272,656-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -891,13 +890,15 @@
 | REST schemas and pagination | `PASS` | Stable cursor scope/digest, filtering, explicit projections, invalid-cursor rejection, and compact catalogs pass; the path defect is tracked separately. |
 | Read-only JSON-RPC | `PASS` | Indexed method allowlist, parameter bounds, cursor isolation, malformed/oversized envelope, and invalid-evidence tests pass. |
 | Zero-parameter RPC admission | `PASS` | `getIndexerHealth` and `getIndexerStats` publish exact empty positional/named profiles; absent, null, empty-array, and empty-object requests pass 8/8, while non-empty arrays/objects and scalar strings/numbers/booleans reject 10/10 with `-32602`. |
+| Parameterized RPC admission | `FAIL` | All ten parameterized RPC methods advance past admission when given one extra positional value and when given one unknown named property. The 20/20 accepted contradictions conflict with each method's exact required/optional discovery profile and permit cache-ambiguous ignored inputs. |
 | RPC response-envelope discovery | `PASS` | The three closed success/error/batch branches validate all seven exercised runtime boundaries and reject all nine malformed, ambiguous, oversized, empty, unknown-field, and credential-bearing mutations. |
 | RPC method/result-schema discovery | `PASS` | The emitted catalog and bootstrap both bind the exact path, read-only flag, batch bounds, ordered 12-method/result mapping, complete 12-key result map, and closed descriptor types. Independent generated-style validation accepts both real catalogs, rejects all 15 mutations, and preserves snapshot isolation. |
 | RPC block/history result discovery | `PASS` | Canonical singular/page blocks and existing descriptors/cursors validate, and all eighteen incomplete or non-finalized block controls quarantine. Confirmed transaction evidence remains internally canonical but is withheld from collection and singular RPC results until matching finalized promotion, which then serves a schema-valid body. |
 | RPC token-account/supply result discovery | `PASS` | Both canonical bodies, null misses, exact descriptors, closed keys, and 24 missing-required controls validate. Published u64 maxima, canonical base58 identities, nullable owner/withheld forms, and exact token-program IDs reject all four over-u64 and six noncanonical-identity mutations. |
 | RPC token-metadata result discovery | `PASS` | Three exclusive result branches preserve real absent/present/enriched and null-miss forms. All 28 branch/provenance omissions, seven retained authoritative-state contradictions, the direct nested/top-level mint mismatch, and eight nested closure/boundary mutations reject. |
 | RPC token-holder result discovery | `PASS` | The 19-rule algorithm validates real first/continuation/full pages, null, coherent future-clock evidence, and rejects both retained coupled contradictions: terminal top-ten/concentration understatement and stale unconfigured exclusion evidence. |
-| RPC owner token-account result discovery | `FAIL` | The nine-rule algorithm validates real pages and rejects all seven reported row contradictions. It still admits two request/result identity drifts when echoed owner or mint filter and every corresponding row field are changed together. |
+| RPC owner token-account result discovery | `PASS` | The nine-rule result algorithm remains intact, while request/result equality accepts six canonical named/positional/null/omitted forms and rejects four forged owner or mint-filter echoes, including both prior coupled drifts. |
+| RPC indexer-stats result discovery | `PASS` | The RPC result schema exactly reuses the 24-field closed REST stats schema. The live loopback result has exact key parity, and all 24 omissions plus one unknown credential field reject. |
 | WebSocket contracts and replay | `PASS` | Ordered persisted replay, resume, snapshot isolation, corruption rejection, acknowledgement, timeout, capacity, and backpressure tests pass. |
 | Numeric precision | `PASS` | Raw integer fields use exact string/UInt64/UInt256 or numerator/denominator contracts; Token-2022 epoch fee and Q64/lot/bin math tests pass. |
 | Replay, reorg, and idempotency | `PASS` | 1,000-block replay preserves canonical counts, duplicate idempotency, replacement correction, heap, and throughput invariants. |
@@ -928,10 +929,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 455/455; syntax passes 86/86; replay completes at 5,237.56 blocks/s with 9,631,992-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 694,467,009 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 456/456; syntax passes 86/86; replay completes at 4,696.28 blocks/s with 10,272,656-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. Both retained indexes fail with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 698,097,953 ms old at this trigger. |
 
-The review reconciles 90 distinct evidence domains: 87 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The review reconciles 92 distinct evidence domains: 89 PASS, 2 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -2370,16 +2371,16 @@ The review reconciles 90 distinct evidence domains: 87 PASS, 2 FAIL, and 1 BLOCK
 
 ## UPSTREAM-RPC-TOKEN-OWNER-ACCOUNTS-CONTRACTS-048
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (delivered by `dbfa6b4`)
 - Owner: `DEV`
-- Reproduction: create a canonical finalized legacy SPL mint snapshot with two accounts owned by one wallet, call `getIndexedTokenAccountsByOwner` through named and positional first/continuation/full pages plus an empty unfiltered owner result, apply all nine `owner-account-page-semantics-v1` rules, replay the seven reported row mutations, then jointly replace the echoed owner or mint filter and every corresponding row field while retaining the original request.
-- Evidence: `28ec484` adds bounded page evidence, echoed `owner`/`mintFilter`, and nine rules. All real controls validate and all 7/7 reported row-level contradictions now reject. Two fresh coupled bodies remain valid under every result rule: changing `owner` plus every `data[].owner`, or `mintFilter` plus every `data[].mint`, leaves the response internally self-consistent but detached from the invocation.
+- Reproduction: inspect `getIndexedTokenAccountsByOwner.resultBindings`, execute its algorithm over named and positional filtered, omitted-mint, and explicit-null-mint controls, then forge owner or mint-filter echoes independently of the request while preserving internally coherent rows and all nine result-page rules.
+- Evidence: `dbfa6b4` publishes `rpc-request-result-equality-v1` with exact parameter name, positional index, result property, and omitted-null policy. Six canonical controls pass, and four forged results reject, including both coupled echo-and-row drifts retained by QC. The nine bounded page/row rules remain unchanged.
 - Affected contracts: wallet token inventory, funding and trader intelligence, token detail, pagination/caching, generated RPC clients, AI evidence, raw-balance correctness, Token-2022 interpretation, and commercial RPC readiness.
-- Expected versus actual behavior: the result must bind its echoed owner and optional mint filter to the request, then bind rows to those identities, require unique ascending token accounts, preserve one decimals/program identity per mint, and require legacy SPL withheld balances to be null. Runtime emits the requested identities, but the published response-only algorithm proves only internal result consistency.
-- Acceptance criteria: publish and enforce request/result equality for owner and mint filter, reject both coupled drifts and all seven retained row contradictions, and preserve named/positional parameters, first/continuation/full/empty results, cursor scope and replacement invalidation, canonical projection gating, u64 precision, `coverage:"latest_canonical_observed_accounts"`, and `complete:false`.
-- Validation results: published rules 9/9 present; real producer controls PASS; reported contradictions 7/7 reject; coupled request/result contradictions 0/2 reject (FAIL). Focused RPC/query-contract 38/38, Meteora 19/19, full 455/455, syntax 86/86, and replay PASS.
+- Expected versus actual behavior: the result binds its echoed owner and optional mint filter to either request style, then binds rows to those identities, unique ascending token accounts, one decimals/program identity per mint, and null legacy SPL withheld balances. Expected and actual now match.
+- Acceptance criteria: publish and enforce request/result equality for owner and mint filter, reject both coupled drifts and all seven retained row contradictions, and preserve named/positional parameters, first/continuation/full/empty results, cursor scope and replacement invalidation, canonical projection gating, u64 precision, `coverage:"latest_canonical_observed_accounts"`, and `complete:false`. All criteria are met.
+- Validation results: binding descriptor PASS; canonical request/result forms 6/6 PASS; forged echoes 4/4 reject; result rules 9/9 retained. Focused RPC/query-contract 39/39, Meteora 19/19, full 456/456, syntax 86/86, and replay PASS.
 - Compatibility/performance impact: request/result semantic discovery changes digest/ETag and generated validators; canonical runtime response bytes can remain unchanged. Equality checks and row relationships remain bounded by the 500-row cap.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; the finding is closed.
 
 ## UPSTREAM-RPC-ZERO-PARAM-ADMISSION-049
 
@@ -2393,6 +2394,32 @@ The review reconciles 90 distinct evidence domains: 87 PASS, 2 FAIL, and 1 BLOCK
 - Validation results: discovery descriptors 2/2 PASS; live empty controls 8/8 PASS; invalid inputs 10/10 reject; focused RPC/query-contract 38/38 PASS; full 455/455 PASS; syntax 86/86 PASS.
 - Compatibility/performance impact: clients sending ignored arguments now receive deterministic `-32602`; canonical clients and result bodies are unchanged. Admission is bounded by already parsed request parameters.
 - Blockers: none; the finding is closed.
+
+## UPSTREAM-RPC-INDEXER-STATS-CONTRACT-050
+
+- Severity: `PASS` (delivered by `56bf531`)
+- Owner: `DEV`
+- Reproduction: compare `indexer_stats_result_v1` with `stats_success_v1`, call `getIndexerStats` through the real loopback RPC handler, validate exact top-level key parity, then remove each required key and inject an unknown credential field.
+- Evidence: both schemas are deeply equal, require the same 24 keys, allow no optional or additional top-level properties, and the live result has exact key parity with canonical structure/chain evidence. All 24 omissions and the unknown-field mutation reject 25/25.
+- Affected contracts: commercial monitoring, SDK generation, operational dashboards, cache safety, REST/RPC schema parity, secret redaction, and developer experience.
+- Expected versus actual behavior: the RPC stats result reuses the stable closed REST projection and rejects missing or unknown top-level fields. Expected and actual match.
+- Acceptance criteria: exact shared schema equality; closed 24-field result; live loopback key parity; canonical structure/chain evidence; reject every omission and unknown top-level field. All criteria are met.
+- Validation results: schema equality and live result PASS; missing/unknown mutations 25/25 reject; focused RPC/query-contract 39/39 PASS; full 456/456 PASS; syntax 86/86 PASS.
+- Compatibility/performance impact: discovery digest/ETag and generated validators change; canonical REST/RPC bytes remain unchanged. Top-level validation is bounded to 24 keys.
+- Blockers: none; the finding is closed.
+
+## UPSTREAM-RPC-PARAMETERIZED-ADMISSION-051
+
+- Severity: `FAIL` / `HIGH`
+- Owner: `DEV`
+- Reproduction: enumerate the ten RPC methods whose discovery profiles contain required or optional parameters; send each a canonical positional request plus one overflow element and a canonical named request plus one unknown property; require exact JSON-RPC `-32602` before method state evaluation.
+- Evidence: all ten overflow positional requests and all ten unknown named requests advance past admission, producing a normal result or a downstream availability result instead of `-32602`. Thus 20/20 inputs excluded by the published required/optional profiles are silently ignored. The two zero-parameter methods already reject equivalent input correctly.
+- Affected contracts: all indexed block, transaction, signature, token account, supply, metadata, largest-account, holder, and owner-account RPC methods; cache identity, request signing, abuse resistance, SDK parity, telemetry, and commercial correctness.
+- Expected versus actual behavior: positional cardinality equals the declared required-plus-present-optional prefix, and named properties are restricted to the declared required/optional set. Runtime currently consumes only known indexes/properties and ignores the remainder.
+- Acceptance criteria: reject unknown named properties and overflow positional elements with `-32602` for all ten methods; preserve both declared styles, defaults, null/omission rules, canonical controls, cursor behavior, and zero-parameter admission.
+- Validation results: parameterized methods enumerated 10/10; overflow positional contradictions 0/10 reject; unknown named contradictions 0/10 reject (FAIL). Focused RPC/query-contract 39/39, full 456/456, syntax 86/86, replay, and health fail-closed checks otherwise pass.
+- Compatibility/performance impact: requests relying on ignored extras will deterministically fail after repair; canonical clients remain unchanged. Admission is bounded to at most four declared positional values or four named properties.
+- Blockers: none; deterministic live-loopback reproduction.
 
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
@@ -2440,7 +2467,7 @@ The review reconciles 90 distinct evidence domains: 87 PASS, 2 FAIL, and 1 BLOCK
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 694,467,009 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. Both retained indexes continue to lack canonical mainnet identity and fail the freshness gate. The retained external exporter evidence is finalized with zero consecutive failures but is 406,432 slots behind and 698,097,953 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -2449,4 +2476,4 @@ The review reconciles 90 distinct evidence domains: 87 PASS, 2 FAIL, and 1 BLOCK
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: publish and enforce request/result equality for `getIndexedTokenAccountsByOwner` owner and mint-filter identities, rejecting both coupled echo-and-row drifts while preserving all nine completed row/page rules and canonical first, continuation, full, and empty controls.
+- NEXT_DEV_ACTION: enforce the published parameter allowlists and positional cardinalities for all ten parameterized RPC methods, returning `-32602` for unknown named properties or overflow positional elements while preserving every canonical style, default, null/omission, and cursor control.
