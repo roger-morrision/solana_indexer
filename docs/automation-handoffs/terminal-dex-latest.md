@@ -1888,3 +1888,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, status/reason semantics, readiness policy, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: combined feed-health 503 replaces index ingestion evidence with a distinct exporter-status producer and therefore requires a separate producer-compatible composition; live service qualification remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate the `/api/health` 503 validator from `index_health_unavailable_v1` and reject unknown or incomplete nested evidence before alerting, readiness admission, caching, or incident display.
+
+## UPSTREAM unavailable combined-feed nested evidence closure
+
+- Selected ID: `UPSTREAM-REST-FEED-HEALTH-UNAVAILABLE-NESTED-CONTRACT-058` (live-feed safety, replay/cache invalidation, incident monitoring, commercial WebSocket SLAs, and credential isolation).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; QC independently closed both prior unavailable monitoring contracts, while `/internal/feed/health` 503 discovery still admitted arbitrary index-derived nested evidence. This dependency-ready composition gap is the highest-value bounded increment for WebSocket and replay consumers.
+- Contract: `feed_health_unavailable_v1` now reuses the 12 closed index-derived retry, exclusion, structure, chain, event, decoder, ledger, aggregate, snapshot, metadata, and recovery profiles while retaining its separate closed exporter-status `ingestion` schema.
+- Validation contract: discovery equality covers all 12 index-derived profiles and proves exporter ingestion remains distinct; real absent-exporter and malformed-index bodies must satisfy every progressively present nested boundary.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime feed-health bytes, exporter assessment, replay behavior, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: unavailable monitoring nested contracts are closed, but live qualification remains blocked on fresh canonical provider, exporter, warehouse, backup, recovery, and index evidence.
+- NEXT_WEB_ACTION: regenerate the `/internal/feed/health` 503 validator with the closed index-derived profiles and its distinct exporter ingestion schema before advancing live-feed or replay consumers.
