@@ -1703,3 +1703,12 @@
 - Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime metadata bytes, ingestion, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
 - Remaining boundary: nested on-chain metadata and optional off-chain enrichment objects retain shallow object/null descriptors pending their own bounded field-level closure; holder and owner-account RPC schemas also remain shallow.
 - NEXT_WEB_ACTION: regenerate the metadata RPC envelope validator, preserve authoritative-absence semantics, and continue treating nested metadata/enrichment as untrusted until their field schemas are closed.
+
+## UPSTREAM token-metadata nested schema closure
+
+- Selected ID: `UPSTREAM-RPC-TOKEN-METADATA-CONTRACTS-046` (token detail, metadata trust, AI analysis, cache safety, and commercial RPC readiness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and completed the dependency-ready nested slice because both public projections are explicit allowlists backed by canonical persistence predicates.
+- Contract: on-chain metadata is now a closed Metaplex record with bounded display fields, fee range, mint/program identity, and raw hash. Optional off-chain enrichment is a closed bounded JSON artifact with immutable source/hash/time/content evidence, explicit `trusted:false` and `automationSafe:false`, closed nullable display fields, and at most 100 closed trait/value rows.
+- Compatibility/migration/configuration: discovery schema, digest, and ETag change; runtime response bytes, acquisition, persistence, providers, REST/WebSocket transport, migrations, and configuration remain unchanged.
+- Remaining boundary: holder aggregation and owner-account RPC results remain shallow; metadata URL scheme/credential and UTF-8 byte-length semantics remain enforced by the producer even where the portable response dialect publishes conservative string bounds.
+- NEXT_WEB_ACTION: regenerate nested metadata validators and never promote optional off-chain display enrichment into trusted identity or automation evidence.
