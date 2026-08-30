@@ -1828,3 +1828,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, readiness policy, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: progressive quality-section objects and nested stats evidence retain conservative inner descriptors; live readiness remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate the indexer-health RPC validator with all eight states and optional progressive evidence sections, rejecting unknown top-level fields before readiness or alert evaluation.
+
+## UPSTREAM indexer-health nested evidence closure
+
+- Selected ID: `UPSTREAM-RPC-INDEXER-HEALTH-NESTED-CONTRACT-053` (incident safety, credential redaction, generated monitoring clients, AI/trading admission, and commercial SLAs).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; QC at `2d8e0b0` closed admission and the health top-level envelope but proved all 13 nested evidence objects accepted credentials, making bounded nested closure the highest-value dependency-ready increment.
+- Contract: retry stages, exclusion status, ingestion provenance, structure, chain conflicts, and all eight progressive quality sections now reject unknown fields and publish bounded scalar/list shapes; chain-conflict rows are closed independently.
+- Validation contract: discovery enumerates exactly 13 closed nested objects, including second-level retry stages and chain-conflict rows, and exposes only the public quality-field allowlist.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, readiness policy, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: state-specific cross-field requirements remain conservative because progressive evidence intentionally stops at the first failed gate; live readiness remains operator-blocked.
+- NEXT_WEB_ACTION: regenerate nested health validators and reject credential-bearing or unknown retry, exclusion, ingestion, structure, chain, and progressive-quality fields before alert or readiness evaluation.
