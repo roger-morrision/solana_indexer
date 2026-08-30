@@ -26,6 +26,21 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "Due or legacy dead-letter work is not being consumed by the index loop" }
+      - alert: TerminalDexDeadLetterRetryEvidenceInvalid
+        expr: terminal_dex_dead_letter_retry_canonical == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Dead-letter retry evidence is structurally invalid or contains legacy unscheduled work" }
+      - alert: TerminalDexHolderExclusionsFutureDated
+        expr: terminal_dex_holder_exclusions_observed_in_future == 1
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Reviewed holder-exclusion governance evidence is future-dated and must not affect risk decisions" }
+      - alert: TerminalDexIndexProgressInconsistent
+        expr: terminal_dex_index_source_tip_slot - terminal_dex_index_tip_slot != terminal_dex_index_export_lag_slots
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
       - alert: TerminalDexDeadLetterCapacityExceeded
         expr: terminal_dex_dead_letters_dropped_total > 0
         for: 1m

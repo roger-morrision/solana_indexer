@@ -1968,3 +1968,13 @@
 - Compatibility/migration/configuration: additive Prometheus series only; existing metric names, REST/RPC/WebSocket bytes, persistence, providers, migrations, alert rules, and configuration remain unchanged. Scrapers may optionally adopt the new series without migration.
 - Remaining boundary: alert expressions do not yet consume the new gauges; live qualification remains operator-blocked on fresh canonical provider and sink evidence.
 - NEXT_WEB_ACTION: add dashboard consistency panels for retry partitions, exclusion governance state, and index source-tip/export-lag using the new fixed-cardinality Prometheus gauges.
+
+## UPSTREAM monitoring semantic invariant alerts
+
+- Selected ID: `UPSTREAM-ALERTS-MONITORING-SEMANTIC-INVARIANTS-066` (incident response, recovery integrity, holder-risk safety, ingestion correctness, and commercial operations).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; independent QC closed IDs 064–065, while the alert bundle did not consume the newly verified semantic gauges. A bounded critical-alert increment is dependency-ready and higher value than passive dashboard polish because these contradictions require operator intervention rather than observation alone.
+- Contract: critical alerts fire after one minute for noncanonical retry evidence, future-dated holder-exclusion governance, or disagreement between source tip minus index tip and reported export lag. Missing progress remains non-firing through Prometheus `NaN` comparison semantics, preserving partial-provenance compatibility.
+- Validation contract: infrastructure regression coverage requires all three exact metric expressions alongside the existing due-work, health, backup, recovery, latency, quota, audit, and WebSocket alerts.
+- Compatibility/migration/configuration: additive alert rules only; metric names, runtime behavior, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged. Operators must reload the existing Prometheus rule bundle through their normal deployment process.
+- Remaining boundary: dashboards may visualize these gauges separately; live qualification remains operator-blocked on fresh canonical local evidence.
+- NEXT_WEB_ACTION: display the three invariant alerts with their component gauges and remediation guidance in the operations dashboard without exposing registry or provider identities.
