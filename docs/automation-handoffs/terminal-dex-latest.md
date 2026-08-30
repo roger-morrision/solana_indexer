@@ -2028,3 +2028,13 @@
 - Compatibility/migration/configuration: additive test evidence only; alert expressions, metrics, runtime behavior, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: local native evaluation remains SKIP until promtool is installed; live scrape and notification delivery still require operational qualification.
 - NEXT_WEB_ACTION: preserve separate remediation copy for missing index tip, source tip, and export lag so operators can identify the broken scrape or producer boundary without exposing provider identity.
+
+## UPSTREAM native governance-series presence coverage
+
+- Selected ID: `UPSTREAM-PROMTOOL-GOVERNANCE-SERIES-PRESENCE-072` (recovery scheduling, holder-risk governance, incident detection, AI/trading safety, and commercial monitoring integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected isolated retry-canonicality and exclusion-future-state absence cases because the native suite proved these branches only when every series was absent. QC closed IDs 070–071 after selection and remained verification input rather than the work queue.
+- Contract: each new Prometheus rule-test profile keeps holder, retry, and all progress gauges canonical except for exactly one omitted governance series, then requires only the corresponding critical alert contract after its one-minute hold.
+- Validation contract: focused coverage requires both stable isolated profile names, three retry alert evaluations, three exclusion alert evaluations, and the existing six progress evaluations.
+- Compatibility/migration/configuration: additive native test evidence only; production alert expressions, gauges, REST/RPC/WebSocket contracts, persistence, providers, migrations, and configuration remain unchanged.
+- Remaining boundary: real native execution remains SKIP until promtool is installed; live scrape continuity, rule reload, and notification delivery still require operator evidence.
+- NEXT_WEB_ACTION: show distinct missing retry-canonicality and missing exclusion-governance remediation states without displaying retry payload, holder selectors, evidence labels, or provider identity.
