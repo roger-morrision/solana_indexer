@@ -212,6 +212,72 @@ tests:
       - eval_time: 1m30s
         alertname: TerminalDexIndexProgressInconsistent
         exp_alerts: []
+  - name: missing index tip fires at hold and clears after recovery
+    interval: 30s
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 1 1 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 0 0 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120 120 120
+      - series: terminal_dex_index_tip_slot
+        values: _ _ _ 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 20 20 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+      - eval_time: 1m30s
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
+  - name: missing source tip fires at hold and clears after recovery
+    interval: 30s
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 1 1 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 0 0 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: _ _ _ 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: 20 20 20 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+      - eval_time: 1m30s
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
+  - name: missing export lag fires at hold and clears after recovery
+    interval: 30s
+    input_series:
+      - series: terminal_dex_dead_letter_retry_canonical
+        values: 1 1 1 1
+      - series: terminal_dex_holder_exclusions_observed_in_future
+        values: 0 0 0 0
+      - series: terminal_dex_index_source_tip_slot
+        values: 120 120 120 120
+      - series: terminal_dex_index_tip_slot
+        values: 100 100 100 100
+      - series: terminal_dex_index_export_lag_slots
+        values: _ _ _ 20
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "Indexed tip, provider source tip, and export lag do not satisfy the canonical progress relationship" }
+      - eval_time: 1m30s
+        alertname: TerminalDexIndexProgressInconsistent
+        exp_alerts: []
   - name: present NaN partial progress remains supported
     interval: 1m
     input_series:
