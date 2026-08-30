@@ -1,26 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T04:37:10+07:00`
+- Run: `2026-08-31T05:36:41+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `20618cb2f0f65bcd9850e9a98cb6e56d81355811`
-- Compared with QA baseline: `12b65d7c4413ee788480e66bb5bba006cadccde5` (2 DEV commits, 2 changed files)
-- Compared with `origin/main`: 180 ahead, 0 behind before this evidence report
-- Latest DEV commits: `d6df82d` (required-query admission matrix) and `20618cb` (HTTP value-constraint matrix)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-HTTP-REQUIRED-ADMISSION-MATRIX-080` derives every required query omission from discovery and proves pre-state rejection; `UPSTREAM-HTTP-VALUE-CONSTRAINT-MATRIX-081` derives candle and bot-filter boundaries from published value profiles and proves runtime rejection parity. Reconciliation is 120 PASS, 1 FAIL, and 1 BLOCKED across 122 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `add5393b442e5472122a2897ae47e411e42fe543`
+- Compared with QA baseline: `323f2e1ca9917478e47db6da587ec82e3c6899f6` (2 DEV commits, 2 changed files)
+- Compared with `origin/main`: 183 ahead, 0 behind before this evidence report
+- Latest DEV commits: `34ba3b9` (complete HTTP value-profile matrix) and `add5393` (HTTP value-profile boundary matrix)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-HTTP-VALUE-PROFILE-MATRIX-082` proves all 54 discovered routes bind the complete ten-profile catalog with valid, invalid, and unknown-parameter parity; `UPSTREAM-HTTP-VALUE-BOUNDARY-MATRIX-083` adds exact accepted/rejected boundaries across every profile. Reconciliation is 122 PASS, 1 FAIL, and 1 BLOCKED across 124 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Discovery-driven HTTP admission parity (2 PASS)
+### Complete HTTP value-profile parity (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `d6df82d` / `UPSTREAM-HTTP-REQUIRED-ADMISSION-MATRIX-080` | Required-query discovery/runtime parity | `PASS` | Discovery exposes exactly quote (`amountRaw`, `inputMint`) and executable-depth (`amountRaw`) required parameters. Three independently omitted inputs return stable redacted HTTP 400 before unhealthy decision state; two complete sets progress to the expected fail-closed HTTP 503 gate. |
-| `20618cb` / `UPSTREAM-HTTP-VALUE-CONSTRAINT-MATRIX-081` | Candle and bot-filter value-profile parity | `PASS` | Candle interval resolves to the exact six-value enum and bot pool to the 1–64 UTF-16-unit control-free profile. Decimal, exponent, leading-zero, empty, control-bearing, and overlength negatives reject; minimum/maximum positives remain accepted. Five live invalid requests return HTTP 400. |
+| `34ba3b9` / `UPSTREAM-HTTP-VALUE-PROFILE-MATRIX-082` | Complete profile binding and representative parity | `PASS` | All 54 HTTP routes bind only the exact ten published profiles; every route accepts canonical representatives and rejects unknown parameters, every profile has an actual route binding, and one noncanonical representative per profile rejects. |
+| `add5393` / `UPSTREAM-HTTP-VALUE-BOUNDARY-MATRIX-083` | Profile-derived accepted/rejected boundaries | `PASS` | The complete catalog drives 29 accepted and 24 rejected boundary cases across u64, UTF-16 strings, cursor syntax/length, enum membership, integer bounds, safe-integer bounds, leading zeros, decimal aliases, controls, and overflow. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `12b65d7`, in `d6df82d` and `20618cb`; the root DEV writer lock appeared before the first validation tiers, so QC discarded the mixed-state probe, waited for lock release, refreshed the complete delta, and reran every tier against stable `20618cb`. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `323f2e1`, in `34ba3b9` and `add5393`; the root DEV writer lock appeared after the first validation tiers, so QC discarded all mixed-state evidence, waited for lock release, refreshed the complete delta, and reran every tier against stable `add5393`. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting routes, omitted parameters, value-profile cases, boundary values, or HTTP probes would be padding.
-- Validation: independent discovery/admission harness 45/45 PASS; focused current regressions 2/2 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 18/18 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 5,277.13 blocks/s with 9,797,216-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 755,712,967 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting 54 routes, ten profiles, or 53 boundary cases into synthetic outcomes would be padding.
+- Validation: independent route/profile/boundary harness 217/217 PASS; focused current regression 1/1 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 18/18 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 5,017.93 blocks/s with 9,634,608-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 759,283,889 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2865,6 +2865,26 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: derive profile identities and bounds from discovery; retain all six intervals; verify UTF-16 length and control policy; reject all specified aliases and filter violations; require live HTTP 400 parity. All criteria are met.
 - Validation results: independent discovery/admission harness 45/45 PASS across current IDs 080–081; focused current regressions 2/2, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-HTTP-VALUE-PROFILE-MATRIX-082
+
+- Severity: `PASS` (delivered by `34ba3b9`)
+- Owner: `DEV`
+- Evidence: the discovery-derived route matrix covers all 54 HTTP routes and exactly ten published value profiles. Every route builds canonical values from its own `parameterConstraints`, passes runtime admission, and rejects an added unknown parameter. Every profile is bound by at least one real route and rejects one profile-specific noncanonical representative.
+- Actual behavior: route validation no longer depends on a parameter-name value table that could drift from the published profile binding. The valid catalog, invalid catalog, discovered binding catalog, and published `valueConstraints` keys are identical.
+- Compatibility/performance impact: additive regression and handoff evidence only; discovery bytes and digest, product code, runtime admission, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged.
+- Acceptance criteria: exact profile-catalog equality; all route bindings known; canonical values accepted on all routes; unknown input rejected on all routes; every profile bound and independently rejects a noncanonical value. All criteria are met.
+- Validation results: independent route/profile/boundary harness 217/217 PASS across current IDs 082–083; focused current regression 1/1, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-HTTP-VALUE-BOUNDARY-MATRIX-083
+
+- Severity: `PASS` (delivered by `add5393`)
+- Owner: `DEV`
+- Evidence: ten profile-specific matrices derive 29 accepted and 24 rejected cases from published metadata. Coverage includes exact u64 minimum/maximum and overflow, collection-filter UTF-16 bounds and controls, cursor syntax/length, input-mint nonemptiness, all enum members, integer limits with permitted leading zeros, safe-integer endpoints and overflow, decimal forms, signed aliases, and invalid enum values. Each case is exercised through an actual discovered route binding.
+- Actual behavior: all 53 boundaries match runtime admission without JavaScript-number coercion for raw token amounts. Complete route/profile binding and unknown-parameter rejection remain intact, while cursor scope semantics remain separately covered by pagination suites.
+- Compatibility/performance impact: additive regression and handoff evidence only; discovery bytes and digest, product code, runtime admission, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged.
+- Acceptance criteria: exact ten-profile matrix; 29 accepted and 24 rejected cases; actual bound-route execution; integer, string, enum, syntax, length, control, leading-zero, decimal, sign, and overflow boundaries; retained route-wide admission controls. All criteria are met.
+- Validation results: independent route/profile/boundary harness 217/217 PASS across current IDs 082–083; focused current regression 1/1, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2911,7 +2931,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 755,712,967 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 759,283,889 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
