@@ -1958,3 +1958,13 @@
 - Compatibility/migration/configuration: additive discovery parity only; runtime health bytes, HTTP status, exporter assessment, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: successful stats already uses the shared profiles; live qualification remains operator-blocked on fresh canonical provider and sink evidence.
 - NEXT_WEB_ACTION: regenerate successful public and combined-feed health validators with shared retry and exclusion semantics, adding index-progress semantics only to the public index-ingestion projection.
+
+## UPSTREAM Prometheus monitoring semantic parity
+
+- Selected ID: `UPSTREAM-METRICS-MONITORING-SEMANTIC-PARITY-065` (incident response, recovery operations, holder-risk monitoring, ingestion-lag alerting, and commercial observability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; Prometheus exposed component retry and exclusion values but omitted retry canonical/scheduled totals, exclusion future-state, and index source-tip/export-lag evidence. Adding fixed-cardinality redacted gauges is the highest-value dependency-ready observability increment because operators otherwise cannot independently evaluate the published semantic relationships.
+- Contract: metrics now expose scheduled retries, retry canonicality, future-observed exclusion state, index source tip, and index export lag using fixed names and no identity-bearing labels. Missing numeric progress remains `NaN`, matching existing fail-closed metric conventions.
+- Validation contract: a nontrivial due/deferred/legacy retry profile proves scheduled arithmetic and noncanonical state; unconfigured exclusions prove explicit non-future state; absent index progress proves both new gauges emit `NaN`; injection redaction remains intact.
+- Compatibility/migration/configuration: additive Prometheus series only; existing metric names, REST/RPC/WebSocket bytes, persistence, providers, migrations, alert rules, and configuration remain unchanged. Scrapers may optionally adopt the new series without migration.
+- Remaining boundary: alert expressions do not yet consume the new gauges; live qualification remains operator-blocked on fresh canonical provider and sink evidence.
+- NEXT_WEB_ACTION: add dashboard consistency panels for retry partitions, exclusion governance state, and index source-tip/export-lag using the new fixed-cardinality Prometheus gauges.
