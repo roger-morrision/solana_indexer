@@ -1908,3 +1908,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime health bytes, HTTP status, readiness policy, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: combined feed health intentionally cannot reuse the health boolean relationship because exporter failure can make the combined result unhealthy while index status remains healthy; live qualification remains operator-blocked.
 - NEXT_WEB_ACTION: regenerate the `/api/health` 503 validator with the seven-state domain and `indexer-health-state-semantics-v1` before alerting, readiness admission, caching, or incident display.
+
+## UPSTREAM unavailable combined-feed state semantics
+
+- Selected ID: `UPSTREAM-REST-FEED-HEALTH-STATE-SEMANTICS-060` (live-feed admission, replay/cache safety, alert correctness, incident diagnosis, and commercial WebSocket SLAs).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; QC closed feed nesting and public-health semantics, but combined feed 503 discovery could not explain the valid state where index status is healthy while absent exporter evidence makes the combined boolean false. A distinct producer-compatible semantic algorithm is the highest-value dependency-ready increment.
+- Contract: `feed-health-state-semantics-v1` binds combined `healthy` to both healthy index status and `ingestion.healthy`, while independently enforcing index reason, age, threshold, timestamp, clock-skew, and deterministic failure-reason rules across all eight index states.
+- Validation contract: discovery publishes 13 combined rules and the exact eight-state index vocabulary; a real healthy-index/absent-exporter response proves HTTP 503 with `status:"healthy"`, `healthy:false`, null index reason, and unhealthy ingestion.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime feed-health bytes, HTTP status, exporter assessment, replay behavior, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: live qualification remains blocked on fresh canonical provider, exporter, warehouse, backup, recovery, and complete index evidence.
+- NEXT_WEB_ACTION: implement `feed-health-state-semantics-v1` in the combined-feed validator and reject index-state, exporter-health, timing, or reason contradictions before advancing live-feed and replay consumers.

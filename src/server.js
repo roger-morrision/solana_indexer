@@ -412,6 +412,9 @@ Object.assign(RESPONSE_BODY_SCHEMAS.index_health_unavailable_v1, { relationships
 Object.assign(RESPONSE_BODY_SCHEMAS.index_health_unavailable_v1.properties, { status: { type: "string", values: RPC_RESULT_SCHEMAS.indexer_health_result_v1.properties.status.values.filter((status) => status !== "healthy") }, latestBlockTime: RPC_RESULT_SCHEMAS.indexer_health_result_v1.properties.latestBlockTime });
 const FEED_HEALTH_INDEX_NESTED_SCHEMAS = { deadLetterRetry: RPC_HEALTH_RETRY_SCHEMA, holderExclusions: RPC_HEALTH_EXCLUSIONS_SCHEMA, structure: RPC_HEALTH_STRUCTURE_SCHEMA, chain: RPC_HEALTH_CHAIN_SCHEMA, ...RPC_HEALTH_PROGRESSIVE_SCHEMAS };
 Object.assign(RESPONSE_BODY_SCHEMAS.feed_health_unavailable_v1.properties, FEED_HEALTH_INDEX_NESTED_SCHEMAS);
+const FEED_HEALTH_STATE_RELATIONSHIP = { kind: "feed_health_state_semantics", algorithm: "feed-health-state-semantics-v1", status: "status", healthy: "healthy", reason: "reason", age: "ageMs", staleAfter: "staleAfterMs", latestBlockTime: "latestBlockTime", ingestionHealthy: "ingestion.healthy", rules: ["combined_healthy_iff_status_healthy_and_ingestion_healthy", "healthy_index_status_reason_null", "unhealthy_index_status_reason_nonnull", "healthy_index_age_within_threshold", "stale_age_above_threshold", "clock_skew_age_negative", "timed_states_require_latest_block_time", "untimed_states_omit_latest_block_time", "empty_reason_exact", "unknown_time_reason_exact", "chain_conflict_reason_exact", "wrong_network_reason_exact", "clock_skew_reason_exact"] };
+Object.assign(RESPONSE_BODY_SCHEMAS.feed_health_unavailable_v1, { relationships: [FEED_HEALTH_STATE_RELATIONSHIP] });
+Object.assign(RESPONSE_BODY_SCHEMAS.feed_health_unavailable_v1.properties, { status: RPC_RESULT_SCHEMAS.indexer_health_result_v1.properties.status, latestBlockTime: RPC_RESULT_SCHEMAS.indexer_health_result_v1.properties.latestBlockTime });
 const RPC_STATS_NESTED_SCHEMAS = { deadLetterRetry: RPC_HEALTH_RETRY_SCHEMA, holderExclusions: RPC_HEALTH_EXCLUSIONS_SCHEMA, ingestion: RPC_HEALTH_INGESTION_SCHEMA, structure: RPC_HEALTH_STRUCTURE_SCHEMA, chain: RPC_HEALTH_CHAIN_SCHEMA };
 Object.assign(RESPONSE_BODY_SCHEMAS.stats_success_v1.properties, RPC_STATS_NESTED_SCHEMAS);
 Object.assign(RPC_RESULT_SCHEMAS.indexer_stats_result_v1.properties, RPC_STATS_NESTED_SCHEMAS);
@@ -444,6 +447,7 @@ export function queryContractSnapshot() {
   contract.bodySchemaDialect.relationshipKinds.push("holder_page_semantics");
   contract.bodySchemaDialect.relationshipKinds.push("owner_account_page_semantics");
   contract.bodySchemaDialect.relationshipKinds.push("health_state_semantics");
+  contract.bodySchemaDialect.relationshipKinds.push("feed_health_state_semantics");
   contract.bodySchemaDialect.keywords.sort();
   contract.preparationVariants = PREPARATION_VARIANTS;
   contract.responseBodySchemas = RESPONSE_BODY_SCHEMAS;
