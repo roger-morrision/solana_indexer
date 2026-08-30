@@ -2078,3 +2078,13 @@
 - Compatibility/migration/configuration: additive native test evidence only; production alert expressions and one-minute holds, gauges, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged. No migration or operator configuration is required.
 - Remaining boundary: native execution remains SKIP until promtool is installed; offline lifecycle controls do not establish live scrape cadence, rule reload, Alertmanager delivery, or canonical production evidence.
 - NEXT_WEB_ACTION: transition the dashboard from pending to firing at the one-minute boundary and clear it on the first canonical evaluation while retaining the incident timeline.
+
+## UPSTREAM native missing-series recovery boundary
+
+- Selected ID: `UPSTREAM-PROMTOOL-MISSING-SERIES-RECOVERY-077` (scrape-failure lifecycle correctness, incident trust, holder governance, ingestion safety, and commercial SLA stability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the symmetric missing-series lifecycle because absence is intentionally fail-closed but prior continuous recovery coverage exercised only finite contradictions. QC retained IDs 074–075 as verification input and did not cover this boundary.
+- Contract: one 30-second native profile keeps retry canonicality, exclusion future-state, and source-tip series absent through the one-minute threshold, requires the exact three critical alerts there, restores complete canonical evidence at 90 seconds, and requires all three alerts to clear immediately.
+- Validation contract: focused repository coverage requires the stable missing-series recovery profile, omitted-to-canonical sequences, three exact one-minute critical outcomes, three exact 90-second empty outcomes, and preservation of finite-contradiction, transient-recovery, canonical, and isolated-absence controls.
+- Compatibility/migration/configuration: additive native test evidence only; production alert expressions and one-minute holds, gauges, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration remain unchanged. No migration or operator configuration is required.
+- Remaining boundary: native execution remains SKIP until promtool is installed; offline absence/recovery controls do not establish live scrape cadence, rule reload, Alertmanager delivery, or canonical production evidence.
+- NEXT_WEB_ACTION: distinguish missing-series firing from finite contradictions during the incident and clear either state only after the first complete canonical evaluation.
