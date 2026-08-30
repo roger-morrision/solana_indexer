@@ -1918,3 +1918,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime feed-health bytes, HTTP status, exporter assessment, replay behavior, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: live qualification remains blocked on fresh canonical provider, exporter, warehouse, backup, recovery, and complete index evidence.
 - NEXT_WEB_ACTION: implement `feed-health-state-semantics-v1` in the combined-feed validator and reject index-state, exporter-health, timing, or reason contradictions before advancing live-feed and replay consumers.
+
+## UPSTREAM dead-letter retry semantics
+
+- Selected ID: `UPSTREAM-MONITORING-DEAD-LETTER-RETRY-SEMANTICS-061` (recovery scheduling, incident dashboards, replay operations, commercial monitoring, and safe automation gating).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; producer inspection proved that every monitoring transport exposes retry counts whose arithmetic and scheduling meaning remained undiscoverable. This shared, dependency-ready semantic gap outranked route-local polish because contradictory retry telemetry can misdirect recovery and alerting.
+- Contract: `dead-letter-retry-semantics-v1` binds null diagnostic counts to null unresolved evidence, aligns null stage evidence, and otherwise binds scheduled retries to due plus deferred, unresolved letters to scheduled plus legacy, retry-stage totals to scheduled, canonical to present zero-legacy evidence, and next-delay presence to positive deferred work.
+- Validation contract: all six REST/RPC stats and health schemas share the same seven-rule descriptor; real empty and structurally invalid producer outputs plus a nontrivial scheduled/due/deferred/legacy profile validate, while five isolated contradictions reject.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime retry bytes, scheduling, persistence, recovery behavior, providers, migrations, REST/RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: holder-exclusion freshness/configuration and ingestion tip/lag arithmetic remain separately discoverable candidates; live qualification remains operator-blocked.
+- NEXT_WEB_ACTION: implement `dead-letter-retry-semantics-v1` once in generated monitoring validators and apply it to every REST/RPC stats and health retry projection before alerting or recovery decisions.
