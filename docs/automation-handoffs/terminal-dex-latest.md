@@ -1948,3 +1948,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime provenance bytes, partial-provenance support, ingestion, persistence, providers, migrations, REST/RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: live qualification remains operator-blocked on fresh canonical provider, exporter, warehouse, backup, recovery, and complete index evidence.
 - NEXT_WEB_ACTION: implement `index-ingestion-progress-semantics-v1` for index-derived monitoring validators while preserving valid partial provenance and keeping combined-feed exporter ingestion distinct.
+
+## UPSTREAM successful REST health monitoring semantic parity
+
+- Selected ID: `UPSTREAM-REST-HEALTH-SUCCESS-MONITORING-SEMANTIC-PARITY-064` (availability monitoring, holder-risk integrity, replay safety, AI/trading admission, and commercial health SLAs).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; independent QC closed IDs 062–063, but the successful public and combined-feed health schemas predated the new shared monitoring relationships. Closing this success-path parity gap outranked further route-local work because clients must not enforce weaker semantics when the service reports healthy.
+- Contract: successful public health retains its stricter canonical retry, finalized-ingestion, and healthy envelope shapes while reusing retry, exclusion-governance, and index-progress relationships. Successful combined-feed health reuses retry and exclusion-governance relationships but preserves its distinct exporter ingestion contract.
+- Validation contract: successful public health matches RPC relationships for all three index-derived monitoring profiles; successful combined-feed health matches retry and exclusion relationships, explicitly differs for ingestion, and retains canonical/finalized success constraints.
+- Compatibility/migration/configuration: additive discovery parity only; runtime health bytes, HTTP status, exporter assessment, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: successful stats already uses the shared profiles; live qualification remains operator-blocked on fresh canonical provider and sink evidence.
+- NEXT_WEB_ACTION: regenerate successful public and combined-feed health validators with shared retry and exclusion semantics, adding index-progress semantics only to the public index-ingestion projection.
