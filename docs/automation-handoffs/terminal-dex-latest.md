@@ -1778,3 +1778,13 @@
 - Compatibility/migration/configuration: owner responses add `page`, `owner`, and `mintFilter`; discovery schema, digest, and ETag change. Cursor encoding/scope, holder and account calculations, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
 - Remaining boundary: independent QC must confirm the 19-rule holder and nine-rule owner algorithms; live completeness and freshness qualification remain blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate holder and owner-account validators with the published semantic algorithms and reject aggregate, exclusion-state, filter, ordering, identity, mint-consistency, or withheld-balance contradictions before caching.
+
+## UPSTREAM zero-parameter RPC admission closure
+
+- Selected ID: `UPSTREAM-RPC-ZERO-PARAM-ADMISSION-049` (commercial client correctness, cache identity, monitoring, health consumers, and abuse-resistant admission).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready health/stats admission gap because both methods silently accepted ignored inputs while every parameterized RPC method already failed closed.
+- Contract: `getIndexerHealth` and `getIndexerStats` now advertise positional/named zero-parameter profiles, accept absent, null, empty-array, or empty-object parameters, and return JSON-RPC `-32602` for any non-empty or scalar parameter input.
+- Validation contract: discovery binds both empty parameter descriptors; live RPC regression accepts all four canonical empty forms and rejects array, object, string, numeric, and boolean input without evaluating it.
+- Compatibility/migration/configuration: requests with ignored non-empty parameters now fail closed; canonical clients are unchanged. Discovery schema, digest, and ETag change; result bodies, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged.
+- Remaining boundary: health and stats RPC result descriptors remain shallow; independent QC of token page semantics is pending, and live qualification remains operator-blocked.
+- NEXT_WEB_ACTION: regenerate health/stats request builders as zero-parameter methods and remove any client-supplied compatibility or diagnostic arguments before invocation.

@@ -432,6 +432,12 @@ test("RPC discovery publishes the exact read-only method and result-schema catal
   assert.equal(new Set(names).size, 12); assert.equal(new Set(methods.map(({ resultSchema }) => resultSchema)).size, 12); assert.deepEqual(methods.map(({ resultSchema }) => resultSchema).sort(), schemas.sort());
   for (const { resultSchema } of methods) assert.ok(contract.rpcResultSchemas[resultSchema].type || contract.rpcResultSchemas[resultSchema].oneOf, resultSchema);
   assert.equal(contract.rpcResultSchemas.indexed_block_result_v1.oneOf.length, 2); assert.equal(contract.rpcResultSchemas.indexed_transaction_result_v1.oneOf.length, 2); assert.equal(contract.rpcResultSchemas.indexed_blocks_result_v1.type, "object");
+  for (const name of ["getIndexerHealth", "getIndexerStats"]) assert.deepEqual(methods.find(({ method }) => method === name).params, { styles: ["positional", "named"], required: [], optional: [] });
+});
+
+test("zero-parameter RPC methods reject ignored request input", async (t) => {
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/rpc`, call = async (method, params) => (await (await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, ...(params === undefined ? {} : { params }) }) })).json());
+  for (const method of ["getIndexerHealth", "getIndexerStats"]) { for (const params of [undefined, null, [], {}]) assert.ok("result" in await call(method, params)); for (const params of [[1], { private: true }, "ignored", 1, true]) assert.deepEqual((await call(method, params)).error, { code: -32602, message: "Invalid params" }); }
 });
 
 test("query-contract bootstrap closes RPC catalog identity and membership", () => {
