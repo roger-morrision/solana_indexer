@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-30T20:35:32+07:00`
+- Run: `2026-08-30T21:35:33+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `58765b05a2def01ccb644fc9fcefb612aa2034b7`
-- Compared with QA baseline: `8214a2199abbc26e0921b5361014f7ba17d09707` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 156 ahead, 0 behind before this evidence report
-- Latest DEV commits: `4c8341f` (successful REST health monitoring semantic parity) and `58765b0` (Prometheus monitoring semantic gauges)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-REST-HEALTH-SUCCESS-MONITORING-SEMANTIC-PARITY-064` brings successful public health into exact retry, exclusion-governance, and index-progress relationship parity while preserving distinct feed exporter ingestion; `UPSTREAM-METRICS-MONITORING-SEMANTIC-PARITY-065` exposes the fixed-cardinality scheduled-retry, retry-canonicality, exclusion-future-state, source-tip, and export-lag gauges needed to evaluate those semantics operationally. Reconciliation is 104 PASS, 1 FAIL, and 1 BLOCKED across 106 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `adaa5443ac59b18a3dc0bdc162fe4e14be7644eb`
+- Compared with QA baseline: `1f697860285c136a4e5c37e3b5f4d02db94f433b` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 159 ahead, 0 behind before this evidence report
+- Latest DEV commits: `fb58342` (monitoring invariant alerts) and `adaa544` (missing-series fail-closed repair)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-ALERTS-MONITORING-SEMANTIC-INVARIANTS-066` adds critical one-minute alerts for contradictory retry, holder-governance, and ingestion-progress values; `UPSTREAM-ALERTS-MONITORING-SERIES-PRESENCE-067` makes the same rules fail closed when any required fixed-cardinality series is absent while preserving non-firing present-`NaN` partial provenance. Reconciliation is 106 PASS, 1 FAIL, and 1 BLOCKED across 108 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Health and Prometheus monitoring semantic parity (2 PASS)
+### Monitoring invariant and series-presence alerts (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `4c8341f` / `UPSTREAM-REST-HEALTH-SUCCESS-MONITORING-SEMANTIC-PARITY-064` | Successful public and combined-feed REST health schemas | `PASS` | Independent harness completed 21/21 checks: public health has exact RPC retry, exclusion, and ingestion relationship identity; combined-feed health has exact retry and exclusion identity while exporter ingestion remains distinct; all five nested schemas remain closed; retry/exclusion/ingestion algorithms and 7/4/4 rule sets are exact; stricter canonical/finalized success constraints and detached snapshot behavior remain intact. |
-| `58765b0` / `UPSTREAM-METRICS-MONITORING-SEMANTIC-PARITY-065` | Prometheus monitoring projection | `PASS` | Independent harness proved exact nontrivial scheduled and noncanonical retry gauges, explicit non-future exclusion state, fail-closed `NaN` source-tip/export-lag values, singleton fixed cardinality, and absence of filename/error identities. Existing due/deferred/legacy and stage evidence remains intact. |
+| `fb58342` / `UPSTREAM-ALERTS-MONITORING-SEMANTIC-INVARIANTS-066` | Prometheus contradiction alerts | `PASS` | The 26-alert catalog retains unique names; all three semantic alerts appear exactly once with one-minute holds, critical severity, bounded redacted summaries, and emitted metric dependencies. Contradictory retry, exclusion, and complete progress values alert while valid values do not. |
+| `adaa544` / `UPSTREAM-ALERTS-MONITORING-SERIES-PRESENCE-067` | Prometheus missing-series fail-closed repair | `PASS` | Exact `absent(...)` clauses cover retry canonicality, exclusion future-state, and all three progress operands. Independent truth-table controls prove every missing series alerts, present valid values do not, contradictions alert, and present `NaN` partial progress remains non-firing. The combined final harness passes 35/35 checks. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `8214a21`, in `4c8341f` and `58765b0`; QC detected source movement after the first validation pass, withheld mixed-state results, refreshed the complete stable two-commit, three-file delta after the DEV writer finished, and reran every tier. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `1f69786`, in `fb58342` and `adaa544`; QC detected the native DEV writer lock and source movement after the first validation pass, withheld mixed-state results, refreshed the complete stable two-commit, three-file delta after lock release, and reran every tier. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting routes, gauges, relationship aliases, rule lists, fields, or assertions would be padding.
-- Validation: independent health/metrics harness 28/28 PASS; focused RPC/query-contract 58/58 PASS; focused health/feed/monitoring 36/36 PASS; focused Meteora 12/12 PASS. The response-schema registry digest is `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest is `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 467/467 PASS; syntax 86/86 PASS; replay invariants PASS at 6,501.97 blocks/s with 9,498,696-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting alert names, expressions, `absent` operands, severity, duration, or assertions would be padding.
+- Validation: independent alert-semantics harness 35/35 PASS; focused alert/metrics 3/3 PASS; focused RPC/query-contract 58/58 PASS; focused health/feed 35/35 PASS; focused Meteora 12/12 PASS. The response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2`; the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 467/467 PASS; syntax 86/86 PASS; replay invariants PASS at 3,597.57 blocks/s with 9,766,576-byte heap growth; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; local index status remains `wrong_network`, and exporter health remains unavailable. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Health and Prometheus monitoring semantic parity (2 PASS)
+
+- Prior exact shortfall: 18; prior validation was independent health/metrics 28/28, focused RPC/query-contract 58/58, health/feed/monitoring 36/36, Meteora 12/12, full 467/467, syntax 86/86, and replay PASS. Stable IDs 064 and 065 remain closed.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2663,6 +2669,32 @@ The review reconciles 99 distinct evidence domains: 97 PASS, 1 FAIL, and 1 BLOCK
 - Compatibility/performance impact: five additive fixed-cardinality Prometheus series; existing names, runtime REST/RPC/WebSocket bytes, persistence, providers, and configuration are unchanged. Replay sustained 6,501.97 blocks/s.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-ALERTS-MONITORING-SEMANTIC-INVARIANTS-066
+
+- Severity: `PASS` (delivered by `fb58342`)
+- Owner: `DEV`
+- Reproduction: parse the Prometheus alert catalog; locate the retry-canonicality, future-exclusion, and index-progress rules; compare their exact expressions, durations, severities, summaries, and metric dependencies; evaluate valid, contradictory, and missing-progress inputs.
+- Evidence: the 26-alert catalog has unique names. Each new alert appears exactly once with its handoff expression, a one-minute hold, critical severity, and a bounded summary without credential or identity material. All five referenced metric names are emitted. Noncanonical retry and future exclusions alert, canonical/present states do not, inconsistent complete progress alerts, valid arithmetic does not, and `NaN` progress remains non-firing.
+- Affected contracts: Prometheus alerting, retry recovery, holder-governance safety, ingestion-lag integrity, incident response, commercial observability, and operator automation gates.
+- Expected versus actual behavior: semantic contradictions must become actionable without treating deliberately missing progress as contradictory or adding unbounded labels. Expected and actual match.
+- Acceptance criteria: unique exact rules for retry canonicality, future governance evidence, and progress arithmetic; critical one-minute policy; emitted dependencies; non-firing valid and missing states; redacted fixed-cardinality content. All criteria are met.
+- Validation results: independent alert-semantics 30/30 PASS; focused alert/metrics 3/3, health/feed 35/35, RPC/query-contract 58/58, Meteora 12/12, full 467/467, syntax 86/86, replay invariants, and operational fail-closed checks pass.
+- Compatibility/performance impact: three additive fixed-cardinality alert rules; runtime metrics, REST/RPC/WebSocket contracts, persistence, providers, and configuration remain unchanged. Replay sustained 4,732.20 blocks/s.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-ALERTS-MONITORING-SERIES-PRESENCE-067
+
+- Severity: `PASS` (delivered by `adaa544`)
+- Owner: `DEV`
+- Reproduction: remove each required retry, exclusion, index-tip, source-tip, and export-lag series independently; compare with present canonical, contradictory, valid-progress, invalid-progress, and present-`NaN` controls; inspect exact final alert expressions.
+- Evidence: retry and exclusion rules each include an exact `absent(...)` disjunct. Progress independently checks absence of all three operands before evaluating arithmetic. All five missing-series controls alert; present canonical retry, non-future exclusion, and valid progress do not; contradictory values alert; present `NaN` source-tip/export-lag values remain non-firing as required for partial provenance.
+- Affected contracts: monitoring deployment integrity, scrape regression detection, retry recovery, holder-governance safety, ingestion-progress alerts, incident response, and commercial observability.
+- Expected versus actual behavior: missing fixed-cardinality producer series must fail closed without conflating a present `NaN` value with deployment absence. Expected and actual match.
+- Acceptance criteria: cover absence of every required series, retain contradiction expressions and critical one-minute policy, preserve present-`NaN` compatibility, and avoid identity-bearing labels. All criteria are met.
+- Validation results: independent final alert-semantics 35/35 PASS; focused alert/metrics 3/3, health/feed 35/35, RPC/query-contract 58/58, Meteora 12/12, full 467/467, syntax 86/86, replay invariants, and operational fail-closed checks pass.
+- Compatibility/performance impact: bounded `absent(...)` additions to three existing fixed-cardinality rules; producers and runtime contracts are unchanged. Replay sustained 3,597.57 blocks/s.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2709,7 +2741,7 @@ The review reconciles 99 distinct evidence domains: 97 PASS, 1 FAIL, and 1 BLOCK
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 726,815,436 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. No supported provider environment variable is configured. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 730,416,383 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
