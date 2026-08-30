@@ -2148,3 +2148,13 @@
 - Compatibility/migration/configuration: additive regression and handoff evidence only; discovery bytes, runtime admission behavior, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: canonical cursors remain semantically collection/scope bound and are covered separately by pagination suites; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
 - NEXT_WEB_ACTION: generate boundary-aware client validators from each published profile, including exact integer-string arithmetic rather than JavaScript number coercion for raw token amounts.
+
+## UPSTREAM HTTP default admission matrix
+
+- Selected ID: `UPSTREAM-HTTP-DEFAULT-ADMISSION-MATRIX-084` (commercial SDK generation, discovery/runtime parity, deterministic caching, and API supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected default-value parity because discovery already declares complete defaults, while no route-wide runtime regression proved that every declared default is valid or produces the same response as omission. QC was consulted after selection and independently closed IDs 082–083.
+- Contract: all 24 routes and 29 parameter bindings with defaults are derived from discovery; each default must equal its referenced profile default, pass shared admission explicitly, and produce the same status and response semantics as omission when all required inputs are present, excluding request-time observation timestamps.
+- Validation contract: focused coverage requires the exact four default-bearing profiles (`interval`, `limit`, `side`, and `window`), 29 explicit admission probes, and 24 omitted-versus-explicit live HTTP comparisons.
+- Compatibility/migration/configuration: additive regression and handoff evidence only; default values, response bytes, discovery digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: equality is verified against deterministic offline index state; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: omit query parameters whose requested values equal the discovered defaults so cache keys remain canonical while preserving explicit controls for non-default values.
