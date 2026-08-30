@@ -1858,3 +1858,13 @@
 - Compatibility/migration/configuration: additive discovery correction only; runtime health bytes, fail-closed readiness, ingestion, persistence, providers, migrations, REST/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: progressive sections remain conditionally present because health intentionally stops at the first failed gate; live readiness remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate the indexer-health validator with the eight section-specific profiles and accept `ingestion.commitment="unknown"` only as bounded provenance evidence, never as finalized readiness.
+
+## UPSTREAM monitoring nested evidence closure
+
+- Selected IDs: `UPSTREAM-RPC-INDEXER-HEALTH-NESTED-CONTRACT-053` and `UPSTREAM-RPC-INDEXER-STATS-NESTED-CONTRACT-055` (monitoring availability, commercial SDK generation, operational dashboards, credential isolation, and cache safety).
+- BA/PO decision: fresh inspection reconciled 22 evidence-backed opportunities and selected stats nested parity; concurrent QC then proved one real invalid-event health value remained incompatible, so the coherent monitoring increment also closes that retained HIGH producer/schema mismatch.
+- Contract: REST and RPC stats discovery now share the same five closed nested schemas already used by health, including bounded empty-index `unknown` commitment, exact retry stages, exclusion evidence, structure fields, and independently closed chain-conflict rows. Health event evidence now permits nullable `oldestSequence` when a corrupt nonzero high-water mark has no retained rows.
+- Validation contract: RPC/REST schema equality remains exact; all five stats objects require their producer fields, reject unknown fields, and close second-level retry stages and chain-conflict rows. A real invalid-event producer control proves the health reason and nullable oldest-sequence evidence.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime stats bytes, ingestion, persistence, providers, migrations, WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: unavailable REST stats responses intentionally use their fail-closed diagnostic schema; independent QC must confirm the health compatibility repair, and live service qualification remains blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate REST and RPC stats validators from the shared nested schemas and reject unknown retry, exclusion, ingestion, structure, or chain evidence before monitoring aggregation or caching.
