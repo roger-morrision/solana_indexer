@@ -1,26 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T03:35:39+07:00`
+- Run: `2026-08-31T04:37:10+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `43edf84712d2f3042779411bbe5c9da4b48484b6`
-- Compared with QA baseline: `de19dc269aedf90eaa0e8a9b7affa84e62937cac` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 177 ahead, 0 behind before this evidence report
-- Latest DEV commits: `47501bd` (progress-operand recovery isolation) and `43edf84` (governance-series recovery isolation)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-RECOVERY-078` independently binds index tip, source tip, and export lag absence through firing and exact recovery; `UPSTREAM-PROMTOOL-GOVERNANCE-RECOVERY-079` independently binds retry-canonicality and exclusion-future-state absence through firing and exact recovery. Reconciliation is 118 PASS, 1 FAIL, and 1 BLOCKED across 120 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `20618cb2f0f65bcd9850e9a98cb6e56d81355811`
+- Compared with QA baseline: `12b65d7c4413ee788480e66bb5bba006cadccde5` (2 DEV commits, 2 changed files)
+- Compared with `origin/main`: 180 ahead, 0 behind before this evidence report
+- Latest DEV commits: `d6df82d` (required-query admission matrix) and `20618cb` (HTTP value-constraint matrix)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-HTTP-REQUIRED-ADMISSION-MATRIX-080` derives every required query omission from discovery and proves pre-state rejection; `UPSTREAM-HTTP-VALUE-CONSTRAINT-MATRIX-081` derives candle and bot-filter boundaries from published value profiles and proves runtime rejection parity. Reconciliation is 120 PASS, 1 FAIL, and 1 BLOCKED across 122 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Operand-specific alert firing and recovery isolation (2 PASS)
+### Discovery-driven HTTP admission parity (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `47501bd` / `UPSTREAM-PROMTOOL-PROGRESS-OPERAND-RECOVERY-078` | Progress-operand firing and clear isolation | `PASS` | Three 30-second profiles independently omit index tip, source tip, or export lag through the one-minute hold while every unrelated gauge remains canonical. Each expects only the exact critical progress alert, restores the missing operand at 90 seconds, and expects immediate clearing. |
-| `43edf84` / `UPSTREAM-PROMTOOL-GOVERNANCE-RECOVERY-079` | Governance-series firing and clear isolation | `PASS` | Two 30-second profiles independently omit retry canonicality or exclusion future-state through the one-minute hold while every unrelated gauge remains canonical. Each expects only its corresponding critical alert, restores the missing gauge at 90 seconds, and expects immediate clearing. |
+| `d6df82d` / `UPSTREAM-HTTP-REQUIRED-ADMISSION-MATRIX-080` | Required-query discovery/runtime parity | `PASS` | Discovery exposes exactly quote (`amountRaw`, `inputMint`) and executable-depth (`amountRaw`) required parameters. Three independently omitted inputs return stable redacted HTTP 400 before unhealthy decision state; two complete sets progress to the expected fail-closed HTTP 503 gate. |
+| `20618cb` / `UPSTREAM-HTTP-VALUE-CONSTRAINT-MATRIX-081` | Candle and bot-filter value-profile parity | `PASS` | Candle interval resolves to the exact six-value enum and bot pool to the 1–64 UTF-16-unit control-free profile. Decimal, exponent, leading-zero, empty, control-bearing, and overlength negatives reject; minimum/maximum positives remain accepted. Five live invalid requests return HTTP 400. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `de19dc2`, in `47501bd` and `43edf84`; the root DEV writer lock appeared during the first validation attempt, so QC discarded all mixed-state results, waited for lock release, refreshed the complete delta, and reran every tier against stable `43edf84`. No additional distinct DEV outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `12b65d7`, in `d6df82d` and `20618cb`; the root DEV writer lock appeared before the first validation tiers, so QC discarded the mixed-state probe, waited for lock release, refreshed the complete delta, and reran every tier against stable `20618cb`. No additional distinct DEV outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting five fixture profiles, alert identities, firing versus clearing evaluations, severity, or individual gauges would be padding.
-- Validation: independent operand-recovery harness 80/80 PASS; focused monitoring 3/3 PASS; focused RPC/query-contract 23/23 PASS; focused health/feed/monitoring 18/18 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 3,181.08 blocks/s with 9,886,872-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 752,021,946 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting routes, omitted parameters, value-profile cases, boundary values, or HTTP probes would be padding.
+- Validation: independent discovery/admission harness 45/45 PASS; focused current regressions 2/2 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 18/18 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 469/469 PASS; syntax 87/87 PASS; replay invariants PASS at 5,277.13 blocks/s with 9,797,216-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 755,712,967 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2845,6 +2845,26 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: two isolated continuous absence timelines; exact corresponding one-minute critical outcomes; gauge-specific canonical restoration at 90 seconds; exact clear outcomes; unrelated gauges canonical; bounded credential-free fixtures. All criteria are met.
 - Validation results: independent operand-recovery harness 80/80 PASS across current IDs 078–079; focused monitoring 3/3, RPC/query-contract 23/23, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-HTTP-REQUIRED-ADMISSION-MATRIX-080
+
+- Severity: `PASS` (delivered by `d6df82d`)
+- Owner: `DEV`
+- Evidence: discovery exposes exactly two routes with nonempty required-query partitions: pool quote requires `amountRaw` and `inputMint`, while executable depth requires `amountRaw`. Independent runtime probes omit each of the three required inputs under injected noncanonical decision state and receive stable redacted HTTP 400; complete required sets for both routes progress to the expected fail-closed HTTP 503 state gate.
+- Actual behavior: missing required inputs are rejected before decision-state evaluation, discovery and runtime route sets agree, required and optional partitions are disjoint, and canonical positive-u64 minimum/maximum values remain accepted while zero and overflow reject.
+- Compatibility/performance impact: regression and handoff evidence only; runtime admission order, discovery bytes and digest, product code, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged.
+- Acceptance criteria: derive every required route and parameter from discovery; independently omit each required input; require HTTP 400 before unhealthy state; require complete inputs to reach HTTP 503; retain exact positive-u64 boundaries. All criteria are met.
+- Validation results: independent discovery/admission harness 45/45 PASS across current IDs 080–081; focused current regressions 2/2, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-HTTP-VALUE-CONSTRAINT-MATRIX-081
+
+- Severity: `PASS` (delivered by `20618cb`)
+- Owner: `DEV`
+- Evidence: discovery maps candle `interval` to its exact six-value enum and bot-readiness `pool` to a 1–64 UTF-16-code-unit, control-free collection filter. Independent validation accepts exact minimum/maximum interval and filter boundaries, rejects decimal, exponent, leading-zero, empty, newline-bearing, and overlength forms, and confirms five representative invalid live requests return HTTP 400.
+- Actual behavior: discovery-generated clients can reject decision-relevant invalid candle aliases and bot filters before request execution, while every published valid boundary remains accepted. Route-to-profile mappings and the contract digest remain stable.
+- Compatibility/performance impact: regression and handoff evidence only; current runtime validation, discovery bytes and digest, product code, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged.
+- Acceptance criteria: derive profile identities and bounds from discovery; retain all six intervals; verify UTF-16 length and control policy; reject all specified aliases and filter violations; require live HTTP 400 parity. All criteria are met.
+- Validation results: independent discovery/admission harness 45/45 PASS across current IDs 080–081; focused current regressions 2/2, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 18/18, Meteora/transfer-hook 13/13, full 469/469, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2891,7 +2911,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 752,021,946 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 755,712,967 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
