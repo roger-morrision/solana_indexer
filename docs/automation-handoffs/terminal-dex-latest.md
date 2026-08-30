@@ -1868,3 +1868,13 @@
 - Compatibility/migration/configuration: additive discovery hardening only; runtime stats bytes, ingestion, persistence, providers, migrations, WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
 - Remaining boundary: unavailable REST stats responses intentionally use their fail-closed diagnostic schema; independent QC must confirm the health compatibility repair, and live service qualification remains blocked on canonical operator evidence.
 - NEXT_WEB_ACTION: regenerate REST and RPC stats validators from the shared nested schemas and reject unknown retry, exclusion, ingestion, structure, or chain evidence before monitoring aggregation or caching.
+
+## UPSTREAM unavailable stats nested evidence closure
+
+- Selected ID: `UPSTREAM-REST-STATS-UNAVAILABLE-NESTED-CONTRACT-056` (incident response safety, credential isolation, commercial monitoring, generated clients, and quarantined-evidence integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities; independent QC closed the prior health/stats increment, while `/api/stats` 503 discovery still left the same five monitoring objects unconstrained. This dependency-ready parity gap was the highest-value bounded offline increment because failure diagnostics are most exposed during incidents and must remain fail closed.
+- Contract: `stats_unavailable_v1` now reuses the exact closed retry, exclusion, ingestion, structure, and chain schemas published by successful REST and RPC stats, including closed retry stages and chain-conflict rows.
+- Validation contract: discovery equality covers all five profiles; the real malformed-state 503 must satisfy every nested required/allowed-key boundary, while unknown credential-bearing properties remain undeclared.
+- Compatibility/migration/configuration: additive discovery hardening only; runtime 503 bytes, status classification, ingestion, persistence, providers, migrations, RPC/WebSocket transport, and configuration remain unchanged. Discovery digest and ETag change; generated validators must regenerate.
+- Remaining boundary: public and combined health unavailable envelopes retain separate progressive and exporter-specific producer shapes; live service qualification remains blocked on canonical operator evidence.
+- NEXT_WEB_ACTION: regenerate the `/api/stats` 503 validator from `stats_unavailable_v1` and reject unknown nested retry, exclusion, ingestion, structure, or chain fields before displaying or retaining incident telemetry.
