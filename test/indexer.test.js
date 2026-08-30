@@ -776,7 +776,18 @@ test("every published HTTP route shares one runtime allowlist contract", () => {
     const unsupported = new URL(url); unsupported.searchParams.set("unsupported", "1"); unsupported.searchParams.sort(); assert.throws(() => validateAllowedQueryParameters(unsupported), (error) => error.code === "BAD_REQUEST", route.path);
   }
   assert.deepEqual([...bindings.keys()].sort(), Object.keys(contract.valueConstraints).sort());
-  for (const [profile, { route, name }] of bindings) { const concrete = route.path.replace(/\{[^}]+\}/g, "resource"), query = new URLSearchParams(route.parameters.map((parameter) => [parameter, parameter === name ? invalidByProfile[profile] : validByProfile[route.parameterConstraints[parameter]]])); const url = new URL(`${concrete}?${query}`, "http://indexer.test"); assert.throws(() => validateAllowedQueryParameters(url), (error) => error.code === "BAD_REQUEST", `${route.path}:${name}:${profile}`); }
+  const rules = contract.valueConstraints, boundaryCases = {
+    amountRaw: { accepted: [rules.amountRaw.minimumRaw, rules.amountRaw.maximumRaw], rejected: ["0", "-1", "1.0", (BigInt(rules.amountRaw.maximumRaw) + 1n).toString(), "9".repeat(rules.amountRaw.maximumLength + 1)] },
+    collectionFilter: { accepted: ["p".repeat(rules.collectionFilter.minimumLength), "p".repeat(rules.collectionFilter.maximumLength)], rejected: ["", "p\nq", "p".repeat(rules.collectionFilter.maximumLength + 1)] },
+    cursor: { accepted: [validByProfile.cursor], rejected: ["!", "a".repeat(rules.cursor.maximumLength + 1)] },
+    inputMint: { accepted: ["m".repeat(rules.inputMint.minimumLength)], rejected: [""] },
+    interval: { accepted: rules.interval.values, rejected: ["61", `0${rules.interval.values[0]}`, `${rules.interval.values[0]}.0`] },
+    limit: { accepted: [String(rules.limit.minimum), String(rules.limit.maximum), `00${rules.limit.minimum}`], rejected: [String(rules.limit.minimum - 1), String(rules.limit.maximum + 1), `${rules.limit.minimum}.0`, "-1"] },
+    limitTick: { accepted: [String(Number.MIN_SAFE_INTEGER), "0", String(Number.MAX_SAFE_INTEGER)], rejected: [String(Number.MIN_SAFE_INTEGER - 1), String(Number.MAX_SAFE_INTEGER + 1), "1.0"] },
+    side: { accepted: rules.side.values, rejected: ["hold"] }, status: { accepted: rules.status.values, rejected: ["__invalid__"] }, window: { accepted: rules.window.values, rejected: ["5M"] }
+  };
+  assert.deepEqual(Object.keys(boundaryCases).sort(), Object.keys(contract.valueConstraints).sort());
+  for (const [profile, { route, name }] of bindings) for (const [accepted, values] of [[true, boundaryCases[profile].accepted], [false, boundaryCases[profile].rejected]]) for (const value of values) { const concrete = route.path.replace(/\{[^}]+\}/g, "resource"), query = new URLSearchParams(route.parameters.map((parameter) => [parameter, parameter === name ? value : validByProfile[route.parameterConstraints[parameter]]])), url = new URL(`${concrete}?${query}`, "http://indexer.test"), label = `${route.path}:${name}:${profile}:${JSON.stringify(value)}`; if (accepted) assert.doesNotThrow(() => validateAllowedQueryParameters(url), label); else assert.throws(() => validateAllowedQueryParameters(url), (error) => error.code === "BAD_REQUEST", label); }
 });
 test("template path contracts reject noncanonical identities before query admission", async (t) => {
   const contract = queryContractSnapshot(); assert.deepEqual(contract.pathValueConstraints.resourceIdentifier, { kind: "canonical_percent_encoded_segment", decodedMinimumLength: 1, decodedMaximumLength: 256, decodedSlashAllowed: false, decodedControlCharactersAllowed: false });

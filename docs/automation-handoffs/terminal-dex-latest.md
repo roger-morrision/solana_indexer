@@ -2138,3 +2138,13 @@
 - Compatibility/migration/configuration: additive regression and handoff evidence only; discovery bytes, runtime admission behavior, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: profile representatives protect catalog coverage but do not replace exhaustive per-profile boundary cases; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
 - NEXT_WEB_ACTION: generate client-side validators by each route's `parameterConstraints` binding and reject values that fail the referenced catalog profile before transport.
+
+## UPSTREAM HTTP value-profile boundary matrix
+
+- Selected ID: `UPSTREAM-HTTP-VALUE-BOUNDARY-MATRIX-083` (commercial SDK correctness, discovery/runtime parity, AI/trading fail-closed safety, and API supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected exhaustive catalog-derived boundaries because ID 082 proved profile coverage with one representative per outcome but intentionally left minimum, maximum, enumeration, syntax, overflow, control-character, and leading-zero behavior incomplete. QC was consulted after selection and still independently closes IDs 080–081.
+- Contract: each of the ten discovered HTTP value profiles now drives accepted and rejected runtime cases through an actual bound route, including exact u64 and safe-integer limits, collection UTF-16 length and control policy, cursor syntax/length, all enum members, integer bounds, permitted limit leading zeros, and forbidden decimal or signed aliases where applicable.
+- Validation contract: focused coverage requires exact profile-catalog equality plus 29 accepted and 24 rejected boundary probes while preserving complete route/profile binding and unknown-parameter admission checks.
+- Compatibility/migration/configuration: additive regression and handoff evidence only; discovery bytes, runtime admission behavior, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: canonical cursors remain semantically collection/scope bound and are covered separately by pagination suites; live commercial qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: generate boundary-aware client validators from each published profile, including exact integer-string arithmetic rather than JavaScript number coercion for raw token amounts.
