@@ -2318,3 +2318,13 @@
 - Compatibility/migration/configuration: additive relationship metadata changes only the query-contract digest/ETag. RPC admission and results, canonical cursor bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the new relationship before accepting the document.
 - Remaining boundary: cursor scope and retained-record semantics remain runtime-enforced; authenticated Meteora finalized-content provenance and fresh canonical operational qualification remain open.
 - NEXT_WEB_ACTION: resolve every non-built-in RPC parameter format through `rpc.parameterFormats` and reject unknown or missing definitions before generating request validators.
+
+## UPSTREAM RPC parameter default binding
+
+- Selected ID: `UPSTREAM-RPC-PARAMETER-DEFAULT-BINDING-099` (generated-client consistency, omission semantics, request efficiency, and commercial supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected a dependency-ready RPC catalog integrity gap after QC independently passed the cursor and format repairs. Method defaults were published separately from optional parameter membership and value schemas, so a future contradictory default could still be accepted by discovery. Authenticated Meteora provenance remains higher risk but requires a trustworthy producer-key lifecycle rather than an invented assertion.
+- Contract: query-contract discovery now declares `rpc_parameter_default_binding`: every declared default key must be an optional parameter and its value must validate against that method's parameter schema.
+- Validation contract: focused coverage accepts all 12 current methods and rejects an unknown default key, a default for a required parameter, and an out-of-range default value. The dialect exact-kind inventory includes the new fail-closed relationship.
+- Compatibility/migration/configuration: additive relationship metadata changes only the query-contract digest/ETag. Existing defaults, RPC admission/results, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the new relationship before accepting the document.
+- Remaining boundary: optional parameters without defaults intentionally retain omission/null semantics defined by their method and schema; authenticated Meteora finalized-content provenance and fresh canonical operational qualification remain open.
+- NEXT_WEB_ACTION: verify each declared RPC default is optional and schema-valid before generating omission behavior for a known method.
