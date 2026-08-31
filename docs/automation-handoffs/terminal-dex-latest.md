@@ -2308,3 +2308,13 @@
 - Compatibility/migration/configuration: malformed empty-string cursors change from accidental first-page success to non-retryable invalid params. Canonical version-1 cursors, null, omission, scope binding, retained-record checks, pagination results, REST behavior, persistence, WebSocket, providers, migrations, and configuration are unchanged. The discovery digest/ETag changes.
 - Remaining boundary: method-specific cursor scopes remain enforced at runtime; authenticated Meteora finalized-content provenance and fresh canonical operational qualification remain open.
 - NEXT_WEB_ACTION: regenerate RPC validators with `canonical-cursor-v1`, omit cursors for first pages, and treat empty or noncanonical cursor values as non-retryable invalid parameters.
+
+## UPSTREAM RPC parameter format binding
+
+- Selected ID: `UPSTREAM-RPC-PARAMETER-FORMAT-BINDING-098` (generated-client integrity, fail-closed format evolution, commercial pagination, and supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready binding left by the canonical cursor repair. RPC method schemas can name formats and the cursor definition is closed, but discovery did not require non-built-in format names to resolve through that catalog. This bounded integrity gap is independently visible without relying on the unchanged QC queue; authenticated Meteora provenance remains design-dependent.
+- Contract: query-contract discovery now declares `rpc_parameter_format_binding`: every RPC parameter schema format must be either the built-in `solana-public-key` format or a member of `rpc.parameterFormats`; unknown and removed format definitions fail closed.
+- Validation contract: focused coverage accepts the complete 12-method catalog and rejects a missing format catalog, an unknown cursor format, and removal of the referenced canonical cursor definition. The bootstrap schema continues requiring the closed format catalog.
+- Compatibility/migration/configuration: additive relationship metadata changes only the query-contract digest/ETag. RPC admission and results, canonical cursor bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the new relationship before accepting the document.
+- Remaining boundary: cursor scope and retained-record semantics remain runtime-enforced; authenticated Meteora finalized-content provenance and fresh canonical operational qualification remain open.
+- NEXT_WEB_ACTION: resolve every non-built-in RPC parameter format through `rpc.parameterFormats` and reject unknown or missing definitions before generating request validators.
