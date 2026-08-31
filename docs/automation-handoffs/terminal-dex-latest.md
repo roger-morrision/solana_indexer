@@ -2358,3 +2358,13 @@
 - Compatibility/migration/configuration: additive relationship metadata changes only the query-contract digest/ETag. Runtime admission and RPC result bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the relationship before accepting the document.
 - Remaining boundary: method-specific cursor scope and retained-record semantics remain runtime-enforced; authenticated Meteora quote provenance and fresh canonical operational qualification remain open.
 - NEXT_WEB_ACTION: treat null as omission only for optional RPC parameters whose published schema includes null, and reject null for every required parameter before transport.
+
+## UPSTREAM RPC method-result binding
+
+- Selected ID: `UPSTREAM-RPC-METHOD-RESULT-BINDING-103` (commercial response safety, generated-client correctness, fail-closed schema evolution, and supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready result identity boundary after request-null closure. RPC methods and result schemas are independently closed, but discovery did not semantically require every method reference to resolve uniquely through the exact result catalog. QC was consulted after selection; its high-priority Meteora finalized-content provenance defect remains open and requires authenticated evidence design.
+- Contract: query-contract discovery now declares `rpc_method_result_binding`: each method's `resultSchema` must resolve through `rpcResultSchemas`, references and catalog keys form an exact one-to-one set, and successful results validate against the resolved schema.
+- Validation contract: focused coverage accepts all 12 real method/result pairs and rejects unknown, duplicate, missing, and extra result-schema identities. Existing producer/schema tests continue validating every method's successful result variants and fail-closed unavailable behavior.
+- Compatibility/migration/configuration: additive relationship metadata changes only the query-contract digest/ETag. RPC requests and result bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the relationship before accepting the document.
+- Remaining boundary: method-specific error-code catalogs and cursor scope/retention semantics remain runtime-enforced; authenticated Meteora quote provenance and fresh canonical operational qualification remain open.
+- NEXT_WEB_ACTION: resolve each known RPC method's result schema through the exact published catalog and validate successful result values before exposing them to application consumers.
