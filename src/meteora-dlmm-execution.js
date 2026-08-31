@@ -71,7 +71,8 @@ export function verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts 
 
 export async function acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts({ client, quote, pool }) {
   const rows = quote?.binTraversal, slots = new Set(Array.isArray(rows) ? rows.map((row) => row?.binArraySlot) : []), addresses = [...new Set(Array.isArray(rows) ? rows.map((row) => row?.binArrayAddress) : [])];
-  if (!client?.call || !rows?.length || slots.size !== 1 || addresses.some((address) => typeof address !== "string")) throw new Error("Meteora finalized bin-array acquisition request is invalid");
+  if (typeof client?.call !== "function" || !rows?.length || rows.length > 13_312 || !Number.isSafeInteger(quote.binArraySlot) || quote.binArraySlot < 0 || slots.size !== 1 || !slots.has(quote.binArraySlot)) throw new Error("Meteora finalized bin-array acquisition request is invalid");
+  try { for (const address of addresses) decodeBase58Address(address); } catch { throw new Error("Meteora finalized bin-array acquisition request is invalid"); }
   const [slot] = slots, response = await getMultipleAccountsBatched(client, addresses, { commitment: "finalized", encoding: "base64", minContextSlot: slot }, { expectedSlot: slot, label: "Meteora quote bin-array" });
   const accounts = addresses.map((address, index) => { const account = response.value[index], data = account?.data; if (!Array.isArray(data) || data[1] !== "base64" || typeof data[0] !== "string") throw new Error("Meteora finalized bin-array acquisition response is invalid"); return { address, owner: account.owner, commitment: "finalized", slot, rawHex: Buffer.from(data[0], "base64").toString("hex") }; });
   verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts }); return accounts;

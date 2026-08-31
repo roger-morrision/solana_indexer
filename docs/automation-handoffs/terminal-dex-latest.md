@@ -2498,3 +2498,11 @@
 - Contract: `acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts` deduplicates advertised addresses, performs bounded finalized `getMultipleAccounts` calls at the quoted minimum context, rejects any batch whose returned context differs from the advertised slot, converts raw account bytes to verifier evidence, and runs complete owner/decoder/hash/economics verification. Discovery names the acquisition verifier and exact-context method.
 - Compatibility/migration/configuration: this is an additive exported helper and additive relationship metadata. Quote and preparation bytes, execution construction, persistence, provider configuration, RPC/WebSocket behavior, and migrations are unchanged; discovery digest/ETag changes.
 - NEXT_WEB_ACTION: call `acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts` immediately before accepting a Meteora quote or constructing its unsigned preparation.
+
+## UPSTREAM Meteora acquisition preflight
+
+- Selected ID: `UPSTREAM-METEORA-ACQUISITION-PREFLIGHT-120` (provider abuse resistance, deterministic diagnostics, and fail-closed consumer safety).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities. With refreshed QC closing the quote and preparation findings and live qualification externally blocked, the highest-value offline increment was preventing malformed quote evidence from reaching a configured provider.
+- Contract: finalized Meteora acquisition now validates a callable client, 1–13,312 traversal rows, one nonnegative safe top-level/row slot, exact row-to-top-level slot equality, and canonical 32-byte base58 identities before the first RPC call. Discovery publishes this preflight policy.
+- Compatibility/migration/configuration: valid canonical quotes and exact-context acquisition are unchanged. Malformed, unbounded, mixed-slot, or noncanonical requests now fail locally without provider traffic; response bytes, execution construction, persistence, provider configuration, RPC/WebSocket behavior, and migrations are unchanged. Discovery digest/ETag changes.
+- NEXT_WEB_ACTION: treat Meteora acquisition preflight failures as nonretryable quote-contract violations and do not forward them to any RPC provider.
