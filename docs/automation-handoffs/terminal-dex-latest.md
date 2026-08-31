@@ -2378,3 +2378,11 @@
 - Compatibility/migration/configuration: additive discovery changes the query-contract digest/ETag and requires generated clients to accept the new required method member. Runtime RPC bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: malformed envelopes and unknown methods remain envelope-level `-32600`/`-32601` outcomes; authenticated Meteora provenance and canonical operational qualification remain open.
 - NEXT_WEB_ACTION: generate per-method RPC error handling from `errors`, retry only published retryable outcomes, and surface `-32602` as a client construction defect.
+
+## UPSTREAM RPC protocol error catalogs
+
+- Selected ID: `UPSTREAM-RPC-PROTOCOL-ERROR-CATALOG-105` (extends `UPSTREAM-RPC-METHOD-ERROR-CATALOG-104`).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining commercial RPC error-discovery gap. Method-level failures were closed, but generated clients still lacked the live invalid-request and unknown-method outcomes needed for deterministic nonretryable handling.
+- Contract: query-contract RPC discovery now publishes an exact closed `protocolErrors` catalog for `-32600 Invalid Request` and `-32601 Method not found`, both nonretryable. Regression coverage binds each descriptor to its real dispatcher response.
+- Compatibility/migration/configuration: one additive RPC discovery member changes the contract digest/ETag. Runtime response bytes, methods, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: generate protocol-level RPC error handling from `protocolErrors` and never retry `-32600` or `-32601` without correcting the request or method.
