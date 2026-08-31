@@ -1,26 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T18:36:53.646+07:00`
+- Run: `2026-08-31T19:36:54.637+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `29b98da8df36a49c6226cbbf8381a707603ab2db`
-- Compared with QA baseline: `7f95134dc0d48c22685085b6666fbc340de02032` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 221 ahead, 0 behind before this evidence report
-- Latest DEV commit: `29b98da` (RPC protocol error catalog)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-METHOD-ERROR-CATALOG-104` publishes exact retry semantics for all 12 method-specific error catalogs; `UPSTREAM-RPC-PROTOCOL-ERROR-CATALOG-105` publishes the two nonretryable envelope-level outcomes and binds them to the live dispatcher. Reconciliation is 143 PASS, 1 FAIL, and 1 BLOCKED across 145 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `4ffc71b5b0307b4bdf3b1edd09e71cbe3bee9880`
+- Compared with QA baseline: `58559b9f284a4a7f635c3217bf592d596d55c811` (2 DEV commits, 3 DEV-changed files)
+- Compared with `origin/main`: 224 ahead, 0 behind before this evidence report
+- Latest DEV commit: `4ffc71b` (safe-integer RPC identifiers)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-BATCH-SEMANTICS-106` binds request-order responses, per-item failure isolation, and exact invalid-cardinality behavior; `UPSTREAM-RPC-ID-SAFE-INTEGER-107` closes numeric correlation identity to the inclusive JavaScript safe-integer range across request, single-response, and batch-response contracts. Reconciliation is 145 PASS, 1 FAIL, and 1 BLOCKED across 147 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### RPC method and protocol error catalogs (2 PASS)
+### RPC batch semantics and identifier precision (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `52df225` / `UPSTREAM-RPC-METHOD-ERROR-CATALOG-104` | Exact per-method errors and retry policy | `PASS` | All 12 methods publish exact closed catalogs with 32 total descriptors. Independent validation rejects 7/7 malformed catalogs; 12/12 live invalid-parameter requests bind to `-32602`, and all ten indexed-data methods bind corrupt state to retryable `-32000`. |
-| `29b98da` / `UPSTREAM-RPC-PROTOCOL-ERROR-CATALOG-105` | Exact envelope-level errors and retry policy | `PASS` | Discovery and bootstrap publish exactly nonretryable `-32600 Invalid Request` and `-32601 Method not found`. Independent validation rejects 7/7 malformed catalogs and both real dispatcher responses match 2/2. |
+| `54c5449` / `UPSTREAM-RPC-BATCH-SEMANTICS-106` | Ordered isolated batch processing and cardinality | `PASS` | The exact closed five-field contract passes; 8/8 malformed variants reject. Live mixed responses preserve 4/4 request positions and isolate success, invalid-envelope, and unknown-method outcomes; bounds 1/100 pass while 0/101 return one exact `-32600` envelope error. |
+| `4ffc71b` / `UPSTREAM-RPC-ID-SAFE-INTEGER-107` | End-to-end correlation identifier precision | `PASS` | All five request/single/batch ID schema positions publish exact inclusive safe-integer bounds; 7/7 malformed schemas reject. Minimum, maximum, string, and null IDs preserve identity 4/4; below-minimum, above-maximum, and fractional IDs reject 3/3 with null correlation, and mixed-batch identity passes 3/3. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `7f95134`, in `52df225` and `29b98da`; no additional distinct committed outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `58559b9`, in `54c5449` and `4ffc71b`; no additional distinct committed outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting descriptors, methods, response bindings, or corruption vectors into additional outcomes would be padding.
-- Validation: independent method-error validation accepts all 12 catalogs and 32 descriptors, rejects 7/7 malformed catalogs, and binds 12/12 invalid-parameter plus 10/10 corrupt-index responses. Independent protocol validation accepts the exact two-entry catalog, rejects 7/7 malformed catalogs, and binds 2/2 real dispatcher responses. Focused committed tests 3/3 PASS. Complete contract digest is `a0642fadf60acc3b42d697a4cbbc7290825963254819f5290e0be271273d3720`. Full suite 484/484 PASS; syntax 87/87 PASS; replay invariants PASS at 6,614.69 blocks/s with 9,801,408-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 831,296,646 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded provisional evidence when the DEV writer lock appeared and reran every tier only after final `29b98da` was stable and unlocked.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting batch members, boundary cases, schema positions, identifier forms, or mutations into additional outcomes would be padding.
+- Validation: independent batch validation accepts the exact five-field contract, rejects 8/8 malformed variants, preserves 4/4 ordered isolated mixed outcomes, admits cardinalities 1/100, and returns exact envelope `-32600` for 0/101. Independent identifier validation accepts all five schema positions, rejects 7/7 malformed schemas, preserves four safe/string/null identities, rejects three unsafe/fractional IDs, and preserves the three-item mixed-batch identity result. Focused committed tests 4/4 PASS. Complete contract digest is `56ae67ffe697f16f72daee227694d3103e82c805a3766b0e951541332f2cf94a`. Full suite 486/486 PASS; syntax 87/87 PASS; replay invariants PASS at 4,268.55 blocks/s with 10,051,024-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 834,897,637 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded all provisional `54c5449` evidence when the DEV writer lock appeared and reran every tier only after final `4ffc71b` was stable and unlocked.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -3018,6 +3018,32 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-RPC-BATCH-SEMANTICS-106
+
+- Severity: `PASS` (delivered by `54c5449`)
+- Owner: `DEV`
+- Reproduction: resolve `rpc.batch` and its bootstrap schema; mutate order, isolation, invalid-cardinality code, limits, required members, and closed-object boundaries. Send mixed successful, invalid-envelope, unknown-method, and successful requests in one real batch, then exercise cardinalities 0, 1, 100, and 101.
+- Evidence: discovery publishes exactly `minimumItems:1`, `maximumItems:100`, `responseOrder:"request_order"`, `failureIsolation:"per_item"`, and `invalidCardinalityErrorCode:-32600`; the bootstrap requires all five members and forbids additions. The dispatcher maps items in request order, retains independent result/error envelopes, admits 1 and 100 items, and returns one null-id `-32600 Invalid Request` envelope for empty or oversized batches.
+- Affected contracts: JSON-RPC batching, response correlation, generated batching clients, partial failure handling, bounded request admission, protocol errors, query-contract digest/ETag, and support diagnostics.
+- Expected versus actual behavior: valid batch items produce positionally correlated independent responses, while batch cardinality defects fail once at envelope level. Expected and actual match.
+- Acceptance criteria: publish exact ordering, failure-isolation, cardinality, and error semantics; close and require the metadata; reject malformed variants; prove mixed-item ordering and isolation; verify inclusive valid and adjacent invalid boundaries. All criteria are met.
+- Validation results: exact five-field schema PASS; malformed variants reject 8/8; mixed ordering/isolation passes 4/4; cardinalities 1/100 PASS and 0/101 return exact `-32600`; focused committed coverage PASS. Full suite 486/486, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: additive fixed-cardinality discovery changes digest/ETag and generated-client requirements only. Runtime bytes and limits, methods, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Batch work remains bounded at 100 items.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-RPC-ID-SAFE-INTEGER-107
+
+- Severity: `PASS` (delivered by `4ffc71b`)
+- Owner: `DEV`
+- Reproduction: compare the ID schema at the request item, single success, single failure, batch success, and batch failure positions; mutate type and bounds. Send minimum/maximum safe integers, a larger decimal string, null, both adjacent unsafe integers, and a fraction through the real dispatcher, including a mixed-ID batch.
+- Evidence: all five schema positions publish exactly `integer|string|null` with inclusive `Number.MIN_SAFE_INTEGER` and `Number.MAX_SAFE_INTEGER` bounds. Runtime uses `Number.isSafeInteger`; both safe endpoints, strings, and null preserve correlation, while precision-unsafe and fractional numbers return nonretryable `-32600` with null ID. A mixed batch preserves safe and string identities while isolating the unsafe item.
+- Affected contracts: JSON-RPC request and response identity, batch correlation, cache/audit keys, generated validators, protocol errors, contract digest/ETag, and commercial supportability.
+- Expected versus actual behavior: numeric correlation values are exactly representable end to end; clients needing larger identity spaces use strings. Expected and actual match.
+- Acceptance criteria: apply identical inclusive bounds to all five schema positions and runtime admission; preserve safe numeric, string, and null compatibility; reject unsafe and fractional numeric IDs with null correlation; retain per-item batch isolation. All criteria are met.
+- Validation results: five schema positions PASS; malformed schemas reject 7/7; positive runtime identities pass 4/4; unsafe/fractional identities reject 3/3; mixed-batch identity passes 3/3; focused committed coverage PASS. Full suite 486/486, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: precision-unsafe numeric IDs now fail closed as invalid requests; safe numeric, string, and null IDs are unchanged. No persistence, provider, REST, WebSocket, migration, or configuration changes exist; validation remains constant-time.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-RPC-METHOD-ERROR-CATALOG-104
 
 - Severity: `PASS` (delivered by `52df225`)
@@ -3181,7 +3207,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 831,296,646 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 834,897,637 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
