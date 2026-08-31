@@ -2450,3 +2450,11 @@
 - Contract: requested trade and minimum-output amounts are positive canonical u64 strings; pre-balance values are canonical nonnegative u64 strings. Discovery publishes 20-character and exact raw bounds, and runtime evaluates those same bounds before lookup.
 - Compatibility/migration/configuration: valid u64 preparations are unchanged, including zero pre-balances and the inclusive u64 maximum. Zero trade/minimum-output values, leading-zero aliases, and overflow now receive deterministic `400 invalid_prepare_parameters`; responses, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: generate canonical preparation amount strings within the published u64 bounds and reject zero execution amounts, leading-zero aliases, and overflow locally.
+
+## UPSTREAM preparation base58 identity admission
+
+- Selected ID: `UPSTREAM-PREPARATION-BASE58-IDENTITY-114` (unsigned-transaction identity safety, generated-client parity, deterministic diagnostics, and resource-probe resistance).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining identity-admission gap. Every venue constructor requires 32-byte Solana identities and a 32-byte recent blockhash, while preparation discovery and pre-lookup admission promised only nonempty strings.
+- Contract: all preparation mint, user, token-account, fee-recipient, optional-account, admin, and recent-blockhash fields now publish the built-in `solana-public-key` base58 format with 32–44 character lexical bounds. Runtime additionally decodes each non-null value to exactly 32 bytes before lookup.
+- Compatibility/migration/configuration: canonical Solana addresses and blockhashes are unchanged, including nullable optional accounts. Empty, alphabet-invalid, truncated, oversized, or wrong-decoded-length values now receive deterministic `400 invalid_prepare_parameters`; responses, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: validate every preparation identity as canonical 32-byte base58 before transport, retaining null only for fields whose published schema is nullable.
