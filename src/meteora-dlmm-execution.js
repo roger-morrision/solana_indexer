@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { decodeMeteoraBinArrayAccount, METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
 import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
+import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
 import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
 import { decodeBase58Address, findProgramAddress } from "./solana-pda.js";
 import { resolveTransferHookAccountMetas } from "./transfer-hook-evidence.js";
@@ -66,6 +67,14 @@ export function verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts 
   }
   const reproduced = quoteMeteoraDlmmSnapshotExactInput({ snapshot: { type: "meteora_dlmm_pool_snapshot", commitment: "finalized", stateSlot: quote.stateSlot, balanceSlot: quote.balanceSlot, observedAt: quote.observedAt, pools: [{ ...pool, binArrays: arrays }] }, poolAddress: pool?.address, inputMint: quote.inputMint, amountIn: quote.amountInRaw, now: quote.calculatedAtUnixMs, staleAfterMs: Number.MAX_SAFE_INTEGER });
   if (!isDeepStrictEqual(reproduced, quote)) throw new Error("Meteora quote does not match independently decoded finalized bin arrays"); return true;
+}
+
+export async function acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts({ client, quote, pool }) {
+  const rows = quote?.binTraversal, slots = new Set(Array.isArray(rows) ? rows.map((row) => row?.binArraySlot) : []), addresses = [...new Set(Array.isArray(rows) ? rows.map((row) => row?.binArrayAddress) : [])];
+  if (!client?.call || !rows?.length || slots.size !== 1 || addresses.some((address) => typeof address !== "string")) throw new Error("Meteora finalized bin-array acquisition request is invalid");
+  const [slot] = slots, response = await getMultipleAccountsBatched(client, addresses, { commitment: "finalized", encoding: "base64", minContextSlot: slot }, { expectedSlot: slot, label: "Meteora quote bin-array" });
+  const accounts = addresses.map((address, index) => { const account = response.value[index], data = account?.data; if (!Array.isArray(data) || data[1] !== "base64" || typeof data[0] !== "string") throw new Error("Meteora finalized bin-array acquisition response is invalid"); return { address, owner: account.owner, commitment: "finalized", slot, rawHex: Buffer.from(data[0], "base64").toString("hex") }; });
+  verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts }); return accounts;
 }
 
 export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null, transferHookAccountData = null }) {

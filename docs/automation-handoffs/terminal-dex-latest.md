@@ -2490,3 +2490,11 @@
 - Contract: every `binArrayAddress` now uses the built-in canonical 32-byte Solana public-key format. The finalized-account relationship declares `exact_advertised_slot`, and the exported verifier rejects noncanonical identities or any supplied context slot unequal to the traversal row's slot before decoding or reproducing economics.
 - Compatibility/migration/configuration: canonical on-chain Meteora account identities remain compatible. Noncanonical fixtures and later-context substitutions now fail closed; quote economics, execution bytes, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged. Discovery digest/ETag changes.
 - NEXT_WEB_ACTION: fetch each Meteora bin-array account at finalized commitment and accept it only when the returned context equals the quote's advertised `binArraySlot` exactly.
+
+## UPSTREAM finalized Meteora account acquisition
+
+- Selected ID: `UPSTREAM-METEORA-FINALIZED-BIN-ACQUISITION-119` (safe consumer integration, bounded RPC usage, and pre-signing evidence verification).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the missing executable acquisition path after canonical identity and exact-context enforcement. Consumers otherwise had to recreate batching, context equality, base64 extraction, and verifier invocation correctly.
+- Contract: `acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts` deduplicates advertised addresses, performs bounded finalized `getMultipleAccounts` calls at the quoted minimum context, rejects any batch whose returned context differs from the advertised slot, converts raw account bytes to verifier evidence, and runs complete owner/decoder/hash/economics verification. Discovery names the acquisition verifier and exact-context method.
+- Compatibility/migration/configuration: this is an additive exported helper and additive relationship metadata. Quote and preparation bytes, execution construction, persistence, provider configuration, RPC/WebSocket behavior, and migrations are unchanged; discovery digest/ETag changes.
+- NEXT_WEB_ACTION: call `acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts` immediately before accepting a Meteora quote or constructing its unsigned preparation.
