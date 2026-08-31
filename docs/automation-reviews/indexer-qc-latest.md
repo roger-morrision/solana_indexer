@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-09-01T01:36:00.182+07:00`
+- Run: `2026-09-01T02:36:31.162+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `7b4c91d19f9d9d05a5a824a3adeec4df5696e985`
-- Compared with QA baseline: `fcaf2259bd94d055dbc5b3eab7e75a5e62042e3b` (2 DEV commits, 4 DEV-changed files)
-- Compared with `origin/main`: 242 ahead, 0 behind before this evidence report
-- Latest DEV commit: `7b4c91d` (exact-context Meteora account acquisition)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-METEORA-FINALIZED-BIN-CONTEXT-118` closes the canonical-address and later-context contradictions, and `UPSTREAM-METEORA-FINALIZED-BIN-ACQUISITION-119` adds a bounded acquisition helper that enforces one exact finalized response context before invoking complete owner/decoder/hash/economics verification. Both outcomes close the single deduplicated `UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001` provenance domain, so reconciliation advances to 154 PASS, 0 FAIL, and 1 BLOCKED across 155 independent domains; live qualification remains blocked by absent current operational evidence.
+- Revision: `5b23babcc0897d1b4caf264e1aea8bc530c04de1`
+- Compared with QA baseline: `a04bade5fd67e54c9ea8dcf9dad9f011ab65016f` (2 DEV commits, 4 DEV-changed files)
+- Compared with `origin/main`: 245 ahead, 0 behind before this evidence report
+- Latest DEV commit: `5b23bab` (Meteora verification receipt)
+- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-METEORA-ACQUISITION-PREFLIGHT-120` prevents nine malformed, unbounded, mixed-slot, or noncanonical request families from reaching a provider. `UPSTREAM-METEORA-VERIFICATION-RECEIPT-121` creates a deterministic content receipt, but its verifier accepts quote-critical pool mutation whenever the pool address is unchanged, contradicting the claimed pool-drift rejection. These are two independent new evidence domains, so reconciliation is 155 PASS, 1 FAIL, and 1 BLOCKED across 157 domains; live qualification remains blocked by absent current operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Meteora finalized account context and acquisition (2 PASS)
+### Meteora acquisition preflight and verification receipt (1 PASS, 1 FAIL)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `cd88f43` / `UPSTREAM-METEORA-FINALIZED-BIN-CONTEXT-118` | Canonical identity and exact advertised context | `PASS` | `binArrayAddress` now publishes the built-in Solana-public-key format, 32–44-character base58 bounds, and runtime 32-byte decoding. The relationship declares `exact_advertised_slot`; the verifier requires `source.slot === row.binArraySlot`. Canonical positives pass, while noncanonical identities and otherwise-valid later contexts reject. |
-| `7b4c91d` / `UPSTREAM-METEORA-FINALIZED-BIN-ACQUISITION-119` | Bounded exact-context finalized acquisition | `PASS` | The exported helper deduplicates addresses, uses bounded `getMultipleAccounts` batches with finalized/base64 and the quoted minimum context, requires every returned batch context to equal the one advertised slot, converts returned bytes to evidence, then runs the full owner/decoder/pool/index/hash/exact-quote verifier. Exact-context positive passes; later response context rejects before evidence acceptance. |
+| `9edaa29` / `UPSTREAM-METEORA-ACQUISITION-PREFLIGHT-120` | Provider-isolated acquisition admission | `PASS` | Independent 9/9 malformed-input matrix rejects missing client, empty/over-cap traversal, negative/unsafe top slot, row/top mismatch, mixed row slots, invalid alphabet, and wrong decoded address length with zero provider calls. Canonical exact-context acquisition remains compatible. |
+| `5b23bab` / `UPSTREAM-METEORA-VERIFICATION-RECEIPT-121` | Tamper-evident verification handoff | `FAIL` | Baseline receipt verifies and address drift rejects, but changing `tokenMint0` and `baseFactor` under the same `pool.address` leaves the original receipt valid. The receipt stores only the address, and the verifier compares only `receipt.pool === pool.address`; it neither binds quote-critical pool evidence nor reruns full account verification. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `fcaf225`, in `cd88f43` and `7b4c91d`; no additional distinct committed outcome exists.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes; both close one deduplicated pre-existing HIGH provenance domain.
+- Available DEV delta: exactly two distinct committed outcomes exist after `a04bade`, in `9edaa29` and `5b23bab`; no additional distinct committed outcome exists.
+- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across two independent new evidence domains.
 - Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting routes, property names, schema positions, value classes, or boundary vectors into additional outcomes would be padding.
-- Validation: independent contract/runtime inspection confirms canonical address binding, exact slot equality, bounded batches, finalized/base64 acquisition, and complete verifier chaining; canonical acquisition passes and later-context acquisition rejects. Focused Meteora/transfer-hook tests 15/15 PASS; full suite 495/495 PASS; syntax 87/87 PASS; replay invariants PASS at 7,845.92 blocks/s with 8,980,192-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures, is 406,432 slots behind, and is 831,242,884 ms old from its raw UTC `observedAt` timestamp at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded the provisional `cd88f43` validation when the DEV writer lock appeared and source changed, then refreshed the complete two-commit delta and reran every tier only after final `7b4c91d` was clean, stable, and unlocked.
+- Validation: independent acquisition preflight matrix 9/9 PASS with zero provider calls. Independent receipt drift harness reports `baseline=true`, `alteredSameAddress=true`, and `addressDriftRejected=true`, reproducing the pool-evidence gap. Focused Meteora/transfer-hook tests 15/15 PASS; full suite 495/495 PASS; syntax 87/87 PASS; replay invariants PASS at 8,457.06 blocks/s with 9,488,184-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures, is 406,432 slots behind, and is 834,873,864 ms old from its raw UTC `observedAt` timestamp at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded provisional `9edaa29` validation when the DEV writer lock appeared, refreshed the complete two-commit delta, and reran every tier only after final `5b23bab` was clean, stable, and unlocked.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Meteora exact context and bounded acquisition (2 PASS)
+
+- Prior exact shortfall: 18. `UPSTREAM-METEORA-FINALIZED-BIN-CONTEXT-118` and `UPSTREAM-METEORA-FINALIZED-BIN-ACQUISITION-119` remain PASS; their canonical identity, exact-context, owner/decoder/hash/economics, focused, full-suite, syntax, replay, and fail-closed operational evidence remains retained.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -955,7 +961,7 @@
 - Prior verification result: 50 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP.
 - Prior fix/enhancement shortfall: 0; the historical delta exceeded the 20-item contract by 30 without duplicating or cosmetically splitting evidence.
 
-## Independent 155-domain reconciliation
+## Independent 157-domain reconciliation
 
 | Domain | Status | Concrete evidence |
 |---|---|---|
@@ -1010,6 +1016,8 @@
 | Holder and whale concentration | `PASS` | `indexed token holders aggregate owners with versioned canonical evidence`, authoritative-exclusion concentration, and the new finalized largest-account page contract all pass. Two real largest-account pages, null miss, cursor continuation, exact descriptor, and 24 independent schema contradictions are covered. |
 | Trader and wallet analytics | `PASS` | Exact wallet cost basis/PnL, funding, funding-cluster, profile, and partial-coverage tests pass. |
 | Pool identity and quote evidence | `PASS` | Finalized Raydium, Orca, Meteora, Pump/PumpSwap, Phoenix, and OpenBook snapshot/quote tests pass with exact venue dependencies. |
+| Meteora acquisition preflight | `PASS` | Nine independent invalid request families reject locally before provider traffic, including over-cap traversal, unsafe/mixed slots, noncanonical identity, and unavailable client; canonical exact-context acquisition remains accepted. |
+| Meteora verification receipt | `FAIL` | The receipt binds the pool address but not quote-critical pool evidence. The unchanged receipt verifies after same-address mutation of `tokenMint0` and `baseFactor`, contradicting the promised pool-drift rejection. |
 | Price and depeg reference | `PASS` | Independent USDC reference, Pyth evidence, expiry, depeg bound, and nominal USD path tests pass. |
 | Liquidity and risk | `PASS` | Exact pool reserve/depth evidence and mature two-way finalized bot-readiness/risk gates pass. |
 | Volume and candles | `PASS` | Exact rolling USD volume and direction-stable integer OHLCV tests pass without floating point. |
@@ -1061,10 +1069,10 @@
 | WebSocket filter-value discovery | `PASS` | The deterministic artifact publishes exact names, optionality, 1–64 UTF-16 code-unit bounds, and forbidden controls inside the newly closed parent schema; widened, reordered, control-bearing, cross-topic, duplicate, and unknown inputs reject. |
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
-| Bounded performance | `PASS` | Full suite passes 495/495; syntax passes 87/87; replay completes at 7,845.92 blocks/s with 8,980,192-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 831,242,884 ms old at this trigger. |
+| Bounded performance | `PASS` | Full suite passes 495/495; syntax passes 87/87; replay completes at 8,457.06 blocks/s with 9,488,184-byte heap growth below 536,870,912 bytes. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 834,873,864 ms old at this trigger. |
 
-The review reconciles 155 distinct evidence domains: 154 PASS, 0 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
+The review reconciles 157 distinct evidence domains: 155 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
 ## UPSTREAM-QA-PATH-PARAMETER-003
 
@@ -3324,12 +3332,25 @@ The review reconciles 155 distinct evidence domains: 154 PASS, 0 FAIL, and 1 BLO
 - Performance impact: bounded nested validation is proportional to the already bounded preparation envelope; no replay or full-suite regression is currently observed.
 - Blockers: none; this overlapping finding is closed without creating a second independent-domain count.
 
+## UPSTREAM-QA-METEORA-VERIFICATION-RECEIPT-001
+
+- Severity: `FAIL` / `MEDIUM`
+- Owner: `DEV`
+- Reproduction: create a valid `meteora_dlmm_quote_verification_receipt`, verify it against its original quote and pool, then change quote-critical pool evidence such as `tokenMint0` and `baseFactor` while retaining the same `pool.address`; verify the unchanged receipt against the changed pool. Retain an address-change negative as the identity control.
+- Evidence: the baseline receipt returns true and a changed pool address rejects, but the unchanged receipt also returns true after same-address `tokenMint0` and `baseFactor` mutation. The receipt stores only `pool: pool.address`; `verifyMeteoraDlmmQuoteVerificationReceipt` compares only `receipt.pool !== pool.address` and never binds a pool-evidence digest or reruns the finalized-account verifier. The independent harness reports `baseline=true`, `alteredSameAddress=true`, and `addressDriftRejected=true`.
+- Affected contracts: Meteora verification receipts, downstream unsigned-preparation and simulation audit handoff, quote/pool provenance, receipt persistence, discovery helper identity, and generated consumer trust decisions.
+- Expected versus actual behavior: the receipt verifier must reject quote-critical pool drift, including same-address changes to mints, fee parameters, slots, or other evidence used during quote reproduction. Actual verification detects address drift but admits all unbound same-address pool changes.
+- Acceptance criteria: bind a deterministic digest of the complete quote-critical pool evidence used by finalized quote reproduction, or require the original finalized account evidence and rerun complete verification; reject same-address pool mutations without modifying the receipt; retain quote-hash, slot, account membership, owner, payload-hash, policy, receipt-hash, positive, and address-drift controls; document that the receipt is content-bound but not a trusted signature.
+- Validation results: independent positive and address-drift controls PASS; same-address pool-drift negative FAILS. Focused Meteora/transfer-hook tests 15/15, full suite 495/495, syntax 87/87, and replay invariants PASS, showing the committed suite does not cover this contract contradiction.
+- Compatibility/performance impact: the additive receipt shape or verifier inputs may need a pool-evidence digest and discovery update. Hashing one bounded canonical pool projection is negligible relative to complete finalized-account verification; no current replay or full-suite regression is observed.
+- Blockers: none; deterministic offline reproduction requires no provider, database, or production state.
+
 ## UPSTREAM-QA-OPS-001
 
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 831,242,884 ms old from its raw UTC timestamp at this trigger, so it is not active evidence; earlier timezone-shifted age displays are superseded.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 834,873,864 ms old from its raw UTC timestamp at this trigger, so it is not active evidence; earlier timezone-shifted age displays are superseded.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -3338,4 +3359,4 @@ The review reconciles 155 distinct evidence domains: 154 PASS, 0 FAIL, and 1 BLO
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: provide a redacted current canonical-mainnet operational evidence bundle with configured provider identity, fresh finalized exporter/index status, exact warehouse convergence, and fresh backup/recovery qualification while preserving fail-closed mutation denial.
+- NEXT_DEV_ACTION: bind each Meteora verification receipt to a deterministic digest of the complete quote-critical pool evidence (or rerun full finalized-account verification) and add a same-address pool-mutation negative while retaining all existing quote, slot, account, owner, payload-hash, policy, receipt-hash, positive, and address-drift controls.
