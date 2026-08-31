@@ -481,6 +481,11 @@ test("RPC response schema closes success error and bounded batch envelopes", asy
   const producedBatch = await call([{ jsonrpc: "2.0", id: 3, method: "getIndexerStats" }, { jsonrpc: "2.0", id: 4, method: "unknown" }]); assert.equal(producedBatch.length, 2); assert.ok("result" in producedBatch[0]); assert.ok("error" in producedBatch[1]);
 });
 
+test("RPC numeric identifiers are safe-integer bounded end to end", async (t) => {
+  const contract = queryContractSnapshot(), requestId = contract.requestBodySchemas.rpc_request_v1.oneOf[0].properties.id, [success, failure, batch] = contract.responseBodySchemas.rpc_success_v1.oneOf; for (const schema of [requestId, success.properties.id, failure.properties.id, batch.items.oneOf[0].properties.id, batch.items.oneOf[1].properties.id]) assert.deepEqual({ minimum: schema.minimum, maximum: schema.maximum }, { minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER });
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const call = async (id) => (await (await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id, method: "getIndexerStats" }) })).json()); for (const id of [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]) assert.equal((await call(id)).id, id); for (const id of [Number.MIN_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER + 1]) assert.deepEqual(await call(id), { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } });
+});
+
 test("RPC discovery publishes the exact read-only method and result-schema catalog", () => {
   const contract = queryContractSnapshot(), methods = contract.rpc.methods, names = methods.map(({ method }) => method), schemas = Object.keys(contract.rpcResultSchemas);
   assert.deepEqual({ path: contract.rpc.path, readOnly: contract.rpc.readOnly, batch: contract.rpc.batch }, { path: "/rpc", readOnly: true, batch: { minimumItems: 1, maximumItems: 100, responseOrder: "request_order", failureIsolation: "per_item", invalidCardinalityErrorCode: -32600 } });

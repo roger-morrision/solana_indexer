@@ -2394,3 +2394,11 @@
 - Contract: RPC batch discovery now states request-order responses, per-item failure isolation, and envelope-level `-32600` for empty or oversized batches. Regression coverage proves mixed success/failure ordering and both cardinality boundaries.
 - Compatibility/migration/configuration: three additive batch members change only the query-contract digest/ETag and generated-client requirements. Runtime bytes, limits, methods, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: preserve request order when correlating batch responses, isolate item errors, and treat invalid batch cardinality as one nonretryable envelope failure.
+
+## UPSTREAM RPC identifier precision
+
+- Selected ID: `UPSTREAM-RPC-ID-SAFE-INTEGER-107` (commercial response correlation, cache identity, and audit correctness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the request-identity precision gap: runtime accepted integer IDs outside JavaScript's exact range while request and response discovery omitted numeric bounds.
+- Contract: numeric RPC IDs are now restricted to the inclusive safe-integer range in runtime admission and all single/batch request-response schema positions. Strings and null remain compatible.
+- Compatibility/migration/configuration: precision-unsafe numeric IDs now receive nonretryable `-32600` with null correlation ID. Safe numeric, string, and null IDs, methods, persistence, providers, REST/WebSocket behavior, migrations, and configuration are unchanged; the contract digest/ETag changes.
+- NEXT_WEB_ACTION: emit numeric RPC IDs only within the published safe-integer bounds, or use strings when larger correlation spaces are required.
