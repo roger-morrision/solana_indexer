@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T12:35:17+07:00`
+- Run: `2026-08-31T13:36:18+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `02ad74f268d9f10a07d953420f1c4da6d343b166`
-- Compared with QA baseline: `da046a24f2a3a96a59fd40da563bd8cc4cf3c9c5` (2 DEV commits, 3 DEV-changed files; the intervening QC evidence commit is excluded)
-- Compared with `origin/main`: 204 ahead, 0 behind before this evidence report
-- Latest DEV commit: `02ad74f` (default-equivalence timing stabilization)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` closes `UPSTREAM-QA-PREPARATION-NULL-ADMISSION-001`, and `UPSTREAM-HTTP-DEFAULT-TIME-DETERMINISM-095` closes `UPSTREAM-QA-HTTP-DEFAULT-TIME-FLAKE-001` with route-scoped request-time normalization plus a semantic-window negative control. Reconciliation is 133 PASS, 1 FAIL, and 1 BLOCKED across 135 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `a630847c3015fe22b088a47d027727f562756ed1`
+- Compared with QA baseline: `c7ad6321f95c979773e3129f18ab2bf49b2df8c4` (2 DEV commits, 3 DEV-changed files)
+- Compared with `origin/main`: 207 ahead, 0 behind before this evidence report
+- Latest DEV commit: `a630847` (RPC parameter-schema semantic binding)
+- Overall result: 0 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-PARAMETER-VALUE-SCHEMAS-096` publishes a cursor schema that disagrees with runtime in both directions, and `UPSTREAM-RPC-PARAMETER-SCHEMA-BINDING-097` then requires clients to enforce that contradictory schema. One deduplicated `UPSTREAM-QA-RPC-CURSOR-PARAMETER-SCHEMA-001` finding covers the shared root cause. Reconciliation is 133 PASS, 3 FAIL, and 1 BLOCKED across 137 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Preparation optional-null and default-time determinism repairs (2 PASS)
+### RPC parameter schema publication and binding (2 FAIL)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `5698e93` / `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` | Pool and token preparation POST admission | `PASS` | Own-property checks reject explicit `limitTick: null` and `side: null` with exact 400 `invalid_prepare_parameters`; omitted controls still reach exact pool/token 404 resource boundaries. Discovery rejects both null forms and retains safe-integer/enum rules. |
-| `02ad74f` / `UPSTREAM-HTTP-DEFAULT-TIME-DETERMINISM-095` | HTTP default-equivalence regression harness | `PASS` | Route-scoped normalization removes only volume `startTime`/`endTime`; five focused repetitions pass 15/15. An independently forced second-boundary pair compares equal, while a changed 24h semantic window remains unequal. |
+| `561cd81` / `UPSTREAM-RPC-PARAMETER-VALUE-SCHEMAS-096` | Twelve-method RPC parameter value schemas | `FAIL` | Published cursor rules reject `""`, but `decodeCursor` treats it as omission and the real `getIndexedBlocks` RPC returns a result. Published rules accept `"a"`, but runtime returns `-32602 Invalid params` because it is not canonical version-1 base64url JSON. Null and omission controls remain accepted. |
+| `a630847` / `UPSTREAM-RPC-PARAMETER-SCHEMA-BINDING-097` | RPC request-to-parameter-schema relationship | `FAIL` | Exact required/optional key coverage is correctly bound for all 12 methods, but `parameterValuePolicy: "validate_parameter_schema"` makes the ID096 cursor mismatch an explicit generated-client/runtime contradiction. Missing/extra schema-map negatives pass without resolving value-language parity. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `da046a2`, in `5698e93` and `02ad74f`; no additional distinct committed outcome exists.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct repair outcomes, and splitting optional members, route comparisons, repetition counts, or synthetic controls into additional outcomes would be padding.
-- Validation: independent preparation admission passes 2/2 explicit-null rejections and 2/2 omission controls. Five focused runs pass 15/15 across null admission, ordering, and default equivalence; the independent forced-second-boundary pair normalizes equal while a changed `windowSeconds` remains unequal. Complete contract digest remains `1c7c69109fa218eb3f95faaeba09c43dec3b33a96341af95852c4bf52bba8360`. Full suite 475/475 PASS; syntax 87/87 PASS; replay invariants PASS at 4,227.38 blocks/s with 10,132,600-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 784,400,456 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `c7ad632`, in `561cd81` and `a630847`; no additional distinct committed outcome exists.
+- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting twelve methods, individual schema keys, or two manifestations of one cursor mismatch into additional outcomes would be padding.
+- Validation: focused committed tests 3/3 PASS, but an independent live parity harness finds 2/3 cursor controls contradictory: empty string is schema-rejected/runtime-accepted, one-character base64url is schema-accepted/runtime-rejected, and null agrees. Complete contract digest is `4129fcf7660dfd1152dc072108cf013e4c3fe5ba2e338b310b2914ef18e516ee`. Full suite 476/476 PASS; syntax 87/87 PASS; replay invariants PASS at 4,744.03 blocks/s with 10,021,984-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 813,261,704 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Preparation optional-null and default-time determinism repairs (2 PASS)
+
+- Prior exact shortfall: 18. `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` and `UPSTREAM-HTTP-DEFAULT-TIME-DETERMINISM-095` remain PASS; focused admission, repeated timing, full-suite, syntax, replay, and fail-closed operational evidence passed at that baseline.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -3006,6 +3012,19 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-QA-RPC-CURSOR-PARAMETER-SCHEMA-001
+
+- Severity: `FAIL` / `MEDIUM`
+- Owner: `DEV`
+- Reproduction: read `getIndexedBlocks.parameterSchemas.cursor` from `/api/v1/query-contracts`; evaluate `""`, `"a"`, and `null`; then POST each value as named `cursor` to `getIndexedBlocks` on the real `/rpc` handler over an available empty indexed-block view.
+- Evidence: the schema declares nullable strings with `minimumLength: 1`, `maximumLength: 1024`, and base64url-character pattern. It therefore rejects `""` and accepts `"a"`. Runtime `decodeCursor` returns null for every falsy value, so `""` returns a successful empty page; runtime then rejects `"a"` with JSON-RPC `-32602` because it is not canonical version-1 base64url JSON. Null and omission agree and return successful empty pages. ID097 explicitly names `parameterValuePolicy: "validate_parameter_schema"`, propagating both contradictions to generated clients.
+- Affected contracts: all cursor-bearing read-only RPC methods, query-contract discovery, generated validators and SDKs, pre-transport diagnostics, retry classification, cache pagination, contract digest/ETag, and support tooling.
+- Expected versus actual behavior: the published value schema must accept exactly the runtime-admitted cursor language before method-specific scope/retention checks. Actual discovery is broader than runtime for arbitrary base64url strings and narrower than runtime for empty string.
+- Acceptance criteria: make discovery and runtime agree on empty-string behavior; publish or reference a bounded rule that rejects noncanonical/versionless cursor encodings such as `"a"`; retain null and omission, canonical version-1 cursor positives, 1,024-byte bounds, scope/retained-record runtime checks, named/positional styles, exact schema-key binding, and `-32602` for invalid values; add live parity regressions in both directions.
+- Validation results: independent live parity harness reports 1/3 agreement and 2/3 contradictions; committed focused discovery/admission tests pass 3/3 because they assert only object shape, key membership, and unrelated overflow/unknown-key admission. Full suite 476/476, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks otherwise pass.
+- Compatibility/performance impact: correcting the discovered cursor language changes the contract digest/ETag and generated validators. Runtime behavior need not change if discovery expresses the existing canonical cursor codec; validation remains bounded by the existing 1,024-character limit.
+- Blockers: none; deterministic offline/live-local reproduction.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -3052,7 +3071,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 784,400,456 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 813,261,704 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
