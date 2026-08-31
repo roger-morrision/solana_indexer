@@ -2218,3 +2218,13 @@
 - Compatibility/migration/configuration: discovery-only relaxation changes the digest/ETag and aligns generated validators with unchanged runtime behavior. Batching, quotas, request limits, RPC results, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged.
 - Remaining boundary: request-schema catalog membership and preparation request families remain evidence-backed follow-ups; live qualification remains blocked on canonical operational evidence.
 - NEXT_WEB_ACTION: accept an empty string as a structurally valid RPC method and surface the runtime method-not-found response rather than rejecting it as an invalid envelope.
+
+## UPSTREAM request body schema binding
+
+- Selected ID: `UPSTREAM-REQUEST-BODY-SCHEMA-BINDING-090` (generated-client safety, commercial discovery integrity, RPC/preparation correctness, and supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining request-schema identity gap after the verified RPC parity repair. Route discovery already names the RPC schema and publishes a closed catalog, but the fail-closed dialect did not require non-null names to resolve through that catalog, bind `/rpc` exactly, or preserve null preparation identities until their heterogeneous schemas are modeled. QC was consulted after selection and supplied no newer contradiction.
+- Contract: the discovery dialect now declares `request_body_schema_binding`: `/rpc` must name `rpc_request_v1`, both `/prepare-swap` routes must retain null schema identity, and every other non-null route schema must be a member of `requestBodySchemas`.
+- Validation contract: all 54 published routes satisfy the relationship; isolated RPC-null, RPC-unknown, preparation-nonnull, and future-route unknown-catalog contradictions reject.
+- Compatibility/migration/configuration: additive fail-closed discovery vocabulary changes the digest/ETag only. HTTP/RPC request bytes, admission, quotas, ingestion, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged. Generated validators must implement the relationship before accepting the new document.
+- Remaining boundary: the two preparation request schema families and RPC method/parameter cross-binding remain separate evidence-backed increments; live qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: resolve every non-null discovered `bodySchema` through `requestBodySchemas`, require `/rpc` to use `rpc_request_v1`, and keep preparation builders schema-unqualified until their catalogs are published.
