@@ -2368,3 +2368,13 @@
 - Compatibility/migration/configuration: additive relationship metadata changes only the query-contract digest/ETag. RPC requests and result bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the relationship before accepting the document.
 - Remaining boundary: method-specific error-code catalogs and cursor scope/retention semantics remain runtime-enforced; authenticated Meteora quote provenance and fresh canonical operational qualification remain open.
 - NEXT_WEB_ACTION: resolve each known RPC method's result schema through the exact published catalog and validate successful result values before exposing them to application consumers.
+
+## UPSTREAM RPC method error catalogs
+
+- Selected ID: `UPSTREAM-RPC-METHOD-ERROR-CATALOG-104` (commercial retry safety, deterministic diagnostics, SDK completeness, and supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected method-specific error discovery after success-result closure. Runtime distinguishes non-retryable invalid parameters from retryable index-state and evidence-unavailable conditions, but clients could not derive those exact codes and messages. QC was consulted after selection; Meteora finalized-content provenance remains a separate high-priority trust boundary.
+- Contract: all 12 RPC method entries now publish closed `errors` arrays. Every method includes non-retryable `-32602`; the ten indexed-data methods additionally include retryable `-32000` and their exact `-32001` through `-32005` evidence-unavailable outcome.
+- Validation contract: focused coverage verifies exact code, message, retryability, uniqueness, and method membership for all 12 methods. Existing runtime regressions retain invalid-parameter, corrupt-state, and unavailable-evidence responses.
+- Compatibility/migration/configuration: additive discovery changes the query-contract digest/ETag and requires generated clients to accept the new required method member. Runtime RPC bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: malformed envelopes and unknown methods remain envelope-level `-32600`/`-32601` outcomes; authenticated Meteora provenance and canonical operational qualification remain open.
+- NEXT_WEB_ACTION: generate per-method RPC error handling from `errors`, retry only published retryable outcomes, and surface `-32602` as a client construction defect.
