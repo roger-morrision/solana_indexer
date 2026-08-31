@@ -2168,3 +2168,13 @@
 - Compatibility/migration/configuration: additive regression and handoff evidence only; quote behavior, discovery bytes and digest, REST/RPC/WebSocket contracts, ingestion, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: future conditional kinds require their own discovery-bound evaluator; live quote qualification remains blocked on canonical provider, snapshot, index, exporter, warehouse, backup, and recovery evidence.
 - NEXT_WEB_ACTION: require `limitTick` in generated quote builders only for the two program IDs published by `pool_program_in`, and reject it for every other venue before transport.
+
+## UPSTREAM HTTP method and body admission matrix
+
+- Selected ID: `UPSTREAM-HTTP-METHOD-BODY-ADMISSION-MATRIX-086` (commercial SDK correctness, RPC safety, unsigned preparation safety, quota predictability, and API supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected route-wide method/body parity because discovery publishes all 54 methods but runtime coverage sampled only individual GET/POST routes and JSON media failures only on RPC. QC was consulted after selection and independently closed IDs 084–085.
+- Contract: every discovered route rejects the opposite method with HTTP 405 and its published `Allow` value; the exact three discovered POST routes reject unsupported media and malformed JSON, while valid UTF-8 JSON advances beyond method, media, syntax, and size admission.
+- Validation contract: focused coverage requires 54 discovery-derived wrong-method probes plus unsupported, malformed, and accepted body probes for RPC and both unsigned preparation routes.
+- Compatibility/migration/configuration: additive regression and handoff evidence only; methods, body limits, response bytes, discovery digest, REST/RPC/WebSocket contracts, quota ordering, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: route-specific JSON object schemas remain enforced inside RPC/preparation handlers and their dedicated suites; live qualification remains blocked on canonical provider, index, exporter, warehouse, backup, and recovery evidence.
+- NEXT_WEB_ACTION: generate transport methods and JSON media headers from route discovery, and treat HTTP 405/413/415 as non-retryable client-construction failures.
