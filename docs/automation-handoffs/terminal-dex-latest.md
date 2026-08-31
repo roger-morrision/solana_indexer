@@ -2288,3 +2288,13 @@
 - Compatibility/migration/configuration: additive discovery changes the query-contract digest/ETag and requires generated validators to accept the new method member. RPC request/result bytes, runtime admission, HTTP, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged.
 - Remaining boundary: method-specific cross-field/cursor scope semantics remain runtime-enforced; authenticated Meteora quote provenance and live operational qualification remain open.
 - NEXT_WEB_ACTION: generate RPC parameter validators from each method's `parameterSchemas` map before transport while preserving the published positional order, named keys, defaults, and unknown-method handling.
+
+## UPSTREAM RPC parameter schema binding
+
+- Selected ID: `UPSTREAM-RPC-PARAMETER-SCHEMA-BINDING-097` (commercial SDK integrity, deterministic client validation, request efficiency, and supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready semantic binding for ID 096. The method relationship previously said known parameters use the catalog but did not identify the parameter catalog or schema members, require exact required/optional key coverage, or state that values must validate against those schemas. Authenticated Meteora provenance remains higher risk but is not safely closable until producer-key lifecycle and immutable finalized-snapshot attestation are specified.
+- Contract: `rpc_request_method_binding` now names `params` as the parameter catalog and `parameterSchemas` as its value-schema map, requires the map keys to equal the combined required and optional names, and requires each supplied value to validate against its named schema.
+- Validation contract: focused discovery accepts all 12 methods, including both empty parameter catalogs, and rejects isolated missing and extra parameter-schema keys in addition to the existing envelope, duplicate-method, and parameter-style contradictions.
+- Compatibility/migration/configuration: additive relationship metadata changes the query-contract digest/ETag only. RPC request/result bytes and runtime admission, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Generated validators must implement the expanded relationship before accepting the new contract document.
+- Remaining boundary: method-specific cross-field and cursor-scope semantics remain runtime-enforced; authenticated Meteora quote provenance and fresh canonical operational qualification remain open.
+- NEXT_WEB_ACTION: enforce exact required-plus-optional schema-key membership and validate each known RPC parameter value against its named schema before transport.
