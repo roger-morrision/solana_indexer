@@ -2410,3 +2410,11 @@
 - Contract: request admission and every single/batch request-response ID schema now cap string identifiers at 256 UTF-16 code units. Empty and shorter strings, safe integers, and null remain compatible.
 - Compatibility/migration/configuration: overlong string IDs now receive nonretryable `-32600` with a null response ID. Methods, persistence, providers, REST/WebSocket behavior, migrations, and configuration are unchanged; discovery digest/ETag changes.
 - NEXT_WEB_ACTION: cap generated string RPC identifiers at 256 UTF-16 code units and treat longer values as local construction errors.
+
+## UPSTREAM RPC method-name bounds
+
+- Selected ID: `UPSTREAM-RPC-METHOD-NAME-BOUND-109` (commercial request boundedness, audit safety, and deterministic diagnostics).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining unbounded RPC envelope identity. Runtime accepted empty or body-ceiling-sized method strings while discovery published no method-name bounds.
+- Contract: request discovery and runtime admission now require method names of 1–128 UTF-16 code units. Bounded unknown names retain nonretryable `-32601`; empty and overlong names return envelope-level `-32600`.
+- Compatibility/migration/configuration: known methods and bounded extension names are unchanged. Invalid names now fail earlier; persistence, providers, REST/WebSocket behavior, migrations, and configuration are unchanged, while discovery digest/ETag changes.
+- NEXT_WEB_ACTION: require RPC method names to contain 1–128 UTF-16 code units before transport and distinguish invalid-envelope `-32600` from bounded unknown-method `-32601`.
