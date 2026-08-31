@@ -2426,3 +2426,11 @@
 - Contract: single and batch RPC items now admit exactly required `jsonrpc`, `id`, `method` and optional `params`. Unknown top-level members return envelope-level nonretryable `-32600` before dispatch.
 - Compatibility/migration/configuration: valid standard envelopes are unchanged; clients relying on ignored extensions must remove them. RPC methods/results, persistence, providers, REST/WebSocket behavior, migrations, and configuration remain unchanged; discovery digest/ETag changes.
 - NEXT_WEB_ACTION: serialize only `jsonrpc`, `id`, `method`, and optional `params` in each RPC item, rejecting unknown envelope members locally.
+
+## UPSTREAM preparation body closure
+
+- Selected ID: `UPSTREAM-PREPARATION-BODY-CLOSURE-111` (trading-safety boundary integrity, credential-leak prevention, generated-client completeness, and deterministic diagnostics).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready request boundary shared by all unsigned swap constructors. Both preparation handlers silently admitted unknown top-level members, while discovery intentionally left their bodies open.
+- Contract: pool and token preparation request schemas now enumerate the complete cross-protocol input union and reject unknown top-level members. Runtime performs the same closed-key admission before state lookup or construction.
+- Compatibility/migration/configuration: every field consumed by the existing Raydium, Orca, Meteora, Phoenix, OpenBook, PumpSwap, and Pump constructors remains admitted. Ignored extensions now receive `400 invalid_prepare_parameters`; response contracts, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged; discovery digest/ETag changes.
+- NEXT_WEB_ACTION: generate preparation bodies only from each closed request schema and reject unknown signer, credential, or policy fields before transport.
