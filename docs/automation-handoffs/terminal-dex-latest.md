@@ -2208,3 +2208,13 @@
 - Compatibility/migration/configuration: additive discovery changes the digest/ETag only. Runtime JSON-RPC validation, batching, quotas, responses, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged. Generated clients can validate the stable envelope but must still apply method-specific parameter contracts from `rpc.methods`.
 - Remaining boundary: RPC method/parameter cross-binding and both preparation request schema families remain separate evidence-backed increments; live qualification remains blocked on canonical operational evidence.
 - NEXT_WEB_ACTION: generate the JSON-RPC envelope validator from `rpc_request_v1`, then apply the published method-specific parameter contract before transport.
+
+## UPSTREAM JSON-RPC empty-method parity repair
+
+- Selected ID: `UPSTREAM-RPC-REQUEST-SCHEMA-089` (commercial RPC compatibility, generated-client correctness, and support diagnostics).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and initially prioritized request-schema catalog binding, but new independent QC evidence showed the published RPC schema rejected an empty method that runtime admits structurally and answers with method-not-found. Repairing a verified current contract contradiction outranked adding another discovery relationship.
+- Contract: `rpc_request_v1.method` now requires a string without an invented minimum length. Empty strings select the request-envelope branch and runtime returns JSON-RPC `-32601`; omitted methods and wrong envelope fields remain invalid requests.
+- Validation contract: focused coverage validates the empty-method envelope against discovery and through the real HTTP `/rpc` handler, asserting HTTP 200 with the exact redacted `-32601 Method not found` response while preserving all prior positive and invalid boundaries.
+- Compatibility/migration/configuration: discovery-only relaxation changes the digest/ETag and aligns generated validators with unchanged runtime behavior. Batching, quotas, request limits, RPC results, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged.
+- Remaining boundary: request-schema catalog membership and preparation request families remain evidence-backed follow-ups; live qualification remains blocked on canonical operational evidence.
+- NEXT_WEB_ACTION: accept an empty string as a structurally valid RPC method and surface the runtime method-not-found response rather than rejecting it as an invalid envelope.
