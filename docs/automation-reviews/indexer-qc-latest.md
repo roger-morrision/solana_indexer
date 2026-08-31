@@ -1,27 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T08:36:14+07:00`
+- Run: `2026-08-31T09:35:44+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `2e7bdbb802ded878e355f7744cc792074a03d7d2`
-- Compared with QA baseline: `3cb67aaa67416435f3e7bb1c53e4933060730414` (3 DEV commits, 3 changed files)
-- Compared with `origin/main`: 192 ahead, 0 behind before this evidence report
-- Latest DEV commits: `9ddb81c` (HTTP request-body policy discovery), `c0216a5` (method/body policy binding), and `2e7bdbb` (JSON-RPC request schema discovery)
-- Overall result: 2 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete three-outcome DEV delta. `UPSTREAM-HTTP-REQUEST-BODY-DISCOVERY-087` and `UPSTREAM-HTTP-REQUEST-BODY-POLICY-088` close route transport discovery and method/body semantic binding. `UPSTREAM-RPC-REQUEST-SCHEMA-089` fails runtime parity because discovery rejects an empty method while runtime admits the envelope and returns method-not-found. Reconciliation is 127 PASS, 2 FAIL, and 1 BLOCKED across 130 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `917913436aa575c89a06f8410dad81bac205e02b`
+- Compared with QA baseline: `f7efa071de49f1178002b39ccee3aa9c74cd5a42` (2 DEV commits, 3 changed files)
+- Compared with `origin/main`: 195 ahead, 0 behind before this evidence report
+- Latest DEV commits: `7a048bd` (empty-method discovery/runtime parity repair) and `9179134` (request-body schema binding)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-REQUEST-SCHEMA-089` is closed by removing the invented nonempty-method constraint while preserving live JSON-RPC lookup semantics. New `UPSTREAM-REQUEST-BODY-SCHEMA-BINDING-090` passes exact RPC/catalog binding, null preparation identities, all 54 real routes, and four contradiction controls. Reconciliation is 129 PASS, 1 FAIL, and 1 BLOCKED across 131 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (3/20)
+## Reviewed DEV delta (2/20)
 
-### HTTP request-body discovery and RPC envelope schema (2 PASS, 1 FAIL)
+### RPC envelope parity and request-schema identity (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `9ddb81c` / `UPSTREAM-HTTP-REQUEST-BODY-DISCOVERY-087` | Closed route request-body policy discovery | `PASS` | All 54 rows carry the required member: 51 GET policies are `null`; RPC and both preparation routes publish exact media, charset, encoding, and configured byte ceilings. Live configured discovery and ETag match the exported snapshot. |
-| `c0216a5` / `UPSTREAM-HTTP-REQUEST-BODY-POLICY-088` | Method/body relationship binding | `PASS` | The declared fail-closed relationship validates all 54 rows and rejects null-on-POST, body-on-GET, and both isolated method/body substitutions. |
-| `2e7bdbb` / `UPSTREAM-RPC-REQUEST-SCHEMA-089` | JSON-RPC request envelope discovery | `FAIL` | `rpc_request_v1` sets `method.minimumLength=1`, but live runtime accepts `{ "jsonrpc":"2.0", "id":1, "method":"" }` as a structurally valid envelope and returns `-32601 Method not found`; missing method and wrong version return `-32600 Invalid Request`. |
+| `7a048bd` / `UPSTREAM-RPC-REQUEST-SCHEMA-089` | JSON-RPC empty-method parity repair | `PASS` | Independent discovery evaluation accepts five positive envelope families including the empty method and rejects seven invalid families. Live HTTP returns `-32601` for empty/nonempty unknown methods and `-32600` for missing method/wrong version. |
+| `9179134` / `UPSTREAM-REQUEST-BODY-SCHEMA-BINDING-090` | Request-body schema identity binding | `PASS` | The declared fail-closed relationship validates all 54 real routes, binds `/rpc` exactly to cataloged `rpc_request_v1`, preserves null preparation schema identities, and rejects RPC-null, RPC-unknown, preparation-nonnull, and future-route unknown-catalog contradictions. |
 
-- Available DEV delta: exactly three distinct committed outcomes exist after `3cb67aa`, in `9ddb81c`, `c0216a5`, and `2e7bdbb`; the root DEV writer lock appeared during the first validation attempt, so QC discarded all mixed-state evidence, waited for release, refreshed the complete delta, and reran every tier against stable `2e7bdbb`. No additional distinct DEV outcome exists.
-- Verification result: 2 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across the three distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 17; the stable delta contains exactly three distinct outcomes, and splitting 54 routes, three POST routes, four contradictions, or individual RPC envelope cases into synthetic outcomes would be padding.
-- Validation: independent request-policy and RPC-envelope harness PASS for IDs 087–088 and FAIL for the empty-method parity boundary in ID 089; focused current regressions 2/2 PASS; focused dialect binding 2/2 PASS; focused RPC/query-contract 24/24 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. The response-schema registry digest changed to `5435cc3703109956765ced3ae223b11d0120b38e8c5c1312c2852b5c60e0dd2f` and the default complete contract digest changed to `a8fa0c768c434f531aa1a7c7d863a597a5a56bbc372858971ad3ea3c03e6fb9f`. Full suite 474/474 PASS; syntax 87/87 PASS; replay invariants PASS at 8,994.81 blocks/s with 9,382,344-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 770,056,809 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `f7efa07`, in `7a048bd` and `9179134`. A root DEV writer lock appeared after the first validation, so QC discarded all provisional evidence, waited for release, refreshed the complete delta, and reran every tier against stable `9179134`. No additional distinct DEV outcome exists.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting 54 routes, four binding contradictions, or individual RPC envelope cases into synthetic outcomes would be padding.
+- Validation: independent RPC-envelope and request-schema-binding harness PASS across five positive envelopes, seven invalid envelopes, all 54 routes, four binding contradictions, and four live RPC result-code boundaries; focused current regressions 5/5 PASS. Complete contract digest is `ddba22daca495ab06afa13b6960cd71e696062920596dd214d7743776c598e18`. Full suite 474/474 PASS; syntax 87/87 PASS; replay invariants PASS at 4,049.65 blocks/s with 9,629,584-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 798,827,999 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2938,16 +2937,29 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 
 ## UPSTREAM-RPC-REQUEST-SCHEMA-089
 
-- Severity: `FAIL` / `MEDIUM`
+- Severity: `PASS` (delivered by `7a048bd`)
 - Owner: `DEV`
 - Reproduction: start the local server with a high bounded request quota; POST `{ "jsonrpc": "2.0", "id": 1, "method": "" }` to `/rpc`; compare the JSON-RPC response with `requestBodySchemas.rpc_request_v1.oneOf[0].properties.method`. Repeat with the `method` member omitted and with a nonempty unknown method.
-- Evidence: discovery sets `method.minimumLength` to 1 and therefore rejects the empty string. Live runtime returns HTTP 200 with error `-32601 Method not found` for both the empty and nonempty unknown method, proving the envelope passed structural admission and reached method lookup. Omitting `method` or using JSON-RPC version `1.0` returns `-32600 Invalid Request`. Independent controls accept single, extension-bearing/null-ID/null-params, one-item batch, and 100-item batch envelopes; empty and 101-item batches, missing fields, wrong version, and object IDs reject as published.
+- Evidence: discovery now requires only a string for `method` and therefore admits the runtime-valid empty string. Live runtime returns HTTP 200 with error `-32601 Method not found` for both empty and nonempty unknown methods. Omitting `method` or using JSON-RPC version `1.0` returns `-32600 Invalid Request`. Independent controls accept five positive envelope families and reject seven invalid families while preserving batch bounds 1–100.
 - Affected contracts: `/rpc.requestBody.bodySchema`, `requestBodySchemas.rpc_request_v1`, generated RPC SDK preflight, contract digest/ETag, support diagnostics, batch safety, and runtime/discovery compatibility.
-- Expected versus actual behavior: a schema advertised as mirroring runtime envelope admission must accept every structurally admitted runtime envelope or runtime must reject the same value as `-32600`. Current discovery rejects `method: ""`, while runtime admits it and reports method lookup failure.
-- Acceptance criteria: align discovery and runtime on the empty method boundary; preserve nonempty unknown-method `-32601`, missing/wrong-envelope `-32600`, extension members, string/integer/null IDs, optional array/object/null params, single requests, and batch bounds 1–100; add a live HTTP regression that distinguishes envelope rejection from method lookup.
-- Validation results: independent live parity harness FAIL on exactly the empty-method boundary; all other published positive and negative envelope controls pass. The committed focused current regressions 2/2, dialect binding 2/2, RPC/query-contract 24/24, and full 474/474 pass because they reimplement `minimumLength: 1` instead of comparing that boundary with live runtime.
-- Compatibility/performance impact: aligning discovery by removing the non-runtime minimum changes digest/ETag but not runtime; alternatively tightening runtime changes the JSON-RPC error code for empty method. Neither path affects bounded batch size or request-body limits.
-- Blockers: none; deterministic credential-free local reproduction.
+- Expected versus actual behavior: discovery and runtime now agree that an empty string is a structurally valid method which proceeds to method lookup and yields `-32601`; malformed envelopes remain `-32600`.
+- Acceptance criteria: align discovery and runtime on the empty method boundary; preserve nonempty unknown-method `-32601`, missing/wrong-envelope `-32600`, extension members, string/integer/null IDs, optional array/object/null params, single requests, and batch bounds 1–100; add a live HTTP regression that distinguishes envelope rejection from method lookup. All criteria are met.
+- Validation results: independent live parity harness PASS across five positive families, seven invalid families, and four live result-code boundaries; focused current regressions 5/5, full 474/474, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+- Compatibility/performance impact: the discovery-only relaxation changes digest/ETag but not runtime, bounded batch size, quotas, request-body limits, persistence, providers, WebSocket behavior, or migrations.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-REQUEST-BODY-SCHEMA-BINDING-090
+
+- Severity: `PASS` (delivered by `9179134`)
+- Owner: `DEV`
+- Reproduction: resolve the published `request_body_schema_binding` relationship by its declared path, body, schema, and catalog member names; evaluate all 54 routes; then set `/rpc.bodySchema` to null and an unknown name, set one preparation body schema to `rpc_request_v1`, and assign an unknown name to a synthetic future route.
+- Evidence: `/rpc` is bound exactly to cataloged `rpc_request_v1`; both `/prepare-swap` routes retain null schema identity; all other null policies remain valid; every non-null name must resolve through `requestBodySchemas`. All 54 real routes pass and all four isolated contradictions reject.
+- Affected contracts: query-contract dialect vocabulary, HTTP route request-body discovery, request-schema catalog identity, generated RPC/preparation builders, contract digest/ETag, and fail-closed client validation.
+- Expected versus actual behavior: every non-null route body schema must be a catalog member, `/rpc` must resolve exactly to its envelope schema, and heterogeneous preparation families must remain explicitly unmodeled rather than borrowing an unrelated schema. Expected and actual match.
+- Acceptance criteria: declare the relationship through published member names; bind exact RPC identity; preserve both null preparation identities; validate all 54 routes; reject RPC-null, RPC-unknown, preparation-nonnull, and future-route unknown-catalog contradictions. All criteria are met.
+- Validation results: independent relationship harness PASS across 54 real rows and 4/4 contradictions; focused current regressions 5/5, full 474/474, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+- Compatibility/performance impact: additive fail-closed dialect vocabulary changes digest/ETag but not HTTP/RPC bytes, request admission, quotas, ingestion, persistence, providers, WebSocket behavior, migrations, or configuration.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
@@ -2995,7 +3007,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 770,056,809 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 798,827,999 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
