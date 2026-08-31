@@ -2278,3 +2278,13 @@
 - Compatibility/migration/configuration: test-only reliability improvement; HTTP, RPC, WebSocket, ingestion, persistence, providers, schemas, contract digest/ETag, migrations, and configuration are unchanged.
 - Remaining boundary: the high-priority Meteora quote payload provenance gap remains open; live qualification remains blocked on canonical operational evidence.
 - NEXT_WEB_ACTION: continue treating volume `startTime` and `endTime` as request-time observations while requiring explicit and omitted window defaults to match on every semantic response field.
+
+## UPSTREAM RPC parameter value schemas
+
+- Selected ID: `UPSTREAM-RPC-PARAMETER-VALUE-SCHEMAS-096` (commercial SDK correctness, client-side diagnostics, RPC efficiency, and supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the dependency-ready remainder of RPC method binding. Method catalogs already exposed parameter names, defaults, and some pagination bounds, but generated clients could not uniformly derive slot, signature, Solana-address, limit, cursor, or nullable mint value rules. QC was consulted after selection and closed IDs 094/095; its high-priority Meteora provenance finding remains valid but requires authenticated producer evidence and key-lifecycle design rather than an unsafe schema label.
+- Contract: every one of the 12 read-only RPC method entries now publishes a required `parameterSchemas` map whose keys exactly equal its required and optional parameter names. The catalog describes safe nonnegative slots, nonempty signatures, canonical Solana-address syntax, integer limits 1–500, canonical bounded nullable cursors, and the owner inventory's nullable optional mint.
+- Validation contract: focused coverage verifies complete/exact key membership for all methods, empty maps for the two zero-parameter methods, every value boundary family, nullable mint semantics, and isolated missing/extra-schema contradictions. Existing named/positional runtime admission remains authoritative and unchanged.
+- Compatibility/migration/configuration: additive discovery changes the query-contract digest/ETag and requires generated validators to accept the new method member. RPC request/result bytes, runtime admission, HTTP, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged.
+- Remaining boundary: method-specific cross-field/cursor scope semantics remain runtime-enforced; authenticated Meteora quote provenance and live operational qualification remain open.
+- NEXT_WEB_ACTION: generate RPC parameter validators from each method's `parameterSchemas` map before transport while preserving the published positional order, named keys, defaults, and unknown-method handling.
