@@ -564,6 +564,8 @@ function validateJsonBodyHeaders(request) {
   if (typeof contentType !== "string" || !/^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i.test(contentType)) { const error = new Error("content-type must be application/json with optional UTF-8 charset"); error.code = "UNSUPPORTED_MEDIA_TYPE"; throw error; }
   if (request.headers["content-encoding"] != null) { const error = new Error("content-encoding is not supported"); error.code = "UNSUPPORTED_MEDIA_TYPE"; throw error; }
 }
+function validPoolPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && /^\d+$/.test(value.amountRaw ?? "") && typeof value.inputMint === "string" && value.inputMint && (value.limitTick == null || Number.isSafeInteger(value.limitTick))); }
+function validTokenPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && /^\d+$/.test(value.amountRaw ?? "") && (value.side == null || value.side === "buy" || value.side === "sell")); }
 function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result }; }
 function rpcError(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }; }
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -801,7 +803,7 @@ export function createServer(config, store) {
       validateUniqueQueryParameters(url); validateTemplatePathParameters(url.pathname); validateAllowedQueryParameters(url);
       if (!methodAllowed) return json(response, 405, { error: "method_not_allowed" }, { allow: postOnlyRoute ? "POST" : "GET", connection: "close" });
       validateRequiredQueryParameters(url);
-      let rpcPayload = null, preparePayload = null; if (bodyRoute) validateJsonBodyHeaders(request); if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request, config.rpcMaxBodyBytes ?? 65_536); else if (preparePoolSwap || prepareCurveSwap) preparePayload = await readJsonBody(request, config.executionMaxBodyBytes ?? 524_288); const requestWeight = Array.isArray(rpcPayload) ? Math.max(1, Math.min(100, rpcPayload.length)) : 1;
+      let rpcPayload = null, preparePayload = null; if (bodyRoute) validateJsonBodyHeaders(request); if (request.method === "POST" && url.pathname === "/rpc") rpcPayload = await readJsonBody(request, config.rpcMaxBodyBytes ?? 65_536); else if (preparePoolSwap || prepareCurveSwap) preparePayload = await readJsonBody(request, config.executionMaxBodyBytes ?? 524_288); if (preparePoolSwap && !validPoolPreparationEnvelope(preparePayload) || prepareCurveSwap && !validTokenPreparationEnvelope(preparePayload)) return json(response, 400, { error: "invalid_prepare_parameters" }); const requestWeight = Array.isArray(rpcPayload) ? Math.max(1, Math.min(100, rpcPayload.length)) : 1;
       if (protectedRoute && requestLimit) {
         const remainingWeight = requestWeight - (baseAdmitted ? 1 : 0); if (remainingWeight > 0) { try { quota = await admitQuota(quotaIdentity, requestLimit, remainingWeight); } catch { return json(response, 503, { error: "distributed_quota_unavailable" }); } } else if (!baseAdmitted) { try { quota = await admitQuota(quotaIdentity, requestLimit, requestWeight); } catch { return json(response, 503, { error: "distributed_quota_unavailable" }); } } auditUnits = requestWeight;
         const remaining = quota.remaining;
@@ -818,7 +820,6 @@ export function createServer(config, store) {
         if (row.sourceHash) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: quality.reason }); }
         const meteora = row.programId === METEORA_DLMM_PROGRAM, orca = row.programId === ORCA_WHIRLPOOL_PROGRAM, clmm = row.programId === RAYDIUM_CLMM_PROGRAM, cpmm = row.programId === RAYDIUM_CPMM_PROGRAM, ammV4 = row.programId === RAYDIUM_AMM_V4_PROGRAM, pumpSwap = row.programId === PUMP_SWAP_PROGRAM, phoenix = row.programId === PHOENIX_PROGRAM, openBook = row.programId === OPENBOOK_V2_PROGRAM;
         if (!meteora && !orca && !clmm && !cpmm && !ammV4 && !pumpSwap && !phoenix && !openBook) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: "unsupported_construction_protocol" });
-        if (!preparePayload || typeof preparePayload !== "object" || Array.isArray(preparePayload) || !/^\d+$/.test(preparePayload.amountRaw ?? "") || typeof preparePayload.inputMint !== "string" || !preparePayload.inputMint) return json(response, 400, { error: "invalid_prepare_parameters" });
         if (((orca || clmm) && !Number.isSafeInteger(preparePayload.limitTick)) || (!(orca || clmm) && preparePayload.limitTick != null)) return json(response, 400, { error: "invalid_prepare_parameters" });
         const snapshot = { schemaVersion: 1, type: meteora ? "meteora_dlmm_pool_snapshot" : orca ? "orca_whirlpool_pool_snapshot" : clmm ? "raydium_clmm_pool_snapshot" : cpmm ? "raydium_cpmm_pool_snapshot" : ammV4 ? "raydium_amm_v4_pool_snapshot" : pumpSwap ? "pump_swap_pool_snapshot" : openBook ? "openbook_market_snapshot" : "phoenix_market_snapshot", commitment: row.commitment, stateSlot: row.stateSlot, openOrdersSlot: row.openOrdersSlot, marketSlot: row.marketSlot, configSlot: row.configSlot, bookSlot: row.bookSlot, oracleSlot: row.oracleSlot, balanceSlot: row.balanceSlot, observedAt: row.observedAt, pools: [row], markets: [row] };
         try {
@@ -831,7 +832,6 @@ export function createServer(config, store) {
         const mint = decodePathParameter(prepareCurveSwap[1]), side = preparePayload?.side ?? "sell", curve = Object.values(store.state.poolSnapshots).find((row) => row?.programId === PUMP_PROGRAM && row.mint === mint);
         if (!curve) return json(response, 404, { error: "bonding_curve_snapshot_not_found" });
         if (curve.sourceHash) { const quality = store.snapshotQuality(); if (!quality.canonical) return json(response, 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: quality.reason }); }
-        if (!preparePayload || typeof preparePayload !== "object" || Array.isArray(preparePayload) || !new Set(["buy", "sell"]).has(side) || !/^\d+$/.test(preparePayload.amountRaw ?? "")) return json(response, 400, { error: "invalid_prepare_parameters" });
         try {
           const quote = side === "buy" ? store.buyRouteQuote(mint, preparePayload.amountRaw, config.staleAfterMs) : store.sellRouteQuote(mint, preparePayload.amountRaw, config.staleAfterMs);
           if (quote.available !== true) return json(response, quote.reason === "invalid_amount" ? 400 : 503, { schemaVersion: 1, prepared: false, automationSafe: false, reason: quote.reason, missing: quote.missing });
