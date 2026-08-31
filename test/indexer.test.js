@@ -210,6 +210,18 @@ test("machine-readable query contracts publish canonical HTTP and WebSocket buil
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`, { headers: { "if-none-match": '"unrelated"' } })).status, 200);
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts?version=1`)).status, 400);
 });
+test("query discovery publishes runtime-accurate request body policies", async (t) => {
+  const config = { rpcMaxBodyBytes: 1_024, executionMaxBodyBytes: 16_384 }, contract = queryContractSnapshot(config), routes = new Map(contract.http.map((route) => [route.path, route]));
+  const common = { required: true, mediaType: "application/json", charset: "utf-8", charsetOptional: true, contentEncodingAllowed: false };
+  assert.deepEqual(routes.get("/rpc").requestBody, { ...common, maximumBytes: 1_024 });
+  for (const path of ["/internal/pools/{pool}/prepare-swap", "/internal/tokens/{mint}/prepare-swap"]) assert.deepEqual(routes.get(path).requestBody, { ...common, maximumBytes: 16_384 }, path);
+  assert.equal(contract.http.filter(({ requestBody }) => requestBody !== null).length, 3);
+  assert.equal(contract.http.filter(({ method, requestBody }) => method === "GET" && requestBody === null).length, 51);
+  const schema = contract.responseBodySchemas.query_contracts_success_v1.properties.http.items;
+  assert.ok(schema.required.includes("requestBody")); assert.deepEqual(schema.properties.requestBody.required, ["required", "mediaType", "charset", "charsetOptional", "contentEncodingAllowed", "maximumBytes"]); assert.equal(schema.properties.requestBody.additionalProperties, false);
+  const store = new IndexStore("unused"); await store.load(); const server = createServer(config, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/query-contracts`), live = await response.json(); assert.equal(response.status, 200); assert.deepEqual(live, contract); assert.equal(response.headers.get("etag"), `"${contract.contractSha256}"`);
+});
 test("published HTTP value profiles are enforced before route state", async (t) => {
   const contract = queryContractSnapshot(), byPath = new Map(contract.http.map((route) => [route.path, route])), candle = byPath.get("/api/v1/candles/{pool}"), bot = byPath.get("/api/v1/bot/readiness"); assert.equal(candle.parameterConstraints.interval, "interval"); assert.equal(bot.parameterConstraints.pool, "collectionFilter");
   const interval = contract.valueConstraints[candle.parameterConstraints.interval], collectionFilter = contract.valueConstraints[bot.parameterConstraints.pool]; assert.deepEqual(interval.values, ["60", "300", "900", "3600", "14400", "86400"]); assert.deepEqual(collectionFilter, { kind: "string", minimumLength: 1, maximumLength: 64, lengthUnit: "utf16_code_units", controlCharactersAllowed: false });
