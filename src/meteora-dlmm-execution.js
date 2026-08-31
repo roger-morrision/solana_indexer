@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
+import { decodeMeteoraBinArrayAccount, METEORA_DLMM_PROGRAM } from "./meteora-dlmm-pool-snapshot.js";
 import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
@@ -51,6 +51,20 @@ function selectBinArrays(quote, pool) {
   const selected = quote.binArrayIndexes.map((index) => byIndex.get(index));
   if (selected.some((row) => typeof row?.address !== "string" || !row.address) || new Set(selected.map((row) => row.address)).size !== selected.length) throw new Error("Meteora execution requires every quoted finalized bin array");
   return selected;
+}
+
+export function verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts }) {
+  if (!Array.isArray(quote?.binTraversal) || !quote.binTraversal.length || !Array.isArray(accounts) || accounts.length !== new Set(quote.binTraversal.map((row) => row.binArrayAddress)).size) throw new Error("Meteora finalized bin-array verification evidence is incomplete");
+  const byAddress = new Map(accounts.map((source) => [source?.address, source])); if (byAddress.size !== accounts.length) throw new Error("Meteora finalized bin-array verification evidence is duplicated");
+  const arrays = [];
+  for (const row of quote.binTraversal) {
+    if (arrays.some((array) => array.address === row.binArrayAddress)) continue;
+    const source = byAddress.get(row.binArrayAddress); if (source?.commitment !== "finalized" || !Number.isSafeInteger(source.slot) || source.slot < row.binArraySlot || source.owner !== METEORA_DLMM_PROGRAM || typeof source.rawHex !== "string" || !/^(?:[0-9a-f]{2}){10136}$/.test(source.rawHex)) throw new Error("Meteora finalized bin-array account evidence is invalid");
+    const decoded = decodeMeteoraBinArrayAccount(source.address, { owner: source.owner, data: [Buffer.from(source.rawHex, "hex").toString("base64"), "base64"] }, pool?.address);
+    if (decoded.index !== row.binArrayIndex || decoded.rawPayloadHash !== row.binArrayPayloadHash) throw new Error("Meteora finalized bin-array account identity does not match quote"); arrays.push(decoded);
+  }
+  const reproduced = quoteMeteoraDlmmSnapshotExactInput({ snapshot: { type: "meteora_dlmm_pool_snapshot", commitment: "finalized", stateSlot: quote.stateSlot, balanceSlot: quote.balanceSlot, observedAt: quote.observedAt, pools: [{ ...pool, binArrays: arrays }] }, poolAddress: pool?.address, inputMint: quote.inputMint, amountIn: quote.amountInRaw, now: quote.calculatedAtUnixMs, staleAfterMs: Number.MAX_SAFE_INTEGER });
+  if (!isDeepStrictEqual(reproduced, quote)) throw new Error("Meteora quote does not match independently decoded finalized bin arrays"); return true;
 }
 
 export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null, transferHookAccountData = null }) {
