@@ -1,26 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T17:35:52.564+07:00`
+- Run: `2026-08-31T18:36:53.646+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `bab5505055af473aefef1bb37f1c06402a4bd845`
-- Compared with QA baseline: `ab5518bc841816837819d513ea6e970ae1acd964` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 218 ahead, 0 behind before this evidence report
-- Latest DEV commit: `bab5505` (RPC method-result binding)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-PARAMETER-NULL-BINDING-102` binds null/omission semantics to required and optional parameter schemas; `UPSTREAM-RPC-METHOD-RESULT-BINDING-103` binds all 12 methods one-to-one to the closed result-schema catalog. Reconciliation is 141 PASS, 1 FAIL, and 1 BLOCKED across 143 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `29b98da8df36a49c6226cbbf8381a707603ab2db`
+- Compared with QA baseline: `7f95134dc0d48c22685085b6666fbc340de02032` (2 DEV commits, 3 DEV-changed files)
+- Compared with `origin/main`: 221 ahead, 0 behind before this evidence report
+- Latest DEV commit: `29b98da` (RPC protocol error catalog)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-METHOD-ERROR-CATALOG-104` publishes exact retry semantics for all 12 method-specific error catalogs; `UPSTREAM-RPC-PROTOCOL-ERROR-CATALOG-105` publishes the two nonretryable envelope-level outcomes and binds them to the live dispatcher. Reconciliation is 143 PASS, 1 FAIL, and 1 BLOCKED across 145 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### RPC optional-null and method-result binding (2 PASS)
+### RPC method and protocol error catalogs (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `839361e` / `UPSTREAM-RPC-PARAMETER-NULL-BINDING-102` | Required-null rejection and optional-null omission | `PASS` | All 11 optional members across five methods are nullable and explicit null equals omission in named and positional styles 22/22; all required schemas exclude null and 18/18 real required-null requests reject with exact `-32602`. |
-| `bab5505` / `UPSTREAM-RPC-METHOD-RESULT-BINDING-103` | Exact method/result-schema catalog identity | `PASS` | All 12 methods reference unique cataloged result schemas with exact key-set equality. Unknown, duplicate, missing, and extra identities reject 4/4; 12/12 live method results satisfy their resolved top-level schema variants. |
+| `52df225` / `UPSTREAM-RPC-METHOD-ERROR-CATALOG-104` | Exact per-method errors and retry policy | `PASS` | All 12 methods publish exact closed catalogs with 32 total descriptors. Independent validation rejects 7/7 malformed catalogs; 12/12 live invalid-parameter requests bind to `-32602`, and all ten indexed-data methods bind corrupt state to retryable `-32000`. |
+| `29b98da` / `UPSTREAM-RPC-PROTOCOL-ERROR-CATALOG-105` | Exact envelope-level errors and retry policy | `PASS` | Discovery and bootstrap publish exactly nonretryable `-32600 Invalid Request` and `-32601 Method not found`. Independent validation rejects 7/7 malformed catalogs and both real dispatcher responses match 2/2. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `ab5518b`, in `839361e` and `bab5505`; no additional distinct committed outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `7f95134`, in `52df225` and `29b98da`; no additional distinct committed outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting nullable members, request styles, methods, schema identities, or mutations into additional outcomes would be padding.
-- Validation: independent null binding proves 22/22 named/positional optional-null parity checks and 18/18 required-null rejections. Independent result binding accepts the exact 12-way bijection, rejects 4/4 isolated catalog contradictions, and validates 12/12 live result top-level variants. Focused committed tests 12/12 PASS. Complete contract digest is `297bfba5cff3047e953ab131b9ab9c4d2f7dc1e7ee9e263337289cd5c3a83edc`. Full suite 482/482 PASS; syntax 87/87 PASS; replay invariants PASS at 7,811.77 blocks/s with 9,671,856-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 827,635,564 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting descriptors, methods, response bindings, or corruption vectors into additional outcomes would be padding.
+- Validation: independent method-error validation accepts all 12 catalogs and 32 descriptors, rejects 7/7 malformed catalogs, and binds 12/12 invalid-parameter plus 10/10 corrupt-index responses. Independent protocol validation accepts the exact two-entry catalog, rejects 7/7 malformed catalogs, and binds 2/2 real dispatcher responses. Focused committed tests 3/3 PASS. Complete contract digest is `a0642fadf60acc3b42d697a4cbbc7290825963254819f5290e0be271273d3720`. Full suite 484/484 PASS; syntax 87/87 PASS; replay invariants PASS at 6,614.69 blocks/s with 9,801,408-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 831,296,646 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded provisional evidence when the DEV writer lock appeared and reran every tier only after final `29b98da` was stable and unlocked.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -3018,6 +3018,32 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-RPC-METHOD-ERROR-CATALOG-104
+
+- Severity: `PASS` (delivered by `52df225`)
+- Owner: `DEV`
+- Reproduction: enumerate all 12 `rpc.methods` entries and compare each closed `errors` array with the live dispatcher outcomes. Corrupt cardinality, uniqueness, code, message, retryability, and unknown-field boundaries; then invoke every method with invalid parameters and force noncanonical index structure for all ten indexed-data methods.
+- Evidence: all 12 methods publish exact nonretryable `-32602 Invalid params`; the ten indexed-data methods additionally publish retryable `-32000 Index state unavailable` and one exact retryable evidence-unavailable outcome from `-32001` through `-32005`. The catalogs contain 32 descriptors total with unique per-method codes and closed three-field entries.
+- Affected contracts: all read-only RPC methods, generated retry policy and error unions, client construction diagnostics, index-unavailable handling, evidence-unavailable handling, query-contract digest/ETag, and commercial support tooling.
+- Expected versus actual behavior: generated clients can distinguish nonretryable request defects from retryable state/evidence conditions using exact method membership, codes, and messages. Expected and actual match.
+- Acceptance criteria: publish a required closed error catalog for every method; retain exact runtime code/message identity and retry semantics; reject malformed catalogs; bind invalid parameters and corrupt index structure to their published descriptors. All criteria are met.
+- Validation results: all 12 catalogs and 32 descriptors PASS; independent malformed catalogs reject 7/7; live invalid-parameter bindings pass 12/12; live corrupt-index bindings pass 10/10; focused committed coverage PASS. Full suite 484/484, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: additive required method metadata changes discovery digest/ETag and generated-client requirements only. Runtime JSON-RPC bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration are unchanged. Evaluation is bounded by 12 methods and at most three descriptors each.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-RPC-PROTOCOL-ERROR-CATALOG-105
+
+- Severity: `PASS` (delivered by `29b98da`)
+- Owner: `DEV`
+- Reproduction: resolve `rpc.protocolErrors` from the snapshot and bootstrap schema; mutate cardinality, uniqueness, code, message, retryability, and closed-member boundaries; then send a JSON-RPC 1.0 envelope and an unknown JSON-RPC 2.0 method to the real dispatcher.
+- Evidence: discovery publishes exactly `{code:-32600,message:"Invalid Request",retryable:false}` and `{code:-32601,message:"Method not found",retryable:false}`. The bootstrap requires the fixed two-entry closed catalog. The real dispatcher returns the exact error pair while preserving request ids and JSON-RPC 2.0 envelopes.
+- Affected contracts: malformed-envelope and unknown-method handling, generated protocol error unions, deterministic nonretryable behavior, query-contract digest/ETag, and RPC support diagnostics.
+- Expected versus actual behavior: protocol-level client defects are discoverable independently of method-level failures and are never marked retryable without request correction. Expected and actual match.
+- Acceptance criteria: publish the exact closed two-entry catalog; require it in bootstrap discovery; reject missing, extra, duplicate, foreign, mislabeled, retryable, and credential-bearing variants; bind both descriptors to live dispatcher responses. All criteria are met.
+- Validation results: exact catalog and bootstrap identity PASS; independent malformed catalogs reject 7/7; live dispatcher bindings pass 2/2; focused committed coverage PASS. Full suite 484/484, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: one additive fixed-cardinality discovery member changes digest/ETag and generated-client requirements only. Runtime responses, methods, REST, WebSocket, persistence, providers, migrations, and configuration are unchanged.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-RPC-PARAMETER-NULL-BINDING-102
 
 - Severity: `PASS` (delivered by `839361e`)
@@ -3155,7 +3181,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 827,635,564 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 831,296,646 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
