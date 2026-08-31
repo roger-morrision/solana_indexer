@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T22:35:27.401+07:00`
+- Run: `2026-08-31T23:36:58.349+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `9c2d198fc318d80dac54cdc1b31eb6442f983ef7`
-- Compared with QA baseline: `4135ab38287a34ca45af7bf209710f0e08f74652` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 233 ahead, 0 behind before this evidence report
-- Latest DEV commit: `9c2d198` (bounded preparation execution amounts)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PREPARATION-VALUE-ADMISSION-112` evaluates every published pool/token preparation property against its type and bounds before state lookup. `UPSTREAM-PREPARATION-U64-BOUNDS-113` applies canonical positive/nonnegative u64 domains to all eight execution-amount schema positions and runtime bindings. Reconciliation is 151 PASS, 1 FAIL, and 1 BLOCKED across 153 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `3d240f3318999459147fc954fc376f1bc51ee21c`
+- Compared with QA baseline: `0aaf08a2a25326270380ff7ec00fa0044efdf04f` (2 DEV commits, 3 DEV-changed files)
+- Compared with `origin/main`: 236 ahead, 0 behind before this evidence report
+- Latest DEV commit: `3d240f3` (finalized transfer-hook request evidence)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PREPARATION-BASE58-IDENTITY-114` binds every preparation identity to canonical decoded 32-byte Solana base58 before lookup. `UPSTREAM-PREPARATION-TRANSFER-HOOK-MAP-115` closes the nullable Token-2022 transfer-hook account map, its finalized evidence rows, address-key equality, byte length, and SHA-256 payload binding. Reconciliation is 153 PASS, 1 FAIL, and 1 BLOCKED across 155 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### Swap-preparation value and u64 admission (2 PASS)
+### Preparation identity and transfer-hook evidence admission (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `f737b02` / `UPSTREAM-PREPARATION-VALUE-ADMISSION-112` | Published property validation before lookup | `PASS` | Both schemas retain exact closed 36-property catalogs. Three required omissions and all invalid type, enum, pattern, length, integer, object/null, and adjacent-boundary vectors return exact HTTP 400; 77 schema-valid variants reach the expected missing-resource boundary without state mutation. |
-| `9c2d198` / `UPSTREAM-PREPARATION-U64-BOUNDS-113` | Canonical bounded execution amounts | `PASS` | All eight trade, minimum-output, and pre-balance positions publish exact positive/nonnegative u64 schemas; 8/8 corrupted variants reject. Sixteen inclusive endpoint bindings pass and 76 zero/negative/alias/decimal/overflow/wrong-type bindings reject before lookup. |
+| `e5dfa18` / `UPSTREAM-PREPARATION-BASE58-IDENTITY-114` | Canonical Solana identities before lookup | `PASS` | Pool/token request schemas publish `solana-public-key` with 32–44-character lexical bounds for every mint, signer, token-account, fee-recipient, optional account, admin, and recent-blockhash identity. The live admission harness accepts canonical decoded 32-byte identities and rejects 32 invalid field/value bindings spanning short names, forbidden alphabet, truncated input, and oversized input before state lookup. |
+| `3d240f3` / `UPSTREAM-PREPARATION-TRANSFER-HOOK-MAP-115` | Closed finalized transfer-hook account map | `PASS` | Discovery caps the map at 512 canonical address keys and each closed row at eight required evidence fields, finalized commitment, safe slot, 65,536 raw bytes, exact byte length, and SHA-256 digest. The live route accepts the valid map and rejects 10/10 isolated key, unknown-field, address, commitment, slot, owner, raw-hex, length, digest, and version contradictions before lookup. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `4135ab3`, in `f737b02` and `9c2d198`; no additional distinct committed outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `0aaf08a`, in `e5dfa18` and `3d240f3`; no additional distinct committed outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
 - Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting routes, property names, schema positions, value classes, or boundary vectors into additional outcomes would be padding.
-- Validation: independent preparation validation covers both closed schemas and all 36 published properties, rejects three required omissions and 219 invalid variants, and admits 77 valid variants before the expected missing-resource boundary. Independent u64 validation confirms eight exact schema positions, rejects 8/8 corrupted schemas, admits 16 inclusive endpoint bindings, and rejects 76 zero/negative/alias/decimal/overflow/wrong-type bindings. The harness observes no index-state mutation. Focused committed tests 3/3 PASS. Complete contract digest is `de811fe40fb3f731c58d19d97ddbaa7cff5abf7604af98d268597eb6bfd94fa1`. Full suite 492/492 PASS; syntax 87/87 PASS; replay invariants PASS at 5,345.56 blocks/s with 9,648,808-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures, is 406,432 slots behind, and is 820,410,103 ms old from its raw UTC `observedAt` timestamp at this trigger; earlier timezone-shifted age displays are superseded. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded all provisional `f737b02` evidence when the DEV writer lock appeared and reran every tier only after final `9c2d198` was stable and unlocked.
+- Validation: independent schema/runtime inspection covers every preparation identity and the complete nested transfer-hook map. Focused committed tests 5/5 PASS, including 32 invalid identity bindings and 10 isolated transfer-hook contradictions. Full suite 483/483 PASS; syntax 87/87 PASS; replay invariants PASS at 4,275.57 blocks/s with 9,652,184-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures, is 406,432 slots behind, and is 824,101,051 ms old from its raw UTC `observedAt` timestamp at this trigger; earlier timezone-shifted age displays are superseded. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded all provisional `e5dfa18` evidence when the DEV writer lock appeared and reran every tier only after final `3d240f3` was stable and unlocked.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Swap-preparation value and u64 admission (2 PASS)
+
+- Prior exact shortfall: 18. `UPSTREAM-PREPARATION-VALUE-ADMISSION-112` and `UPSTREAM-PREPARATION-U64-BOUNDS-113` remain PASS; the prior independent request-schema, boundary, full-suite, syntax, replay, and fail-closed operational evidence remains retained.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -3239,6 +3245,32 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: explicit empty cursor changes from accidental first-page success to non-retryable invalid params; canonical cursors, null, omission, runtime scope/retained-record checks, and bounded validation remain compatible.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-PREPARATION-BASE58-IDENTITY-114
+
+- Severity: `PASS` (delivered by `e5dfa18`)
+- Owner: `DEV`
+- Reproduction: resolve both preparation request schemas, enumerate every identity-bearing property, then submit canonical 32-byte base58 and four invalid identity classes through required, ordinary optional, and nullable optional fields on both live preparation routes before any resource exists.
+- Evidence: every mint, user, token-account, fee-recipient, optional account, admin, and recent-blockhash position publishes built-in `solana-public-key` format plus 32–44-character lexical bounds. Runtime decodes every non-null value and requires exactly 32 bytes. Canonical controls reach the expected missing-resource boundary; all 32 invalid field/value bindings return exact `400 invalid_prepare_parameters` before lookup.
+- Affected contracts: pool and token preparation discovery/admission, every unsigned venue constructor, generated clients, resource-probe resistance, deterministic request diagnostics, contract digest/ETag, and signer/account safety.
+- Expected versus actual behavior: all non-null preparation identities must be canonical base58 strings decoding to exactly 32 bytes, while the published nullable fields retain null. Expected and actual match.
+- Acceptance criteria: cover every identity position in both closed schemas; retain canonical addresses and nullable omission; reject empty, alphabet-invalid, truncated, oversized, and wrong-decoded-length values before lookup; preserve response, persistence, provider, RPC/WebSocket, migration, and configuration compatibility. All criteria are met.
+- Validation results: focused current preparation tests 5/5 PASS; live identity negatives 32/32 reject; full suite 483/483, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: invalid identities now fail earlier with deterministic HTTP 400; valid constructors and bounded base58 decoding are unchanged. No replay or full-suite regression is observed.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-PREPARATION-TRANSFER-HOOK-MAP-115
+
+- Severity: `PASS` (delivered by `3d240f3`)
+- Owner: `DEV`
+- Reproduction: resolve `transferHookAccountData` from `pool_prepare_swap_request_v1`; submit one valid finalized row, then independently corrupt the map key, add an unknown credential-like member, mismatch the row address, downgrade commitment, underflow slot, corrupt owner, use noncanonical raw hex, mismatch byte length, mismatch SHA-256, and change schema version.
+- Evidence: the nullable map is capped at 512 canonical address keys. Each value is a closed eight-field record binding version 1, equal address, finalized commitment, safe slot, canonical owner, at most 65,536 lowercase raw bytes, exact decoded byte length, and SHA-256 payload hash. The valid live control reaches the expected missing-pool boundary; all 10 isolated contradictions return exact `400 invalid_prepare_parameters` before lookup.
+- Affected contracts: Token-2022 transfer-hook preparation evidence, Meteora unsigned construction, request-body schema dialect, generated validators, secret redaction, finalized provenance, request amplification bounds, and contract digest/ETag.
+- Expected versus actual behavior: only a bounded canonical address map containing closed finalized content-bound rows may reach pool lookup and construction. Expected and actual match.
+- Acceptance criteria: retain omission/null and valid Meteora evidence; enforce canonical keys and owners, key/address equality, finalized commitment, safe slot, closed membership, raw-byte canonicality and cap, exact length, SHA-256, and 512-entry map cap before lookup; reject credential-bearing and malformed maps. All criteria are met.
+- Validation results: focused current preparation tests 5/5 PASS; valid live control PASS and isolated contradictions 10/10 reject; full suite 483/483, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: valid finalized maps remain compatible; invalid maps fail earlier. Validation is bounded by 512 entries and 65,536 bytes per entry; no replay or full-suite regression is observed.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -3285,7 +3317,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 820,410,103 ms old from its raw UTC timestamp at this trigger, so it is not active evidence; earlier timezone-shifted age displays are superseded.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 824,101,051 ms old from its raw UTC timestamp at this trigger, so it is not active evidence; earlier timezone-shifted age displays are superseded.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
