@@ -2442,3 +2442,11 @@
 - Contract: both preparation handlers now evaluate required presence, exact property membership, declared scalar/object/null type, enumeration, pattern, length, and numeric bounds directly from their published request schema before state lookup.
 - Compatibility/migration/configuration: schema-valid constructor inputs remain unchanged. Malformed optional values that previously reached resource lookup or failed later as unavailable now receive deterministic `400 invalid_prepare_parameters`; responses, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: validate every preparation property against its published type and bounds locally, classifying violations as nonretryable request-construction errors.
+
+## UPSTREAM preparation u64 bounds
+
+- Selected ID: `UPSTREAM-PREPARATION-U64-BOUNDS-113` (unsigned-construction safety, deterministic client diagnostics, bounded parsing, and commercial API parity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining numeric admission gap. Preparation discovery and early runtime checks accepted zero execution amounts and digit strings beyond Solana's u64 domain, deferring rejection until resource lookup or venue construction.
+- Contract: requested trade and minimum-output amounts are positive canonical u64 strings; pre-balance values are canonical nonnegative u64 strings. Discovery publishes 20-character and exact raw bounds, and runtime evaluates those same bounds before lookup.
+- Compatibility/migration/configuration: valid u64 preparations are unchanged, including zero pre-balances and the inclusive u64 maximum. Zero trade/minimum-output values, leading-zero aliases, and overflow now receive deterministic `400 invalid_prepare_parameters`; responses, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: generate canonical preparation amount strings within the published u64 bounds and reject zero execution amounts, leading-zero aliases, and overflow locally.
