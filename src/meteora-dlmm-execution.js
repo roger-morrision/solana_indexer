@@ -18,6 +18,8 @@ const U64_MAX = (1n << 64n) - 1n;
 function integer(value, label) { let parsed; try { parsed = BigInt(value); } catch { throw new Error(`${label} is invalid`); } if (parsed < 0n || parsed > U64_MAX) throw new Error(`${label} is invalid`); return parsed; }
 function u64(value) { const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(value); return bytes; }
 function meta(address, signer, writable) { if (typeof address !== "string" || !address) throw new Error("Meteora execution account is missing"); return { address, signer, writable }; }
+function canonicalJson(value) { if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`; if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`; return JSON.stringify(value); }
+function poolEvidenceHash(pool) { return crypto.createHash("sha256").update(canonicalJson(pool)).digest("hex"); }
 function deriveEventAuthority() { return findProgramAddress(METEORA_DLMM_PROGRAM, [Buffer.from("__event_authority")]).address; }
 function encodeRemainingAccountSlices(slices) { const count = Buffer.alloc(4); count.writeUInt32LE(slices.length); return Buffer.concat([count, ...slices.map(({ type, length }) => Buffer.from([type, length]))]); }
 
@@ -81,14 +83,14 @@ export async function acquireAndVerifyMeteoraDlmmQuoteFinalizedAccounts({ client
 export function createMeteoraDlmmQuoteVerificationReceipt({ quote, pool, accounts }) {
   verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts });
   const accountCommitments = accounts.map(({ address, owner, slot, rawHex }) => ({ address, owner, slot, rawPayloadHash: crypto.createHash("sha256").update(Buffer.from(rawHex, "hex")).digest("hex") })).sort((left, right) => left.address.localeCompare(right.address));
-  const receipt = { schemaVersion: 1, type: "meteora_dlmm_quote_verification_receipt", commitment: "finalized", pool: pool.address, binArraySlot: quote.binArraySlot, quoteHash: crypto.createHash("sha256").update(JSON.stringify(quote)).digest("hex"), verification: "owner_decoder_pool_index_payload_hash_exact_quote", accountCommitments };
+  const receipt = { schemaVersion: 1, type: "meteora_dlmm_quote_verification_receipt", commitment: "finalized", pool: pool.address, poolEvidenceHash: poolEvidenceHash(pool), binArraySlot: quote.binArraySlot, quoteHash: crypto.createHash("sha256").update(JSON.stringify(quote)).digest("hex"), verification: "owner_decoder_pool_evidence_index_payload_hash_exact_quote", accountCommitments };
   receipt.receiptHash = crypto.createHash("sha256").update(JSON.stringify(receipt)).digest("hex"); return receipt;
 }
 
 export function verifyMeteoraDlmmQuoteVerificationReceipt({ receipt, quote, pool }) {
   const { receiptHash, ...core } = receipt ?? {}, expectedQuoteHash = crypto.createHash("sha256").update(JSON.stringify(quote)).digest("hex"), expectedReceiptHash = crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex");
   const expectedAccounts = new Map(quote?.binTraversal?.map((row) => [row.binArrayAddress, row.binArrayPayloadHash]) ?? []), actualAddresses = receipt?.accountCommitments?.map((row) => row?.address) ?? [], accountsValid = actualAddresses.length === expectedAccounts.size && new Set(actualAddresses).size === actualAddresses.length && receipt?.accountCommitments?.every((row) => row?.owner === METEORA_DLMM_PROGRAM && row.slot === quote.binArraySlot && row.rawPayloadHash === expectedAccounts.get(row.address));
-  if (receipt?.schemaVersion !== 1 || receipt.type !== "meteora_dlmm_quote_verification_receipt" || receipt.commitment !== "finalized" || receipt.pool !== pool?.address || receipt.binArraySlot !== quote?.binArraySlot || receipt.quoteHash !== expectedQuoteHash || receipt.verification !== "owner_decoder_pool_index_payload_hash_exact_quote" || !accountsValid || receiptHash !== expectedReceiptHash) throw new Error("Meteora quote verification receipt is invalid"); return true;
+  if (receipt?.schemaVersion !== 1 || receipt.type !== "meteora_dlmm_quote_verification_receipt" || receipt.commitment !== "finalized" || receipt.pool !== pool?.address || receipt.poolEvidenceHash !== poolEvidenceHash(pool) || receipt.binArraySlot !== quote?.binArraySlot || receipt.quoteHash !== expectedQuoteHash || receipt.verification !== "owner_decoder_pool_evidence_index_payload_hash_exact_quote" || !accountsValid || receiptHash !== expectedReceiptHash) throw new Error("Meteora quote verification receipt is invalid"); return true;
 }
 
 export function buildMeteoraDlmmSwapInstruction({ quote, pool, user, inputTokenAccount, outputTokenAccount, minimumOutputRaw, bitmapExtension = null, hostFeeAccount = null, transferHookAccountData = null }) {

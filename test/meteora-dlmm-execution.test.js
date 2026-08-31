@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { MAINNET_GENESIS_HASH } from "../src/local-validator-exporter.js";
-import { buildMeteoraDlmmSwapInstruction, createMeteoraDlmmSigningRequest, METEORA_DLMM_EXECUTION_CONSTANTS, prepareMeteoraDlmmSwapSimulation, simulatePreparedMeteoraDlmmSwap, verifyFinalizedMeteoraDlmmSwap, verifyMeteoraDlmmSignedRequest } from "../src/meteora-dlmm-execution.js";
+import { buildMeteoraDlmmSwapInstruction, createMeteoraDlmmSigningRequest, METEORA_DLMM_EXECUTION_CONSTANTS, prepareMeteoraDlmmSwapSimulation, simulatePreparedMeteoraDlmmSwap, verifyFinalizedMeteoraDlmmSwap, verifyMeteoraDlmmQuoteVerificationReceipt, verifyMeteoraDlmmSignedRequest } from "../src/meteora-dlmm-execution.js";
 import { decodeMeteoraBinArrayBitmapExtensionAccount, deriveMeteoraBinArrayBitmapExtension, METEORA_DLMM_PROGRAM } from "../src/meteora-dlmm-pool-snapshot.js";
 import { deriveTransferHookValidationAccount } from "../src/pool-mint-evidence.js";
 import { decodeTransferHookExtraAccountMetaList } from "../src/transfer-hook-evidence.js";
@@ -25,6 +25,13 @@ function fixture() {
   const quote = { schemaVersion: 1, protocol: "meteora-dlmm", status: "quoted", pool: pool.address, inputMint: pool.tokenMint0, outputMint: pool.tokenMint1, swapForY: true, amountInRaw: "1000", consumedInRaw: "1000", amountLeftRaw: "0", amountOutRaw: "900", inputTransferFeeRaw: "0", outputTransferFeeRaw: "0", stateSlot: 100, binArraySlot: 101, balanceSlot: 102, mintEvidenceSlot: 103, epoch: 2, binArrayIndexes: [0] };
   return { pool, quote, user: address(8), inputTokenAccount: address(9), outputTokenAccount: address(10), recentBlockhash: address(11) };
 }
+
+test("Meteora verification receipts reject same-address pool evidence drift", () => {
+  const { pool, quote } = fixture(), payloadHash = "a".repeat(64); quote.binTraversal = [{ binArrayAddress: pool.binArrays[0].address, binArrayPayloadHash: payloadHash }];
+  const canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value), hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
+  const core = { schemaVersion: 1, type: "meteora_dlmm_quote_verification_receipt", commitment: "finalized", pool: pool.address, poolEvidenceHash: hash(canonical(pool)), binArraySlot: quote.binArraySlot, quoteHash: hash(JSON.stringify(quote)), verification: "owner_decoder_pool_evidence_index_payload_hash_exact_quote", accountCommitments: [{ address: pool.binArrays[0].address, owner: METEORA_DLMM_PROGRAM, slot: quote.binArraySlot, rawPayloadHash: payloadHash }] }, receipt = { ...core, receiptHash: hash(JSON.stringify(core)) };
+  assert.equal(verifyMeteoraDlmmQuoteVerificationReceipt({ receipt, quote, pool }), true); const altered = structuredClone(pool); altered.tokenMint0 = address(14); altered.baseFactor = 1; assert.throws(() => verifyMeteoraDlmmQuoteVerificationReceipt({ receipt, quote, pool: altered }), /receipt is invalid/);
+});
 
 test("Meteora legacy swap construction binds official ABI accounts and finalized path evidence", () => {
   const args = fixture(), instruction = buildMeteoraDlmmSwapInstruction({ ...args, minimumOutputRaw: "850" });
