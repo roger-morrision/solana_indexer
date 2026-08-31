@@ -1,26 +1,25 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T09:35:44+07:00`
+- Run: `2026-08-31T10:35:45+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `917913436aa575c89a06f8410dad81bac205e02b`
-- Compared with QA baseline: `f7efa071de49f1178002b39ccee3aa9c74cd5a42` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 195 ahead, 0 behind before this evidence report
-- Latest DEV commits: `7a048bd` (empty-method discovery/runtime parity repair) and `9179134` (request-body schema binding)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-REQUEST-SCHEMA-089` is closed by removing the invented nonempty-method constraint while preserving live JSON-RPC lookup semantics. New `UPSTREAM-REQUEST-BODY-SCHEMA-BINDING-090` passes exact RPC/catalog binding, null preparation identities, all 54 real routes, and four contradiction controls. Reconciliation is 129 PASS, 1 FAIL, and 1 BLOCKED across 131 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `3e61517bb46992006e00c7788d7b9c82ac42c4c9`
+- Compared with QA baseline: `887c3148fb97283e48c8b738dc7d5e59c2d96cf4` (1 DEV commit, 3 changed files)
+- Compared with `origin/main`: 197 ahead, 0 behind before this evidence report
+- Latest DEV commit: `3e61517` (pool and token preparation request-schema discovery)
+- Overall result: 1 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete one-outcome DEV delta. New `UPSTREAM-PREPARATION-REQUEST-SCHEMAS-091` passes independent schema/runtime admission, exact route/catalog binding, open extension handling, safe-integer tick boundaries, token-side semantics, and structural error controls. Reconciliation is 130 PASS, 1 FAIL, and 1 BLOCKED across 132 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (1/20)
 
-### RPC envelope parity and request-schema identity (2 PASS)
+### Preparation request-schema discovery (1 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `7a048bd` / `UPSTREAM-RPC-REQUEST-SCHEMA-089` | JSON-RPC empty-method parity repair | `PASS` | Independent discovery evaluation accepts five positive envelope families including the empty method and rejects seven invalid families. Live HTTP returns `-32601` for empty/nonempty unknown methods and `-32600` for missing method/wrong version. |
-| `9179134` / `UPSTREAM-REQUEST-BODY-SCHEMA-BINDING-090` | Request-body schema identity binding | `PASS` | The declared fail-closed relationship validates all 54 real routes, binds `/rpc` exactly to cataloged `rpc_request_v1`, preserves null preparation schema identities, and rejects RPC-null, RPC-unknown, preparation-nonnull, and future-route unknown-catalog contradictions. |
+| `3e61517` / `UPSTREAM-PREPARATION-REQUEST-SCHEMAS-091` | Pool and token preparation envelopes | `PASS` | Independent evaluation accepts four pool and four token envelope families, rejects eight pool and six token structural negatives, validates all 54 route bindings, rejects three cross-schema bindings, and confirms ten live malformed envelopes return exact `invalid_prepare_parameters` errors. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `f7efa07`, in `7a048bd` and `9179134`. A root DEV writer lock appeared after the first validation, so QC discarded all provisional evidence, waited for release, refreshed the complete delta, and reran every tier against stable `9179134`. No additional distinct DEV outcome exists.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting 54 routes, four binding contradictions, or individual RPC envelope cases into synthetic outcomes would be padding.
-- Validation: independent RPC-envelope and request-schema-binding harness PASS across five positive envelopes, seven invalid envelopes, all 54 routes, four binding contradictions, and four live RPC result-code boundaries; focused current regressions 5/5 PASS. Complete contract digest is `ddba22daca495ab06afa13b6960cd71e696062920596dd214d7743776c598e18`. Full suite 474/474 PASS; syntax 87/87 PASS; replay invariants PASS at 4,049.65 blocks/s with 9,629,584-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 798,827,999 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly one distinct committed outcome exists after `887c314`, in `3e61517`; no additional distinct committed outcome exists.
+- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the one distinct DEV outcome.
+- Exact fix/enhancement shortfall: 19; the stable delta contains exactly one distinct outcome, and splitting its two schemas, 54 route bindings, individual body cases, or live probes into synthetic outcomes would be padding.
+- Validation: independent preparation-envelope harness PASS across four pool positives, eight pool negatives, four token positives, six token negatives, all 54 route bindings, three cross-schema negatives, four live admitted envelopes, and ten live structural rejections; focused current regressions 6/6 PASS. Complete contract digest is `9af875f79bf7bdb338d58fbe78e8c0e587b38d3bea1b836513cff469daabbac8`. Full suite 475/475 PASS; syntax 87/87 PASS; replay invariants PASS at 4,602.50 blocks/s with 9,775,976-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 802,428,875 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2961,6 +2960,19 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: additive fail-closed dialect vocabulary changes digest/ETag but not HTTP/RPC bytes, request admission, quotas, ingestion, persistence, providers, WebSocket behavior, migrations, or configuration.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-PREPARATION-REQUEST-SCHEMAS-091
+
+- Severity: `PASS` (delivered by `3e61517`)
+- Owner: `DEV`
+- Reproduction: resolve `pool_prepare_swap_request_v1` and `token_prepare_swap_request_v1` from the closed request-schema catalog; evaluate their required, optional, type, pattern, enumeration, safe-integer, and extension rules; resolve every route through `request_body_schema_binding`; then send admitted and malformed bodies to both real preparation handlers under canonical injected decision-state controls.
+- Evidence: pool discovery requires decimal-string `amountRaw` and nonempty `inputMint`, optionally admits a safe-integer `limitTick`, and preserves extension fields. Token discovery requires decimal-string `amountRaw`, optionally admits `buy|sell`, defaults omission at runtime, and preserves extension fields. Independent evaluation accepts 4/4 pool and 4/4 token positive families; rejects 8/8 pool and 6/6 token structural negatives; validates all 54 route bindings; rejects 3/3 cross-schema identities; and proves ten live malformed envelopes return HTTP 400 with exact `invalid_prepare_parameters`. Four admitted live envelopes proceed beyond structural admission to bounded quote/construction outcomes. Token zero amount is correctly distinguished as structurally admitted and later rejected by quote semantics with `invalid_amount`.
+- Affected contracts: both unsigned preparation POST routes, route request-body discovery, closed request-schema catalog/bootstrap, generated client validators, safe-integer tick transport, token-side defaults, extension construction fields, contract digest/ETag, and support diagnostics.
+- Expected versus actual behavior: generated clients can validate the route-level envelope without falsely closing protocol-specific construction fields; malformed route envelopes fail before quote/construction logic, while admitted envelopes remain subject to venue and positive-amount semantics. Expected and actual match.
+- Acceptance criteria: publish distinct pool/token identities; preserve runtime-compatible extension fields; accept zero/positive decimal strings, side omission/buy/sell, and safe-integer tick bounds; reject primitive/array/missing/decimal-alias/empty-mint/fractional-or-unsafe-tick/unknown-side inputs; bind exact routes and bootstrap catalog; verify live structural error separation. All criteria are met.
+- Validation results: independent schema/runtime harness PASS across 22 schema cases, 54 real bindings, three cross-binding negatives, four live admitted envelopes, and ten live structural rejections; focused current regressions 6/6, full 475/475, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+- Compatibility/performance impact: additive discovery changes digest/ETag but not runtime preparation admission, unsigned construction, quotas, ingestion, persistence, providers, RPC, WebSocket behavior, migrations, or configuration. Validation remains bounded by existing request-body ceilings.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -3007,7 +3019,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 798,827,999 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 802,428,875 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
