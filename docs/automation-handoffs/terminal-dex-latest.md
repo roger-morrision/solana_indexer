@@ -2434,3 +2434,11 @@
 - Contract: pool and token preparation request schemas now enumerate the complete cross-protocol input union and reject unknown top-level members. Runtime performs the same closed-key admission before state lookup or construction.
 - Compatibility/migration/configuration: every field consumed by the existing Raydium, Orca, Meteora, Phoenix, OpenBook, PumpSwap, and Pump constructors remains admitted. Ignored extensions now receive `400 invalid_prepare_parameters`; response contracts, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged; discovery digest/ETag changes.
 - NEXT_WEB_ACTION: generate preparation bodies only from each closed request schema and reject unknown signer, credential, or policy fields before transport.
+
+## UPSTREAM preparation value admission
+
+- Selected ID: `UPSTREAM-PREPARATION-VALUE-ADMISSION-112` (generated-client parity, trading-safety diagnostics, resource-probe resistance, and unsigned-construction integrity).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining request-schema/runtime mismatch after top-level closure. Discovery constrained every cross-protocol field, but pre-lookup runtime admission enforced only core fields, `limitTick`, and `side`.
+- Contract: both preparation handlers now evaluate required presence, exact property membership, declared scalar/object/null type, enumeration, pattern, length, and numeric bounds directly from their published request schema before state lookup.
+- Compatibility/migration/configuration: schema-valid constructor inputs remain unchanged. Malformed optional values that previously reached resource lookup or failed later as unavailable now receive deterministic `400 invalid_prepare_parameters`; responses, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: validate every preparation property against its published type and bounds locally, classifying violations as nonretryable request-construction errors.

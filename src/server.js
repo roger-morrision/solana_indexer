@@ -583,9 +583,16 @@ function validateJsonBodyHeaders(request) {
   if (typeof contentType !== "string" || !/^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i.test(contentType)) { const error = new Error("content-type must be application/json with optional UTF-8 charset"); error.code = "UNSUPPORTED_MEDIA_TYPE"; throw error; }
   if (request.headers["content-encoding"] != null) { const error = new Error("content-encoding is not supported"); error.code = "UNSUPPORTED_MEDIA_TYPE"; throw error; }
 }
-const POOL_PREPARATION_KEYS = new Set(["amountRaw", "inputMint", "limitTick", "inputPreAmountRaw", "outputPreAmountRaw", "minimumOutputRaw", "recentBlockhash", "user", "userBaseTokenAccount", "userQuoteTokenAccount", "protocolFeeRecipient", "buybackFeeRecipient", "inputTokenAccount", "outputTokenAccount", "bitmapExtension", "hostFeeAccount", "transferHookAccountData", "tokenOwnerAccountA", "tokenOwnerAccountB", "baseTokenAccount", "quoteTokenAccount", "lastValidSlot", "clientOrderId", "penaltyPayer", "openOrdersAdmin"]), TOKEN_PREPARATION_KEYS = new Set(["amountRaw", "side", "inputPreAmountRaw", "outputPreAmountRaw", "minimumOutputRaw", "recentBlockhash", "user", "userBaseTokenAccount", "userQuoteTokenAccount", "protocolFeeRecipient", "buybackFeeRecipient"]);
-function validPoolPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every((key) => POOL_PREPARATION_KEYS.has(key)) && /^\d+$/.test(value.amountRaw ?? "") && typeof value.inputMint === "string" && value.inputMint && (!Object.hasOwn(value, "limitTick") || Number.isSafeInteger(value.limitTick))); }
-function validTokenPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every((key) => TOKEN_PREPARATION_KEYS.has(key)) && /^\d+$/.test(value.amountRaw ?? "") && (!Object.hasOwn(value, "side") || value.side === "buy" || value.side === "sell")); }
+function matchesRequestPropertySchema(rule, value) {
+  const types = Array.isArray(rule.type) ? rule.type : [rule.type], matchesType = types.some((type) => type === "null" ? value === null : type === "string" ? typeof value === "string" : type === "integer" ? Number.isInteger(value) : type === "object" ? Boolean(value && typeof value === "object" && !Array.isArray(value)) : false);
+  if (!matchesType) return false; if (value === null) return true;
+  if (typeof value === "string" && ((rule.minimumLength != null && value.length < rule.minimumLength) || (rule.maximumLength != null && value.length > rule.maximumLength) || (rule.pattern && !new RegExp(rule.pattern).test(value)) || (rule.values && !rule.values.includes(value)))) return false;
+  if (Number.isInteger(value) && ((rule.minimum != null && value < rule.minimum) || (rule.maximum != null && value > rule.maximum))) return false;
+  return true;
+}
+function validRequestBodySchema(schema, value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && schema.required.every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => Object.hasOwn(schema.properties, key) && matchesRequestPropertySchema(schema.properties[key], value[key]))); }
+function validPoolPreparationEnvelope(value) { return validRequestBodySchema(REQUEST_BODY_SCHEMAS.pool_prepare_swap_request_v1, value); }
+function validTokenPreparationEnvelope(value) { return validRequestBodySchema(REQUEST_BODY_SCHEMAS.token_prepare_swap_request_v1, value); }
 function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result }; }
 function rpcError(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }; }
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
