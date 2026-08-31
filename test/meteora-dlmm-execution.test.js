@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { MAINNET_GENESIS_HASH } from "../src/local-validator-exporter.js";
-import { buildMeteoraDlmmSwapInstruction, createMeteoraDlmmSigningRequest, METEORA_DLMM_EXECUTION_CONSTANTS, prepareMeteoraDlmmSwapSimulation, simulatePreparedMeteoraDlmmSwap, verifyFinalizedMeteoraDlmmSwap, verifyMeteoraDlmmQuoteVerificationReceipt, verifyMeteoraDlmmSignedRequest } from "../src/meteora-dlmm-execution.js";
+import { bindMeteoraDlmmVerificationReceiptToPreparation, buildMeteoraDlmmSwapInstruction, createMeteoraDlmmSigningRequest, METEORA_DLMM_EXECUTION_CONSTANTS, prepareMeteoraDlmmSwapSimulation, simulatePreparedMeteoraDlmmSwap, verifyFinalizedMeteoraDlmmSwap, verifyMeteoraDlmmQuoteVerificationReceipt, verifyMeteoraDlmmSignedRequest } from "../src/meteora-dlmm-execution.js";
 import { decodeMeteoraBinArrayBitmapExtensionAccount, deriveMeteoraBinArrayBitmapExtension, METEORA_DLMM_PROGRAM } from "../src/meteora-dlmm-pool-snapshot.js";
 import { deriveTransferHookValidationAccount } from "../src/pool-mint-evidence.js";
 import { decodeTransferHookExtraAccountMetaList } from "../src/transfer-hook-evidence.js";
@@ -26,10 +26,13 @@ function fixture() {
   return { pool, quote, user: address(8), inputTokenAccount: address(9), outputTokenAccount: address(10), recentBlockhash: address(11) };
 }
 
+function verificationReceipt(pool, quote) {
+  const payloadHash = "a".repeat(64), canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value), hash = (value) => crypto.createHash("sha256").update(value).digest("hex"); quote.binTraversal = [{ binArrayAddress: pool.binArrays[0].address, binArrayPayloadHash: payloadHash }];
+  const core = { schemaVersion: 1, type: "meteora_dlmm_quote_verification_receipt", commitment: "finalized", pool: pool.address, poolEvidenceHash: hash(canonical(pool)), binArraySlot: quote.binArraySlot, quoteHash: hash(JSON.stringify(quote)), verification: "owner_decoder_pool_evidence_index_payload_hash_exact_quote", accountCommitments: [{ address: pool.binArrays[0].address, owner: METEORA_DLMM_PROGRAM, slot: quote.binArraySlot, rawPayloadHash: payloadHash }] }; return { ...core, receiptHash: hash(JSON.stringify(core)) };
+}
+
 test("Meteora verification receipts reject same-address pool evidence drift", () => {
-  const { pool, quote } = fixture(), payloadHash = "a".repeat(64); quote.binTraversal = [{ binArrayAddress: pool.binArrays[0].address, binArrayPayloadHash: payloadHash }];
-  const canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value), hash = (value) => crypto.createHash("sha256").update(value).digest("hex");
-  const core = { schemaVersion: 1, type: "meteora_dlmm_quote_verification_receipt", commitment: "finalized", pool: pool.address, poolEvidenceHash: hash(canonical(pool)), binArraySlot: quote.binArraySlot, quoteHash: hash(JSON.stringify(quote)), verification: "owner_decoder_pool_evidence_index_payload_hash_exact_quote", accountCommitments: [{ address: pool.binArrays[0].address, owner: METEORA_DLMM_PROGRAM, slot: quote.binArraySlot, rawPayloadHash: payloadHash }] }, receipt = { ...core, receiptHash: hash(JSON.stringify(core)) };
+  const { pool, quote } = fixture(), receipt = verificationReceipt(pool, quote);
   assert.equal(verifyMeteoraDlmmQuoteVerificationReceipt({ receipt, quote, pool }), true); const altered = structuredClone(pool); altered.tokenMint0 = address(14); altered.baseFactor = 1; assert.throws(() => verifyMeteoraDlmmQuoteVerificationReceipt({ receipt, quote, pool: altered }), /receipt is invalid/);
 });
 
@@ -42,13 +45,15 @@ test("Meteora legacy swap construction binds official ABI accounts and finalized
 });
 
 test("Meteora preparation and local simulation remain unsigned, policy-bound, and effect-bounded", async () => {
-  const args = fixture(), preparation = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850" });
+  const args = fixture(), unbound = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850" }), preparation = bindMeteoraDlmmVerificationReceiptToPreparation({ preparation: unbound, verificationReceipt: verificationReceipt(args.pool, args.quote), quote: args.quote, pool: args.pool });
+  const alteredQuote = structuredClone(args.quote); alteredQuote.inputTransferFeeRaw = "1"; assert.throws(() => bindMeteoraDlmmVerificationReceiptToPreparation({ preparation: unbound, verificationReceipt: verificationReceipt(args.pool, alteredQuote), quote: alteredQuote, pool: args.pool }), /binding is invalid/);
   assert.equal(preparation.transaction.signed, false); assert.equal(preparation.transaction.submitted, false); assert.equal(preparation.minContextSlot, 103);
   assert.deepEqual(inspectUnsignedTransactionPrograms(preparation.transaction.transactionBase64, { allowedProgramIds: [METEORA_DLMM_PROGRAM], requiredProgramIds: [METEORA_DLMM_PROGRAM], instructionPolicies: preparation.transaction.instructionPolicies }).programIds, [METEORA_DLMM_PROGRAM]);
   const account = (mint, amount) => { const bytes = Buffer.alloc(165); Buffer.from(base58Bytes(mint)).copy(bytes); bytes.writeBigUInt64LE(BigInt(amount), 64); return { owner: tokenProgram, data: [bytes.toString("base64"), "base64"] }; };
-  const receipt = await simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => ({ context: { slot: 104 }, value: { err: null, logs: [], unitsConsumed: 50_000, accounts: [account(args.quote.inputMint, 1000), account(args.quote.outputMint, 950)] } }) }, { preparation, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH });
+  const receipt = await simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => ({ context: { slot: 104 }, value: { err: null, logs: [], unitsConsumed: 50_000, accounts: [account(args.quote.inputMint, 1000), account(args.quote.outputMint, 950)] } }) }, { preparation, quote: args.quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH });
   assert.deepEqual({ type: receipt.type, slot: receipt.simulationSlot, input: receipt.tokenEffects[0].deltaRaw, output: receipt.tokenEffects[1].deltaRaw }, { type: "meteora_dlmm_swap_simulation_receipt", slot: 104, input: "-1000", output: "850" });
-  await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => null }, { preparation: { ...preparation, minContextSlot: 102 }, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /preparation is invalid/);
+  let rejectedProviderCalls = 0; const alteredPool = structuredClone(args.pool); alteredPool.baseFactor = 1; await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => { rejectedProviderCalls++; return null; } }, { preparation, quote: args.quote, pool: alteredPool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /receipt is invalid/); assert.equal(rejectedProviderCalls, 0);
+  await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => null }, { preparation: unbound, quote: args.quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /receipt is invalid/); await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => null }, { preparation: { ...preparation, minContextSlot: 102 }, quote: args.quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /preparation is invalid/);
 });
 
 test("Meteora swap2 construction encodes empty hook slices for fee-only Token-2022 mints", () => {

@@ -128,9 +128,18 @@ export function prepareMeteoraDlmmSwapSimulation(args) {
   prepared.preparationHash = crypto.createHash("sha256").update(JSON.stringify(prepared)).digest("hex"); return prepared;
 }
 
-export async function simulatePreparedMeteoraDlmmSwap(client, { preparation, expectedGenesisHash, genesisHash }) {
+export function bindMeteoraDlmmVerificationReceiptToPreparation({ preparation, verificationReceipt, quote, pool }) {
+  const { preparationHash, ...unsignedPreparation } = preparation ?? {}, expectedHash = crypto.createHash("sha256").update(JSON.stringify(unsignedPreparation)).digest("hex"), evidence = preparation?.instructionEvidence;
+  const fields = [[evidence?.pool, quote?.pool], [evidence?.stateSlot, quote?.stateSlot], [evidence?.binArraySlot, quote?.binArraySlot], [evidence?.balanceSlot, quote?.balanceSlot], [evidence?.mintEvidenceSlot, quote?.mintEvidenceSlot], [evidence?.epoch, quote?.epoch], [evidence?.amountInRaw, quote?.amountInRaw], [evidence?.quotedOutputRaw, quote?.amountOutRaw], [evidence?.inputTransferFeeRaw, quote?.inputTransferFeeRaw], [evidence?.outputTransferFeeRaw, quote?.outputTransferFeeRaw], [evidence?.swapForY, quote?.swapForY]], preparationAccounts = [...(evidence?.binArrays ?? [])].sort(), receiptAccounts = [...(verificationReceipt?.accountCommitments?.map(({ address }) => address) ?? [])].sort();
+  if (preparationHash !== expectedHash || fields.some(([actual, expected]) => actual !== expected) || !isDeepStrictEqual(preparationAccounts, receiptAccounts)) throw new Error("Meteora verification receipt preparation binding is invalid");
+  verifyMeteoraDlmmQuoteVerificationReceipt({ receipt: verificationReceipt, quote, pool });
+  const bound = { ...unsignedPreparation, quoteVerificationReceipt: verificationReceipt }; bound.preparationHash = crypto.createHash("sha256").update(JSON.stringify(bound)).digest("hex"); return bound;
+}
+
+export async function simulatePreparedMeteoraDlmmSwap(client, { preparation, quote, pool, expectedGenesisHash, genesisHash }) {
   const { preparationHash, ...unsignedPreparation } = preparation ?? {}, expectedHash = crypto.createHash("sha256").update(JSON.stringify(unsignedPreparation)).digest("hex");
   if (preparation?.schemaVersion !== 1 || preparation.type !== "meteora_dlmm_swap_simulation" || preparation.protocol !== "meteora-dlmm" || preparation.commitment !== "finalized" || preparation.transaction?.signed !== false || preparation.transaction.submitted !== false || !Number.isSafeInteger(preparation.minContextSlot) || preparation.minContextSlot < 0 || !preparation.simulationPolicy || preparationHash !== expectedHash) throw new Error("Meteora simulation preparation is invalid");
+  verifyMeteoraDlmmQuoteVerificationReceipt({ receipt: preparation.quoteVerificationReceipt, quote, pool });
   const policy = preparation.simulationPolicy, receipt = await simulateUnsignedTransaction(client, { transactionBase64: preparation.transaction.transactionBase64, minContextSlot: preparation.minContextSlot, expectedGenesisHash, genesisHash, allowedProgramIds: policy.allowedProgramIds, requiredProgramIds: policy.requiredProgramIds, instructionPolicies: policy.instructionPolicies, accountExpectations: policy.accountExpectations });
   if (receipt.transactionHash !== preparation.transaction.transactionHash || receipt.messageHash !== preparation.transaction.messageHash || receipt.simulationSlot < preparation.minContextSlot || receipt.messageVersion !== "legacy" || receipt.programIds?.length !== 1 || receipt.programIds[0] !== METEORA_DLMM_PROGRAM) throw new Error("Meteora simulation receipt does not match preparation");
   const result = { ...receipt, type: "meteora_dlmm_swap_simulation_receipt", protocol: "meteora-dlmm", preparationHash, preparationMessageHash: preparation.transaction.messageHash, instructionEvidence: preparation.instructionEvidence }; result.receiptHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;
