@@ -2506,3 +2506,11 @@
 - Contract: finalized Meteora acquisition now validates a callable client, 1–13,312 traversal rows, one nonnegative safe top-level/row slot, exact row-to-top-level slot equality, and canonical 32-byte base58 identities before the first RPC call. Discovery publishes this preflight policy.
 - Compatibility/migration/configuration: valid canonical quotes and exact-context acquisition are unchanged. Malformed, unbounded, mixed-slot, or noncanonical requests now fail locally without provider traffic; response bytes, execution construction, persistence, provider configuration, RPC/WebSocket behavior, and migrations are unchanged. Discovery digest/ETag changes.
 - NEXT_WEB_ACTION: treat Meteora acquisition preflight failures as nonretryable quote-contract violations and do not forward them to any RPC provider.
+
+## UPSTREAM Meteora verification receipt
+
+- Selected ID: `UPSTREAM-METEORA-VERIFICATION-RECEIPT-121` (tamper-evident handoff, reusable verification evidence, and preparation/simulation auditability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the missing handoff artifact between exact-context account verification and later unsigned preparation/simulation. Re-verification remains authoritative, but consumers lacked a compact content binding for the verified result.
+- Contract: `createMeteoraDlmmQuoteVerificationReceipt` runs complete quote verification and emits a finalized receipt binding the pool, quote hash, exact bin-array slot, sorted canonical account/owner/slot/payload-hash commitments, and verification policy under a SHA-256 receipt hash. `verifyMeteoraDlmmQuoteVerificationReceipt` rejects quote, pool, slot, account membership, owner, payload-hash, policy, or receipt-hash drift. Discovery names both helpers.
+- Compatibility/migration/configuration: this is additive helper and relationship metadata only. Existing quote/preparation bytes, execution construction, persistence, provider configuration, RPC/WebSocket behavior, migrations, and configuration remain unchanged; the discovery digest/ETag changes. The receipt is tamper-evident, not a trusted signature.
+- NEXT_WEB_ACTION: persist the Meteora verification receipt beside each downstream unsigned preparation and revalidate it against the unchanged quote before simulation.
