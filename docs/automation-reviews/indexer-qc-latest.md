@@ -1,26 +1,32 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T13:36:18+07:00`
+- Run: `2026-08-31T14:36:49+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `a630847c3015fe22b088a47d027727f562756ed1`
-- Compared with QA baseline: `c7ad6321f95c979773e3129f18ab2bf49b2df8c4` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 207 ahead, 0 behind before this evidence report
-- Latest DEV commit: `a630847` (RPC parameter-schema semantic binding)
-- Overall result: 0 PASS, 2 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-PARAMETER-VALUE-SCHEMAS-096` publishes a cursor schema that disagrees with runtime in both directions, and `UPSTREAM-RPC-PARAMETER-SCHEMA-BINDING-097` then requires clients to enforce that contradictory schema. One deduplicated `UPSTREAM-QA-RPC-CURSOR-PARAMETER-SCHEMA-001` finding covers the shared root cause. Reconciliation is 133 PASS, 3 FAIL, and 1 BLOCKED across 137 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `427cfb8be445bc3d3ce1ac88c634c18e50aa9f68`
+- Compared with QA baseline: `f2efa35db537c40596f1bef184375d4ca8e87655` (2 DEV commits, 3 DEV-changed files)
+- Compared with `origin/main`: 210 ahead, 0 behind before this evidence report
+- Latest DEV commit: `427cfb8` (RPC parameter-format binding)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `e56cfa0` closes `UPSTREAM-QA-RPC-CURSOR-PARAMETER-SCHEMA-001` and restores IDs 096/097 to PASS by aligning explicit-empty rejection, canonical cursor discovery, and real runtime admission. `UPSTREAM-RPC-PARAMETER-FORMAT-BINDING-098` then binds every custom format reference to the closed catalog. Reconciliation is 136 PASS, 1 FAIL, and 1 BLOCKED across 138 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### RPC parameter schema publication and binding (2 FAIL)
+### Canonical cursor parity and parameter-format binding (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `561cd81` / `UPSTREAM-RPC-PARAMETER-VALUE-SCHEMAS-096` | Twelve-method RPC parameter value schemas | `FAIL` | Published cursor rules reject `""`, but `decodeCursor` treats it as omission and the real `getIndexedBlocks` RPC returns a result. Published rules accept `"a"`, but runtime returns `-32602 Invalid params` because it is not canonical version-1 base64url JSON. Null and omission controls remain accepted. |
-| `a630847` / `UPSTREAM-RPC-PARAMETER-SCHEMA-BINDING-097` | RPC request-to-parameter-schema relationship | `FAIL` | Exact required/optional key coverage is correctly bound for all 12 methods, but `parameterValuePolicy: "validate_parameter_schema"` makes the ID096 cursor mismatch an explicit generated-client/runtime contradiction. Missing/extra schema-map negatives pass without resolving value-language parity. |
+| `e56cfa0` / `UPSTREAM-QA-RPC-CURSOR-PARAMETER-SCHEMA-001` | Canonical RPC cursor discovery/runtime parity | `PASS` | Runtime rejects explicit empty, one-character, malformed JSON, wrong-version, empty-key, and empty-scope cursors with `-32602`; null and omission retain first-page behavior; a producer-generated cursor resumes positionally. Discovery publishes the same bounded canonical version-1 codec. IDs 096/097 are restored to PASS. |
+| `427cfb8` / `UPSTREAM-RPC-PARAMETER-FORMAT-BINDING-098` | RPC parameter-format catalog integrity | `PASS` | All 12 methods resolve both observed formats through the declared built-in or closed custom catalog. The independent baseline accepts, while missing catalog, unknown cursor format, and removed canonical definition reject 3/3. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `c7ad632`, in `561cd81` and `a630847`; no additional distinct committed outcome exists.
-- Verification result: 0 PASS, 2 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting twelve methods, individual schema keys, or two manifestations of one cursor mismatch into additional outcomes would be padding.
-- Validation: focused committed tests 3/3 PASS, but an independent live parity harness finds 2/3 cursor controls contradictory: empty string is schema-rejected/runtime-accepted, one-character base64url is schema-accepted/runtime-rejected, and null agrees. Complete contract digest is `4129fcf7660dfd1152dc072108cf013e4c3fe5ba2e338b310b2914ef18e516ee`. Full suite 476/476 PASS; syntax 87/87 PASS; replay invariants PASS at 4,744.03 blocks/s with 10,021,984-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 813,261,704 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `f2efa35`, in `e56cfa0` and `427cfb8`; no additional distinct committed outcome exists.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting malformed vectors, cursor-bearing methods, format names, or catalog mutations into additional outcomes would be padding.
+- Validation: independent cursor parity accepts a producer-generated continuation plus null and omission, and rejects 7/7 malformed/versionless forms. Independent format binding accepts the complete 12-method catalog and rejects 3/3 missing/unknown/removed catalog contradictions. Focused committed tests 5/5 PASS. Complete contract digest is `0a4d2ca162862e42129043a1a00edab06f09bc807ada438f5701f85bf77d292f`. Full suite 477/477 PASS; syntax 87/87 PASS; replay invariants PASS at 4,954.54 blocks/s with 10,005,344-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 816,892,672 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### RPC parameter schema publication and binding (2 FAIL at prior baseline)
+
+- Prior exact shortfall: 18. IDs 096/097 shared the empty/versionless cursor contradiction and are closed by current `e56cfa0`; the prior independent live parity harness identified both directions before the repair.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -3012,18 +3018,31 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-RPC-PARAMETER-FORMAT-BINDING-098
+
+- Severity: `PASS` (delivered by `427cfb8`)
+- Owner: `DEV`
+- Reproduction: resolve `rpc_parameter_format_binding` from query-contract discovery; collect every `format` named by all 12 methods' `parameterSchemas`; then remove `rpc.parameterFormats`, replace the cursor format with an unknown name, and remove the referenced `canonical-cursor-v1` definition.
+- Evidence: the catalog contains the one custom format, `canonical-cursor-v1`, while `solana-public-key` is the sole declared built-in. All observed method formats resolve. The complete baseline accepts, and the missing catalog, unknown cursor format, and removed custom definition reject 3/3. The bootstrap schema independently requires the exact closed catalog, and the relationship kind is declared in the fail-closed dialect.
+- Affected contracts: RPC discovery, all 12 method parameter maps, generated validator format registration, canonical cursor pagination, Solana public-key validation, contract digest/ETag, and support tooling.
+- Expected versus actual behavior: every non-built-in format reference must resolve through the published custom catalog, while declared built-ins remain valid without duplicate definitions. Expected and actual match.
+- Acceptance criteria: name the RPC catalog, method list, schema and format fields, custom catalog, built-in set, and catalog-membership policy; accept all real methods; reject absent catalog, unknown format, and removed referenced definition; retain the closed bootstrap schema and cursor runtime parity. All criteria are met.
+- Validation results: independent format-resolution harness accepts the 12-method baseline and rejects 3/3 isolated contradictions; focused current tests 5/5, full 477/477, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: discovery relationship metadata changes the digest/ETag and generated validators; RPC request/result bytes and runtime admission remain unchanged. Resolution is bounded by the fixed 12-method catalog.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-QA-RPC-CURSOR-PARAMETER-SCHEMA-001
 
-- Severity: `FAIL` / `MEDIUM`
+- Severity: `PASS` (delivered by `e56cfa0`)
 - Owner: `DEV`
 - Reproduction: read `getIndexedBlocks.parameterSchemas.cursor` from `/api/v1/query-contracts`; evaluate `""`, `"a"`, and `null`; then POST each value as named `cursor` to `getIndexedBlocks` on the real `/rpc` handler over an available empty indexed-block view.
-- Evidence: the schema declares nullable strings with `minimumLength: 1`, `maximumLength: 1024`, and base64url-character pattern. It therefore rejects `""` and accepts `"a"`. Runtime `decodeCursor` returns null for every falsy value, so `""` returns a successful empty page; runtime then rejects `"a"` with JSON-RPC `-32602` because it is not canonical version-1 base64url JSON. Null and omission agree and return successful empty pages. ID097 explicitly names `parameterValuePolicy: "validate_parameter_schema"`, propagating both contradictions to generated clients.
+- Evidence: `decodeCursor` now treats only nullish values as omission, so explicit `""` reaches canonical decoding and returns `-32602`. Discovery retains nonempty/base64url/1,024-character bounds and adds the closed `canonical-cursor-v1` format: canonical encoding, JSON object, exact `key,scope,version` keys, version 1, nonempty bounded key, and nullable nonempty bounded scope. Independent runtime rejects explicit empty, one-character, malformed JSON, wrong-version, empty-key, and empty-scope forms; null and omission return first pages; a producer-generated cursor resumes to the next retained row.
 - Affected contracts: all cursor-bearing read-only RPC methods, query-contract discovery, generated validators and SDKs, pre-transport diagnostics, retry classification, cache pagination, contract digest/ETag, and support tooling.
-- Expected versus actual behavior: the published value schema must accept exactly the runtime-admitted cursor language before method-specific scope/retention checks. Actual discovery is broader than runtime for arbitrary base64url strings and narrower than runtime for empty string.
-- Acceptance criteria: make discovery and runtime agree on empty-string behavior; publish or reference a bounded rule that rejects noncanonical/versionless cursor encodings such as `"a"`; retain null and omission, canonical version-1 cursor positives, 1,024-byte bounds, scope/retained-record runtime checks, named/positional styles, exact schema-key binding, and `-32602` for invalid values; add live parity regressions in both directions.
-- Validation results: independent live parity harness reports 1/3 agreement and 2/3 contradictions; committed focused discovery/admission tests pass 3/3 because they assert only object shape, key membership, and unrelated overflow/unknown-key admission. Full suite 476/476, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks otherwise pass.
-- Compatibility/performance impact: correcting the discovered cursor language changes the contract digest/ETag and generated validators. Runtime behavior need not change if discovery expresses the existing canonical cursor codec; validation remains bounded by the existing 1,024-character limit.
-- Blockers: none; deterministic offline/live-local reproduction.
+- Expected versus actual behavior: the published value schema accepts exactly the runtime-admitted cursor codec before method-specific scope/retention checks. Expected and actual now match.
+- Acceptance criteria: make discovery and runtime agree on empty-string behavior; publish or reference a bounded rule that rejects noncanonical/versionless cursor encodings such as `"a"`; retain null and omission, canonical version-1 cursor positives, 1,024-byte bounds, scope/retained-record runtime checks, named/positional styles, exact schema-key binding, and `-32602` for invalid values; add live parity regressions in both directions. All criteria are met.
+- Validation results: independent cursor harness accepts producer-generated continuation, null, and omission; rejects 7/7 malformed/versionless vectors; committed focused current tests pass 5/5. Full suite 477/477, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: explicit empty cursor changes from accidental first-page success to non-retryable invalid params; canonical cursors, null, omission, runtime scope/retained-record checks, and bounded validation remain compatible.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
@@ -3071,7 +3090,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 813,261,704 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 816,892,672 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
