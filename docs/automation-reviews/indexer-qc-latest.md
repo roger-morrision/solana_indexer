@@ -1,26 +1,25 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T06:36:12+07:00`
+- Run: `2026-08-31T07:35:13+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `c554f4d0a9faf6db713d441e49344a29fa283fd4`
-- Compared with QA baseline: `85e248c5453cbfc4f2af76c9cb127764e5df2023` (2 DEV commits, 2 changed files)
-- Compared with `origin/main`: 186 ahead, 0 behind before this evidence report
-- Latest DEV commits: `c0ae22c` (HTTP default admission parity) and `c554f4d` (conditional quote admission parity)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-HTTP-DEFAULT-ADMISSION-MATRIX-084` proves every published default is admissible and runtime-equivalent to omission; `UPSTREAM-HTTP-CONDITIONAL-ADMISSION-MATRIX-085` proves the discovered concentrated-liquidity `limitTick` condition matches all required and forbidden runtime branches. Reconciliation is 124 PASS, 1 FAIL, and 1 BLOCKED across 126 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `e337099141a536c7e160a054c50111a77a712225`
+- Compared with QA baseline: `766abc1b6fc4ddc3234882b1d6843fd38a052e71` (1 DEV commit, 2 changed files)
+- Compared with `origin/main`: 188 ahead, 0 behind before this evidence report
+- Latest DEV commit: `e337099` (HTTP method and POST body admission parity)
+- Overall result: 1 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete one-outcome DEV delta. `UPSTREAM-HTTP-METHOD-BODY-ADMISSION-MATRIX-086` proves all 54 discovered route methods and all three POST media/JSON admission boundaries match runtime behavior. Reconciliation is 125 PASS, 1 FAIL, and 1 BLOCKED across 127 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (1/20)
 
-### HTTP default and conditional admission parity (2 PASS)
+### HTTP method and POST body admission parity (1 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `c0ae22c` / `UPSTREAM-HTTP-DEFAULT-ADMISSION-MATRIX-084` | Published default admission and omission parity | `PASS` | Independent discovery-derived probes validate all 29 default bindings across the exact four default-bearing profiles and compare all 24 default-bearing routes over live local HTTP; explicit defaults and omission return identical status and stable response semantics. |
-| `c554f4d` / `UPSTREAM-HTTP-CONDITIONAL-ADMISSION-MATRIX-085` | Conditional quote admission parity | `PASS` | Discovery exposes exactly one conditional route and the exact two concentrated-liquidity program IDs. Both reject omitted `limitTick` and advance with `limitTick=0`; the Raydium CPMM control advances on omission and rejects the extraneous parameter. |
+| `e337099` / `UPSTREAM-HTTP-METHOD-BODY-ADMISSION-MATRIX-086` | Route method and POST body admission parity | `PASS` | Independent discovery-derived probes verify all 54 opposite-method requests return HTTP 405 with the exact published `Allow` value and redacted body. The exact three POST routes reject unsupported media and malformed JSON, while UTF-8 JSON advances beyond shared admission. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `85e248c`, in `c0ae22c` and `c554f4d`; the root DEV writer lock appeared during the first validation attempt, so QC discarded all mixed-state evidence, waited for lock release, refreshed the complete delta, and reran every tier against stable `c554f4d`. No additional distinct DEV outcome exists.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting 24 routes, 29 bindings, two concentrated programs, or individual HTTP branches into synthetic outcomes would be padding.
-- Validation: independent default/conditional harness PASS across 29 bindings, 24 omission comparisons, two matching-program branches, and one nonmatching control; focused current regressions 2/2 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 471/471 PASS; syntax 87/87 PASS; replay invariants PASS at 8,145.74 blocks/s with 9,139,104-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 762,854,960 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly one distinct committed outcome exists after `766abc1`, in `e337099`; no additional distinct DEV outcome exists.
+- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the one distinct DEV outcome.
+- Exact fix/enhancement shortfall: 19; the stable delta contains exactly one distinct outcome, and splitting 54 routes, three POST routes, or individual media/JSON branches into synthetic outcomes would be padding.
+- Validation: independent method/body harness 63/63 PASS across 54 wrong-method probes and nine POST body probes; focused current regression 1/1 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 472/472 PASS; syntax 87/87 PASS; replay invariants PASS at 9,007.72 blocks/s with 9,397,296-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 766,395,833 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2905,6 +2904,16 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: derive the only conditional route, parameter/profile binding, condition kind, and matching program set from discovery; verify both required branches and one forbidden control through actual HTTP admission. All criteria are met.
 - Validation results: independent default/conditional harness PASS across two matching-program branches and one nonmatching control; focused current regressions 2/2, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 471/471, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-HTTP-METHOD-BODY-ADMISSION-MATRIX-086
+
+- Severity: `PASS` (delivered by `e337099`)
+- Owner: `DEV`
+- Evidence: discovery contains exactly 54 HTTP routes and only the published `GET` and `POST` methods. Independent live local probes send the opposite method to every route and receive HTTP 405, the exact route-specific `Allow` header, and `{ "error": "method_not_allowed" }`. Discovery identifies exactly three POST routes: pool preparation, token preparation, and RPC. Each returns HTTP 415 for `text/plain`, HTTP 400 for malformed JSON, and advances beyond shared method/media/syntax/size admission for `application/json; charset=UTF-8`.
+- Actual behavior: all route methods agree with discovery and shared POST body admission applies consistently to RPC and both unsigned preparation surfaces. Accepted JSON reaches route handlers with bounded offline outcomes: HTTP 404 for the two absent preparation resources and HTTP 200 for the RPC empty-object control.
+- Compatibility/performance impact: additive regression and handoff evidence only; route methods, body limits, response bytes, discovery digest, quota ordering, product code, REST/RPC/WebSocket contracts, schemas, ingestion, persistence, provider configuration, migrations, and runtime behavior remain unchanged. The matrix is bounded to 54 method probes and nine body probes.
+- Acceptance criteria: derive every route and method from discovery; require exact 405/header/body parity for the opposite method; derive the complete POST set; reject unsupported media and malformed JSON; require valid UTF-8 JSON to advance beyond shared admission. All criteria are met.
+- Validation results: independent method/body harness 63/63 PASS; focused current regression 1/1, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 472/472, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2951,7 +2960,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 762,854,960 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 766,395,833 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
