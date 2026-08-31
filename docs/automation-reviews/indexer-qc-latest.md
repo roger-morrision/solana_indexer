@@ -1,26 +1,31 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T11:36:16+07:00`
+- Run: `2026-08-31T12:35:17+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `da046a24f2a3a96a59fd40da563bd8cc4cf3c9c5`
-- Compared with QA baseline: `3e61517bb46992006e00c7788d7b9c82ac42c4c9` (2 DEV commits, 3 changed files)
-- Compared with `origin/main`: 200 ahead, 0 behind before this evidence report
-- Latest DEV commit: `da046a2` (RPC request-method binding discovery)
-- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-METHOD-PARAM-BINDING-093` passes independent catalog/envelope and runtime error-boundary checks. `UPSTREAM-PREPARATION-BODY-ADMISSION-ORDER-092` fails because explicit null optional members contradict their published integer/string schemas and still reach resource lookup. A separate deterministic-boundary regression exposes flaky default-equivalence coverage. Reconciliation is 131 PASS, 3 FAIL, and 1 BLOCKED across 135 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `5698e9331e121eef606b9f3cb40778c4c4fe4d84`
+- Compared with QA baseline: `da046a24f2a3a96a59fd40da563bd8cc4cf3c9c5` (1 DEV commit, 3 changed files)
+- Compared with `origin/main`: 202 ahead, 0 behind before this evidence report
+- Latest DEV commit: `5698e93` (explicit-null preparation admission repair)
+- Overall result: 1 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete one-outcome DEV delta. `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` closes `UPSTREAM-QA-PREPARATION-NULL-ADMISSION-001`: both explicit-null optional members now fail with exact HTTP 400 before state, while omission still reaches the expected resource boundary. The independently forced one-second default-equivalence regression remains open. Reconciliation is 132 PASS, 2 FAIL, and 1 BLOCKED across 135 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (1/20)
 
-### Preparation admission ordering and RPC method binding (1 PASS, 1 FAIL)
+### Preparation optional-null admission repair (1 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `90bd874` / `UPSTREAM-PREPARATION-BODY-ADMISSION-ORDER-092` | Pool and token preparation POST admission | `FAIL` | Fractional `limitTick` and unknown `side` return the expected 400 before state, but schema-invalid explicit `limitTick: null` and `side: null` return resource-state 404s. The early validators use nullish omission checks instead of own-property typed-value checks. |
-| `da046a2` / `UPSTREAM-RPC-METHOD-PARAM-BINDING-093` | JSON-RPC envelope and method catalog | `PASS` | All 12 method identities are unique and expose positional/named styles; the declared relationship binds envelope method/params to the catalog. Independent runtime controls preserve unknown-method `-32601` and known-method invalid-params `-32602`. |
+| `5698e93` / `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` | Pool and token preparation POST admission | `PASS` | Own-property checks reject explicit `limitTick: null` and `side: null` with exact 400 `invalid_prepare_parameters`; omitted controls still reach exact pool/token 404 resource boundaries. Discovery rejects both null forms and retains safe-integer/enum rules. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `3e61517`, in `90bd874` and `da046a2`; no additional distinct committed outcome exists.
-- Verification result: 1 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting individual null cases, catalog members, relationship mutations, or runtime probes into synthetic outcomes would be padding.
-- Validation: independent preparation admission proves 2/2 explicit-null contradictions and retains 2/2 non-null structural controls; independent RPC binding proves 12 unique method identities, complete positional/named styles, unknown-method `-32601`, and known-method invalid-params `-32602`; focused current regressions 5/5 PASS. Complete contract digest is `1c7c69109fa218eb3f95faaeba09c43dec3b33a96341af95852c4bf52bba8360`. Full suite is `FAIL/flaky`: the first clean stable run failed 1 of 475 on a one-second `startTime`/`endTime` drift in default-equivalence coverage, while the immediate full rerun passed 475/475 and eight focused repeats passed; this does not erase the observed nondeterminism. Syntax 87/87 PASS; replay invariants PASS at 4,375.14 blocks/s with 9,961,512-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 780,859,538 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly one distinct committed outcome exists after `da046a2`, in `5698e93`; no additional distinct committed outcome exists.
+- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the one distinct DEV outcome.
+- Exact fix/enhancement shortfall: 19; the stable delta contains exactly one distinct repair outcome, and splitting its two optional members, discovery cases, HTTP probes, or adjacent omission controls into synthetic outcomes would be padding.
+- Validation: independent preparation admission passes 2/2 explicit-null rejections and 2/2 omission controls; focused current regressions 2/2 PASS. A forced second-boundary response comparison independently reproduces the retained default-equivalence defect with one-second integer `endTime` drift. Complete contract digest remains `1c7c69109fa218eb3f95faaeba09c43dec3b33a96341af95852c4bf52bba8360`. Full suite 475/475 PASS; syntax 87/87 PASS; replay invariants PASS at 4,360.75 blocks/s with 9,748,776-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 784,400,456 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+
+## Prior reviewed DEV delta (2/20; retained)
+
+### Preparation admission ordering and RPC method binding (1 PASS, 1 FAIL at prior baseline)
+
+- Prior exact shortfall: 18. `UPSTREAM-PREPARATION-BODY-ADMISSION-ORDER-092` is closed by current `5698e93`; `UPSTREAM-RPC-METHOD-PARAM-BINDING-093` remains PASS. The separate default-equivalence timing defect remains open.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2976,16 +2981,16 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 
 ## UPSTREAM-QA-PREPARATION-NULL-ADMISSION-001
 
-- Severity: `FAIL` / `HIGH`
+- Severity: `PASS` (delivered by `5698e93`)
 - Owner: `DEV`
 - Reproduction: start the real HTTP server over the default empty store; POST `{ "amountRaw": "1", "inputMint": "mint", "limitTick": null }` to `/internal/pools/missing/prepare-swap` and `{ "amountRaw": "1", "side": null }` to `/internal/tokens/missing/prepare-swap`. Compare both results with the published `pool_prepare_swap_request_v1` and `token_prepare_swap_request_v1` property types. Retain fractional-tick and unknown-side controls.
-- Evidence: both published optional properties are non-null when present (`limitTick` is `integer`; `side` is the `buy|sell` string enum). The committed early validators instead use `value.limitTick == null` and `value.side == null`, conflating explicit null with omission. Both explicit-null requests bypass body validation and return HTTP 404 resource errors; fractional `limitTick: 1.5` and `side: "hold"` correctly return HTTP 400 `invalid_prepare_parameters`.
+- Evidence: both published optional properties are non-null when present (`limitTick` is `integer`; `side` is the `buy|sell` string enum). `5698e93` replaces nullish omission tests with `Object.hasOwn` checks. Both explicit-null requests now return HTTP 400 `invalid_prepare_parameters`; omitted controls advance to exact pool/token HTTP 404 resource errors, preserving the distinction between absence and an invalid present value.
 - Affected contracts: both unsigned preparation POST routes, request-body schema/runtime parity, published body-validation ordering, retry classification, generated clients, support diagnostics, weighted quota avoidance, and fail-closed trading admission.
-- Expected versus actual behavior: every present optional member must satisfy its published type before weighted quota, state quality, or resource lookup. Explicit null is schema-invalid and must return the existing non-retryable 400; it currently reaches route lookup and is misreported as 404.
+- Expected versus actual behavior: every present optional member must satisfy its published type before weighted quota, state quality, or resource lookup. Explicit null now returns the existing non-retryable 400, while omission retains documented optional/default behavior. Expected and actual match.
 - Acceptance criteria: distinguish absent properties from explicitly present null; return exact HTTP 400 `invalid_prepare_parameters` for both null cases before weighted quota/state/resource gates; retain omitted optional members, safe-integer ticks, `buy|sell`, venue-conditional tick checks, media/size/JSON admission, and successful unsigned construction.
-- Validation results: independent live harness reproduces 2/2 null contradictions and passes 2/2 adjacent non-null negatives; focused current regressions 5/5 PASS because they omit explicit null; full-suite timing result is separately tracked below.
+- Validation results: independent live harness passes 2/2 explicit-null rejections and 2/2 omission controls; focused current regressions 2/2 and full suite 475/475 PASS. The separately forced timing-boundary finding remains open below.
 - Compatibility/performance impact: error precedence changes only for schema-invalid explicit-null bodies. Valid request bytes, quotas after body admission, venue resolution, unsigned construction, persistence, providers, RPC, WebSocket behavior, migrations, and configuration remain unchanged.
-- Blockers: none; deterministic offline reproduction.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-QA-HTTP-DEFAULT-TIME-FLAKE-001
 
@@ -3046,7 +3051,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 780,859,538 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 784,400,456 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -3055,4 +3060,4 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: reject explicitly present null `limitTick` and `side` members with exact HTTP 400 `invalid_prepare_parameters` before weighted quota, state, or resource lookup while preserving omission defaults and venue-dependent tick admission.
+- NEXT_DEV_ACTION: bind each Meteora traversal payload hash to independently verifiable finalized snapshot evidence or a trusted producer signature while preserving the real positive, preserved-digest negative, recomputed-digest negative, and all completed direction, transfer-fee, range, aggregate, path, capacity, and execution-gate controls.
