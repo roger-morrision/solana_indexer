@@ -483,7 +483,7 @@ test("RPC response schema closes success error and bounded batch envelopes", asy
 
 test("RPC discovery publishes the exact read-only method and result-schema catalog", () => {
   const contract = queryContractSnapshot(), methods = contract.rpc.methods, names = methods.map(({ method }) => method), schemas = Object.keys(contract.rpcResultSchemas);
-  assert.deepEqual({ path: contract.rpc.path, readOnly: contract.rpc.readOnly, batch: contract.rpc.batch }, { path: "/rpc", readOnly: true, batch: { minimumItems: 1, maximumItems: 100 } });
+  assert.deepEqual({ path: contract.rpc.path, readOnly: contract.rpc.readOnly, batch: contract.rpc.batch }, { path: "/rpc", readOnly: true, batch: { minimumItems: 1, maximumItems: 100, responseOrder: "request_order", failureIsolation: "per_item", invalidCardinalityErrorCode: -32600 } });
   assert.deepEqual(names, ["getIndexerHealth", "getIndexerStats", "getIndexedBlock", "getIndexedBlocks", "getIndexedTransaction", "getIndexedSignaturesForAddress", "getIndexedTokenAccount", "getIndexedTokenSupply", "getIndexedTokenMetadata", "getIndexedTokenLargestAccounts", "getIndexedTokenHolders", "getIndexedTokenAccountsByOwner"]);
   assert.equal(new Set(names).size, 12); assert.equal(new Set(methods.map(({ resultSchema }) => resultSchema)).size, 12); assert.deepEqual(methods.map(({ resultSchema }) => resultSchema).sort(), schemas.sort());
   for (const { resultSchema } of methods) assert.ok(contract.rpcResultSchemas[resultSchema].type || contract.rpcResultSchemas[resultSchema].oneOf, resultSchema);
@@ -550,6 +550,12 @@ test("RPC discovery publishes exact nonretryable protocol errors", async (t) => 
   const contract = queryContractSnapshot(), expected = [{ code: -32600, message: "Invalid Request", retryable: false }, { code: -32601, message: "Method not found", retryable: false }]; assert.deepEqual(contract.rpc.protocolErrors, expected); assert.deepEqual(contract.responseBodySchemas.query_contracts_success_v1.properties.rpc.properties.protocolErrors.exactItems, expected);
   const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const endpoint = `http://127.0.0.1:${server.address().port}/rpc`, call = async (body) => (await (await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json()).error;
   assert.deepEqual(await call({ jsonrpc: "1.0", id: 1, method: "getIndexerHealth" }), { code: -32600, message: "Invalid Request" }); assert.deepEqual(await call({ jsonrpc: "2.0", id: 2, method: "privateMethod" }), { code: -32601, message: "Method not found" });
+});
+
+test("RPC batch discovery binds order isolation and cardinality failures", async (t) => {
+  const contract = queryContractSnapshot(); assert.deepEqual(contract.rpc.batch, { minimumItems: 1, maximumItems: 100, responseOrder: "request_order", failureIsolation: "per_item", invalidCardinalityErrorCode: -32600 });
+  const store = new IndexStore("unused"); await store.load(); const server = createServer({}, store); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve)); t.after(() => new Promise((resolve) => server.close(resolve))); const call = async (body) => (await (await fetch(`http://127.0.0.1:${server.address().port}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json());
+  const mixed = await call([{ jsonrpc: "2.0", id: 3, method: "getIndexerStats" }, { jsonrpc: "2.0", id: 2, method: "privateMethod" }, { jsonrpc: "2.0", id: 1, method: "getIndexerHealth" }]); assert.deepEqual(mixed.map(({ id }) => id), [3, 2, 1]); assert.ok("result" in mixed[0] && mixed[1].error.code === -32601 && "result" in mixed[2]); for (const body of [[], Array.from({ length: 101 }, (_, id) => ({ jsonrpc: "2.0", id, method: "getIndexerStats" }))]) assert.equal((await call(body)).error.code, -32600);
 });
 
 test("zero-parameter RPC methods reject ignored request input", async (t) => {

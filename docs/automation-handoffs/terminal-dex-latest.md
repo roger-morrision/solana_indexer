@@ -2386,3 +2386,11 @@
 - Contract: query-contract RPC discovery now publishes an exact closed `protocolErrors` catalog for `-32600 Invalid Request` and `-32601 Method not found`, both nonretryable. Regression coverage binds each descriptor to its real dispatcher response.
 - Compatibility/migration/configuration: one additive RPC discovery member changes the contract digest/ETag. Runtime response bytes, methods, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged.
 - NEXT_WEB_ACTION: generate protocol-level RPC error handling from `protocolErrors` and never retry `-32600` or `-32601` without correcting the request or method.
+
+## UPSTREAM RPC batch semantics
+
+- Selected ID: `UPSTREAM-RPC-BATCH-SEMANTICS-106` (commercial batching correctness and deterministic failure handling).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the bounded gap between the live batch dispatcher and its limit-only discovery contract.
+- Contract: RPC batch discovery now states request-order responses, per-item failure isolation, and envelope-level `-32600` for empty or oversized batches. Regression coverage proves mixed success/failure ordering and both cardinality boundaries.
+- Compatibility/migration/configuration: three additive batch members change only the query-contract digest/ETag and generated-client requirements. Runtime bytes, limits, methods, persistence, providers, WebSocket behavior, migrations, and configuration are unchanged.
+- NEXT_WEB_ACTION: preserve request order when correlating batch responses, isolate item errors, and treat invalid batch cardinality as one nonretryable envelope failure.
