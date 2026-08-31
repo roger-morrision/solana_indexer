@@ -1,25 +1,27 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T07:35:13+07:00`
+- Run: `2026-08-31T08:36:14+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `e337099141a536c7e160a054c50111a77a712225`
-- Compared with QA baseline: `766abc1b6fc4ddc3234882b1d6843fd38a052e71` (1 DEV commit, 2 changed files)
-- Compared with `origin/main`: 188 ahead, 0 behind before this evidence report
-- Latest DEV commit: `e337099` (HTTP method and POST body admission parity)
-- Overall result: 1 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete one-outcome DEV delta. `UPSTREAM-HTTP-METHOD-BODY-ADMISSION-MATRIX-086` proves all 54 discovered route methods and all three POST media/JSON admission boundaries match runtime behavior. Reconciliation is 125 PASS, 1 FAIL, and 1 BLOCKED across 127 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `2e7bdbb802ded878e355f7744cc792074a03d7d2`
+- Compared with QA baseline: `3cb67aaa67416435f3e7bb1c53e4933060730414` (3 DEV commits, 3 changed files)
+- Compared with `origin/main`: 192 ahead, 0 behind before this evidence report
+- Latest DEV commits: `9ddb81c` (HTTP request-body policy discovery), `c0216a5` (method/body policy binding), and `2e7bdbb` (JSON-RPC request schema discovery)
+- Overall result: 2 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete three-outcome DEV delta. `UPSTREAM-HTTP-REQUEST-BODY-DISCOVERY-087` and `UPSTREAM-HTTP-REQUEST-BODY-POLICY-088` close route transport discovery and method/body semantic binding. `UPSTREAM-RPC-REQUEST-SCHEMA-089` fails runtime parity because discovery rejects an empty method while runtime admits the envelope and returns method-not-found. Reconciliation is 127 PASS, 2 FAIL, and 1 BLOCKED across 130 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (1/20)
+## Reviewed DEV delta (3/20)
 
-### HTTP method and POST body admission parity (1 PASS)
+### HTTP request-body discovery and RPC envelope schema (2 PASS, 1 FAIL)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `e337099` / `UPSTREAM-HTTP-METHOD-BODY-ADMISSION-MATRIX-086` | Route method and POST body admission parity | `PASS` | Independent discovery-derived probes verify all 54 opposite-method requests return HTTP 405 with the exact published `Allow` value and redacted body. The exact three POST routes reject unsupported media and malformed JSON, while UTF-8 JSON advances beyond shared admission. |
+| `9ddb81c` / `UPSTREAM-HTTP-REQUEST-BODY-DISCOVERY-087` | Closed route request-body policy discovery | `PASS` | All 54 rows carry the required member: 51 GET policies are `null`; RPC and both preparation routes publish exact media, charset, encoding, and configured byte ceilings. Live configured discovery and ETag match the exported snapshot. |
+| `c0216a5` / `UPSTREAM-HTTP-REQUEST-BODY-POLICY-088` | Method/body relationship binding | `PASS` | The declared fail-closed relationship validates all 54 rows and rejects null-on-POST, body-on-GET, and both isolated method/body substitutions. |
+| `2e7bdbb` / `UPSTREAM-RPC-REQUEST-SCHEMA-089` | JSON-RPC request envelope discovery | `FAIL` | `rpc_request_v1` sets `method.minimumLength=1`, but live runtime accepts `{ "jsonrpc":"2.0", "id":1, "method":"" }` as a structurally valid envelope and returns `-32601 Method not found`; missing method and wrong version return `-32600 Invalid Request`. |
 
-- Available DEV delta: exactly one distinct committed outcome exists after `766abc1`, in `e337099`; no additional distinct DEV outcome exists.
-- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the one distinct DEV outcome.
-- Exact fix/enhancement shortfall: 19; the stable delta contains exactly one distinct outcome, and splitting 54 routes, three POST routes, or individual media/JSON branches into synthetic outcomes would be padding.
-- Validation: independent method/body harness 63/63 PASS across 54 wrong-method probes and nine POST body probes; focused current regression 1/1 PASS; focused RPC/query-contract 23/23 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. Product code and contracts are unchanged, so the response-schema registry digest remains `cb5e53a7edef553930dce900aef315b3a3aeb71373a4584fdf3f3a8dcb8dcfe2` and the complete contract digest remains `949e3a693b71085fa42667e7d7db51bd1c2beaca90ccb2177af95e95199824c1`. Full suite 472/472 PASS; syntax 87/87 PASS; replay invariants PASS at 9,007.72 blocks/s with 9,397,296-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 766,395,833 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly three distinct committed outcomes exist after `3cb67aa`, in `9ddb81c`, `c0216a5`, and `2e7bdbb`; the root DEV writer lock appeared during the first validation attempt, so QC discarded all mixed-state evidence, waited for release, refreshed the complete delta, and reran every tier against stable `2e7bdbb`. No additional distinct DEV outcome exists.
+- Verification result: 2 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across the three distinct DEV outcomes.
+- Exact fix/enhancement shortfall: 17; the stable delta contains exactly three distinct outcomes, and splitting 54 routes, three POST routes, four contradictions, or individual RPC envelope cases into synthetic outcomes would be padding.
+- Validation: independent request-policy and RPC-envelope harness PASS for IDs 087–088 and FAIL for the empty-method parity boundary in ID 089; focused current regressions 2/2 PASS; focused dialect binding 2/2 PASS; focused RPC/query-contract 24/24 PASS; focused monitoring 3/3 PASS; focused health/feed/monitoring 37/37 PASS; focused Meteora/transfer-hook 13/13 PASS. The response-schema registry digest changed to `5435cc3703109956765ced3ae223b11d0120b38e8c5c1312c2852b5c60e0dd2f` and the default complete contract digest changed to `a8fa0c768c434f531aa1a7c7d863a597a5a56bbc372858971ad3ea3c03e6fb9f`. Full suite 474/474 PASS; syntax 87/87 PASS; replay invariants PASS at 8,994.81 blocks/s with 9,382,344-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 770,056,809 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2914,6 +2916,39 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Acceptance criteria: derive every route and method from discovery; require exact 405/header/body parity for the opposite method; derive the complete POST set; reject unsupported media and malformed JSON; require valid UTF-8 JSON to advance beyond shared admission. All criteria are met.
 - Validation results: independent method/body harness 63/63 PASS; focused current regression 1/1, RPC/query-contract 23/23, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 472/472, syntax 87/87, replay invariants, and operational fail-closed checks pass.
 
+## UPSTREAM-HTTP-REQUEST-BODY-DISCOVERY-087
+
+- Severity: `PASS` (delivered by `9ddb81c`)
+- Owner: `DEV`
+- Evidence: all 54 discovered HTTP rows carry the required closed `requestBody` member. All 51 GET routes publish `null`; `/rpc` and both preparation routes publish required JSON, optional UTF-8 charset, forbidden content encoding, and exact configured byte ceilings. Independent custom-configuration probes verify separate 1,024-byte RPC and 16,384-byte preparation limits, while defaults remain 65,536 and 524,288 bytes. Live configured discovery equals the exported snapshot and its ETag changes with either ceiling.
+- Actual behavior: generated clients can derive route transport requirements and byte ceilings without hard-coded path knowledge. Both preparation policies correctly retain `bodySchema: null` pending their heterogeneous request catalogs, while RPC binds its published schema identity.
+- Compatibility/performance impact: additive discovery changes the contract digest/ETag and requires generated discovery validators to accept the new required route member. Runtime request admission, persistence, providers, databases, RPC methods, WebSocket behavior, migrations, and defaults remain unchanged.
+- Acceptance criteria: complete 54-row member coverage; exactly 51 null GET policies and three non-null POST policies; exact media/charset/encoding semantics; configured ceiling parity; closed bootstrap member; live snapshot and ETag parity. All criteria are met.
+- Validation results: independent policy/envelope harness PASS for all real routes and configured/default ceilings; focused current regressions 2/2, dialect binding 2/2, RPC/query-contract 24/24, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 474/474, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-HTTP-REQUEST-BODY-POLICY-088
+
+- Severity: `PASS` (delivered by `c0216a5`)
+- Owner: `DEV`
+- Evidence: the fail-closed dialect declares exactly one `request_body_policy` relationship resolved through published `method` and `requestBody` member names. It requires non-null bodies for POST and null bodies for GET. Independent evaluation accepts all 54 real rows and rejects four isolated contradictions: null-on-POST, body-on-GET, POST changed to GET, and GET changed to POST.
+- Actual behavior: structural route rows can no longer swap or omit body policy solely by satisfying the member union. Unknown relationship kinds remain fail closed for generated validators.
+- Compatibility/performance impact: additive dialect vocabulary changes the digest/ETag but not runtime request admission, route bytes, limits, ingestion, persistence, providers, RPC methods, WebSocket behavior, migrations, or configuration.
+- Acceptance criteria: published relationship identity and fields; complete real-row satisfaction; four isolated contradiction rejections; retained configured live-snapshot parity. All criteria are met.
+- Validation results: independent policy/envelope harness PASS across 54 rows and four contradictions; focused current regressions 2/2, dialect binding 2/2, RPC/query-contract 24/24, monitoring 3/3, health/feed/monitoring 37/37, Meteora/transfer-hook 13/13, full 474/474, syntax 87/87, replay invariants, and operational fail-closed checks pass.
+
+## UPSTREAM-RPC-REQUEST-SCHEMA-089
+
+- Severity: `FAIL` / `MEDIUM`
+- Owner: `DEV`
+- Reproduction: start the local server with a high bounded request quota; POST `{ "jsonrpc": "2.0", "id": 1, "method": "" }` to `/rpc`; compare the JSON-RPC response with `requestBodySchemas.rpc_request_v1.oneOf[0].properties.method`. Repeat with the `method` member omitted and with a nonempty unknown method.
+- Evidence: discovery sets `method.minimumLength` to 1 and therefore rejects the empty string. Live runtime returns HTTP 200 with error `-32601 Method not found` for both the empty and nonempty unknown method, proving the envelope passed structural admission and reached method lookup. Omitting `method` or using JSON-RPC version `1.0` returns `-32600 Invalid Request`. Independent controls accept single, extension-bearing/null-ID/null-params, one-item batch, and 100-item batch envelopes; empty and 101-item batches, missing fields, wrong version, and object IDs reject as published.
+- Affected contracts: `/rpc.requestBody.bodySchema`, `requestBodySchemas.rpc_request_v1`, generated RPC SDK preflight, contract digest/ETag, support diagnostics, batch safety, and runtime/discovery compatibility.
+- Expected versus actual behavior: a schema advertised as mirroring runtime envelope admission must accept every structurally admitted runtime envelope or runtime must reject the same value as `-32600`. Current discovery rejects `method: ""`, while runtime admits it and reports method lookup failure.
+- Acceptance criteria: align discovery and runtime on the empty method boundary; preserve nonempty unknown-method `-32601`, missing/wrong-envelope `-32600`, extension members, string/integer/null IDs, optional array/object/null params, single requests, and batch bounds 1–100; add a live HTTP regression that distinguishes envelope rejection from method lookup.
+- Validation results: independent live parity harness FAIL on exactly the empty-method boundary; all other published positive and negative envelope controls pass. The committed focused current regressions 2/2, dialect binding 2/2, RPC/query-contract 24/24, and full 474/474 pass because they reimplement `minimumLength: 1` instead of comparing that boundary with live runtime.
+- Compatibility/performance impact: aligning discovery by removing the non-runtime minimum changes digest/ETag but not runtime; alternatively tightening runtime changes the JSON-RPC error code for empty method. Neither path affects bounded batch size or request-body limits.
+- Blockers: none; deterministic credential-free local reproduction.
+
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
 - Severity: `FAIL` / `HIGH`
@@ -2960,7 +2995,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 766,395,833 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 770,056,809 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
