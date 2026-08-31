@@ -59,7 +59,8 @@ export function verifyMeteoraDlmmQuoteFinalizedAccounts({ quote, pool, accounts 
   const arrays = [];
   for (const row of quote.binTraversal) {
     if (arrays.some((array) => array.address === row.binArrayAddress)) continue;
-    const source = byAddress.get(row.binArrayAddress); if (source?.commitment !== "finalized" || !Number.isSafeInteger(source.slot) || source.slot < row.binArraySlot || source.owner !== METEORA_DLMM_PROGRAM || typeof source.rawHex !== "string" || !/^(?:[0-9a-f]{2}){10136}$/.test(source.rawHex)) throw new Error("Meteora finalized bin-array account evidence is invalid");
+    try { decodeBase58Address(row.binArrayAddress); } catch { throw new Error("Meteora finalized bin-array account address is invalid"); }
+    const source = byAddress.get(row.binArrayAddress); if (source?.commitment !== "finalized" || !Number.isSafeInteger(source.slot) || source.slot !== row.binArraySlot || source.owner !== METEORA_DLMM_PROGRAM || typeof source.rawHex !== "string" || !/^(?:[0-9a-f]{2}){10136}$/.test(source.rawHex)) throw new Error("Meteora finalized bin-array account evidence is invalid");
     const decoded = decodeMeteoraBinArrayAccount(source.address, { owner: source.owner, data: [Buffer.from(source.rawHex, "hex").toString("base64"), "base64"] }, pool?.address);
     if (decoded.index !== row.binArrayIndex || decoded.rawPayloadHash !== row.binArrayPayloadHash) throw new Error("Meteora finalized bin-array account identity does not match quote"); arrays.push(decoded);
   }

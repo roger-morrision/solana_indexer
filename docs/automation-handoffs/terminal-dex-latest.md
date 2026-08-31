@@ -2482,3 +2482,11 @@
 - Contract: `verifyMeteoraDlmmQuoteFinalizedAccounts` accepts a quote, its pool, and freshly fetched finalized account evidence. It rejects duplicate or missing accounts, stale/non-finalized context, wrong owner, malformed payloads, decoded pool/index or hash mismatches, and any quote that differs from an independently reproduced exact-input quote. Query discovery names this verifier on the finalized bin-array relationship.
 - Compatibility/migration/configuration: this is an additive exported verifier and additive relationship metadata. Quote response bytes, request inputs, execution construction, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged; the discovery digest/ETag changes.
 - NEXT_WEB_ACTION: run `verifyMeteoraDlmmQuoteFinalizedAccounts` with freshly fetched finalized bin-array bytes before accepting any advertised Meteora quote economics.
+
+## UPSTREAM finalized Meteora account context
+
+- Selected ID: `UPSTREAM-METEORA-FINALIZED-BIN-CONTEXT-118` (immutable quote provenance, canonical account identity, and pre-signing safety).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the new HIGH verifier contradiction reported after ID 117. A nonempty fake account name passed discovery, and a later finalized context could be attributed to the quote's earlier advertised acquisition slot.
+- Contract: every `binArrayAddress` now uses the built-in canonical 32-byte Solana public-key format. The finalized-account relationship declares `exact_advertised_slot`, and the exported verifier rejects noncanonical identities or any supplied context slot unequal to the traversal row's slot before decoding or reproducing economics.
+- Compatibility/migration/configuration: canonical on-chain Meteora account identities remain compatible. Noncanonical fixtures and later-context substitutions now fail closed; quote economics, execution bytes, persistence, providers, RPC/WebSocket behavior, migrations, and configuration are unchanged. Discovery digest/ETag changes.
+- NEXT_WEB_ACTION: fetch each Meteora bin-array account at finalized commitment and accept it only when the returned context equals the quote's advertised `binArraySlot` exactly.
