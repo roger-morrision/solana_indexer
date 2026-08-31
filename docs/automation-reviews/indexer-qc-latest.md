@@ -1,26 +1,25 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T15:36:20.616+07:00`
+- Run: `2026-08-31T16:36:21.627+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `05aed5e20e973135b6ea6eadb072bf3a1d9a48a7`
-- Compared with QA baseline: `a5a25de28d0470ac19bf4e41e35ed597d86d956f` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 213 ahead, 0 behind before this evidence report
-- Latest DEV commit: `05aed5e` (RPC parameter-shape binding)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-PARAMETER-DEFAULT-BINDING-099` binds every declared default to optional membership and its value schema; `UPSTREAM-RPC-PARAMETER-SHAPE-BINDING-100` binds named, positional, and zero-parameter request shapes to the catalog. Reconciliation is 138 PASS, 1 FAIL, and 1 BLOCKED across 140 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `320dd061cf81891a4b1cc253db4b6b10ab4f1145`
+- Compared with QA baseline: `928478e0d0a635a3eefb8e2756889c520aa68b52` (1 DEV commit, 3 DEV-changed files)
+- Compared with `origin/main`: 215 ahead, 0 behind before this evidence report
+- Latest DEV commit: `320dd06` (RPC required-parameter presence binding)
+- Overall result: 1 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete one-outcome DEV delta. `UPSTREAM-RPC-PARAMETER-PRESENCE-BINDING-101` binds every named request to all required keys and every positional request to the complete required prefix while retaining optional omission. Reconciliation is 139 PASS, 1 FAIL, and 1 BLOCKED across 141 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (1/20)
 
-### RPC parameter default and request-shape binding (2 PASS)
+### RPC required-parameter presence binding (1 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `511469d` / `UPSTREAM-RPC-PARAMETER-DEFAULT-BINDING-099` | RPC omission/default integrity | `PASS` | All 12 methods and five declared defaults satisfy optional membership and value-schema bounds. Independent mutation rejects unknown, required, below-minimum, above-maximum, fractional, and wrong-type defaults 6/6. |
-| `05aed5e` / `UPSTREAM-RPC-PARAMETER-SHAPE-BINDING-100` | Named, positional, and zero-parameter RPC request shape | `PASS` | All 12 method catalogs retain exact named/positional styles and unique ordered membership. Independent catalog mutations reject 4/4 contradictions; 38 live probes reject excess positional/unknown named input across all ten parameterized methods and preserve exact empty/invalid behavior for both zero-parameter methods. |
+| `320dd06` / `UPSTREAM-RPC-PARAMETER-PRESENCE-BINDING-101` | Required named keys and positional prefixes | `PASS` | All nine methods with required parameters reject empty named objects and positional arrays 18/18 with exact `-32602`, while required-only named and positional controls advance beyond invalid-params 18/18 with every optional member omitted. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `a5a25de`, in `511469d` and `05aed5e`; no additional distinct committed outcome exists.
-- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting malformed vectors, cursor-bearing methods, format names, or catalog mutations into additional outcomes would be padding.
-- Validation: independent default binding accepts all 12 methods and five declared defaults and rejects 6/6 isolated contradictions. Independent shape binding rejects 4/4 catalog contradictions and passes 38 live route probes across all 12 methods. Focused committed tests 8/8 PASS. Complete contract digest is `a7085317e07c6e1b95234497fc42815d093e4dbe8fcaaa3e92a9dd1be5931a50`. Full suite 479/479 PASS; syntax 87/87 PASS; replay invariants PASS at 8,443.53 blocks/s with 9,014,520-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 820,463,616 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly one distinct committed outcome exists after `928478e`, in `320dd06`; no additional distinct committed outcome exists.
+- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the one distinct DEV outcome.
+- Exact fix/enhancement shortfall: 19; the stable delta contains exactly one distinct outcome, and splitting nine methods, named/positional forms, or positive/negative probes into additional outcomes would be padding.
+- Validation: independent presence binding rejects 18/18 missing named/positional forms and accepts 18/18 required-only forms with every optional member omitted across all nine applicable methods. Focused committed tests 8/8 PASS. Complete contract digest is `c17d4a13e64fc7c0b6955c800391e86b36ffc7a18361be2d1426f9295d6ef359`. Full suite 480/480 PASS; syntax 87/87 PASS; replay invariants PASS at 8,872.09 blocks/s with 9,518,608-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 824,064,627 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -1044,7 +1043,7 @@
 | HTTP query value discovery | `PASS` | All ten query-value profiles are semantically closed. The five new interval, limit, side, status, and window schemas pass 5/5 canonical and 82/82 mutation probes, while runtime parity accepts 22/22 valid and rejects 29/29 invalid values, including exact enum order, bounds, defaults, and leading-zero behavior. |
 | HTTP parameter requirement discovery | `PASS` | Missing quote amount/mint and depth amount return 400 under injected unhealthy decision state, while valid u64-max advances to the expected 503 gate; all 54 partitions remain deterministic. |
 | Bounded performance | `PASS` | Full suite passes 469/469; syntax passes 87/87; replay completes at 6,603.47 blocks/s with 9,661,152-byte heap growth below 536,870,912 bytes. |
-| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 820,463,616 ms old at this trigger. |
+| Live operational qualification | `BLOCKED` | All six supported provider variables and active exporter, warehouse checkpoint/status, backup, and recovery files are absent while one retained external exporter artifact remains. The retained local index fails with `indexed_block_mainnet_identity_missing_or_invalid`; retained finalized exporter evidence has zero recorded failures but is 406,432 slots behind and 824,064,627 ms old at this trigger. |
 
 The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLOCKED. These domains use separate contracts or failure boundaries and are not cosmetic splits.
 
@@ -3018,6 +3017,19 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-RPC-PARAMETER-PRESENCE-BINDING-101
+
+- Severity: `PASS` (delivered by `320dd06`)
+- Owner: `DEV`
+- Reproduction: resolve `rpc_parameter_presence_binding` from query-contract discovery; enumerate the nine methods with required parameters; POST empty named and positional parameters to each, then POST the complete required-only named object and positional prefix while omitting every optional member.
+- Evidence: all 18 missing-presence requests return exact JSON-RPC `-32602 Invalid params`. All 18 required-only controls advance beyond invalid-params, proving optional omission remains admitted. The relationship names the catalog, required and optional members, named all-required policy, positional required-prefix policy, and optional-omission policy, and its kind is declared in the fail-closed dialect.
+- Affected contracts: nine read-only RPC methods with required parameters, generated named and positional requests, deterministic diagnostics, request efficiency, contract digest/ETag, and support tooling.
+- Expected versus actual behavior: named requests contain every required key, positional arrays contain the complete required prefix in catalog order, and optional parameters may be omitted. Expected and actual match.
+- Acceptance criteria: publish exact member names and all three policies; enumerate all applicable methods; reject empty named and positional requests for each; admit required-only named and positional forms; retain value-schema, default, shape, and zero-parameter controls. All criteria are met.
+- Validation results: independent missing-presence probes 18/18 reject and required-only omission controls 18/18 PASS; focused current tests 8/8, full 480/480, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: additive discovery metadata changes the digest/ETag and generated validator requirements only. Runtime admission and response bytes, REST, WebSocket, ingestion, persistence, providers, migrations, and configuration remain unchanged. Validation is bounded by the fixed method catalog.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-RPC-PARAMETER-DEFAULT-BINDING-099
 
 - Severity: `PASS` (delivered by `511469d`)
@@ -3116,7 +3128,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 820,463,616 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 824,064,627 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
