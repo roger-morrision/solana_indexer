@@ -2402,3 +2402,11 @@
 - Contract: numeric RPC IDs are now restricted to the inclusive safe-integer range in runtime admission and all single/batch request-response schema positions. Strings and null remain compatible.
 - Compatibility/migration/configuration: precision-unsafe numeric IDs now receive nonretryable `-32600` with null correlation ID. Safe numeric, string, and null IDs, methods, persistence, providers, REST/WebSocket behavior, migrations, and configuration are unchanged; the contract digest/ETag changes.
 - NEXT_WEB_ACTION: emit numeric RPC IDs only within the published safe-integer bounds, or use strings when larger correlation spaces are required.
+
+## UPSTREAM RPC string identifier bounds
+
+- Selected ID: `UPSTREAM-RPC-ID-STRING-BOUND-108` (commercial correlation safety, response amplification control, and cache/audit boundedness).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the remaining RPC identifier bound after numeric precision closure. String IDs were accepted and echoed without an identity-specific limit below the general body ceiling.
+- Contract: request admission and every single/batch request-response ID schema now cap string identifiers at 256 UTF-16 code units. Empty and shorter strings, safe integers, and null remain compatible.
+- Compatibility/migration/configuration: overlong string IDs now receive nonretryable `-32600` with a null response ID. Methods, persistence, providers, REST/WebSocket behavior, migrations, and configuration are unchanged; discovery digest/ETag changes.
+- NEXT_WEB_ACTION: cap generated string RPC identifiers at 256 UTF-16 code units and treat longer values as local construction errors.
