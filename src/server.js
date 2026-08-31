@@ -566,8 +566,8 @@ function validateJsonBodyHeaders(request) {
   if (typeof contentType !== "string" || !/^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i.test(contentType)) { const error = new Error("content-type must be application/json with optional UTF-8 charset"); error.code = "UNSUPPORTED_MEDIA_TYPE"; throw error; }
   if (request.headers["content-encoding"] != null) { const error = new Error("content-encoding is not supported"); error.code = "UNSUPPORTED_MEDIA_TYPE"; throw error; }
 }
-function validPoolPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && /^\d+$/.test(value.amountRaw ?? "") && typeof value.inputMint === "string" && value.inputMint && (value.limitTick == null || Number.isSafeInteger(value.limitTick))); }
-function validTokenPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && /^\d+$/.test(value.amountRaw ?? "") && (value.side == null || value.side === "buy" || value.side === "sell")); }
+function validPoolPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && /^\d+$/.test(value.amountRaw ?? "") && typeof value.inputMint === "string" && value.inputMint && (!Object.hasOwn(value, "limitTick") || Number.isSafeInteger(value.limitTick))); }
+function validTokenPreparationEnvelope(value) { return Boolean(value && typeof value === "object" && !Array.isArray(value) && /^\d+$/.test(value.amountRaw ?? "") && (!Object.hasOwn(value, "side") || value.side === "buy" || value.side === "sell")); }
 function rpcResult(id, result) { return { jsonrpc: "2.0", id: id ?? null, result }; }
 function rpcError(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }; }
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
