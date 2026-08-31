@@ -2188,3 +2188,13 @@
 - Compatibility/migration/configuration: additive route discovery changes the contract digest/ETag and requires generated discovery validators to accept the new required route member. Runtime request admission and defaults remain unchanged (`INDEXER_RPC_MAX_BODY_BYTES=65536`, `INDEXER_EXECUTION_MAX_BODY_BYTES=524288` unless configured); no persistence, provider, database, RPC method, WebSocket, or migration change is required.
 - Remaining boundary: route-specific JSON object schemas remain enforced by the RPC and preparation handlers and are not yet published as request-schema catalogs; live qualification remains blocked on canonical operational evidence.
 - NEXT_WEB_ACTION: regenerate the route validator, require `requestBody: null` on GET, and enforce the advertised POST media and byte ceiling before sending RPC or unsigned preparation requests.
+
+## UPSTREAM HTTP request-body policy binding
+
+- Selected ID: `UPSTREAM-HTTP-REQUEST-BODY-POLICY-088` (generated-client safety, discovery integrity, RPC/preparation admission, and commercial supportability).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected method/body semantic closure because ID 087's closed union still admitted a body policy on GET or `null` on POST when interpreted only structurally. QC was consulted after selection and retained the exact three POST identities as independent adjacent evidence; ID 087 awaits independent review.
+- Contract: the fail-closed discovery dialect now declares `request_body_policy`, requiring a non-null `requestBody` for every POST route and `null` for every GET route. All 54 real rows satisfy it; isolated null-POST, body-on-GET, and method/body substitution contradictions reject.
+- Validation contract: focused coverage resolves the relationship only from published names, validates all 54 routes, and rejects four isolated contradictions while retaining the configured live-snapshot parity check.
+- Compatibility/migration/configuration: additive discovery vocabulary changes the digest/ETag but not route bytes, runtime admission, limits, ingestion, persistence, providers, RPC methods, WebSocket behavior, migrations, or configuration. Fail-closed generated validators must implement the new declared relationship kind before accepting the document.
+- Remaining boundary: route-specific request payload schemas remain handler-enforced and unpublished; live qualification remains blocked on canonical operational evidence.
+- NEXT_WEB_ACTION: implement `request_body_policy` in the generated discovery validator and reject any GET/body or POST/null contradiction before constructing a request.
