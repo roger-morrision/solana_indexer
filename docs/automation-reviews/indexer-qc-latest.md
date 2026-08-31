@@ -1,26 +1,26 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-08-31T19:36:54.637+07:00`
+- Run: `2026-08-31T20:36:25.657+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `4ffc71b5b0307b4bdf3b1edd09e71cbe3bee9880`
-- Compared with QA baseline: `58559b9f284a4a7f635c3217bf592d596d55c811` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 224 ahead, 0 behind before this evidence report
-- Latest DEV commit: `4ffc71b` (safe-integer RPC identifiers)
-- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-BATCH-SEMANTICS-106` binds request-order responses, per-item failure isolation, and exact invalid-cardinality behavior; `UPSTREAM-RPC-ID-SAFE-INTEGER-107` closes numeric correlation identity to the inclusive JavaScript safe-integer range across request, single-response, and batch-response contracts. Reconciliation is 145 PASS, 1 FAIL, and 1 BLOCKED across 147 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `d086cde9b2b788526dc4bdf1bc6a4ece4a276eee`
+- Compared with QA baseline: `3e40ea649247dcf427eaaeaa0158e910ec41bba8` (2 DEV commits, 3 DEV-changed files)
+- Compared with `origin/main`: 227 ahead, 0 behind before this evidence report
+- Latest DEV commit: `d086cde` (bounded RPC method names)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-RPC-ID-STRING-BOUND-108` bounds echoed string identifiers to 256 UTF-16 code units across request and response schemas; `UPSTREAM-RPC-METHOD-NAME-BOUND-109` requires method names of 1–128 UTF-16 code units while preserving bounded unknown-method behavior. Reconciliation is 147 PASS, 1 FAIL, and 1 BLOCKED across 149 deduplicated independent domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
 ## Reviewed DEV delta (2/20)
 
-### RPC batch semantics and identifier precision (2 PASS)
+### RPC string identifier and method-name bounds (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
-| `54c5449` / `UPSTREAM-RPC-BATCH-SEMANTICS-106` | Ordered isolated batch processing and cardinality | `PASS` | The exact closed five-field contract passes; 8/8 malformed variants reject. Live mixed responses preserve 4/4 request positions and isolate success, invalid-envelope, and unknown-method outcomes; bounds 1/100 pass while 0/101 return one exact `-32600` envelope error. |
-| `4ffc71b` / `UPSTREAM-RPC-ID-SAFE-INTEGER-107` | End-to-end correlation identifier precision | `PASS` | All five request/single/batch ID schema positions publish exact inclusive safe-integer bounds; 7/7 malformed schemas reject. Minimum, maximum, string, and null IDs preserve identity 4/4; below-minimum, above-maximum, and fractional IDs reject 3/3 with null correlation, and mixed-batch identity passes 3/3. |
+| `7a5c710` / `UPSTREAM-RPC-ID-STRING-BOUND-108` | Bounded request and response string IDs | `PASS` | All five request/single/batch ID schema positions publish the 256-unit maximum and retain numeric bounds; 7/7 malformed schemas reject. Empty, ASCII, surrogate-pair, safe-integer, and null controls pass 6/6; ASCII/unicode overlength IDs reject 2/2 with null correlation. |
+| `d086cde` / `UPSTREAM-RPC-METHOD-NAME-BOUND-109` | Nonempty bounded method names before dispatch | `PASS` | Single and batch item schemas publish exact 1–128 bounds; 7/7 malformed schemas reject. All 12 known methods pass admission, three bounded unknown names return `-32601`, six empty/overlong/wrong-type names return `-32600`, and five mixed-batch bindings remain isolated and ordered. |
 
-- Available DEV delta: exactly two distinct committed outcomes exist after `58559b9`, in `54c5449` and `4ffc71b`; no additional distinct committed outcome exists.
+- Available DEV delta: exactly two distinct committed outcomes exist after `3e40ea6`, in `7a5c710` and `d086cde`; no additional distinct committed outcome exists.
 - Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
-- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting batch members, boundary cases, schema positions, identifier forms, or mutations into additional outcomes would be padding.
-- Validation: independent batch validation accepts the exact five-field contract, rejects 8/8 malformed variants, preserves 4/4 ordered isolated mixed outcomes, admits cardinalities 1/100, and returns exact envelope `-32600` for 0/101. Independent identifier validation accepts all five schema positions, rejects 7/7 malformed schemas, preserves four safe/string/null identities, rejects three unsafe/fractional IDs, and preserves the three-item mixed-batch identity result. Focused committed tests 4/4 PASS. Complete contract digest is `56ae67ffe697f16f72daee227694d3103e82c805a3766b0e951541332f2cf94a`. Full suite 486/486 PASS; syntax 87/87 PASS; replay invariants PASS at 4,268.55 blocks/s with 10,051,024-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 834,897,637 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded all provisional `54c5449` evidence when the DEV writer lock appeared and reran every tier only after final `4ffc71b` was stable and unlocked.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct outcomes, and splitting schema positions, encoding families, methods, boundary vectors, or batch members into additional outcomes would be padding.
+- Validation: independent string-ID validation accepts all five schema positions, rejects 7/7 malformed schemas, preserves six empty/bounded/string/numeric/null controls, rejects two ASCII/unicode overlength IDs, and preserves five mixed-batch correlations. Independent method-name validation accepts both single and batch schema positions, rejects 7/7 malformed schemas, admits all 12 known methods, isolates three bounded unknowns, rejects six empty/overlong/wrong-type names, and preserves five mixed-batch results. Focused committed tests 4/4 PASS. Complete contract digest is `9987a6391f307e0e711940435b0e2d6b7974573ee5aa1e14dc74f2d613e17928`. Full suite 488/488 PASS; syntax 87/87 PASS; replay invariants PASS at 4,589.55 blocks/s with 10,072,328-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 838,468,657 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts. QA discarded all provisional `7a5c710` evidence when the DEV writer lock appeared and reran every tier only after final `d086cde` was stable and unlocked.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -3018,6 +3018,32 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
 - Blockers: none; this finding is closed.
 
+## UPSTREAM-RPC-ID-STRING-BOUND-108
+
+- Severity: `PASS` (delivered by `7a5c710`)
+- Owner: `DEV`
+- Reproduction: resolve the ID schema at the request item, single success, single failure, batch success, and batch failure positions; mutate its maximum, type, numeric bounds, and member set. Send empty, one-unit, 256-unit ASCII, 256-unit surrogate-pair, safe numeric, null, and overlength ASCII/unicode IDs through the real dispatcher and a mixed batch.
+- Evidence: all five schema positions publish the retained inclusive safe-integer bounds plus `maximumLength:256` for strings. Runtime uses JavaScript UTF-16 code-unit length before echoing IDs. Empty and bounded strings, safe integers, and null preserve identity; 257-unit ASCII and 258-unit surrogate-pair IDs return exact nonretryable `-32600` with null correlation, including isolated batch items.
+- Affected contracts: JSON-RPC request and response identity, response amplification, batch correlation, cache/audit boundedness, generated validators, protocol errors, contract digest/ETag, and commercial supportability.
+- Expected versus actual behavior: string correlation identifiers remain bounded before dispatch or echo while existing empty/bounded strings, safe numeric IDs, and null remain compatible. Expected and actual match.
+- Acceptance criteria: publish the same maximum in all five schema positions; preserve numeric bounds and existing types; reject malformed schema variants; prove ASCII and surrogate-pair boundaries, compatible forms, null-id failure, and batch isolation. All criteria are met.
+- Validation results: five schema positions PASS; malformed schemas reject 7/7; compatible runtime forms pass 6/6; overlength forms reject 2/2; mixed-batch bindings pass 5/5; focused committed coverage PASS. Full suite 488/488, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: string IDs longer than 256 UTF-16 units now fail closed; bounded strings, safe numbers, and null are unchanged. No persistence, provider, REST, WebSocket, migration, or configuration changes exist; validation is constant-time and below the existing body ceiling.
+- Blockers: none; this finding is closed.
+
+## UPSTREAM-RPC-METHOD-NAME-BOUND-109
+
+- Severity: `PASS` (delivered by `d086cde`)
+- Owner: `DEV`
+- Reproduction: resolve the method schema in single and batch request items; mutate minimum, maximum, type, and member closure. Invoke all 12 known methods; send 1-unit, 128-unit ASCII, 128-unit surrogate-pair, empty, 129-unit ASCII, 130-unit surrogate-pair, null, numeric, and object method values; retain a mixed batch.
+- Evidence: both request positions publish exact string length bounds 1–128 UTF-16 code units. All known methods advance beyond envelope/unknown-method errors. Bounded unknowns return exact `-32601 Method not found`; empty, overlong, and wrong-type values return exact envelope `-32600 Invalid Request` while preserving valid IDs. Mixed batches isolate and order each result.
+- Affected contracts: JSON-RPC request admission, method dispatch, protocol-error classification, audit/request boundedness, batch isolation, generated clients, contract digest/ETag, and deterministic diagnostics.
+- Expected versus actual behavior: structurally invalid names fail at envelope admission, while syntactically valid unknown extension names reach method lookup. Expected and actual match.
+- Acceptance criteria: publish and enforce exact nonempty 128-unit bounds in single and batch schemas; reject malformed metadata; admit all known methods; distinguish bounded unknowns from invalid names; preserve valid correlation and batch isolation. All criteria are met.
+- Validation results: two schema positions PASS; malformed schemas reject 7/7; known methods pass 12/12; bounded unknown controls pass 3/3; invalid names reject 6/6; mixed-batch bindings pass 5/5; focused committed coverage PASS. Full suite 488/488, syntax 87/87, replay invariants, public RPC health, and fail-closed operational checks pass.
+- Compatibility/performance impact: empty or overlong method names now fail earlier with `-32600`; all known and bounded extension names remain compatible. Runtime work remains bounded and no persistence, provider, REST, WebSocket, migration, or configuration change exists.
+- Blockers: none; this finding is closed.
+
 ## UPSTREAM-RPC-BATCH-SEMANTICS-106
 
 - Severity: `PASS` (delivered by `54c5449`)
@@ -3207,7 +3233,7 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 834,897,637 ms old at this trigger, so it is not active evidence.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 838,468,657 ms old at this trigger, so it is not active evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
