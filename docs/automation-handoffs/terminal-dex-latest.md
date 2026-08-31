@@ -2268,3 +2268,13 @@
 - Compatibility/migration/configuration: this narrows only previously contradictory malformed requests and aligns runtime with the existing schemas. Valid requests, unsigned construction, quotas after body validation, ingestion, persistence, providers, RPC, WebSocket behavior, migrations, and configuration are unchanged.
 - Remaining boundary: QC also observed nondeterministic one-second default-equivalence fixture timing; Meteora finalized-content provenance and live operational qualification remain open evidence-backed work.
 - NEXT_WEB_ACTION: omit optional preparation members when unset and never serialize JSON null for `limitTick` or `side`; treat the resulting 400 as a non-retryable client construction error.
+
+## UPSTREAM HTTP default-equivalence time determinism
+
+- Selected ID: `UPSTREAM-HTTP-DEFAULT-TIME-DETERMINISM-095` (release confidence, contract-regression reliability, developer throughput, and commercial API stability evidence).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and independently identified wall-clock coupling in the 24-route default-equivalence harness. QC then supplied an exact forced-boundary reproduction: equivalent omitted and explicit volume-window requests differed only because their request-time `startTime` and `endTime` crossed a UTC second. This bounded deterministic repair was ready while authenticated Meteora provenance requires a larger design increment.
+- Contract: no external contract changes. The regression comparison now excludes only `startTime` and `endTime` for `/api/v1/volume/{mint}`, the response whose request-time window boundaries are expected to advance between sequential requests; all other fields and routes remain byte-compared after existing ISO timestamp normalization.
+- Validation contract: a synthetic forced-second-boundary pair compares equal after normalization, while a changed `windowSeconds` remains unequal. The harness still verifies all 24 defaulted routes and 29 default bindings against runtime omission equivalence.
+- Compatibility/migration/configuration: test-only reliability improvement; HTTP, RPC, WebSocket, ingestion, persistence, providers, schemas, contract digest/ETag, migrations, and configuration are unchanged.
+- Remaining boundary: the high-priority Meteora quote payload provenance gap remains open; live qualification remains blocked on canonical operational evidence.
+- NEXT_WEB_ACTION: continue treating volume `startTime` and `endTime` as request-time observations while requiring explicit and omitted window defaults to match on every semantic response field.
