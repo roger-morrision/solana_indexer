@@ -2418,3 +2418,11 @@
 - Contract: request discovery and runtime admission now require method names of 1–128 UTF-16 code units. Bounded unknown names retain nonretryable `-32601`; empty and overlong names return envelope-level `-32600`.
 - Compatibility/migration/configuration: known methods and bounded extension names are unchanged. Invalid names now fail earlier; persistence, providers, REST/WebSocket behavior, migrations, and configuration are unchanged, while discovery digest/ETag changes.
 - NEXT_WEB_ACTION: require RPC method names to contain 1–128 UTF-16 code units before transport and distinguish invalid-envelope `-32600` from bounded unknown-method `-32601`.
+
+## UPSTREAM RPC envelope closure
+
+- Selected ID: `UPSTREAM-RPC-ENVELOPE-CLOSURE-110` (commercial request integrity, credential-leak prevention, and deterministic admission).
+- BA/PO decision: fresh inspection retained 22 evidence-backed opportunities and selected the open request envelope: discovery allowed arbitrary top-level members and runtime silently ignored them, including credential- or policy-looking fields.
+- Contract: single and batch RPC items now admit exactly required `jsonrpc`, `id`, `method` and optional `params`. Unknown top-level members return envelope-level nonretryable `-32600` before dispatch.
+- Compatibility/migration/configuration: valid standard envelopes are unchanged; clients relying on ignored extensions must remove them. RPC methods/results, persistence, providers, REST/WebSocket behavior, migrations, and configuration remain unchanged; discovery digest/ETag changes.
+- NEXT_WEB_ACTION: serialize only `jsonrpc`, `id`, `method`, and optional `params` in each RPC item, rejecting unknown envelope members locally.
