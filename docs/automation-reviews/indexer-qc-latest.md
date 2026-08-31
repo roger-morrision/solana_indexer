@@ -2,30 +2,31 @@
 
 - Run: `2026-08-31T12:35:17+07:00`
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `5698e9331e121eef606b9f3cb40778c4c4fe4d84`
-- Compared with QA baseline: `da046a24f2a3a96a59fd40da563bd8cc4cf3c9c5` (1 DEV commit, 3 changed files)
-- Compared with `origin/main`: 202 ahead, 0 behind before this evidence report
-- Latest DEV commit: `5698e93` (explicit-null preparation admission repair)
-- Overall result: 1 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete one-outcome DEV delta. `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` closes `UPSTREAM-QA-PREPARATION-NULL-ADMISSION-001`: both explicit-null optional members now fail with exact HTTP 400 before state, while omission still reaches the expected resource boundary. The independently forced one-second default-equivalence regression remains open. Reconciliation is 132 PASS, 2 FAIL, and 1 BLOCKED across 135 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
+- Revision: `02ad74f268d9f10a07d953420f1c4da6d343b166`
+- Compared with QA baseline: `da046a24f2a3a96a59fd40da563bd8cc4cf3c9c5` (2 DEV commits, 3 DEV-changed files; the intervening QC evidence commit is excluded)
+- Compared with `origin/main`: 204 ahead, 0 behind before this evidence report
+- Latest DEV commit: `02ad74f` (default-equivalence timing stabilization)
+- Overall result: 2 PASS, 0 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` closes `UPSTREAM-QA-PREPARATION-NULL-ADMISSION-001`, and `UPSTREAM-HTTP-DEFAULT-TIME-DETERMINISM-095` closes `UPSTREAM-QA-HTTP-DEFAULT-TIME-FLAKE-001` with route-scoped request-time normalization plus a semantic-window negative control. Reconciliation is 133 PASS, 1 FAIL, and 1 BLOCKED across 135 deduplicated domains; live qualification remains blocked despite a healthy public mainnet RPC probe because the retained local index, exporter, warehouse, backup, and recovery evidence is not current canonical operational evidence.
 
-## Reviewed DEV delta (1/20)
+## Reviewed DEV delta (2/20)
 
-### Preparation optional-null admission repair (1 PASS)
+### Preparation optional-null and default-time determinism repairs (2 PASS)
 
 | Item | Route | Status | Independent evidence |
 |---|---|---|---|
 | `5698e93` / `UPSTREAM-PREPARATION-OPTIONAL-NULL-ADMISSION-094` | Pool and token preparation POST admission | `PASS` | Own-property checks reject explicit `limitTick: null` and `side: null` with exact 400 `invalid_prepare_parameters`; omitted controls still reach exact pool/token 404 resource boundaries. Discovery rejects both null forms and retains safe-integer/enum rules. |
+| `02ad74f` / `UPSTREAM-HTTP-DEFAULT-TIME-DETERMINISM-095` | HTTP default-equivalence regression harness | `PASS` | Route-scoped normalization removes only volume `startTime`/`endTime`; five focused repetitions pass 15/15. An independently forced second-boundary pair compares equal, while a changed 24h semantic window remains unequal. |
 
-- Available DEV delta: exactly one distinct committed outcome exists after `da046a2`, in `5698e93`; no additional distinct committed outcome exists.
-- Verification result: 1 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the one distinct DEV outcome.
-- Exact fix/enhancement shortfall: 19; the stable delta contains exactly one distinct repair outcome, and splitting its two optional members, discovery cases, HTTP probes, or adjacent omission controls into synthetic outcomes would be padding.
-- Validation: independent preparation admission passes 2/2 explicit-null rejections and 2/2 omission controls; focused current regressions 2/2 PASS. A forced second-boundary response comparison independently reproduces the retained default-equivalence defect with one-second integer `endTime` drift. Complete contract digest remains `1c7c69109fa218eb3f95faaeba09c43dec3b33a96341af95852c4bf52bba8360`. Full suite 475/475 PASS; syntax 87/87 PASS; replay invariants PASS at 4,360.75 blocks/s with 9,748,776-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 784,400,456 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
+- Available DEV delta: exactly two distinct committed outcomes exist after `da046a2`, in `5698e93` and `02ad74f`; no additional distinct committed outcome exists.
+- Verification result: 2 PASS, 0 FAIL, 0 BLOCKED, 0 SKIP across the two distinct DEV outcomes.
+- Exact fix/enhancement shortfall: 18; the stable delta contains exactly two distinct repair outcomes, and splitting optional members, route comparisons, repetition counts, or synthetic controls into additional outcomes would be padding.
+- Validation: independent preparation admission passes 2/2 explicit-null rejections and 2/2 omission controls. Five focused runs pass 15/15 across null admission, ordering, and default equivalence; the independent forced-second-boundary pair normalizes equal while a changed `windowSeconds` remains unequal. Complete contract digest remains `1c7c69109fa218eb3f95faaeba09c43dec3b33a96341af95852c4bf52bba8360`. Full suite 475/475 PASS; syntax 87/87 PASS; replay invariants PASS at 4,227.38 blocks/s with 10,132,600-byte heap growth. The real monitoring preflight reports explicit `SKIP/promtool_unavailable`; operational health emitted all 20 ordered checks, retained nine blockers, denied production mutation, and exited 1 as designed. Public mainnet RPC health PASS; all six checked provider variables are absent; local index status remains `wrong_network`; exporter health remains unavailable. The retained finalized external-exporter artifact has zero failures but is 406,432 slots behind and 784,400,456 ms old at this trigger. Format, lint, typecheck, and build are `SKIP` because the repository defines no such scripts.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
 ### Preparation admission ordering and RPC method binding (1 PASS, 1 FAIL at prior baseline)
 
-- Prior exact shortfall: 18. `UPSTREAM-PREPARATION-BODY-ADMISSION-ORDER-092` is closed by current `5698e93`; `UPSTREAM-RPC-METHOD-PARAM-BINDING-093` remains PASS. The separate default-equivalence timing defect remains open.
+- Prior exact shortfall: 18. `UPSTREAM-PREPARATION-BODY-ADMISSION-ORDER-092` is closed by current `5698e93`; `UPSTREAM-RPC-METHOD-PARAM-BINDING-093` remains PASS; the separate default-equivalence timing defect is closed by current `02ad74f`.
 
 ## Prior reviewed DEV delta (2/20; retained)
 
@@ -2988,22 +2989,22 @@ The review reconciles 118 distinct evidence domains: 116 PASS, 1 FAIL, and 1 BLO
 - Affected contracts: both unsigned preparation POST routes, request-body schema/runtime parity, published body-validation ordering, retry classification, generated clients, support diagnostics, weighted quota avoidance, and fail-closed trading admission.
 - Expected versus actual behavior: every present optional member must satisfy its published type before weighted quota, state quality, or resource lookup. Explicit null now returns the existing non-retryable 400, while omission retains documented optional/default behavior. Expected and actual match.
 - Acceptance criteria: distinguish absent properties from explicitly present null; return exact HTTP 400 `invalid_prepare_parameters` for both null cases before weighted quota/state/resource gates; retain omitted optional members, safe-integer ticks, `buy|sell`, venue-conditional tick checks, media/size/JSON admission, and successful unsigned construction.
-- Validation results: independent live harness passes 2/2 explicit-null rejections and 2/2 omission controls; focused current regressions 2/2 and full suite 475/475 PASS. The separately forced timing-boundary finding remains open below.
+- Validation results: independent live harness passes 2/2 explicit-null rejections and 2/2 omission controls; focused current regressions 2/2 and full suite 475/475 PASS. The separately forced timing-boundary finding is closed below by `02ad74f`.
 - Compatibility/performance impact: error precedence changes only for schema-invalid explicit-null bodies. Valid request bytes, quotas after body admission, venue resolution, unsigned construction, persistence, providers, RPC, WebSocket behavior, migrations, and configuration remain unchanged.
 - Blockers: none; this finding is closed.
 
 ## UPSTREAM-QA-HTTP-DEFAULT-TIME-FLAKE-001
 
-- Severity: `FAIL` / `MEDIUM`
+- Severity: `PASS` (delivered by `02ad74f`)
 - Owner: `DEV`
 - Reproduction: run the full Node test suite when `published HTTP defaults are valid and runtime-equivalent to omission` crosses a UTC second boundary between its omitted and explicit requests for a time-window response. Compare `startTime` and `endTime`; then rerun immediately within a stable second.
-- Evidence: the first clean stable 475-test run failed exact body equality because the explicit response had `startTime` and `endTime` one second later than the omitted response. The helper normalizes ISO timestamp strings only, not integer request-time window boundaries. An immediate full rerun passed 475/475 and eight focused repetitions passed, proving timing dependence rather than restoring determinism.
+- Evidence: the original clean 475-test run failed exact body equality because the explicit response had `startTime` and `endTime` one second later than the omitted response. `02ad74f` now normalizes only those two integer fields and only for `/api/v1/volume/{mint}`. A synthetic cross-second pair compares equal after normalization, while a changed `windowSeconds` remains unequal.
 - Affected contracts: regression reliability, HTTP default-equivalence evidence, CI signal quality, request-time response comparisons, and release qualification.
-- Expected versus actual behavior: the test must exclude all documented request-time observations or run both requests against one frozen clock. It currently makes pass/fail depend on wall-clock alignment.
+- Expected versus actual behavior: the test must exclude only documented request-time observations while retaining semantic response differences. The comparison is now wall-clock independent and still rejects a changed semantic window. Expected and actual match.
 - Acceptance criteria: freeze/inject time or normalize only the documented request-time integer fields for the affected response without hiding semantic default differences; prove repeated execution across a forced second boundary; retain all 24 route and 29 default-binding comparisons.
-- Validation results: one full run FAIL and immediate full rerun 475/475 PASS; eight focused repeats PASS. The captured one-second body diff is exact and independently attributable to `startTime`/`endTime`.
+- Validation results: five focused repetitions pass 15/15; an independently forced boundary records distinct adjacent-second `endTime` values yet compares equivalent after route-scoped normalization, while the 1h-versus-24h control remains unequal. Full suite 475/475 PASS.
 - Compatibility/performance impact: test-harness reliability only; no product behavior or external contract change is requested.
-- Blockers: the current test overlaps the DEV-touched regression file, so QC did not author a harness correction.
+- Blockers: none; this finding is closed.
 
 ## UPSTREAM-METEORA-DLMM-QUOTE-SCHEMA-001
 
