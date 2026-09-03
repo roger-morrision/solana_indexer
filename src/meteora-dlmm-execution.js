@@ -4,7 +4,7 @@ import { decodeMeteoraBinArrayAccount, METEORA_DLMM_PROGRAM } from "./meteora-dl
 import { quoteMeteoraDlmmSnapshotExactInput } from "./meteora-dlmm-math.js";
 import { validateBoundPoolMintEvidence } from "./pool-mint-evidence.js";
 import { getMultipleAccountsBatched } from "./rpc-account-batch.js";
-import { buildUnsignedLegacyTransaction, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, inspectUnsignedTransactionPrograms, validateUnsignedTransactionBase64, simulateUnsignedTransaction, verifyFinalizedLandedTransaction, verifySignedTransactionBase64 } from "./transaction-simulation.js";
 import { decodeBase58Address, findProgramAddress } from "./solana-pda.js";
 import { resolveTransferHookAccountMetas } from "./transfer-hook-evidence.js";
 
@@ -136,12 +136,27 @@ export function bindMeteoraDlmmVerificationReceiptToPreparation({ preparation, v
   const bound = { ...unsignedPreparation, quoteVerificationReceipt: verificationReceipt }; bound.preparationHash = crypto.createHash("sha256").update(JSON.stringify(bound)).digest("hex"); return bound;
 }
 
-export async function simulatePreparedMeteoraDlmmSwap(client, { preparation, quote, pool, expectedGenesisHash, genesisHash }) {
+function verifyPreparedTransaction({ preparation, quote, pool, transferHookAccountData }) {
+  try {
+    const transaction = preparation.transaction, inspection = inspectUnsignedTransactionPrograms(transaction.transactionBase64, { allowedProgramIds: [METEORA_DLMM_PROGRAM], requiredProgramIds: [METEORA_DLMM_PROGRAM] });
+    if (inspection.messageVersion !== "legacy" || inspection.instructionCount !== 1) throw new Error("unexpected instruction layout");
+    const actual = inspection.instructions[0], data = Buffer.from(actual.dataHex, "hex"), accounts = actual.accounts, effects = preparation.simulationPolicy.accountExpectations;
+    if (data.length < 24 || accounts.length < 15 || !Array.isArray(effects) || effects.length !== 2) throw new Error("incomplete instruction effects");
+    // Rebuild from decoded wire accounts and bounds, never from descriptive instruction metadata.
+    // A dummy blockhash is sufficient: compare normalized instructions, not blockhash-dependent hashes.
+    const expected = prepareMeteoraDlmmSwapSimulation({ quote, pool, user: accounts[10].address, inputTokenAccount: accounts[4].address, outputTokenAccount: accounts[5].address, minimumOutputRaw: data.readBigUInt64LE(16).toString(), inputPreAmountRaw: effects[0].preAmountRaw, outputPreAmountRaw: effects[1].preAmountRaw, recentBlockhash: "11111111111111111111111111111111", bitmapExtension: accounts[1].address === METEORA_DLMM_PROGRAM ? null : accounts[1].address, hostFeeAccount: accounts[9].address === METEORA_DLMM_PROGRAM ? null : accounts[9].address, transferHookAccountData });
+    const identity = validateUnsignedTransactionBase64(transaction.transactionBase64), expectedInspection = inspectUnsignedTransactionPrograms(expected.transaction.transactionBase64, { allowedProgramIds: [METEORA_DLMM_PROGRAM] });
+    if (identity.transactionHash !== transaction.transactionHash || identity.messageHash !== transaction.messageHash || inspection.signatureCount !== expectedInspection.signatureCount || inspection.accountCount !== expectedInspection.accountCount || !isDeepStrictEqual(inspection.instructions, expected.transaction.instructionPolicies) || !isDeepStrictEqual(transaction.instructionPolicies, expected.transaction.instructionPolicies) || !isDeepStrictEqual(preparation.instructionEvidence, expected.instructionEvidence) || !isDeepStrictEqual(preparation.simulationPolicy, expected.simulationPolicy) || preparation.minContextSlot !== expected.minContextSlot) throw new Error("instruction or effects differ");
+  } catch { throw new Error("Meteora simulation transaction binding is invalid"); }
+}
+
+export async function simulatePreparedMeteoraDlmmSwap(client, { preparation, quote, pool, transferHookAccountData = null, expectedGenesisHash, genesisHash }) {
   const { preparationHash, ...unsignedPreparation } = preparation ?? {}, expectedHash = crypto.createHash("sha256").update(JSON.stringify(unsignedPreparation)).digest("hex");
   if (preparation?.schemaVersion !== 1 || preparation.type !== "meteora_dlmm_swap_simulation" || preparation.protocol !== "meteora-dlmm" || preparation.commitment !== "finalized" || preparation.transaction?.signed !== false || preparation.transaction.submitted !== false || !Number.isSafeInteger(preparation.minContextSlot) || preparation.minContextSlot < 0 || !preparation.simulationPolicy || preparationHash !== expectedHash) throw new Error("Meteora simulation preparation is invalid");
   verifyMeteoraDlmmQuoteVerificationReceipt({ receipt: preparation.quoteVerificationReceipt, quote, pool });
   // Content hashes are not authority: recheck the semantic chain at every simulation admission.
   bindMeteoraDlmmVerificationReceiptToPreparation({ preparation, verificationReceipt: preparation.quoteVerificationReceipt, quote, pool });
+  verifyPreparedTransaction({ preparation, quote, pool, transferHookAccountData });
   const policy = preparation.simulationPolicy, receipt = await simulateUnsignedTransaction(client, { transactionBase64: preparation.transaction.transactionBase64, minContextSlot: preparation.minContextSlot, expectedGenesisHash, genesisHash, allowedProgramIds: policy.allowedProgramIds, requiredProgramIds: policy.requiredProgramIds, instructionPolicies: policy.instructionPolicies, accountExpectations: policy.accountExpectations });
   if (receipt.transactionHash !== preparation.transaction.transactionHash || receipt.messageHash !== preparation.transaction.messageHash || receipt.simulationSlot < preparation.minContextSlot || receipt.messageVersion !== "legacy" || receipt.programIds?.length !== 1 || receipt.programIds[0] !== METEORA_DLMM_PROGRAM) throw new Error("Meteora simulation receipt does not match preparation");
   const result = { ...receipt, type: "meteora_dlmm_swap_simulation_receipt", protocol: "meteora-dlmm", preparationHash, preparationMessageHash: preparation.transaction.messageHash, instructionEvidence: preparation.instructionEvidence }; result.receiptHash = crypto.createHash("sha256").update(JSON.stringify(result)).digest("hex"); return result;

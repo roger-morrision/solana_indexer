@@ -7,7 +7,7 @@ import { decodeMeteoraBinArrayBitmapExtensionAccount, deriveMeteoraBinArrayBitma
 import { deriveTransferHookValidationAccount } from "../src/pool-mint-evidence.js";
 import { decodeTransferHookExtraAccountMetaList } from "../src/transfer-hook-evidence.js";
 import { findProgramAddress } from "../src/solana-pda.js";
-import { inspectUnsignedTransactionPrograms, validateUnsignedTransactionBase64 } from "../src/transaction-simulation.js";
+import { buildUnsignedLegacyTransaction, inspectUnsignedTransactionPrograms, validateUnsignedTransactionBase64 } from "../src/transaction-simulation.js";
 import { completeMeteoraBitmapExtension } from "../src/warehouse-sync.js";
 
 const address = (fill) => { const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let value = 0n, output = ""; const bytes = Buffer.alloc(32, fill); for (const byte of bytes) value = value * 256n + BigInt(byte); while (value) { output = alphabet[Number(value % 58n)] + output; value /= 58n; } return output; };
@@ -68,6 +68,42 @@ test("Meteora simulation rechecks cross-quote receipt substitutions before RPC",
     let calls = 0;
     await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => { calls++; return null; } }, { preparation: altered, quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /binding is invalid/, field);
     assert.equal(calls, 0, field);
+  }
+});
+
+test("Meteora simulation rejects coupled metadata and transaction-policy drift before RPC", async () => {
+  const args = fixture(), unbound = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850" });
+  const preparation = bindMeteoraDlmmVerificationReceiptToPreparation({ preparation: unbound, verificationReceipt: verificationReceipt(args.pool, args.quote), quote: args.quote, pool: args.pool });
+  const rehash = (value) => { const { preparationHash, ...core } = value; value.preparationHash = crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex"); return value; };
+  const quote = { ...args.quote, amountInRaw: "999", consumedInRaw: "999" }, coupled = structuredClone(preparation); coupled.quoteVerificationReceipt = verificationReceipt(args.pool, quote); coupled.instructionEvidence.amountInRaw = "999"; rehash(coupled);
+  assert.doesNotThrow(() => bindMeteoraDlmmVerificationReceiptToPreparation({ preparation: coupled, verificationReceipt: coupled.quoteVerificationReceipt, quote, pool: args.pool }));
+  const cases = [[coupled, quote]];
+  for (const mutate of [
+    (p) => { p.simulationPolicy.accountExpectations[0].minDeltaRaw = "-999"; },
+    (p) => { p.simulationPolicy.accountExpectations[1].maxDeltaRaw = "901"; },
+    (p) => { p.simulationPolicy.accountExpectations[1].address = address(14); },
+    (p) => { p.simulationPolicy.accountExpectations[0].mint = address(14); },
+    (p) => { p.instructionEvidence.minimumOutputRaw = "849"; },
+    (p) => { p.minContextSlot = 102; },
+    (p) => { const instruction = structuredClone(p.transaction.instructionPolicies[0]); instruction.accounts[2].address = address(14); p.transaction = buildUnsignedLegacyTransaction({ feePayer: args.user, recentBlockhash: args.recentBlockhash, instructions: [instruction] }); p.simulationPolicy.instructionPolicies = p.transaction.instructionPolicies; },
+    (p) => { const instruction = structuredClone(p.transaction.instructionPolicies[0]), bytes = Buffer.from(instruction.dataHex, "hex"); bytes.writeBigUInt64LE(999n, 8); instruction.dataHex = bytes.toString("hex"); p.transaction = buildUnsignedLegacyTransaction({ feePayer: args.user, recentBlockhash: args.recentBlockhash, instructions: [instruction] }); p.simulationPolicy.instructionPolicies = p.transaction.instructionPolicies; },
+  ]) { const changed = structuredClone(preparation); mutate(changed); cases.push([rehash(changed), args.quote]); }
+  for (const [changed, selectedQuote] of cases) {
+    let calls = 0; await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => { calls++; throw new Error("unexpected RPC"); } }, { preparation: changed, quote: selectedQuote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /transaction binding is invalid/); assert.equal(calls, 0);
+  }
+});
+
+test("Meteora reconstructed swap2 admission retains fee and transfer-hook routes", async () => {
+  for (const mode of ["fee", "static_hook", "data_hook"]) {
+    const args = fixture(), hookProgram = address(12); args.pool.tokenProgram0 = METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program; args.quote.inputTransferFeeRaw = "10"; args.quote.grossOutputRaw = "900";
+    let transferHookAccountData = null;
+    if (mode === "fee") args.pool.mint0Evidence = token2022MintEvidence(args.pool.tokenMint0);
+    if (mode === "static_hook") args.pool.mint0Evidence = hookedMintEvidence(args.pool.tokenMint0, hookProgram, address(13));
+    if (mode === "data_hook") { const config = Buffer.from([4, 2, 11, 4, ...Array(28).fill(0)]), bytes = Buffer.alloc(32); bytes.set([9, 8, 7, 6], 11); args.pool.mint0Evidence = hookedConfiguredMintEvidence(args.pool.tokenMint0, hookProgram, 1, config); transferHookAccountData = { [args.pool.tokenVault0]: finalizedRouteAccount(args.pool.tokenVault0, args.pool.tokenProgram0, 105, bytes) }; }
+    const unbound = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850", transferHookAccountData }), preparation = bindMeteoraDlmmVerificationReceiptToPreparation({ preparation: unbound, verificationReceipt: verificationReceipt(args.pool, args.quote), quote: args.quote, pool: args.pool });
+    let calls = 0; const client = { endpoint: "http://127.0.0.1:8899", call: async () => { calls++; throw new Error("accepted by local stub"); } }, options = { preparation, quote: args.quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH };
+    if (mode === "data_hook") { await assert.rejects(simulatePreparedMeteoraDlmmSwap(client, options), /transaction binding is invalid/); assert.equal(calls, 0); }
+    await assert.rejects(simulatePreparedMeteoraDlmmSwap(client, { ...options, transferHookAccountData }), /accepted by local stub/, mode); assert.equal(calls, 1, mode);
   }
 });
 
