@@ -1,14 +1,57 @@
 # UPSTREAM-QA Solana Indexer QC/QA
 
-- Run: `2026-09-01T03:36:02.103+07:00`
+- Run: `2026-09-03T09:07:49.974+07:00` (trigger `2026-09-03T02:07:49.974Z`)
 - Scope: `C:\Tuan\devApps\solana_indexer`
-- Revision: `eb4afd565387b7d86c3985277a4950bb71c041ce`
-- Compared with QA baseline: `af45b559d9815f37264f16e91c11e491ace46d28` (2 DEV commits, 3 DEV-changed files)
-- Compared with `origin/main`: 248 ahead, 0 behind before this evidence report
-- Latest DEV commit: `eb4afd5` (verified Meteora preparation boundary)
-- Overall result: 1 PASS, 1 FAIL, 0 BLOCKED, and 0 SKIP across the complete two-outcome DEV delta. `UPSTREAM-METEORA-VERIFICATION-RECEIPT-122` closes the same-address pool-evidence gap with a deterministic pool digest and deliberate legacy-receipt rejection. `UPSTREAM-METEORA-VERIFIED-PREPARATION-123` correctly binds an initial preparation and rejects unbound or pool-drifted simulation before RPC, but simulation does not recheck the preparation-to-quote semantic relationship: replacing the embedded receipt with a self-consistent receipt for different quote economics, recomputing the unkeyed preparation hash, and supplying that receipt's quote reaches local RPC. These are two independent reviewed domains; reconciliation is 156 PASS, 1 FAIL, and 1 BLOCKED across 158 domains, while live qualification remains blocked by absent current operational evidence.
+- Revision: `d417051fb7f4b85b16fd3d25157a63c18a0920ea`
+- Compared with QA baseline: `b92c9cfdf3f7fe838fec1b2ca07129da5ff7324b` (1 DEV commit, 3 DEV-changed files)
+- Compared with `origin/main`: 250 ahead, 0 behind before this evidence report
+- Latest DEV commit: `d417051` (simulation-time semantic rebinding)
+- Overall result: 0 PASS, 1 FAIL, 0 BLOCKED, 0 SKIP across the complete one-outcome DEV delta. The original receipt-only substitution now rejects before RPC, but a coupled quote/receipt/instruction-evidence mutation still reaches stub RPC with metadata claiming 999 input units while the unchanged encoded instruction and token-effect policy debit 1,000. Stable `UPSTREAM-QA-METEORA-PREPARATION-RECEIPT-002` remains FAIL/HIGH, owner=DEV; this is partial closure of the same semantic-chain defect, not a new finding. Fresh independent reconciliation covers 25 domains: 23 PASS, 1 FAIL, 1 BLOCKED. Historical inventory remains 156 PASS, 1 FAIL, 1 BLOCKED across 158 domains and is not counted as new work.
 
-## Reviewed DEV delta (2/20)
+## Reviewed DEV delta (1/20)
+
+| DEV item | Status | Independent evidence |
+|---|---|---|
+| `d417051` / `UPSTREAM-QA-METEORA-PREPARATION-RECEIPT-002` | `FAIL` (partial fix) | The simulation-time binder rejects the original cross-quote substitution with zero stub calls. Changing the replacement quote's amount/consumption to 999, its self-consistent receipt, and `instructionEvidence.amountInRaw` to 999, then recomputing the preparation hash, passes both receipt and binder validation and reaches stub RPC once. The actual instruction still encodes 1,000 (`e803000000000000`), and the input effect policy still requires `-1000`. No real simulation RPC or signing occurred. |
+
+- Exactly one distinct DEV outcome exists after `b92c9cf`; the ten committed mutation vectors are regression cases for that outcome, not ten fixes. Exact fix/enhancement shortfall: 19. The complete available delta was exhausted.
+- Fresh stable validation: focused Meteora/transfer-hook 24/24 PASS; full 497/497 PASS in 10,982.7708 ms; syntax 87/87 PASS; 1,000-block replay PASS with 10 duplicates, 4 replacements, 7,295.61 blocks/s, and 9,525,832-byte heap growth. Format/lint/typecheck/build SKIP (scripts absent); monitoring preflight SKIP (`promtool_unavailable`). Operational smoke returned all 20 ordered checks, nine blockers, exit 1, and `productionMutationAuthorized=false`. Public mainnet RPC health PASS; local index remains `wrong_network`; active exporter unavailable; six provider variables absent. Retained exporter: observed `2026-08-22T03:41:57.298Z`, age 1,031,152,676 ms at trigger, lag 406,432 slots, zero consecutive failures; not current live evidence.
+- Concurrency: the run began at clean `b92c9cf`, encountered the active DEV lock/source edits during independent validation, discarded all provisional results, waited for clean unlocked `d417051`, refreshed the entire delta, and reran every tier. No product-code or harness file was edited by QA.
+- Compatibility: no source schema/API fields, migrations, configuration, or HTTP/RPC/WebSocket producers changed. Existing valid-bound and unbound/pool-drift/hash controls pass; full transaction/effect-policy-to-quote semantic compatibility remains incomplete.
+
+## Fresh independent domain reconciliation (25)
+
+These are distinct retained safeguards or findings verified this run, not new DEV outcomes. `T` = `test/indexer.test.js`; `M` = `test/meteora-dlmm-execution.test.js`. Each PASS cites a separate executed regression plus inspected source/contract evidence. Performance is synthetic, and no live trading-data completeness is claimed.
+
+| Domain | Result | Evidence |
+|---|---|---|
+| Token metadata/provenance | PASS | T:3455 authoritative absence versus missing evidence |
+| Holder/whale concentration | PASS | T:1835 complete fresh governed exclusions and exact owner amounts |
+| Trader PnL coverage | PASS | T:3410 exact cost/PnL and explicit partial history |
+| Pool reserves | PASS | T:3282 exact reserve and execution-price projection |
+| Price reference | PASS | T:3342 fresh finalized USDC-path rational valuation |
+| Liquidity gates | PASS | T:3357 mature two-way evidence and unqualified-route rejection |
+| Volume precision | PASS | T:3332 direction-stable exact OHLCV |
+| Freshness | PASS | T:3399 future observations withheld |
+| Finality | PASS | T:3506 confirmed transactions withheld until finalized |
+| Pagination | PASS | T:2894 stable pages and invalid-cursor rejection |
+| REST explicit projections | PASS | T:3743 stable aggregate output excludes injected fields |
+| RPC read-only contract | PASS | T:3417 indexed method admission |
+| WebSocket replay | PASS | T:4344 persisted ordered events and cursor resume |
+| Reorg correction | PASS | T:1599 and direct replay replacement invariants |
+| Retry-After/failover | PASS | T:2553 primary cooldown and alternate-provider behavior |
+| Secret redaction | PASS | T:2347 bounded ingestion and legacy dead-letter redaction |
+| Gap/backfill | PASS | T:4054 isolated content-bound non-promoting qualification |
+| Ingestion idempotency | PASS | T:2245 exact-once snapshot artifact checkpoints |
+| Atomic persistence | PASS | T:977 concurrent durable write ordering and no residual temporary files |
+| Recovery quarantine | PASS | T:3658 malformed state cannot overwrite retained source |
+| Storage schema/precision | PASS | T:3906; inspected PostgreSQL identities and ClickHouse UInt256 amounts |
+| Configuration bounds | PASS | T:3871; inspected explicit limits and loopback/auth gates |
+| Meteora pool receipt | PASS | M:34 and independent unchanged/mutated-pool controls; stable receipt finding remains closed |
+| Meteora simulation semantic chain | FAIL | Independent coupled metadata mutation; stable finding 002 below |
+| Live operational qualification | BLOCKED | Fresh 20-check health output, nine blockers, no mutation authorization |
+
+## Prior reviewed DEV delta (2/20; retained)
 
 ### Meteora pool receipt and verified preparation boundary (1 PASS, 1 FAIL)
 
@@ -3349,13 +3392,13 @@ The review reconciles 157 distinct evidence domains: 155 PASS, 1 FAIL, and 1 BLO
 
 - Severity: `FAIL` / `HIGH`
 - Owner: `DEV`
-- Reproduction: bind a preparation to a receipt and quote, then replace the embedded receipt with a self-consistent receipt for a different exact-input amount/quote, recompute the preparation hash, and call `simulatePreparedMeteoraDlmmSwap` with that receipt's quote and unchanged pool while counting local RPC calls.
-- Evidence: the initial binding hash is valid and committed tests reject unbound or pool-drifted input with zero provider calls. The cross-quote mutation changes the quote from 1,000 to 999 input units, replaces the embedded receipt, recomputes the unkeyed preparation hash, passes receipt-to-quote/pool verification, and reaches local RPC once. `simulatePreparedMeteoraDlmmSwap` validates structural preparation content and the embedded receipt but does not rerun `bindMeteoraDlmmVerificationReceiptToPreparation` or its preparation-instruction-evidence-to-quote comparisons.
+- Reproduction: construct the deterministic 1,000-input/900-output fixture preparation and bind its receipt. Change a replacement quote's `amountInRaw` and `consumedInRaw` to `999`, generate the self-consistent fixture receipt, replace the embedded receipt, change `instructionEvidence.amountInRaw` to `999`, and recompute SHA-256 over the preparation without `preparationHash`. Keep the transaction, instruction policy, and account expectations unchanged. Supply the replacement quote and original pool to simulation with a counting stub client that throws `QA_STUB_ONLY`.
+- Evidence: `d417051` adds the simulation-time binder and closes the original receipt-only substitution; committed ten-vector negatives and the independent original negative reject before RPC. However, the coupled metadata mutation passes the receipt verifier and binder and reaches the stub once. Metadata/quote claim `999`, the unchanged instruction data is `f8c69e91e17587c8e8030000000000005203000000000000` (input u64 at offset 8 is `1000`), and `simulationPolicy.accountExpectations[0].minDeltaRaw` remains `-1000`. The binder compares quote fields to caller-controlled instruction evidence, not the serialized instruction or effect policy. Real simulation network calls: zero; no signature or submission was performed.
 - Affected contracts: Meteora unsigned preparation, quote and pool provenance, local simulation admission, downstream auditability, generated integration guidance, and pre-signing safety.
-- Expected versus actual behavior: every simulation must fail before RPC unless the embedded receipt, supplied quote/pool, and the preparation's instruction/effect evidence remain one semantic chain. Actual simulation accepts a recomputed preparation hash whose embedded receipt and supplied quote agree with each other but contradict the already-built transaction economics.
-- Acceptance criteria: at simulation admission, rerun the full preparation-to-receipt-to-quote/pool binding checks or bind and verify a dedicated semantic commitment covering all preparation instruction/effect fields against the exact quote and pool; reject cross-quote receipt replacement before RPC; retain valid bound simulation, unbound, pool-drift, preparation-hash, receipt-hash, quote-hash, account-membership, and zero-provider-call negatives.
-- Validation results: initial bind PASS; unbound and pool-drift controls PASS; cross-quote receipt substitution FAIL with one local RPC call. Focused Meteora/transfer-hook tests 23/23, full suite 496/496, syntax 87/87, and replay invariants PASS, showing the committed suite does not cover this semantic rebinding contradiction.
-- Compatibility/performance impact: simulation already requires the exact quote and pool, so reusing the bounded binding validator is an internal hardening change. One bounded comparison and receipt verification before local RPC is negligible; no current replay or full-suite regression is observed.
+- Expected versus actual behavior: before any simulation RPC, the verified quote/pool must match the actual serialized instruction, exact accounts/roles, and token-effect policy, not merely a second mutable metadata object. Actual simulation accepts mutually consistent quote/receipt/instruction metadata that contradict the unchanged transaction debit; unkeyed content hashes do not establish semantic authority.
+- Acceptance criteria: decode or deterministically reconstruct the swap/swap2 instruction from the verified quote/pool and compare it with transaction bytes and instruction policy; bind exact input/output account identities, amounts, fee evidence and min/max token-effect bounds; reject the coupled metadata mutation before RPC. Retain valid bound simulation, the ten original substitutions, unbound, pool-drift, all hash, account-membership, and zero-provider-call negatives. Do not split this retained defect into new IDs.
+- Validation results: initial bind, original cross-quote, unbound and pool-drift controls PASS; coupled quote/receipt/instruction metadata substitution FAIL with one stub call despite unchanged 1,000-unit transaction/policy. Focused 24/24, full 497/497, syntax 87/87, and replay invariants PASS; the added committed negatives leave instruction metadata unchanged and therefore do not cover this coupled case.
+- Compatibility/performance impact: internal pre-RPC hardening requires no new HTTP/RPC/WebSocket fields, schema migration, provider mutation, or authorization. Comparing the bounded instruction and effect policy is negligible relative to simulation; no measured regression is observed.
 - Blockers: none; deterministic offline reproduction requires no provider, database, or production state.
 
 ## UPSTREAM-QA-OPS-001
@@ -3363,7 +3406,7 @@ The review reconciles 157 distinct evidence domains: 155 PASS, 1 FAIL, and 1 BLO
 - Severity: `BLOCKED`
 - Owner: `DEV`
 - Reproduction: run `npm run health:operational`; load `data/index.json` and `data/mainnet-index.json` through `IndexStore.health(120000)`; assess retained `data/external-exporter-status.json` with the repository exporter-health contract.
-- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. The public Solana mainnet RPC health probe succeeds, but the retained local index is `wrong_network` and fails canonical mainnet identity. Active exporter, warehouse, backup, and recovery evidence is absent. The separately retained external exporter artifact is finalized with zero consecutive failures but is 406,432 slots behind and 838,444,805 ms old from its raw UTC timestamp at this trigger, so it is not active evidence; earlier timezone-shifted age displays are superseded.
+- Evidence: the schema-v2 operational smoke exits 1 with nine ordered blockers: provider, index events, transactions, instructions, freshness, exporter, warehouse, backup, and recovery. All six checked provider environment variables are absent. Public mainnet RPC health passes, but the retained local index is `wrong_network`. Active exporter, warehouse, backup, and recovery evidence is absent. The retained finalized exporter artifact has zero failures but is 406,432 slots behind and 1,031,152,676 ms old from raw UTC `2026-08-22T03:41:57.298Z` at this trigger; it is not current live evidence.
 - Affected contracts: current ingestion freshness/finality, failover, warehouse convergence, backup/recovery readiness, public health, bot readiness, and live token/holder/whale/trader/pool/price/liquidity/volume qualification.
 - Expected behavior: redacted fresh canonical-mainnet provider, exporter, exact warehouse convergence, backup, and recovery evidence are available; any missing, stale, lagged, malformed, or wrong-network input fails closed.
 - Actual behavior: current live qualification cannot run; retained evidence correctly fails closed and was not treated as authoritative current mainnet data.
@@ -3372,4 +3415,4 @@ The review reconciles 157 distinct evidence domains: 155 PASS, 1 FAIL, and 1 BLO
 - Compatibility/performance impact: no contract regression observed; sustained live ingestion and sink performance remain unqualified.
 - Blockers: no configured provider endpoints or fresh active exporter/warehouse/backup/recovery evidence.
 
-- NEXT_DEV_ACTION: make `simulatePreparedMeteoraDlmmSwap` revalidate the full preparation-to-receipt-to-quote/pool semantic binding before local RPC, add a cross-quote receipt-substitution negative with zero provider calls, and retain valid bound, unbound, pool-drift, preparation-hash, receipt-hash, quote-hash, and account-membership controls.
+- NEXT_DEV_ACTION: bind the verified Meteora quote/pool to the actual serialized swap/swap2 instruction and token-effect policy before simulation RPC, rejecting coupled quote/receipt/instruction-metadata substitutions with zero provider calls while retaining every existing valid-bound and rejection control.
