@@ -56,6 +56,21 @@ test("Meteora preparation and local simulation remain unsigned, policy-bound, an
   await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => null }, { preparation: unbound, quote: args.quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /receipt is invalid/); await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => null }, { preparation: { ...preparation, minContextSlot: 102 }, quote: args.quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /preparation is invalid/);
 });
 
+test("Meteora simulation rechecks cross-quote receipt substitutions before RPC", async () => {
+  const args = fixture(), unbound = prepareMeteoraDlmmSwapSimulation({ ...args, inputPreAmountRaw: "2000", outputPreAmountRaw: "100", minimumOutputRaw: "850" });
+  const preparation = bindMeteoraDlmmVerificationReceiptToPreparation({ preparation: unbound, verificationReceipt: verificationReceipt(args.pool, args.quote), quote: args.quote, pool: args.pool });
+  const mutations = { amountInRaw: "999", amountOutRaw: "899", stateSlot: 99, binArraySlot: 100, balanceSlot: 101, mintEvidenceSlot: 104, epoch: 3, inputTransferFeeRaw: "1", outputTransferFeeRaw: "1", swapForY: false };
+  for (const [field, value] of Object.entries(mutations)) {
+    const quote = { ...structuredClone(args.quote), [field]: value }, altered = structuredClone(preparation);
+    altered.quoteVerificationReceipt = verificationReceipt(args.pool, quote);
+    const { preparationHash, ...core } = altered; altered.preparationHash = crypto.createHash("sha256").update(JSON.stringify(core)).digest("hex");
+    assert.equal(verifyMeteoraDlmmQuoteVerificationReceipt({ receipt: altered.quoteVerificationReceipt, quote, pool: args.pool }), true, field);
+    let calls = 0;
+    await assert.rejects(simulatePreparedMeteoraDlmmSwap({ endpoint: "http://127.0.0.1:8899", call: async () => { calls++; return null; } }, { preparation: altered, quote, pool: args.pool, expectedGenesisHash: MAINNET_GENESIS_HASH, genesisHash: MAINNET_GENESIS_HASH }), /binding is invalid/, field);
+    assert.equal(calls, 0, field);
+  }
+});
+
 test("Meteora swap2 construction encodes empty hook slices for fee-only Token-2022 mints", () => {
   const args = fixture(); args.pool.tokenProgram0 = METEORA_DLMM_EXECUTION_CONSTANTS.token2022Program; args.pool.mint0Evidence = token2022MintEvidence(args.pool.tokenMint0); args.quote.inputTransferFeeRaw = "10";
   const instruction = buildMeteoraDlmmSwapInstruction({ ...args, minimumOutputRaw: "850" });
